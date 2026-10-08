@@ -3,9 +3,9 @@ import { libraryKinds, libraryLinks } from '../shared/library-rules.js'
 import { confirmPanel, element, showPanelDialog } from './panel-dom.js'
 import { request, assetUrl } from './panel-api.js'
 
-const labels = { name: '名称', aliases: '别名（逗号分隔）', nationality: '国籍', gender: '性别', role: '身份', era: '年代', age: '年龄', costume: '着装', height: '身高', build: '体型', features: '面相', appearance: '外形', prop: '随身物件', identity: '身份特征', look: '画面描述', landmark: '地标', light: '光位', space: '空间', description: '描述', evidence: '依据', category: '类别', ownerLibraryId: '归属库 ID' }
+const labels = { name: '名称', aliases: '别名（逗号分隔）', nationality: '国籍', gender: '性别', role: '身份', era: '年代', age: '年龄', costume: '着装', height: '身高', build: '体型', features: '面相', appearance: '外形', prop: '随身物件', identity: '身份特征', voiceDescription: '声音特征', look: '画面描述', landmark: '地标', light: '光位', space: '空间', description: '描述', evidence: '依据', category: '类别', ownerLibraryId: '归属库 ID' }
 function control(form, key, value = '') {
-  const wrap = element('label'), input = element(['look', 'description', 'evidence', 'features'].includes(key) ? 'textarea' : 'input')
+  const wrap = element('label'), input = element(['look', 'description', 'evidence', 'features', 'voiceDescription'].includes(key) ? 'textarea' : 'input')
   wrap.append(element('span', labels[key] || key), input); input.value = value; input.setAttribute('aria-label', labels[key] || key); input.maxLength = 10000; form.append(wrap); return input
 }
 export function libraryEditor(project, kind, actions, { entry, variant, newVariant = false, importOnly = false, done } = {}) {
@@ -24,7 +24,8 @@ export function libraryEditor(project, kind, actions, { entry, variant, newVaria
   const photo = element('input'); photo.type = 'file'; photo.accept = 'image/png,image/jpeg,image/webp'; photo.setAttribute('aria-label', '指定照片')
   const assets = element('select'); assets.setAttribute('aria-label', '从素材库选照片'); assets.append(element('option', '不选择照片'))
   void request(`assets?category=${kind}`).then(({ assets: rows }) => { for (const row of rows) { const option = element('option', row.originalName || row.name || row.id); option.value = row.id; assets.append(option) } }).catch(() => {})
-  form.append(element('p', importOnly ? '选择素材库中的角色/场景图片，保存后直接使用。' : '可上传照片或从素材库选图，保存后直接使用。', 'meta'), photo, assets)
+  const voiceOnly = kind === 'characters' && variant?.fields.voiceDescription && !variant.fields.look
+  if (!voiceOnly) form.append(element('p', importOnly ? '选择素材库中的角色/场景图片，保存后直接使用。' : '可上传照片或从素材库选图，保存后直接使用。', 'meta'), photo, assets)
   const error = element('p', '', 'error'), save = element('button', '保存', 'primary'); save.type = 'submit'; save.disabled = targetBusy(project, 'project')
   form.append(error, save); dialog.append(head, form)
   form.onsubmit = async event => {
@@ -81,7 +82,8 @@ export function renderProjectLibrary(initial, kind, actions, { entryId = null } 
       importAsset.disabled = targetBusy(project, 'project')
       importAsset.onclick = () => openEditor({ entry, variant, importOnly: true })
       clear.onclick = () => run('entry-image-clear', { libraryId: entry.id, variantId: variant.id })
-      block.append(generate, edit, importAsset, clear)
+      if (kind === 'characters' && variant.fields.voiceDescription && !variant.fields.look) block.append(edit)
+      else block.append(generate, edit, importAsset, clear)
       if (kind !== 'characters') {
         const defaults = element('button', '设为默认'), remove = element('button', `删除${spec.variant}`)
         defaults.disabled = remove.disabled = targetBusy(project, 'project'); remove.disabled ||= links.length > 0 || entry.variants.length < 2
@@ -93,10 +95,17 @@ export function renderProjectLibrary(initial, kind, actions, { entryId = null } 
     }
     const destination = element('select'); destination.setAttribute('aria-label', '合并目标'); destination.append(element('option', '选择合并目标'))
     for (const target of entries.filter(item => item !== entry)) { const option = element('option', target.name); option.value = target.id; destination.append(option) }
-    const merge = element('button', '合并条目'), remove = element('button', '删除条目')
-    merge.disabled = targetBusy(project, 'project'); remove.disabled = targetBusy(project, 'project') || libraryLinks(project, kind, entry.id).length > 0
+    const merge = element('button', '合并条目'), remove = element('button', kind === 'characters' ? '删除角色' : '删除条目')
+    merge.disabled = targetBusy(project, 'project'); remove.disabled = targetBusy(project, 'project') || kind !== 'characters' && libraryLinks(project, kind, entry.id).length > 0
+    remove.setAttribute('aria-label', `${kind === 'characters' ? '删除角色' : '删除条目'}：${entry.name}`)
     merge.onclick = async () => { if (destination.value && await confirmPanel('合并后将迁移全部变体和关联卡片，保留目标条目的资料。确定继续？')) void run('entry-merge', { libraryId: entry.id, destinationId: destination.value }) }
-    remove.onclick = async () => { if (await confirmPanel('确定删除该库条目？')) void run('entry-delete', { libraryId: entry.id }) }
+    remove.onclick = async () => {
+      if(remove.disabled)return
+      remove.disabled=true
+      const accepted=kind === 'characters' || await confirmPanel('确定删除该库条目？')
+      if(accepted)await run('entry-delete',{libraryId:entry.id})
+      remove.disabled=targetBusy(project,'project') || kind !== 'characters' && libraryLinks(project,kind,entry.id).length>0
+    }
     detail.append(destination, merge, remove); body.append(detail)
   }
   page.refresh = async () => { if (actions.load) project = (await actions.load()).project; paint() }

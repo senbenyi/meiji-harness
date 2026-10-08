@@ -3,7 +3,6 @@ import { gateOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, has
 export * from '../shared/generation-gates.js'
 import { feedbackOf } from '../shared/review-feedback.js'
 export const tabs = [
-  { id: 'summary', label: '摘要', nodes: ['summary'] },
   { id: 'script', label: '剧情', nodes: ['outline'] },
   // 人物提取、审核及补图由本集资产独立发起。
   { id: 'assets', label: '本集资产', nodes: ['characters'] },

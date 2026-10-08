@@ -118,7 +118,7 @@ test('单镜上下文只带本镜及前后镜关联卡片与衔接段，大纲�
  assert.doesNotMatch(single,/路人|码头|本集摘要/)
  assert.equal(shotContext(project,'S01').find(fact=>fact.title.includes('衔接段')).text.handoffs[0].shotId, 'S02'); assert.equal(shotContext(project,'S01').find(fact=>fact.title.includes('衔接段')).text.handoffs[0].position, 'start'); assert.doesNotMatch(single,/S02：事件/)
  const whole=JSON.stringify(shotContext(project))
- assert.match(whole,/路人/); assert.match(whole,/码头/)
+ assert.doesNotMatch(whole,/路人|人物资料|关联人物|人物称谓规则/); assert.match(whole,/码头/)
 })
 
 test('镜头表三类编排先规划时间和同名分段，不再要求摄影条目', async () => {
@@ -129,7 +129,7 @@ test('镜头表三类编排先规划时间和同名分段，不再要求摄影�
  project.shots.items[1].content='标题：发现旧信2\n旅人取出信件，辨认名字。'
  const table=buildTablePrompts({project})
  for(const message of [table.generation,table.revision('失败稿','时间不足')]) {
-  assert.match(message.system,/先按大纲梳理.*估计必要动作.*再分配本集预算/s)
+  assert.match(message.system,/先按编号故事小段.*估计必要动作.*再分配本集预算/s)
   assert.match(message.system,/发现旧信1.*发现旧信2/s)
   assert.match(message.system,/末尾依次直接加 1、2、3/)
   assert.doesNotMatch(message.system,/- 机位与构图：|- 切镜点与理由：|每镜写明主要景别/)

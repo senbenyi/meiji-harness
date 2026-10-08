@@ -1,3 +1,4 @@
+import { deleteProjectCharacter } from '../../../../shared/character-deletion.js'
 import { libraryKinds, kindOf, libraryTarget, libraryLinks, createLibraryEntry, addLibraryVariant, applyLibraryCard } from '../../../../shared/library-rules.js'
 import { node, setContent, cardModel, finish } from '../../../../shared/drama-model.js'
 import { pictureReference, savePicture, readImageDraft, pictureTargetSnapshot } from '../../../data/image-storage.js'
@@ -85,6 +86,10 @@ export async function opProjectLibrary(c) {
         setContent(target.variant.image, image, { passed: image ? true : null, failures: [] })
       } else if (op.action === 'entry-delete' || op.action === 'entry-variant-delete') {
         const variantId = op.action === 'entry-variant-delete' ? target.variant.id : null
+        if (kind === 'characters' && op.action === 'entry-delete') {
+          Object.assign(next,deleteProjectCharacter(next,entry.id).project)
+          return next
+        }
         if (libraryLinks(next, kind, entry.id, variantId).length) throw Object.assign(new Error('存在关联卡片，请先解除关联'), { status: 409 })
         if (variantId) {
           if (entry.variants.length === 1) invalid('条目至少保留一个变体')

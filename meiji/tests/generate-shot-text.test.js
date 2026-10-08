@@ -124,7 +124,7 @@ test('镜头表旁白进入每秒生成审核并持久保存，读取后可直�
    assert.match(message.system,/不因大纲未逐字写出而失败/)
    return reviewPass
   }
-  assert.match(message.system,/speakerId 为 NARRATOR，delivery 为 off/)
+  assert.match(message.system,/speakerName 为 NARRATOR，delivery 为 off/)
   return JSON.stringify({shots:[content]})
  }})
  const stored=await e.read(),shot=stored.shots.items[0]

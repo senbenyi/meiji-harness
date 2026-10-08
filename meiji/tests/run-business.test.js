@@ -15,7 +15,7 @@ test('真实大纲职责单步生成与审核，快照只归 Run/Step，不创�
   const e = await setupModel(t), calls = []
   const engine = createRunEngine({ home: e.home, execute: (run, step, deps) => executeRunStep(run, step, { ...deps, home: e.home, request: async message => { calls.push(message.skill); return message.skill === 'review' ? reviewPass : JSON.stringify(outlineFixture('Run 生成大纲')) } }) })
   const plan = await planOperationRun(e, { to: 'story', scope: { only: 'outline' } })
-  assert.deepEqual(plan.steps.map(step => step.kind), ['generate', 'review'])
+  assert.deepEqual(plan.steps.map(step => step.kind), ['generate', 'review','generate'])
   const run = await engine.create({ projectId: e.id, ...plan })
   await engine.confirm(e.id, run.id); await engine.drain()
   const saved = await engine.get(e.id, run.id)
@@ -30,7 +30,7 @@ test('真实大纲职责单步生成与审核，快照只归 Run/Step，不创�
   assert.equal((await e.read()).plot.outline.source.runId, run.id)
   const kinds = await readdir(join(e.home, 'storages/meiji/projects', e.id, 'history'))
   assert.ok(!kinds.includes('tasks')); assert.ok(!kinds.includes('operations'))
-  assert.deepEqual(calls, ['outline', 'review'])
+  assert.deepEqual(calls, ['outline', 'review','episode'])
   await engine.dispose()
 })
 
@@ -47,8 +47,8 @@ test('真实审核失败触发修订，意见进入修订请求并保留业务�
   await engine.confirm(e.id, run.id); await engine.drain()
   const saved = await engine.get(e.id, run.id)
   assert.equal(saved.status, 'completed', JSON.stringify(saved.pause))
-  assert.deepEqual(saved.steps.map(step => step.kind), ['generate', 'review', 'revise', 're_review'])
-  assert.equal(saved.steps[2].input.taskType, 'outline')
+  assert.deepEqual(saved.steps.filter(step => step.target === 'outline').map(step => step.kind), ['generate', 'review', 'revise', 're_review'])
+  assert.equal(saved.steps.find(step => step.kind === 'revise').input.taskType, 'outline')
   assert.match(JSON.stringify(requests[2]), /缺少冲突变化/)
   assert.equal((await e.read()).plot.outline.check.passed, true)
   await engine.dispose()

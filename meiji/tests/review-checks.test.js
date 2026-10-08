@@ -194,8 +194,8 @@ test('storyboard regenerates all shots even when already passed', async t => {
   calls.push(/仅为 (S\d+) 将已通过的每秒指令/.exec(prompt)[1]);return storyboardFixture(prompt)
  }})}
  await runOperation(e.op('film', { ...{}, parts: 'storyboard' }),deps)
- assert.deepEqual(calls,[]);assert.ok((await e.read()).shots.items.every(s=>s.storyboard.content.compilerVersion===1))
+ assert.deepEqual(calls,[]);assert.ok((await e.read()).shots.items.every(s=>s.storyboard.content.compilerVersion===2))
  calls.length=0
  await runOperation(e.op('film', { ...{}, parts: 'storyboard' }),deps)
- assert.deepEqual(calls,[]);assert.ok((await e.read()).shots.items.every(s=>s.storyboard.content.compilerVersion===1))
+ assert.deepEqual(calls,[]);assert.ok((await e.read()).shots.items.every(s=>s.storyboard.content.compilerVersion===2))
 })

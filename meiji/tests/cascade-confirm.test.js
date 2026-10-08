@@ -4,14 +4,14 @@ import { episodeFixture } from './fixtures/model.js'
 import { operationDeletes } from '../shared/operation-cascade.js'
 import { confirmEditDelete } from '../client/run-preview.js'
 
-test('摘要删除清单覆盖本集下游，取消或已有授权只处理一次', () => {
+test('大纲删除清单覆盖本集下游，取消或已有授权只处理一次', () => {
   const ep = episodeFixture(), project = { episodes: [ep] }
-  const op = { action: 'summary', episodeId: ep.id }
+  const op = { action: 'story', episodeId: ep.id }
   let calls = 0
   assert.equal(confirmEditDelete(project, op, message => { calls++; assert.match(message, /镜头表/); return false }), false)
   assert.equal(calls, 1)
   assert.equal(confirmEditDelete(project, { ...op, confirmDelete: true }, () => { throw new Error('重复确认') }), true)
-  assert.deepEqual(operationDeletes(project, { ...op, draft: true }), [])
+  assert.deepEqual(operationDeletes(project, { action: 'summary', episodeId: ep.id }), [])
 })
 
 test('图片确认旁路删除引用媒体，不影响其他集或放弃动作', () => {

@@ -1,5 +1,5 @@
 // 剧集存储视图和封面文件读写；数据规则位于 shared/episode-rules.js。
-import { materialize, foldEpisode, episodeSummary } from '../../shared/episode-rules.js'
+import { materialize, foldEpisode } from '../../shared/episode-rules.js'
 import { replaceFrom, sourcePatch } from '../../shared/project-rules.js'
 import { copyFile, mkdir, readFile, readdir, rm } from 'node:fs/promises'
 import { extname, join } from 'node:path'
@@ -23,7 +23,7 @@ export function scopeProjects(store, episodeId, track) {
       return this.save(id, view => replaceFrom(view, step, data), options)
     },
     async saveSource(id, input) {
-      return this.save(id, view => sourcePatch(view, { ...input, summary: episodeSummary(input?.summary ?? view.summary.content) }))
+      return this.save(id, view => sourcePatch(view, input))
     },
   }
 }

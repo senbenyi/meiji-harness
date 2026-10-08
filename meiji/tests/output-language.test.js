@@ -1,3 +1,5 @@
+import { episodeFixture } from './fixtures/model.js'
+import { outlineFixture } from './fixtures/story-package.js'
 import { reviewPass } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -10,9 +12,9 @@ import { normalizeScenes } from '../shared/story-content.js'
 test('language defaults to Chinese, validates values and follows episode context', () => {
   assert.equal(outputLanguage(), 'zh-CN')
   assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'zh-CN' }, instructions: '' }).user, /Mandarin Chinese/)
-  assert.match(buildGenerationPrompt({ skill: 'shots', project: { outputLanguage: 'en' }, instructions: '' }).user, /对白语言：English/)
+  assert.match(buildGenerationPrompt({ skill: 'shots', project: { ...episodeFixture(), outputLanguage: 'en' }, instructions: '' }).user, /对白语言：English/)
   assert.throws(() => outputLanguage('unknown'), /仅支持/)
-  assert.match(buildGenerationPrompt({ skill: 'episode', project: { outputLanguage: 'en' }, instructions: '' }).user, /输出语言：English/)
+  assert.match(buildGenerationPrompt({ skill: 'episode', project: { ...episodeFixture(), outputLanguage: 'en' }, instructions: '' }).user, /输出语言：English/)
   assert.equal(materialize({ id: 'p', summary: { content: '' }, outputLanguage: 'en', episodes: [{ id: 'e' }] }, 'e').outputLanguage, 'en')
   assert.equal(normalizeScenes({ items: [{ name: 'Cave', landmark: 'Stone arch', light: 'Moonlight', space: 'Narrow tunnel', look: 'An empty ancient cave with a stone arch and scattered rocks.' }] }).items[0].name, 'Cave')
 })
@@ -27,7 +29,7 @@ test('Chinese input sends English language skill to the model and preserves retu
   })
   const draft = await generateEpisode({ referenceDurationSeconds: 60,
     route: { baseUrl: 'http://model.test/v1', apiKey: 'test', model: 'test' },
-    project: { title: '沙漠', summary: { content: '旅人进入山洞' }, outputLanguage: 'en', episodes: [] },
+    project: { ...episodeFixture(), durationSeconds: 60, outputLanguage: 'en', plot: { ...episodeFixture().plot, outline: { content: outlineFixture('旅人进入山洞') } } },
   })
   assert.match(payload.messages.find(item => item.role === 'user').content, /输出语言：English/)
   assert.doesNotMatch(payload.messages.find(item => item.role === 'system').content, /读取项目 outputLanguage/)

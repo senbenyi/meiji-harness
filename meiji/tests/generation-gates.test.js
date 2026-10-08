@@ -30,10 +30,10 @@ test('场景缺失或审核失败不阻断镜头，当前流程跳过场景关�
   delete project.plot.scenes
   assert.equal(canGenerate(project, 'shots'), true)
   project.plot.characters.check.passed = false
-  assert.equal(canGenerate(project, 'shots'), false)
-  assert.match(gateMessage(project, 'shots'), /人物角色自审未通过/)
+  assert.equal(canGenerate(project, 'shots'), true)
+  assert.doesNotMatch(gateMessage(project, 'shots'), /人物角色自审未通过/)
 })
-test('changing summary resets episode production, retaining new summary',()=>{const p=episodeFixture();const patch=sourcePatch(p,{summary:'新剧情'});assert.equal(patch.summary.content,'新剧情');assert.equal(patch.plot.outline.content,null);assert.equal(patch.shots.items.length,0)})
+test('展示摘要不能通过原始资料编辑覆盖，摘要输入不改变剧情',()=>{const p=episodeFixture();const patch=sourcePatch(p,{summary:'新剧情'});assert.deepEqual(patch.summary,p.summary);assert.equal(patch.plot,undefined);assert.equal(patch.shots,undefined)})
 test('episode completion requires every shot exactly once, not only existing storyboards', () => {
   const p = episodeFixture()
   const story = p.shots.items[1].storyboard.content
@@ -59,7 +59,7 @@ test('人物生成独立以通过的大纲为前置', () => {
  assert.equal(gateOf(p), 'outline')
  p.plot.outline.check.passed = true
  p.plot.characters.check.passed = false
- assert.equal(gateOf(p), 'characters')
+ assert.equal(gateOf(p), 'film')
  p.plot.outline.content = null
  assert.equal(canGenerate(p, 'characters'), false)
 })

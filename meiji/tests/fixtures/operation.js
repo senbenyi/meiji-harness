@@ -13,6 +13,7 @@ import { storyboardReady, videoReady, tailReady } from '../../server/flow/steps/
 import { runStore } from '../../server/data/run-store.js'
 export async function runOperation(operation, deps) {
   deps.signal?.throwIfAborted()
+  if (!deps.generateEpisode && !['summary', 'episode-generate', 'episode-summary-draft'].includes(operation.action)) deps = { ...deps, generateEpisode: async ({ project }) => ({ summary: '展示摘要', durationSeconds: project.durationSeconds }) }
   const target = goalRequest(operation.action, operation)
   if (!target) {
     const edits = createImmediateService({ home: deps.home, workspaceController: deps.workspaceController, deps })
@@ -22,9 +23,9 @@ export async function runOperation(operation, deps) {
       const trace = result.trace || []; trace.result = result.result; return trace
     } finally { await edits.dispose() }
   }
-  let root = await projectStore(deps.home).read(operation.projectId), episodeId = operation.episodeId || (root.episodes.length === 1 && target.goal.to !== 'summary' ? root.episodes[0].id : null)
+  let root = await projectStore(deps.home).read(operation.projectId), episodeId = operation.episodeId || (root.episodes.length === 1 && target.goal.to !== 'story' ? root.episodes[0].id : null)
   // 未指定剧集的摘要目标新建下一集（与 run-service 确认时一致：先建立空剧集，再由步骤保存正文）。
-  if (!episodeId && target.goal.to === 'summary' && !target.goal.draft) {
+  if (!episodeId && target.goal.to === 'story' && !target.goal.draft) {
     episodeId = randomUUID()
     root = await projectStore(deps.home).save(root.id, current => ({ ...current, episodes: [episodeModel(episodeId, { durationSeconds: target.goal.durationSeconds || 150 }), ...current.episodes] }))
   }

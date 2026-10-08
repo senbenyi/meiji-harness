@@ -9,7 +9,7 @@ export function reviewsOf(project) {
 }
 
 const text = value => typeof value === 'string' && value.trim().length > 0
-function outlineUnlocked(project) { return hasSummary(project) && project.summary.check?.passed === true }
+function outlineUnlocked(project) { return project.mode === 'free' ? text(project.premise) : text(project.script) }
 export function hasSummary(project) { return text(project?.summary?.content) }
 export function hasOutline(project) { return outlineFailures(project?.plot?.outline?.content).length === 0 }
 export function hasCharacters(project) { return Array.isArray(project?.plot?.characters?.items) && project.plot.characters.items.length > 0 }
@@ -31,9 +31,7 @@ export function hasFilm(project) {
 }
 
 export function gateOf(project) {
-  if (!outlineUnlocked(project)) return 'summary'
   if (!hasOutline(project) || feedbackOf(project, 'outline').check.passed !== true) return 'outline'
-  if (!hasCharacters(project) || feedbackOf(project, 'characters').check.passed !== true) return 'characters'
   if (!shotsReady(project)) return 'shots'
   if (!hasShotSeconds(project) || feedbackOf(project, 'seconds').check.passed !== true) return 'seconds'
   if (!hasStoryboard(project)) return 'storyboard'
@@ -42,31 +40,28 @@ export function gateOf(project) {
 }
 
 export function canGenerate(project, step) {
-  if (step === 'summary') return true
+  if (step === 'summary') return hasOutline(project) && project.plot.outline.check?.passed === true
   if (step === 'outline') return outlineUnlocked(project)
   if (step === 'characters') return hasOutline(project) && feedbackOf(project, 'outline').check.passed === true
   if (step === 'scenes') return false
-  if (step === 'shots') return ['outline', 'characters'].every(key => feedbackOf(project, key).check.passed === true)
+  if (step === 'shots') return hasOutline(project) && feedbackOf(project, 'outline').check.passed === true
   if (step === 'storyboard') return shotsReady(project)
   if (step === 'film') return hasStoryboard(project)
   return false
 }
 
 export function gateMessage(project, step) {
-  if (step === 'summary') {
-    if (!hasSummary(project)) return '先填写或生成本集摘要。画幅沿用项目，时长沿用这一集。'
-    return '这一集从剧情摘要开始。摘要写好后可以直接写大纲。重新生成大纲会清掉后面的角色、场景、镜头、分镜和成片。'
-  }
+  if (step === 'summary') return '摘要由已通过的故事小段提取，仅用于展示，不参与制作前置。'
   if (step === 'outline') {
-    if (!canGenerate(project, 'outline')) return '请先写好本集摘要，再写故事大纲。'
-    if (!hasOutline(project)) return '点击生成剧情，仅生成并审核故事大纲。人物角色请到「本集资产」点击生成。'
-    if (hasOutline(project)) return '故事大纲已生成。人物角色在「本集资产」单独生成；重新生成大纲会清空人物、镜头及后续内容。'
+    if (!canGenerate(project, 'outline')) return '请先提供剧本或 AI 创作方向，再生成故事小段。'
+    if (!hasOutline(project)) return '点击生成剧情，仅生成并审核故事大纲。人物会在直接成片时从每秒指令提取，也可在本集资产手动管理。'
+    if (hasOutline(project)) return '故事大纲已生成。可以直接生成镜头表和每秒指令，成片前再提取人物；重新生成大纲会清空人物、镜头及后续内容。'
   }
-  if (step === 'characters') return canGenerate(project, 'characters') ? '点击生成人物角色，依据已通过的大纲提取并审核人物，再为所有人物调用 AI 生图并自动保存使用，无需逐个确认。' : '请先在「剧情」生成并审核故事大纲，再在这里生成人物角色。'
+  if (step === 'characters') return canGenerate(project, 'characters') ? '点击生成人物角色，依据已通过的大纲提取并审核人物，再为出镜人物调用 AI 生图并自动保存使用；仅声音角色保留声音资料，无需逐个确认。' : '请先在「剧情」生成并审核故事大纲，再在这里生成人物角色。'
   if (step === 'scenes') return '不再提取场景卡；环境直接写在大纲和镜头叙事中。'
   if (step === 'shots') {
     if (!canGenerate(project, 'shots')) {
-      const labels = { outline: '剧情大纲', characters: '人物角色' }
+      const labels = { outline: '剧情大纲' }
       const pending = Object.entries(labels).flatMap(([key, label]) => {
         const record = project.plot?.[key]
         if (record?.check?.passed === true) return []

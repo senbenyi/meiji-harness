@@ -74,7 +74,7 @@ test('task history lists the skills a task used and their layers', async t => {
   const { skillsLine } = await import('../client/run-labels.js')
   assert.equal(skillsLine([]), null)
   const line = skillsLine([{ id: 'storyboard', layers: ['builtin', 'base', 'project'], hash: 'abc' }, { id: 'guidance-action', layers: ['builtin'], hash: 'def' }])
-  assert.equal(line.textContent, '所用技能：文本分镜（基础已修改、含本剧补充）、动作指导')
+  assert.equal(line.textContent, '所用技能：分镜提示词（基础已修改、含本剧补充）、动作指导')
   assert.match(line.title, /storyboard abc/)
 })
 

@@ -42,7 +42,7 @@ test('基础规则空正文有效，缺失与未登记文件报错', async () =>
 })
 test('各文本步骤生成与修订使用生产规则、自审只使用对应审核 skill，审核使用统一 JSON 协议', () => {
   for (const stage of ['project-summary', 'script-revision', 'episode', 'outline', 'shots', 'shot-revise', 'seconds', 'image-prompt']) {
-    const prompts = buildTextPrompts({ skill: stage, project: { outputLanguage: 'en' }, operation: { action: 'script-revise', requirements: '补结局' }, facts: { targets: [{ kind: 'body' }] }, instructions: 'UPSTREAM' })
+    const prompts = buildTextPrompts({ skill: stage, project: { outputLanguage: 'en', plot: { outline: { content: { 故事小段: '1. 本集故事' } } } }, operation: { action: 'script-revise', requirements: '补结局' }, facts: { targets: [{ kind: 'body' }] }, instructions: 'UPSTREAM' })
     const skill = builtinSkill(stage), rules = skill.constraints
     const review = stage === 'outline' ? skill.reviewRules.outline : skill.review
     assert.ok(review.trim(), stage)
@@ -58,8 +58,7 @@ test('各文本步骤生成与修订使用生产规则、自审只使用对应�
     assert.match(prompts.review('LATEST').system, stage === 'outline' ? /【审核原则】/ : /【审核方式】/)
     assert.equal(prompts.review('LATEST').system.split('【本次审核协议】').length - 1, 1)
     assert.match(prompts.review('LATEST').system, /passed.*issues/s)
-    assert.match(prompts.revision('FAILED', 'REPAIR').user, /FAILED/)
-    assert.match(prompts.revision('FAILED', 'REPAIR').user, /REPAIR/)
+    if (stage !== 'episode') { assert.match(prompts.revision('FAILED', 'REPAIR').user, /FAILED/); assert.match(prompts.revision('FAILED', 'REPAIR').user, /REPAIR/) } else assert.match(prompts.revision('FAILED', 'REPAIR').user, /本集故事/)
   }
 })
 

@@ -1,3 +1,4 @@
+import { filmCharacterBasis } from '../../../shared/film-characters.js'
 import { mergeLibraryGroup } from '../../../shared/library-rules.js'
 // 共享函数：任务与操作共用
 import { runTextNodes } from '../tasks/text-workflow.js'
@@ -8,9 +9,11 @@ import { promptsForScenes, parseScenes } from '../steps/step-extract-scenes.js'
 import { preserveStoryAssets } from '../../../shared/preserve-story-assets.js'
 import { plotPatch } from '../../../shared/drama-model.js'
 import { cascade } from '../../../shared/pipeline-cascade.js'
+import { characterExtractionProject } from '../../../shared/character-extraction.js'
 
 export async function regenerateCardGroup({ project, kind, route, review, persist, signal, fetchImpl, request, extraction = false }) {
   if (!['characters', 'scenes'].includes(kind)) throw Object.assign(new Error('剧情流程不再生成道具，按空集合处理'), { status: 400 })
+  if (kind === 'characters' && checkContext.getStore()?.generationMode === 'modify') project = characterExtractionProject(project, project.plot.characters)
   const normalize = text => ({ characters: parseCharacters, scenes: parseScenes })[kind](text, project)
   const result = await runTextNodes({
     target: kind,
@@ -25,12 +28,23 @@ export async function opCharacters(c) {
   let { operation, deps, projects, models, project, trace, note } = c
   const kind = operation.action
   if (project.plot.outline.check.passed !== true) throw Object.assign(new Error('请先生成并通过剧情大纲审核'), { status: 409 })
-  project = await projects.save(project.id, current => cascade(current, { type: 'cards', key: kind }).patch)
+  const filmExtraction = kind === 'characters' && operation.characterSource === 'seconds'
+  if (!filmExtraction) project = await projects.save(project.id, current => cascade(current, { type: 'cards', key: kind }).patch)
+  if (filmExtraction) project = { ...project, filmCharacterExtraction: true }
+  // 已有角色身份、外貌与图片继续复用；不让提取模型重写库资料而清空已完成成片。
+  const preserve = group => {
+    const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, props: project.plot.props,
+      [kind]: filmExtraction ? { ...group, items: group.items.map(item => (() => { const old = project.plot.characters.items.find(old => old.name === item.name || old.sourceName === item.name); return old ? { ...old, ...(old.presence === 'voice' && item.presence === 'visible' ? item : {}), id: old.id, image: old.image, ref: old.ref, presence: item.presence, voiceDescription: old.voiceDescription || item.voiceDescription } : item })()) } : group, check: group.check })
+    if (kind === 'characters' && Array.isArray(group.extractionLibraryIds)) merged.characters.extractionLibraryIds = [...group.extractionLibraryIds]
+    return merged
+  }
   const group = await (deps.regenerateCardGroup || regenerateCardGroup)({ project, kind, route: (modelRoutes(await models.read())).story, review: operation.review, fetchImpl: deps.fetchImpl, request: deps.request, extraction: operation.extraction, persist: async group => {
-    const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, props: project.plot.props, [kind]: group, check: group.check })
+    const merged = preserve(group)
+    if (filmExtraction) merged[kind].secondsSource = filmCharacterBasis(project)
     await projects.save(project.id, plotPatch(project, { [kind]: merged[kind] }))
   } })
-  const merged = preserveStoryAssets(project, { outline: project.plot.outline.content, characters: project.plot.characters, scenes: project.plot.scenes, props: project.plot.props, [kind]: group, check: group.check })
+  const merged = preserve(group)
+  if (filmExtraction) merged[kind].secondsSource = filmCharacterBasis(project)
   checkContext.getStore().validation = group.check.failures
   await projects.save(project.id, group.check.passed ? mergeLibraryGroup(project, kind, merged[kind]) : plotPatch(project, { [kind]: merged[kind] }), { final: true })
   note(`${({ characters: '人物卡', scenes: '场景卡', props: '道具卡' })[kind]}已保存${group.check.passed ? '并通过自审' : '，自审未通过：' + group.check.failures.join('；')}`)

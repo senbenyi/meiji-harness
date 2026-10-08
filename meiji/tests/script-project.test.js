@@ -69,9 +69,7 @@ test('导入剧本创建不自动提取，按需提取摘要，有独立步骤�
   assert.match(JSON.stringify(await history.records(run.id, run.steps[0].id, 'prompts')), /从当前剧本及适用的 AI 创作方向/)
   assert.match(calls[0].user, new RegExp(script))
   assert.equal((await history.readRecord('artifacts', root.summary.source.artifactId)).content.summary, root.summary.content)
-  await runOperation({ action: 'summary', projectId: root.id, draft: true, referenceDurationSeconds: 38 }, { home: e.home, request: async message => { calls.push(message); return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: '林舟清晨送来旧信。', durationSeconds: 38 }) } })
-  assert.match(calls[2].user, /参考剧本顺序与已发生剧情/)
-  assert.match(calls[2].user, /时长：38 秒/)
+  await assert.rejects(runOperation({ action: 'summary', projectId: root.id, draft: true, referenceDurationSeconds: 38 }, { home: e.home }), /不再支持剧集草稿/)
 })
 
 test('超长项目摘要在生成步骤内按校验问题修订，保存的摘要和失败原文均可追查', async t => {
@@ -121,16 +119,15 @@ test('语义审核失败仍保存提取稿，项目状态释放并保留失败�
   assert.match(root.summary.check.failures.join(), /遗漏结局/)
 })
 
-test('有剧本提取与无剧本创作明确分开，前后集定位范围，不输入旧摘要', () => {
-  const project = { mode: 'script', summary: { content: '项目背景' }, script, scriptKind: 'imported', episodes: [{ id: 'next', durationSeconds: 38, summary: { content: '道别' } }, { id: 'target', durationSeconds: 38, summary: { content: '旧稿不要用' } }, { id: 'first', durationSeconds: 38, summary: { content: '送信' } }] }
-  const prompts = buildEpisodePrompts(project, 'target')
-  assert.match(prompts.generation.user, /前集定位已发生进度，后集约束结尾衔接/)
-  assert.doesNotMatch(prompts.generation.user, /旧稿不要用/)
-  assert.match(prompts.review('待审内容').system, /合理续写/)
-  const manual = buildEpisodePrompts({ ...project, mode: 'free', premise: '人的创作方向', script: '', scriptKind: 'assembled' }, 'target')
-  assert.match(manual.generation.user, /第 2 集/)
-  assert.doesNotMatch(manual.generation.user, /【剧本】/)
-  assert.match(manual.review('待审内容').system, /合理续写/)
+test('剧本提取与自由创作直接生成大纲，摘要不参与定位前后集', async () => {
+ const {buildStoryPrompts}=await import('../server/prompts/story-prompts.js')
+ const project={mode:'script',script,premise:'FREE_DIRECTION',episodeNumber:2,previousEpisodeOutlines:[{story:{故事小段:'1. 送信'}}],nextEpisodeOutline:{故事小段:'1. 道别'},summary:{content:'旧摘要不要用'},plot:{outline:{content:null}}}
+ for(const mode of ['script','free']) {
+  const prompts=buildStoryPrompts({...project,mode})
+  assert.match(prompts.generation.user,mode==='script'?/【剧本】/:/【AI 创作方向】/)
+  assert.doesNotMatch(prompts.generation.user,/旧摘要不要用/)
+  assert.match(prompts.generation.user,/送信/);assert.match(prompts.generation.user,/道别/)
+ }
 })
 
 test('面板创建导入剧本无后台任务，进入工作区后可实时查看并生成剧集', async t => {

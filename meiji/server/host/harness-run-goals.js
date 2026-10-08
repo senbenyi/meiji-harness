@@ -1,3 +1,4 @@
+import { runGoalLabel } from '../../shared/run-view.js'
 // 会话目标只绑定制作任务；暂停保持进行中，终态由业务结果结算。
 export function createHarnessRunGoals({ goals, resolveAgent, saveBinding, readBinding }) {
   const attached = new Map(), pending = new Map()
@@ -13,7 +14,7 @@ export function createHarnessRunGoals({ goals, resolveAgent, saveBinding, readBi
         goals.disarm(agent); attached.set(key(run), { ref: existing, sessionId }); return existing
       }
       if (current && current.phase !== 'complete') throw Object.assign(new Error('会话已有其他未完成目标，请先处理该目标'), { status: 409, code: 'GOAL_ALREADY_EXISTS' })
-      current = goals.create(agent, { objective: `完成制作任务 ${run.id}：${JSON.stringify(run.goal)}。由 Run 引擎执行；暂停时汇报所需处理，不自行扩展或重试。` })
+      current = goals.create(agent, { objective: `完成${runGoalLabel(run)}（任务 ${run.id}）。由 Run 引擎执行；暂停时汇报所需处理，不自行扩展或重试。` })
       goals.disarm(agent)
       const ref = { id: current.id, revision: current.revision }
       try { await saveBinding(run.projectId, run.id, { goalRef: ref, goalSessionId: sessionId }) }

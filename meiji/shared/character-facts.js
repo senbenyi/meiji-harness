@@ -28,6 +28,8 @@ export function characterFieldValues(item) {
     height: String(item?.height || parsed.身高 || '').trim(),
     build: build.filter((value, index) => build.indexOf(value) === index).join('，'),
     features: String(item?.features || parsed.面相 || '').trim(),
+    voiceDescription: String(item?.voiceDescription || '').trim(),
+    identity: String(item?.identity || '').trim(),
   }
 }
 
@@ -44,6 +46,7 @@ export function characterSheet(item) {
     ['身高', values.height],
     ['体型', values.build],
     ['面相', values.features],
+    ['声音特征', values.voiceDescription],
   ]
 }
 

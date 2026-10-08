@@ -1,8 +1,8 @@
 // 业务模板与执行定义分离；纯规则可被预览、会话和测试共用。
-export const runStages = ['summary', 'story', 'images', 'shots', 'seconds', 'film', 'assemble']
-export const stageDependencies = { summary: [], story: ['summary'], images: ['story'], shots: ['story'], seconds: ['shots'], film: ['seconds'], assemble: ['film'] }
+export const runStages = ['story', 'summary', 'images', 'shots', 'seconds', 'film', 'assemble']
+export const stageDependencies = { summary: ['story'], story: [], images: ['story'], shots: ['story'], seconds: ['shots'], film: ['seconds'], assemble: ['film'] }
 export const textTargets = {
-  summary: { taskType: 'summary', action: 'episode-generate', scope: 'project' },
+  summary: { taskType: 'summary', action: 'episode-generate', scope: 'episode' },
   'project-summary': { taskType: 'project-summary', action: 'project-summary', scope: 'project' },
   outline: { taskType: 'outline', action: 'outline', scope: 'project' },
   characters: { taskType: 'characters', action: 'characters', scope: 'project' },
@@ -35,7 +35,7 @@ export function normalizeRunGoal(input) {
   if (goal.scope.itemIds && goal.to !== 'images') throw new Error('此目标不支持图片范围')
   if (goal.scope.fromEpisode !== undefined && (goal.to !== 'script-revise' || !Number.isInteger(goal.scope.fromEpisode) || goal.scope.fromEpisode < 1)) throw new Error('后续剧情起点无效')
   if (goal.durationSeconds !== undefined && (!Number.isInteger(goal.durationSeconds) || goal.durationSeconds < 1 || goal.durationSeconds > 86400)) throw new Error('剧集时长无效')
-  if (goal.draft !== undefined && (typeof goal.draft !== 'boolean' || goal.to !== 'summary')) throw new Error('仅摘要支持草稿')
+  if (goal.draft) throw new Error('摘要仅作展示，不再支持剧集草稿')
   if (goal.parts && (goal.to !== 'film' || !['storyboard', 'video', 'tail'].includes(goal.parts))) throw new Error('成片范围无效')
   // 单卡生图的画面选项：画幅、是否带参考图、以哪张候选图为修改基图。
   if (goal.image !== undefined && (goal.to !== 'images' || !goal.image || typeof goal.image !== 'object' || Array.isArray(goal.image) || Object.keys(goal.image).some(key => !['aspect', 'useReference', 'draftId'].includes(key)) || goal.image.aspect !== undefined && !/^(?:\d{2,5}x\d{2,5}|9:16|3:4|1:1|4:3|16:9)$/.test(goal.image.aspect) || goal.image.useReference !== undefined && typeof goal.image.useReference !== 'boolean' || goal.image.draftId !== undefined && (typeof goal.image.draftId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(goal.image.draftId)))) throw new Error('图片选项无效')

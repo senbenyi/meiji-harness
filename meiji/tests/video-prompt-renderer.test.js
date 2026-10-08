@@ -93,7 +93,7 @@ for(const reference of [false,true])test(`独立旁白与人物声音分别编�
  assert.match(secondsText(c),/旁白 D01（0–3.5s，NARRATOR，off/)
  const out=compileVideoPrompt(p,s)
  assert.match(out.prompt.text,/旁白 \(S1\)，独立画外旁白，不对口型/)
- assert.match(out.prompt.text,/旅人 \(S2\)，画内/)
+ assert.match(out.prompt.text,/旅人[）]? \(S2\)，画内/)
  for(const d of c.dialogues)assert.equal(out.prompt.text.split(d.text).length-1,1)
  assert.deepEqual(out.characters,['旅人']);assert.deepEqual(out.entityIds,['C01','E01'])
  assert.equal(out.referenceSnapshot.length,reference?1:0)
@@ -154,4 +154,53 @@ for (const [open, close] of [['“','”'], ['‘','’'], ['"','"'], ["'","'"]]
  assert.throws(()=>validateSeconds(c,s,p),/未知实体ID/)
  c.beats[0].action=`${open}我${close}【别人|C01】站在门前`
  assert.throws(()=>validateSeconds(c,s,p),/实体名称不匹配/)
+})
+
+test('先提取画面与画内对白参与者，再引入角色；声音与摘要不新增主体', () => {
+ const p=episodeFixture(),s=p.shots.items[0],c=s.seconds.content
+ c.version=2;c.summary='旅人与老板、客人有关的事件'
+ for(const b of c.beats){b.action='空桌与杯子保持静止';b.camera='固定全景';b.space='空房间';b.endState='杯子保持原位';b.sound='客人的画外声音';b.dialogueIds=[]}
+ p.plot.characters.items=[cardModel({id:'C01',name:'规范旅人',sourceName:'旅人',type:'role',look:'长衣'}),cardModel({id:'C02',name:'老板',type:'role',look:'短衣'}),cardModel({id:'C03',name:'客人',type:'role',look:'白衣'})]
+ p.plot.characters.items.forEach(card=>{card.image.content={assetId:card.id,localPath:`/${card.id}.png`}})
+ c.dialogues=[{id:'D01',speakerName:'旅人',text:'老板还在吗？',language:'zh-CN',startMs:0,endMs:1000,delivery:'on',performance:'轻声'}, {id:'D02',speakerName:'客人',text:'我不知道。',language:'zh-CN',startMs:1000,endMs:2000,delivery:'off',performance:'平静'}]
+ c.beats[0].dialogueIds=['D01','D02'];c.ambient=[{text:'老板的画外呼喊',startMs:0,endMs:5000}]
+ const before=structuredClone(c),out=compileVideoPrompt(p,s)
+ assert.deepEqual(out.entityIds,['C01']);assert.deepEqual(out.characters,['规范旅人'])
+ assert.deepEqual(out.referenceSnapshot.map(ref=>ref.entityId),['C01'])
+ assert.match(out.prompt.text,/<Subject 1>（规范旅人） \(S1\)，画内/)
+ assert.match(out.prompt.text,/客人 \(S2\)，画外/)
+ assert.match(out.prompt.text,/<d>zh-CN: 老板还在吗？<\/d>/)
+ assert.deepEqual(h3PromptFailures(out.prompt.text,out.referenceSnapshot,out.video),[]);assert.deepEqual(c,before)
+ c.dialogues[0].delivery='off'
+ const audioOnly=compileVideoPrompt(p,s)
+ assert.deepEqual(audioOnly.entityIds,[]);assert.deepEqual(audioOnly.referenceSnapshot,[])
+ assert.equal(audioOnly.video,'text');assert.doesNotMatch(audioOnly.prompt.text,/<Subject|<Picture/)
+})
+
+test('角色上游称谓与库名称使用同一发声编号且台词保持原样', () => {
+ const p=episodeFixture(),s=p.shots.items[0],c=s.seconds.content;c.version=2
+ for(const b of c.beats)for(const field of ['action','camera','space','sound','endState'])b[field]=b[field].replace(/【([^|]+)\|[^】]+】/g,'$1')
+ const person=p.plot.characters.items[0];person.sourceName='旅人';person.name='规范旅人';person.image.content={assetId:'person',localPath:'/person.png'}
+ c.dialogues=['旅人','规范旅人'].map((speakerName,i)=>({id:`D${i}`,speakerName,text:speakerName,language:'zh-CN',startMs:i*1000,endMs:(i+1)*1000,delivery:'on',performance:'平静'}));c.beats[0].dialogueIds=['D0','D1']
+ const out=compileVideoPrompt(p,s)
+ assert.doesNotMatch(out.prompt.text,/\(S2\)/)
+ assert.equal((out.prompt.text.match(/<Subject 1>（规范旅人） \(S1\)，画内/g)||[]).length,2)
+ assert.match(out.prompt.text,/<d>zh-CN: 旅人<\/d>/)
+ assert.deepEqual(h3PromptFailures(out.prompt.text,out.referenceSnapshot,out.video),[])
+})
+
+test('participants是新分镜的角色依据，正文提及和代词不重新推导角色', () => {
+ const p=episodeFixture(),s=p.shots.items[0],c=s.seconds.content;c.version=2
+ c.participants=[{name:'旅人',presence:'visible'},{name:'老板',presence:'voice'}]
+ p.plot.characters.items.push(cardModel({id:'C02',name:'老板',type:'role',look:'短衣'}))
+ for(const person of p.plot.characters.items)person.image.content={assetId:person.id,localPath:`/${person.id}.png`}
+ c.summary='他注视写着老板名字的墙面';c.dialogues=[]
+ for(const b of c.beats){b.action='他站着不动';b.camera='固定全景';b.space='写着老板名字的墙面在背景';b.endState='他保持站姿';b.dialogueIds=[]}
+ const before=structuredClone(c),out=compileVideoPrompt(p,s)
+ assert.deepEqual(out.characters,['旅人']);assert.deepEqual(out.referenceSnapshot.map(ref=>ref.entityId),['C01'])
+ assert.match(out.prompt.text,/本镜出镜角色：<Subject 1>（旅人）/)
+ assert.deepEqual(h3PromptFailures(out.prompt.text,out.referenceSnapshot,out.video),[])
+ assert.deepEqual(c,before)
+ c.participants[0].name='未建立资料的人物'
+ assert.throws(()=>compileVideoPrompt(p,s),/缺少人物资料/)
 })

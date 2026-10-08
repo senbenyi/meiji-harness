@@ -10,7 +10,7 @@ import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 // Exercise the public worker while controlling generation/review responses.
 async function generateWithSelfReview({ generate, review, canRevise }) {
   let original, verdict
-  return runTextNodes({ prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: '测试' }), canRevise, options: { project: { durationSeconds: 5 }, request: async ({ skill }) => {
+  return runTextNodes({ prompts: buildTextPrompts({ skill: 'shots', project: episodeFixture(), instructions: '测试' }), canRevise, options: { project: { durationSeconds: 5 }, request: async ({ skill }) => {
     if (skill === 'review') { verdict = await review(original); return verdict }
     original = await generate(original === undefined ? undefined : { text: original, reviewText: verdict })
     return original
@@ -50,7 +50,7 @@ test('invalid table syntax is reviewed and revised up to maxRevisions (default 2
 test('summary re-review compares the current revision base and opinion without restoring older source', async () => {
   let generation = 0, reviews = 0
   await runTextNodes({
-    prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: { task: '任务依据：向北走；人工意见：保持背影。旧基稿：OLD_BASE',
+    prompts: buildTextPrompts({ skill: 'shots', project: episodeFixture(), instructions: { task: '任务依据：向北走；人工意见：保持背影。旧基稿：OLD_BASE',
     review: '任务依据：向北走；人工意见：保持背影。' } }),
     options: { project: { durationSeconds: 5 }, request: async ({ skill, user: prompt }) => {
       if (skill !== 'review') {
@@ -77,7 +77,7 @@ test('文本流程先生成与自审；自审不通过后才追加带轮次的�
   const label = step => `${step.kind}${step.round ? '#' + step.round : ''}:${step.status}:${step.verdict || ''}`
   const failed = await recordSteps(() => generateWithSelfReview({ generate: async correction => correction ? '修订稿' : '初稿', review: async text => text === '初稿' ? reviewFail('朝向错误') : reviewPass }))
   assert.deepEqual(failed.nodes.map(label), ['generate:done:', 'review:done:fail', 'revise#1:done:', 're_review#1:done:pass'])
-  const passed = await recordSteps(() => runTextNodes({ target: 'summary', prompts: buildTextPrompts({ skill: 'episode', project: {}, instructions: '测试' }), options: { project: { durationSeconds: 5 },
+  const passed = await recordSteps(() => runTextNodes({ target: 'summary', prompts: buildTextPrompts({ skill: 'shots', project: episodeFixture(), instructions: '测试' }), options: { project: { durationSeconds: 5 },
     request: async ({ skill }) => skill === 'review' ? reviewPass : '稿' } }))
   assert.deepEqual(passed.nodes.map(label), ['generate:done:', 'review:done:pass'])
   assert.ok(passed.nodes.every(step => step.target === 'summary'))
@@ -92,7 +92,7 @@ test('independent review does not receive stale correction text as a new instruc
       fetchImpl: async (_url, options) => {
         const payload = JSON.parse(options.body)
         assert.doesNotMatch(payload.messages[1].content, /STALE_ALREADY_FIXED/)
-        assert.match(payload.messages[1].content, /审核.*本集剧情大纲/)
+        assert.match(payload.messages[1].content, /审核.*本集编号故事小段/)
         return Response.json({ choices: [{ message: { content: reviewPass } }] })
       },
     })

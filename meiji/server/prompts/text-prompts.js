@@ -52,7 +52,7 @@ export function buildEditedContentReview({ project, stage, shotId }, text) {
   }
   return buildReviewPrompt({ project, skill, edited: true, editedKind: stage,
     instructions: { review: `审核已编辑原文。审核范围：${isSkill(stage) ? builtinSkill(stage).label : stage}`,
-      facts: [{ title: '【本集摘要】', text: project.summary.content }, { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' }] },
+      facts: [{ title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' }] },
     reviewContext: continuityReviewContext(project, shotId),
   }, contentData(text, /^人物/.test(stage) ? 'characters' : /^场景/.test(stage) ? 'scenes' : 'outline'))
 }

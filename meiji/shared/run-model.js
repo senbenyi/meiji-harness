@@ -37,7 +37,7 @@ export function readySteps(run) {
 }
 
 // 计划的末端：没有后续步骤、且不是旁支（branch，如剧情任务附带的补图）的步骤。下游只挂接到末端，不等旁支。
-export const tailSteps = steps => steps.filter(step => !step.branch && !steps.some(child => child.after.includes(step.id)))
+export const tailSteps = steps => steps.filter(step => !step.branch && !steps.some(child => !child.branch && child.after.includes(step.id)))
 
 export function downstreamSteps(steps, id) {
   const ids = new Set([id])

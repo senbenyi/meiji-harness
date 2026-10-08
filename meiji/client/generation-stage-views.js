@@ -156,6 +156,14 @@ function renderOutline(project, actions) {
     view.dataset.modelKey = `outline:${project.episodeId}`
     view.append(element('pre', outlineText(project.plot.outline.content), 'story'))
     appendJsonCopy(view, project.plot.outline.content)
+    const summary = element('div', '', 'display-summary')
+    summary.append(element('h4', '本集摘要（仅展示）'), element('p', project.summary?.outlineRevision === project.plot.outline.revision && project.summary?.content ? project.summary.content : project.summary?.error ? '摘要提取失败，故事小段与后续制作不受影响。' : '等待从故事小段提取摘要。'))
+    if (project.summary?.error && project.plot.outline.check?.passed === true) {
+      const retry = element('button', '重新提取摘要'); retry.disabled = targetBusy(project, 'summary')
+      retry.onclick = () => actions.perform(project, 'summary', { mode: 'regenerate' }).catch(actions.fail)
+      summary.append(retry)
+    }
+    view.append(summary)
   }
   return view
 }
@@ -167,14 +175,14 @@ function renderStory(project, actions, context) {
   const generated = hasOutline(project)
   const label = generated ? '重新生成剧情' : '生成剧情'
   const generate = element('button', project.operationActivity === 'outline' ? '生成中' : label, 'primary')
-  generate.disabled = targetBusy(project, 'summary') || !canGenerate(project, 'outline')
+  generate.disabled = targetBusy(project, 'outline') || !canGenerate(project, 'outline')
   bindBusy(generate, async () => {
     try { await actions.perform(project, 'outline', reviewFields(controls)) }
     catch (error) { generate.disabled = false; generate.textContent = label; actions.fail(error) }
   }, '生成中')
   head.append(generate)
-  controls.append(head, element('p', '仅生成并审核故事大纲。人物角色与候选图请到「本集资产」点击生成。下方意见用于本次大纲修改。', 'meta'))
-  const review = appendWorkflowReview(controls, feedbackOf(project, 'outline'), generated, targetBusy(project, 'summary'), generate, { allowFailureOpinion: true })
+  controls.append(head, element('p', '直接生成并审核编号故事小段，通过后提取摘要用于展示。人物角色与候选图请到「本集资产」点击生成。下方意见用于本次大纲修改。', 'meta'))
+  const review = appendWorkflowReview(controls, feedbackOf(project, 'outline'), generated, targetBusy(project, 'outline'), generate, { allowFailureOpinion: true })
   const input = review.querySelector('input')
   if (input) input.placeholder = '填写故事大纲的修改意见'
   generate.textContent = project.operationActivity === 'outline' ? '生成中' : label
@@ -581,7 +589,6 @@ function stack(sections) {
 }
 
 const renderers = {
-  summary: renderBrief,
   script: renderStory,
   assets: renderAssets,
   shots: (project, actions) => renderShots(project, actions),

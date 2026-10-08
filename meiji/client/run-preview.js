@@ -1,3 +1,4 @@
+import { runGoalLabel } from '../shared/run-view.js'
 import { element, showPanelDialog, confirmPanel } from './panel-dom.js'
 import { targetLabel } from './run-labels.js'
 import { libraryLinks, libraryKinds } from '../shared/library-rules.js'
@@ -6,7 +7,7 @@ export function confirmRunPreview(anchor, initial, { refresh } = {}) {
   const steps = initial.steps || initial.run.steps
   // 生成直接以新数据替换旧数据，被替换的下游内容不再逐项确认；只有前置选择和硬阻断需要弹窗。
   if (!initial.prereq?.length && !initial.blockers?.length) return Promise.resolve({ authorizePrereq: [], confirmDelete: true, projectRevision: initial.projectRevision })
-  const dialog = element('dialog', '', 'run-preview-dialog'), head = element('h2', initial.amend ? '并入当前任务' : '确认制作任务'), body = element('div'), error = element('p', '', 'error')
+  const dialog = element('dialog', '', 'run-preview-dialog'), head = element('h2', `${initial.amend ? '并入当前任务' : '确认'}：${runGoalLabel(initial.run || {goal: initial.goal})}`), body = element('div'), error = element('p', '', 'error')
   const cancel = element('button', '取消'), confirm = element('button', '确认执行', 'primary')
   dialog.append(head, body, error, cancel, confirm)
   ;(anchor.getRootNode().body || anchor.getRootNode()).append(dialog)
@@ -64,5 +65,7 @@ export function confirmEditDelete(project, operation, confirm = confirmPanel) {
     for (const item of affected) counts.set(item.label, (counts.get(item.label) || 0) + 1)
     return [`第 ${index + 1} 集：${[...counts].map(([label, count]) => `${label}${count > 1 ? ` × ${count}` : ''}`).join('、')}`]
   })
+  const projectDeletes = deletes.filter(item => !item.episodeId)
+  if (projectDeletes.length) lines.unshift(`项目：${projectDeletes.map(item => item.label).join('、')}`)
   return confirm(`${count ? `将同步到 ${count} 集。\n` : ''}${deletes.length ? '保存后将删除以下内容：\n' : ''}${lines.join('\n')}\n确认后继续。`)
 }

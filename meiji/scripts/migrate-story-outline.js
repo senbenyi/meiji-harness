@@ -1,5 +1,5 @@
 // 停止 Harness 后运行：node meiji/scripts/migrate-story-outline.js <DSH_HOME>
-// 旧大纲拆为七字段对象；先备份全部待迁移项目，写入后读回核对，失败还原。
+// 旧大纲转为编号故事小段；先备份全部待迁移项目，写入后读回核对，失败还原。
 import { cp, mkdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -7,30 +7,20 @@ import { outlineFields, outlineFailures } from '../shared/story-outline.js'
 import { aggregateStatus } from '../shared/drama-model.js'
 import { indexFile, episodesDir, projectIds, readProjectFile, writeProjectFile, episodeSnapshot } from '../server/data/project-files.js'
 
-const english = ['Motivation', 'World Rules', 'Causal Plot', 'Emotional Thread', 'Dialogue Beats', 'Ending State', 'Final Image']
-export function convertOutline(text) {
-  const value = Object.fromEntries(outlineFields.map(field => [field, '']))
-  let field = null, prefix = []
-  for (const line of text.split(/\r?\n/)) {
-    const match = line.match(/^\s*(?:#{1,6}\s*)?(?:【([^】]+)】|\[([^\]]+)\])\s*(.*)$/)
-    const title = match?.[1] || match?.[2]
-    const index = outlineFields.indexOf(title) >= 0 ? outlineFields.indexOf(title) : english.indexOf(title)
-    if (index >= 0) {
-      field = outlineFields[index]
-      if (match[3]) value[field] += `${value[field] ? '\n' : ''}${match[3]}`
-    } else if (field) value[field] += `${value[field] ? '\n' : ''}${line}`
-    else prefix.push(line)
-  }
-  const preface = prefix.join('\n').trim()
-  if (preface) value['因果剧情'] = [preface, value['因果剧情']].filter(Boolean).join('\n\n')
-  return Object.fromEntries(Object.entries(value).map(([key, body]) => [key, body.trim()]))
+export function convertOutline(value) {
+  if (value && typeof value === 'object' && typeof value.故事小段 === 'string') return value
+  if (typeof value === 'string' && !outlineFailures({ 故事小段: value.trim() }).length) return { 故事小段: value.trim() }
+  const bodies = typeof value === 'string' ? [value.trim()] : Object.entries(value || {}).filter(([, body]) => typeof body === 'string' && body.trim()).map(([title, body]) => `${title}：\n${body.trim()}`)
+  // 缩进旧稿内部的编号，避免与新的故事小段编号混淆；保留全部正文。
+  return { 故事小段: bodies.filter(Boolean).map((body, index) => `${index + 1}. ${body.replace(/^(\d+[.、．])/gm, '  $1')}`).join('\n\n') }
 }
+const oldOutline = content => content != null && (typeof content !== 'object' || Array.isArray(content) || !Object.hasOwn(content, '故事小段'))
 
 export async function migrateStoryOutline(home) {
   const projects = []
   for (const id of await projectIds(home)) {
     const project = await readProjectFile(home, id)
-    if (!project.episodes.some(episode => typeof episode.plot?.outline?.content === 'string')) continue
+    if (!project.episodes.some(episode => oldOutline(episode.plot?.outline?.content))) continue
     if (project.activity || project.episodes.some(episode => episode.activity)) throw new Error(`${id} 仍有任务运行，先停止任务再迁移`)
     projects.push(project)
   }
@@ -47,8 +37,8 @@ export async function migrateStoryOutline(home) {
     const next = structuredClone(project)
     for (const episode of next.episodes) {
       const target = episode.plot?.outline
-      if (typeof target?.content !== 'string') continue
-      target.content = target.content.trim() ? convertOutline(target.content) : null
+      if (!oldOutline(target?.content)) continue
+      target.content = typeof target.content === 'string' && !target.content.trim() ? null : convertOutline(target.content)
       const failures = target.content && outlineFailures(target.content)
       if (failures?.length) {
         target.check = { ...target.check, passed: false, failures, revision: target.revision }

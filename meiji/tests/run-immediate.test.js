@@ -14,7 +14,7 @@ test('即时保存不排队、不建立旧任务；同 Run 的人工编辑需要
     await linkStore(e.home).selectProject(sessionId, e.id, e.store)
     // 生成步骤挂起时用户暂停任务；生成收尾后任务停在用户暂停，人工编辑接管同一任务。
     let calls = 0; const gate = Promise.withResolvers()
-    const runs = createRunService({ home: e.home, execute: async (_run, step) => { calls++; if (calls === 1) await gate.promise; return step.kind.includes('review') ? { passed: true } : {} } })
+    const runs = createRunService({ home: e.home, execute: async (_run, step) => { calls++; if (calls === 1) await gate.promise; if (step.kind.includes('review')) await e.store.save(e.id, root => { root.episodes[0].plot.outline.check.passed = true; return root }); return step.kind.includes('review') ? { passed: true } : {} } })
     const edits = createImmediateService({ home: e.home, runs })
     t.after(async () => { await edits.dispose(); await runs.dispose() })
     const { run } = await runs.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'story', scope: { only: 'outline' }, mode: 'regenerate' } }, sessionId)
@@ -37,7 +37,7 @@ test('即时保存不排队、不建立旧任务；同 Run 的人工编辑需要
     await runs.resume(e.id, run.id, sessionId, { action, stepId: result.continueRun.stepId })
     await runs.resume(e.id, run.id, sessionId, { action: 'resume' }); await runs.drain()
     assert.equal((await runs.get(e.id, run.id, sessionId)).status, 'completed')
-    assert.equal(calls, action === 'review' ? 2 : 1)
+    assert.equal(calls, action === 'review' ? 3 : 2)
   }
 })
 test('即时创建返回结果且不建立制作任务；生成旧入口被拒绝', async t => {

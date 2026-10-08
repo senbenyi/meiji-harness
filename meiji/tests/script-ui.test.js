@@ -85,10 +85,9 @@ test('自由模式本集要求选填且不改方向，草稿携带本次要求',
   const dialog = root.querySelector('dialog'), form = dialog.querySelector('form')
   assert.equal(form.elements.requirements.required, false); assert.equal(form.elements.savePremise, undefined)
   form.elements.requirements.value = '旧信引出往事'
-  await button(dialog, 'AI 生成').onclick()
-  assert.equal(calls[0][1].requirements, '旧信引出往事')
+  assert.equal(button(dialog, 'AI 生成'), undefined)
   await form.onsubmit({ preventDefault() {} })
-  assert.equal(calls[1][1].savePremise, undefined); assert.equal(dialog.open, false)
+  assert.equal(calls[0][1].savePremise, undefined); assert.equal(calls[0][1].requirements, '旧信引出往事'); assert.equal(dialog.open, false)
 })
 
 for (const mode of ['free', 'script']) {
@@ -160,31 +159,10 @@ test('保存后的强制刷新被后台响应接续时仍显示新版本并解�
   assert.equal(button(view, '保存为新版本').disabled, false)
 })
 
-test('摘要弹窗不显示任务步骤和执行状态，生成失败保留输入和历史入口', async t => {
-  const root = dom(t), p = project(), histories = []
-  const steps = [
-    { id: 'project-review', kind: 'review', target: 'project-summary', status: 'done', output: { passed: true }, responses: [{ id: 'response-a' }] },
-    { id: 'episode-review', kind: 'review', target: 'summary', status: 'paused', error: 'upstream service error', responses: [{ id: 'response-b' }] },
-  ]
-  const open = episodeDialog(root, async () => {}, async (_, __, { onTask }) => {
-    onTask?.({ id: 'run', status: 'paused', steps })
-    throw new Error('upstream service error')
-  }, { openHistory: current => histories.push(current) })
-  open(p, null)
-  const dialog = root.querySelector('#edit-episode')
-  dialog.querySelector('form').elements.summary.value = '尚未保存的输入'
-  await button(dialog, 'AI 生成').onclick()
-  const sections = [...dialog.querySelectorAll('.episode-summary-task')]
-  assert.equal(sections.length, 0)
-  assert.equal(dialog.querySelector('.episode-task-progress'), null)
-  assert.doesNotMatch(dialog.textContent, /项目摘要：完成|审核通过|摘要：待处理|生成剧集摘要：/)
-  assert.match(dialog.querySelector('.error').textContent, /upstream service error/)
-  assert.equal(dialog.querySelector('form').elements.summary.value, '尚未保存的输入')
-  assert.equal(dialog.open, true)
-  assert.equal(button(dialog, 'AI 生成').disabled, false)
-  assert.equal(dialog.querySelectorAll('.task-step-elapsed').length, 0)
-  button(dialog, '查看摘要任务历史 →').click()
-  assert.equal(dialog.open, false); assert.equal(histories[0].id, p.id)
+test('剧集弹窗仅设时长和要求，没有摘要创作或任务入口',t=>{
+ const root=dom(t);episodeDialog(root,async()=>{})(project(),null)
+ const dialog=root.querySelector('#edit-episode')
+ assert.equal(dialog.querySelector('[name=summary]'),null);assert.equal(dialog.querySelector('.ai-summary'),null);assert.equal(dialog.querySelector('.task-history-entry'),null)
 })
 
 for (const outcome of ['cancelled', 'failed']) {
@@ -196,9 +174,9 @@ for (const outcome of ['cancelled', 'failed']) {
     }, async () => {})
     open(project(), null)
     const dialog = root.querySelector('#edit-episode'), form = dialog.querySelector('form')
-    form.elements.summary.value = '尚未保存的剧情'
+    form.elements.requirements.value = '尚未保存的剧情'
     await form.onsubmit({ preventDefault() {} })
-    assert.equal(dialog.open, true); assert.equal(form.elements.summary.value, '尚未保存的剧情')
+    assert.equal(dialog.open, true); assert.equal(form.elements.requirements.value, '尚未保存的剧情')
     assert.equal(form.querySelector('[type=submit]').disabled, false)
     if (outcome === 'failed') assert.match(dialog.querySelector('.error').textContent, /模拟保存失败/)
   })

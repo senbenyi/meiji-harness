@@ -1,151 +1,34 @@
-import { actionRequest } from '../client/goal-request.js'
-import { promptData } from './fixtures/prompt-data.js'
-import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeEpisodeDraft } from '../shared/story-content.js'
-import { EpisodeSummaryModel } from '../server/prompts/models/episode-summary-model.js'
-import { builtinSkill } from '../skills/load-skills.js'
-const episodePrompt = (project, episodeId) => new EpisodeSummaryModel({ project, episodeId, generationRules: builtinSkill('episode').constraints }).toMessages().map(message => message.content).join('\n')
+import { blankEpisode, addEpisode, editEpisode, materialize } from '../shared/episode-rules.js'
+import { canGenerate, gateOf } from '../shared/generation-gates.js'
+import { setupModel, episodeFixture } from './fixtures/model.js'
+import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
+import { outlineFixture } from './fixtures/story-package.js'
 
-test('the first episode is written from the project summary and keeps the user-set duration', () => {
-  const prompt = episodePrompt({ mode: 'free', premise: '李伟穿越', title: '桃源', summary: { content: '李伟穿越' }, episodes: [], aspectRatio: '768x1344' })
-  assert.match(prompt, /依据 AI 创作方向与本次要求/)
-  assert.match(prompt, /李伟穿越/)
-  assert.deepEqual(normalizeEpisodeDraft({ summary: '开场结义', durationSeconds: 170 }, 150), { summary: '开场结义', durationSeconds: 150 })
-  assert.equal(normalizeEpisodeDraft({ summary: '字'.repeat(501) }).summary, '字'.repeat(501))
-  assert.throws(() => normalizeEpisodeDraft({ summary: ' ' }), { status: 502 })
+test('新增剧集无需摘要，保存时长与本集要求，从大纲开始', () => {
+ const episode=blankEpisode({durationSeconds:38,requirements:'先调查码头'})
+ assert.equal(episode.summary.content,'');assert.equal(episode.durationSeconds,38);assert.equal(episode.storyRequirements,'先调查码头');assert.equal(episode.stage,'outline')
+ for(const mode of ['free','script']) {
+  const project={...episode,mode,premise:'找旧友',script:'旅人寻找旧友'}
+  assert.equal(canGenerate(project,'outline'),true);assert.equal(gateOf(project),'outline')
+ }
 })
-
-test('a later episode continues from the episodes already shot', () => {
-  const prompt = episodePrompt({
-    title: '桃源',
-    summary: { content: '李伟穿越' },
-    episodes: [
-      { summary: { content: '第二集回头' }, durationSeconds: 90 },
-      { summary: { content: '第一集结义' }, durationSeconds: 120 },
-    ],
-  })
-  assert.match(prompt, /第 3 集/)
-  assert.match(prompt, /【项目摘要】\n李伟穿越/)
-  assert.match(prompt, /【前集摘要】/)
-  assert.ok(prompt.indexOf('第一集结义') < prompt.indexOf('第二集回头'))
-  assert.match(prompt, /不无故重置人物状态/)
-  assert.deepEqual(promptData(prompt, '【前集摘要】').episodes.map(({ episodeNumber, durationSeconds, summary }) => ({ episodeNumber, durationSeconds, summary })), [{ episodeNumber: 1, durationSeconds: 120, summary: '第一集结义' }, { episodeNumber: 2, durationSeconds: 90, summary: '第二集回头' }])
-
-
+test('无剧本或方向时不能创作，摘要不能代替来源', () => {
+ const project={...blankEpisode({durationSeconds:30}),summary:{content:'任意旧摘要',check:{passed:true}}}
+ for(const mode of ['free','script'])assert.equal(canGenerate({...project,mode},'outline'),false)
 })
-
-test('regeneration targets the selected episode and separates later continuity constraints', () => {
-  const project = { title: '故事', summary: { content: '总摘要' }, script: '项目剧本', episodes: [
-    { id: 'c', summary: { content: '结尾' }, durationSeconds: 60 },
-    { id: 'b', summary: { content: '旧中段' }, durationSeconds: 90 },
-    { id: 'a', summary: { content: '开场' }, durationSeconds: 120 },
-  ] }
-  const prompt = episodePrompt(project, 'b')
-  assert.match(prompt, /重新生成第 2 集摘要/)
-  assert.equal(promptData(prompt, '【前集摘要】').episodes[0].summary, '开场')
-  assert.match(prompt, /【后集摘要】/)
-  assert.equal(promptData(prompt, '【后集摘要】').episodes[0].summary, '结尾')
-  assert.match(prompt, /项目剧本/)
-  assert.throws(() => episodePrompt(project, 'missing'), { status: 404 })
+test('后集使用前集故事原文承接，不读取压缩摘要', async t => {
+ const {store,id}=await setupModel(t),root=await store.read(id),first=root.episodes[0]
+ first.plot.outline.content=outlineFixture('前集完整状态 PREVIOUS_DETAIL');first.summary.content='PREVIOUS_SUMMARY_HIDDEN'
+ const patch=addEpisode(root,{durationSeconds:30});const next={...root,...patch},work=materialize(next,patch.episodes[0].id)
+ const prompt=buildStoryPrompts(work).generation
+ assert.match(prompt.user,/PREVIOUS_DETAIL/);assert.doesNotMatch(prompt.user,/PREVIOUS_SUMMARY_HIDDEN/)
 })
-
-test('summary modes separate old input, review content and revision-only rules', async () => {
-  const { buildEpisodePrompts } = await import('../server/prompts/episode-summary-prompts.js')
-  const { checkContext } = await import('../server/runtime/operation-context.js')
-  const project = { title: '故事', summary: { content: 'PROJECT_BACKGROUND' }, episodes: [
-    { id: 'next', summary: { content: 'NEXT_EPISODE' }, durationSeconds: 120 },
-    { id: 'target', summary: { content: 'OLD_SUMMARY' }, durationSeconds: 120 },
-  ] }
-  for (const generationMode of ['regenerate', 'modify']) {
-    checkContext.run({ generationMode, review: 'HUMAN_OPINION' }, () => {
-      const prompts = buildEpisodePrompts(project, 'target')
-      const { generation } = prompts
-      assert.ok(generation.system.includes(builtinSkill('episode').constraints))
-      assert.doesNotMatch(generation.system, /共用生成审核流程|后端验收（未通过则重写）|以原摘要的既定事件为基准/)
-      assert.equal(generation.system.includes('【本次修订范围】'), generationMode === 'modify')
-      assert.equal(generation.user.includes('OLD_SUMMARY'), generationMode === 'modify')
-      assert.equal(generation.user.includes('HUMAN_OPINION'), generationMode === 'modify')
-      assert.match(generation.user, /NEXT_EPISODE/)
-      assert.equal(prompts.review('NEW_SUMMARY').user.includes('OLD_SUMMARY'), generationMode === 'modify')
-      const revision = prompts.revision('FAILED_SUMMARY', reviewFail('原因'))
-      assert.match(revision.system, /【本次修订范围】/)
-      assert.match(revision.user, /FAILED_SUMMARY/)
-      assert.doesNotMatch(revision.user, /OLD_SUMMARY|重新生成/)
-    })
-  }
+test('编辑剧集时长不允许通过摘要改写剧情，展示摘要不由用户保存', async t => {
+ const {store,id}=await setupModel(t),root=await store.read(id),episode=root.episodes[0]
+ const patch=editEpisode(root,episode.id,{durationSeconds:episode.durationSeconds,summary:'不得覆盖',requirements:'保留结尾'})
+ assert.deepEqual(patch.episodes[0].plot.outline,episode.plot.outline)
+ assert.equal(patch.episodes[0].summary.content,episode.summary.content)
+ assert.equal(patch.episodes[0].storyRequirements,'保留结尾')
 })
-
-for (const mode of ['new', 'regenerate', 'modify']) {
-  test(`summary ${mode} runs through the real operation with episode-scoped check context`, async t => {
-    const { setupModel } = await import('./fixtures/model.js')
-    const { modelStore } = await import('../server/data/model-settings.js')
-    const { runOperation } = await import('./fixtures/operation.js')
-    const { generateEpisode } = await import('../server/flow/tasks/text/task-summary.js')
-    const e = await setupModel(t), models = modelStore(e.home)
-    await models.write({ ...await models.read(), apiKey: 'test-only' })
-    const root = await e.store.read(e.id), old = root.episodes[0].summary.content, calls = []
-    await runOperation(actionRequest('episode-generate', { projectId: e.id, referenceDurationSeconds: 10, ...(mode === 'new' ? {} : { episodeId: e.episodeId, generationMode: mode }), ...(mode === 'modify' ? { review: '加强悬念' } : {}) }), { home: e.home,
-      request: async message => {
-        calls.push(message)
-        return message.skill === 'review' ? reviewPass : JSON.stringify({ summary: '旅人入院后发现新的线索。', durationSeconds: 10 })
-      } })
-    assert.equal(calls.length, 2)
-    assert.equal(calls[0].user.includes('【修改基稿】'), mode === 'modify')
-    if (mode === 'modify') { assert.ok(calls[0].user.includes(old)); assert.match(calls[0].user, /加强悬念/) }
-    if (mode === 'regenerate') assert.equal(calls[0].user.includes(old), false)
-    const saved = await e.store.read(e.id)
-    assert.equal(saved.episodes.length, root.episodes.length + (mode === 'new' ? 1 : 0))
-    const episode = saved.episodes.find(item => item.summary.content === '旅人入院后发现新的线索。')
-    assert.equal(episode.summary.status, 'passed')
-    assert.equal(episode.summary.error, null)
-    assert.equal(episode.summary.check.passed, true)
-    if (mode === 'modify') assert.equal(episode.summary.review.text, '')
-    assert.notEqual(episode.status, 'generating')
-    assert.notEqual(saved.status, 'generating')
-  })
-}
-
-test('summary checks run after drafting and independent review receives the episode review skill', async () => {
-  const { buildEpisodePrompts } = await import('../server/prompts/episode-summary-prompts.js')
-  const prompts = buildEpisodePrompts({ title: '故事', summary: { content: '总摘要' }, episodes: [] })
-  const rules = builtinSkill('episode').constraints
-  assert.ok(prompts.generation.system.includes(rules))
-  assert.match(prompts.generation.system, /示例（仅示范格式）/)
-  assert.doesNotMatch(prompts.generation.system, /【优先级】/)
-  assert.doesNotMatch(prompts.generation.system.slice(prompts.generation.system.indexOf('【本次输出协议】')), /不输出|禁止/)
-  const review = prompts.review('{"summary":"待审摘要","durationSeconds":120}')
-  assert.ok(review.system.includes(builtinSkill('episode').review))
-  assert.ok(!review.system.includes(rules))
-  assert.match(review.system, /没有具体问题就通过/)
-  assert.equal(review.system.split('【本次审核协议】').length - 1, 1)
-  assert.equal((review.system + review.user).split('"passed":true').length - 1, 1)
-  assert.match(review.user, /【本次待审内容】\n.*待审摘要/)
-})
-
-for (const scenario of ['failed', 'new-opinion']) {
-  test(`summary modification keeps opinions when ${scenario}`, async t => {
-    const { setupModel } = await import('./fixtures/model.js')
-    const { modelStore } = await import('../server/data/model-settings.js')
-    const { runOperation } = await import('./fixtures/operation.js')
-    const { saveReview } = await import('../shared/drama-model.js')
-    const e = await setupModel(t), models = modelStore(e.home)
-    await models.write({ ...await models.read(), apiKey: 'test-only' })
-    const { reviewPass, reviewFail } = await import('./fixtures/review-result.js')
-    const execution = runOperation(actionRequest('episode-generate', { projectId: e.id, episodeId: e.episodeId, generationMode: 'modify', review: '已提交意见', referenceDurationSeconds: 10 }), { home: e.home, request: async message => {
-      if (message.skill === 'review') return scenario === 'failed' ? reviewFail('冲突') : reviewPass
-      if (scenario === 'new-opinion') await e.store.save(e.id, current => {
-        const next = structuredClone(current)
-        saveReview(next.episodes.find(item => item.id === e.episodeId).summary, '执行期间新意见')
-        return next
-      })
-      return JSON.stringify({ summary: '旅人发现线索。', durationSeconds: 10 })
-    } })
-    // 审核用尽修订仍未通过时任务暂停，已提交的意见保留。
-    if (scenario === 'failed') await assert.rejects(execution, /自审未通过/); else await execution
-    const saved = await e.store.read(e.id)
-    assert.equal(saved.episodes.find(item => item.id === e.episodeId).summary.review.text,
-      scenario === 'failed' ? '已提交意见' : '执行期间新意见')
-  })
-}

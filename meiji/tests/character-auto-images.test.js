@@ -34,7 +34,7 @@ async function setup(t, onImage) {
   } }
 }
 
-test('真实人物 Run 对所有人物生图，包括已有图；自动入库使用且同步角色库与关联集', async t => {
+test('真实人物 Run 复用已有项目角色图，只为缺图人物自动入库使用', async t => {
   const seen = [], e = await setup(t, async (e, args) => { seen.push(args.itemId); return generated(e, args) })
   const old = await savePicture(e.home, Buffer.from('old'), 'image/png', 'characters', '旅人')
   await e.store.save(e.id, root => {
@@ -51,15 +51,14 @@ test('真实人物 Run 对所有人物生图，包括已有图；自动入库使
   const id = await e.start(); await e.service.drain()
   const done = await e.service.get(e.id, id, sessionId), saved = await e.read()
   assert.equal(done.status, 'completed', JSON.stringify(done.failure))
-  assert.deepEqual(seen.sort(), saved.plot.characters.items.map(item => item.id).sort())
-  assert.equal(seen.length, 2)
+  assert.deepEqual(seen, [saved.plot.characters.items.find(item => item.name === '同行人').id])
   assert.ok(!done.steps.some(step => step.kind === 'wait_confirm'))
   assert.deepEqual(saved.pendingImages, {})
   for (const card of saved.plot.characters.items) {
     assert.equal(card.image.check.passed, true); assert.equal(card.image.status, 'passed')
-    assert.ok(card.image.content.assetId); assert.notEqual(card.image.content.assetId, old.assetId)
+    assert.ok(card.image.content.assetId); assert.equal(card.image.content.assetId === old.assetId, card.name === '旅人')
     const file = await assetStore(e.home).file('characters', card.image.content.assetId)
-    assert.equal((await readFile(file.path)).toString(), `generated-${card.id}`)
+    assert.equal((await readFile(file.path)).toString(), card.name === '旅人' ? 'old' : `generated-${card.id}`)
     const root = await e.store.read(e.id), entry = root.library.characters.find(entry => entry.id === card.ref.libraryId)
     assert.equal(entry.variants.find(v => v.id === card.ref.variantId).image.content.assetId, card.image.content.assetId)
   }
@@ -92,7 +91,7 @@ test('单卡/库生图保持人工确认，默认剧情不会自动生成人物�
   const manual = planRun(view, { to: 'images', scope: { itemIds: ['C01'] }, mode: 'regenerate' })
   assert.ok(manual.steps.some(step => step.kind === 'wait_confirm'))
   assert.ok(manual.steps.every(step => !step.input.operation?.autoSave))
-  assert.deepEqual(planRun(view, { to: 'story', mode: 'regenerate' }).steps.map(step => step.target), ['outline', 'outline'])
+  assert.deepEqual(planRun(view, { to: 'story', mode: 'regenerate' }).steps.map(step => step.target), ['outline', 'outline', 'summary'])
 })
 
 for (const failure of ['保存失败', '取消', '资料过期']) test(`自动入库${failure}保留旧图、旧候选，并清理未使用的新素材`, async t => {

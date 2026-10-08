@@ -5,10 +5,10 @@ import { scopeProjects } from '../server/data/episode-data.js'
 import { setupModel } from './fixtures/model.js'
 import { node } from '../shared/drama-model.js'
 test('runtime rejects pre-model projects instead of silently converting',()=>assert.throws(()=>normalizeProject({id:'old',episodes:[]}),/迁移/))
-test('new episodes are newest first; changing a summary resets only that episode',async t=>{
+test('new episodes are newest first; changing duration resets only that episode',async t=>{
  const e=await setupModel(t),p=await e.store.read(e.id),next={...p,...addEpisode(p,{summary:'第二集',durationSeconds:12})}
  assert.equal(next.episodes[0].summary.content,'第二集')
- const patch=editEpisode(next,e.episodeId,{summary:'改变剧情',durationSeconds:10})
+ const patch=editEpisode(next,e.episodeId,{durationSeconds:11})
  assert.deepEqual(patch.episodes[0],next.episodes[0]);assert.equal(patch.episodes[1].shots.items.length,0);assert.equal(patch.episodes[1].plot.outline.content,null)
 })
 test('episode saves remain in the selected episode',async t=>{const e=await setupModel(t),scope=scopeProjects(e.store,e.episodeId);await scope.save(e.id,{pendingImages:{outline:'补充'}});const p=await e.store.read(e.id);assert.equal(p.pendingImages,undefined);assert.equal(p.episodes[0].pendingImages.outline,'补充')})

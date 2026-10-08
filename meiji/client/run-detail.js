@@ -1,10 +1,10 @@
+import { promptRecordLabel, verdictLabel } from '../shared/run-names.js'
 import { element, appendJsonCopy } from './panel-dom.js'
 import { targetLabel, stepKindLabels, stepLabel, skillsLine } from './run-labels.js'
 import { runDisplayStatus, runStepStatusLabels, runGoalLabel, runTargetMatches } from '../shared/run-view.js'
 import { outlineText } from '../shared/story-outline.js'
 
 const time = value => value ? new Date(value).toLocaleString() : '—'
-const kindLabels = { ...stepKindLabels, manual_edit: '人工编辑', image: '生成图片', wait_confirm: '等待图片确认', wait_script_confirm: '等待剧本确认', storyboard: '文本分镜', video: '生成视频', tail: '提取尾帧', sync: '回写剧本', expand: '展开镜头' }
 const originLabels = { plan: '计划', 'review-fail': '审核反馈', manual: '人工', 'user-feedback': '用户反馈' }
 
 async function copyText(value, button, message) {
@@ -68,12 +68,12 @@ export function renderRunDetail(project, { load, back, loadRecords, target = '' 
         })
         const heading = element('div', '', 'run-step-heading')
         heading.append(element('span', runStepStatusLabels[step.status] || step.status, `task-history-status is-${step.status}`), element('strong', `${index + 1}. ${stepLabel(step)}${step.round ? ` · 第 ${step.round} 轮` : ''}`))
-        if (step.output?.passed !== undefined) heading.append(element('span', step.output.passed ? '审核通过' : '审核未通过', `task-history-status run-step-verdict-badge is-${step.output.passed ? 'passed' : 'failed'}`))
+        if (step.output?.passed !== undefined) heading.append(element('span', verdictLabel(step, step.output.passed), `task-history-status run-step-verdict-badge is-${step.output.passed ? 'passed' : 'failed'}`))
         heading.append(expandState)
         summary.append(heading, element('span', `${time(step.startedAt)} - ${time(step.endedAt)}`, 'meta run-step-time'))
         const promptActions = element('span', '', 'run-step-summary-actions')
         if (step.prompts?.length) {
-          const open = element('button', '查看提示词')
+          const open = element('button', promptRecordLabel(step))
           open.onclick = event => { event.preventDefault(); event.stopPropagation(); void openRecordPage(step, 'prompts') }
           promptActions.append(open)
         }
@@ -84,7 +84,7 @@ export function renderRunDetail(project, { load, back, loadRecords, target = '' 
         }
         let snapshotButton = null
         if (step.artifacts?.length) {
-          snapshotButton = element('button', '查看生成快照')
+          snapshotButton = element('button', step.kind === 'storyboard' ? '查看编排结果与绑定' : '查看生成快照')
           snapshotButton.onclick = event => { event.preventDefault(); event.stopPropagation(); void openRecordPage(step, 'artifacts') }
           promptActions.append(snapshotButton)
         }
@@ -111,7 +111,7 @@ export function renderRunDetail(project, { load, back, loadRecords, target = '' 
 
   const openRecordPage = async (step, kind) => {
     returnAction = draw; returnButton.textContent = '← 返回'
-    title.textContent = `${stepLabel(step)} · ${kind === 'responses' ? 'HTTP 请求详情' : kind === 'artifacts' ? '生成快照详情' : '提示词详情'}`
+    title.textContent = `${stepLabel(step)} · ${kind === 'responses' ? 'HTTP 请求详情' : kind === 'artifacts' ? '生成快照详情' : promptRecordLabel(step).replace('查看', '')+'详情'}`
     body.replaceChildren()
     const page = element('section', '', 'run-record-page')
     page.append(element('p', `${targetLabel(step.target)} · 步骤 ${stepLabel(step)}`, 'meta'))

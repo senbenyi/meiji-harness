@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { projectStore } from '../server/data/project-store.js'
 import { writeProjectFile, readProjectFile, indexFile, episodesDir } from '../server/data/project-files.js'
 import { blankEpisode } from '../shared/episode-rules.js'
-import { outlineFields, outlineText } from '../shared/story-outline.js'
+import { outlineFields, outlineText, outlineFailures } from '../shared/story-outline.js'
 import { outlineFixture } from './fixtures/story-package.js'
 import { convertOutline, migrateStoryOutline } from '../scripts/migrate-story-outline.js'
 
@@ -18,11 +18,13 @@ async function oldProject(t, content) {
   return { home, project, store }
 }
 
-test('旧中文/英文标题转换为固定中文字段，正文换行无损', () => {
-  const outline = outlineFixture('英文 "引号"\n第二行'), text = outlineText(outline)
-  assert.deepEqual(convertOutline(text), outline)
-  const titles = ['Motivation', 'World Rules', 'Causal Plot', 'Emotional Thread', 'Dialogue Beats', 'Ending State', 'Final Image']
-  assert.deepEqual(convertOutline(titles.map((title, i) => `[${title}]\n${outline[outlineFields[i]]}`).join('\n\n')), outline)
+test('七字段旧稿转换成故事小段，正文、引号与换行无损', () => {
+  const old = { 主角动机: '见到旧友', 因果剧情: '1. 拿信\n2. 拆信', 对白节拍: '旅人：「是谁？」', 结尾状态: '左手拿信，右手提灯' }
+  const result = convertOutline(old)
+  for (const body of Object.values(old)) assert.ok(result.故事小段.replace(/^  /gm, '').includes(body))
+  assert.equal(outlineFailures(result).length, 0)
+  assert.deepEqual(convertOutline(result), result)
+  assert.deepEqual(convertOutline('1. 英文 "引号"\n第二行'), { 故事小段: '1. 英文 "引号"\n第二行' })
 })
 
 test('迁移先备份索引和剧集，读回正文、意见、ID不变，再次执行不修改', async t => {
@@ -39,12 +41,12 @@ test('迁移先备份索引和剧集，读回正文、意见、ID不变，再次
   assert.deepEqual(await migrateStoryOutline(e.home), { migrated: 0 })
 })
 
-test('无标题旧稿保留正文并标记未通过，旧字符串运行时明确要求迁移', async t => {
+test('无标题旧稿保留正文并转换为一个故事小段，旧字符串运行时明确要求迁移', async t => {
   const e = await oldProject(t, '原稿不能丢失\n含 "引号" 的第二行')
   await assert.rejects(e.store.read(e.project.id), error => error.code === 'OLD_STORY_OUTLINE')
   const result = await migrateStoryOutline(e.home), target = (await e.store.read(e.project.id)).episodes[0].plot.outline
-  assert.equal(result.incomplete.length, 1);assert.equal(target.content['因果剧情'], '原稿不能丢失\n含 "引号" 的第二行')
-  assert.equal(target.check.passed, false);assert.equal(target.status, 'failed')
+  assert.equal(result.incomplete.length, 0);assert.equal(target.content.故事小段, '1. 原稿不能丢失\n含 "引号" 的第二行')
+  assert.equal(outlineFailures(target.content).length, 0)
 })
 
 test('运行任务阻止迁移，预检失败不更改任何项目', async t => {

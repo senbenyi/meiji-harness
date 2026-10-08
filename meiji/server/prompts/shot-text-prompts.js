@@ -1,5 +1,4 @@
-import { entityCatalog, entityMention } from '../../shared/entity-references.js'
-import { secondsText } from '../../shared/seconds-content.js'
+import { secondsCharacterRoster } from '../../shared/seconds-content.js'
 import { checkReasons } from '../runtime/review-checks.js'
 import { checkContext } from '../runtime/operation-context.js'
 import { shotResults } from '../../shared/drama-model.js'
@@ -8,15 +7,11 @@ import { feedbackOf } from '../../shared/review-feedback.js'
 import { splitSecondsIssues } from './seconds-feedback.js'
 
 // 镜头表及单镜镜头表修订的上下文，按 { title, text } 分段交给 prompt-request.js。
-// 镜头表步骤给全部资料；单镜修订只给衔接所需：本镜及前后镜关联的卡片、
-// 前镜末段与后镜开场的每秒指令，不再附相邻镜头的完整每秒指令。大纲存在时不重复附本集摘要。
+// 人物身份与外貌的剧情事实从大纲和镜头叙事读取，不注入人物卡；单镜修订只给衔接所需的历史环境/道具资料、
+// 前镜末段与后镜开场的每秒指令，不再附相邻镜头的完整每秒指令。剧集摘要仅作展示，不注入制作请求。
 const cardKeys = ['id', 'name', 'type', 'look', 'space', 'landmark', 'light', 'description', 'category', 'ownerId', 'evidence', 'identity']
 const cleanCard = card => Object.fromEntries(cardKeys.filter(key => card[key] != null).map(key => [key, Array.isArray(card[key]) ? card[key].map(cleanCard) : card[key]]))
 const shotData = shot => ({ shotId: shot.id, durationSeconds: shot.duration, content: body(shot) })
-const entityFacts = project => [
-  { title: '【实体引用清单】', text: { entities: entityCatalog(project).map(({ id, name, kind, ownerId }) => ({ id, name, kind, ...(ownerId ? { ownerId } : {}), reference: entityMention({ id, name }) })) } },
-  { title: '【实体标注规则】', text: '正文每次提到清单内实体，按 reference 原样写作「名字【名字|ID】」；清单外物件直接描述。台词原文不插标记，说话人单独标注，仅被提及的人物不算出镜。' },
-]
 
 // 本镜及前后镜实际关联的实体：镜头选择的人物、场景，以及正文中的【名字|ID】标记。
 function relatedEntities(shots) {
@@ -48,10 +43,7 @@ export function shotContext(project, shotId) {
   const cards = group => { const items = pick(project.plot[group]?.items); return items.length ? { [group]: items.map(cleanCard) } : '' }
   const handoffs = [handoff(previous, 'end'), handoff(next, 'start')].filter(Boolean)
   return [
-    ...entityFacts(project),
-    { title: '【本集摘要】', text: !project.plot.outline.content && project.summary?.content ? project.summary.content : '' },
     { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' },
-    { title: single ? '【上游事实：本镜及前后镜关联人物】' : '【上游事实：人物资料】', text: cards('characters') },
     { title: single ? '【上游事实：本镜及前后镜关联道具】' : '【上游事实：道具资料】', text: cards('props') },
     { title: single ? '【上游事实：本镜及前后镜关联场景】' : '【上游事实：场景资料】', text: cards('scenes') },
     { title: '【上游事实：已通过镜头表，同编号是本镜依据】', text: !shotId && rows.length ? { shots: rows.map(shotData) } : '' },
@@ -86,15 +78,15 @@ export function buildShotPrompts(skill, instructions, options) {
   })
 }
 
-// 镜头表资料：大纲为核心输入，随后是时长参数、角色/场景/道具卡与实体引用清单。
+// 镜头表资料：大纲为核心输入，随后是时长参数与历史场景/道具资料。
 function tableFacts(project, min, max) {
   const context = shotContext({ ...project, shots: { ...project.shots, items: [] } })
-  const cards = context.filter(fact => /^【上游事实：(人物|场景|道具)资料】$/.test(fact.title))
+  const cards = context.filter(fact => /^【上游事实：(场景|道具)资料】$/.test(fact.title))
   return [
+    { title: '【拆镜依据优先级】', text: '最新故事小段是本集拆镜的剧情依据，逐项覆盖其全部明确细节；人工编辑版本允许覆盖原剧本或创作方向，不恢复已删除或改写的内容。摘要只用于展示，不作为拆镜和审核依据。' },
     { title: '【剧情大纲】', text: project.plot.outline.content },
     { title: '【本次参数】', text: { durationSeconds: project.durationSeconds, minDurationSeconds: min, maxDurationSeconds: max, minShotDurationSeconds: 1, maxShotDurationSeconds: 15 } },
     ...cards,
-    ...context.filter(fact => ['【实体引用清单】', '【实体标注规则】'].includes(fact.title)),
   ].filter(fact => fact.text)
 }
 
@@ -102,8 +94,8 @@ export function buildTablePrompts(options) {
   const { project } = options
   const min = Math.max(1, project.durationSeconds - 10), max = project.durationSeconds + 10
   return buildShotPrompts('shots', {
-    task: '依据大纲生成本集完整镜头表，遵守基础规则和补充规则。',
-    review: `验收本集完整镜头表：覆盖大纲事件与结尾，编号连续、单镜1–15秒且总时长在 ${min}–${max} 秒内（含边界），叙事清楚、完整台词保留，镜头之间剧情状态承接；不要求固定栏目或分段理由。`,
+    task: '依据编号故事小段按顺序拆成本集完整镜头表，逐项保留全部明确细节，遵守拆镜依据优先级、基础规则和补充规则。',
+    review: `验收本集完整镜头表：按拆镜依据优先级逐项核对故事小段全部细节覆盖，不只检查关键事件；编号连续、单镜1–15秒且总时长在 ${min}–${max} 秒内（含边界），叙事清楚、完整台词保留，镜头之间剧情状态承接；不要求固定栏目或分段理由。`,
     facts: tableFacts(project, min, max),
   }, options)
 }
@@ -126,7 +118,8 @@ function secondsHandoff(shot) {
   if (!beat?.endState) return ''
   const total = shot.duration * 1000
   const active = events => (events || []).filter(event => event.startMs < total && event.endMs === total).map(event => event.text)
-  return { shotId: shot.id, endState: beat.endState, camera: beat.camera, space: beat.space, sound: beat.sound,
+  const outfits = (content.participants || []).filter(person => person.presence === 'visible' && person.outfit).map(person => ({name:person.name,outfit:person.outfit}))
+  return { shotId: shot.id, ...(outfits.length ? {outfits} : {}), endState: beat.endState, camera: beat.camera, space: beat.space, sound: beat.sound,
     ambient: active(content.ambient), music: active(content.music) }
 }
 
@@ -144,17 +137,11 @@ export function buildSecondsPrompts(options) {
     review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：剧情、台词、时长与交接状态符合本镜镜头表，具体镜头设计与空间调度符合关联资料，与上一镜交接摘要无实质矛盾。`,
     facts: [
       { title: '【本镜镜头表】', text: shotData(shot) },
+      { title: '【本集角色卡人物清单：参与人物仅从中选取】', text: secondsCharacterRoster(project) },
       { title: '【连续性参考：上一镜交接摘要】', text: secondsHandoff(previous) },
-      cards('characters', '【上游事实：本镜关联人物】'), cards('scenes', '【上游事实：本镜关联场景】'), cards('props', '【上游事实：本镜关联道具】'),
+      cards('scenes', '【上游事实：本镜关联场景】'), cards('props', '【上游事实：本镜关联道具】'),
       { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' },
       { title: '【本次参数】', text: { shotId, durationSeconds: shot.duration, startMs: 0, endMs: shot.duration * 1000 } },
-      ...entityFacts(project),
     ].filter(fact => fact.text),
   }, options)
-}
-
-// 引用编排直接以已通过的每秒指令为唯一时间线来源（不再经过独立的文本镜头转写），
-// 只提供本镜关联资料与固定素材清单，不再次审核整集剧情与前镜最终稿。
-export function storyboardSource(shot) {
-  return secondsText(shot?.seconds?.content)
 }

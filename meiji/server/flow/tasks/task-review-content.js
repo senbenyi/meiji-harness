@@ -1,5 +1,6 @@
 import { modelRoutes } from '../../../models/model-config.js'
-import { finish, modelPatch } from '../../../shared/drama-model.js'
+import { finish, modelPatch, setContent } from '../../../shared/drama-model.js'
+import { normalizeSecondsParticipants } from '../../../shared/seconds-content.js'
 import { requireStepContent, textStepNode } from '../../../shared/text-step-target.js'
 import { mergeLibraryGroup } from '../../../shared/library-rules.js'
 import { reviewContent } from '../steps/step-review-edited-content.js'
@@ -29,6 +30,11 @@ export async function runContentReview({ operation, deps, project, projects, mod
     options: { route: modelRoutes(await models.read()).story, project, shotId: operation.track, request: deps.request, fetchImpl: deps.fetchImpl, logStage: '审核' },
     persist: async result => projects.save(project.id, current => {
       const next = structuredClone(current), targetNode = textStepNode(next, target, operation.episodeId)
+      if (target.startsWith('seconds:')) {
+        const view = next.episodes ? next.episodes.find(item => item.id === operation.episodeId) : next
+        const content = normalizeSecondsParticipants(targetNode.content, view)
+        if (content !== targetNode.content) setContent(targetNode, content, result.check)
+      }
       settle(targetNode, result.check, operation.review)
       // 整集意见在全部镜头通过后清除。
       if (target.startsWith('seconds:') && result.check.passed) { const view = next.episodes ? next.episodes.find(item => item.id === operation.episodeId) : next; if (view.shots.items.every(shot => shot.seconds.check.passed === true)) consume(view.shots.seconds, operation.review || deps.run?.goal?.feedback) }
@@ -36,7 +42,9 @@ export async function runContentReview({ operation, deps, project, projects, mod
       if (['characters', 'scenes', 'props'].includes(target) && result.check.passed && targetNode.items.some(item => !item.ref)) {
         const published = mergeLibraryGroup(next, target, targetNode)
         // 发布库关联不覆盖本次受审正文或现有图片。
-        published.plot[target].items = targetNode.items.map((item, index) => ({ ...item, ref: published.plot[target].items[index].ref }))
+        published.plot[target].items = targetNode.items.map((item, index) => operation.characterSource === 'seconds'
+          ? { ...published.plot[target].items[index], sourceName: item.sourceName || item.name }
+          : { ...item, ref: published.plot[target].items[index].ref })
         return published
       }
       return next.episodes ? next : modelPatch(current, next)

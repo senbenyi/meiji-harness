@@ -18,8 +18,8 @@ test('各业务模板形成可验证 DAG，预览确定且不修改项目', () =
 })
 test('剧情只生成审核大纲，文本 policy 与 review 只执行授权步骤', () => {
   const result = checked(planRun(view(), { to: 'story', mode: 'regenerate' }))
-  assert.deepEqual(result.steps.map(step => step.key), ['generate@outline', 'review@outline'])
-  assert.deepEqual(planRun(view(), { to: 'story' }, { review: false }).steps.map(step => step.kind), ['generate'])
+  assert.deepEqual(result.steps.map(step => step.key), ['generate@outline', 'review@outline', 'generate@summary'])
+  assert.deepEqual(planRun(view(), { to: 'story' }, { review: false }).steps.map(step => step.kind), ['generate','generate'])
   assert.deepEqual(planRun(view(), { to: 'story', mode: 'review' }).steps.map(step => step.kind), ['review'])
 })
 test('本集人物独立提取审核后补图；剧情及下游前置不会带出人物', () => {
@@ -27,7 +27,7 @@ test('本集人物独立提取审核后补图；剧情及下游前置不会带�
   const byKey = new Map(result.steps.map(step => [step.key, step]))
   const expand = byKey.get('expand@images:characters')
   assert.deepEqual(expand.after, [byKey.get('review@characters').id])
-  assert.deepEqual(expand.input.goal, { to: 'images', mode: 'regenerate', scope: { kinds: ['characters'] } })
+  assert.deepEqual(expand.input.goal, { to: 'images', mode: 'generate', scope: { kinds: ['characters'] } })
   assert.deepEqual(expand.input.policy, { autoSaveImages: true })
   assert.equal(byKey.has('generate@outline'), false)
   const ready = checked(planRun(view(), { to: 'story', scope: { only: 'characters' } }))
@@ -35,10 +35,10 @@ test('本集人物独立提取审核后补图；剧情及下游前置不会带�
   assert.ok(!checked(planRun(view(), { to: 'story', scope: { only: 'characters' }, mode: 'review' })).steps.some(step => step.kind === 'expand'))
   const missing = view(); missing.plot.characters.items = []; missing.plot.characters.check.passed = null
   const shots = checked(planRun(missing, { to: 'shots' }, { authorizePrereq: ['story@all', 'story@characters'] }))
-  assert.match(shots.blockers[0].message, /本集资产/)
+  assert.deepEqual(shots.blockers, [])
   assert.ok(shots.steps.every(step => step.target === 'shots'))
   assert.equal(planRun(missing, { to: 'story' }).prereq.length, 0)
-  assert.equal(planRun(view(), { from: 'story', to: 'shots', mode: 'regenerate' }).blockers.length, 1)
+  assert.equal(planRun(view(), { from: 'story', to: 'shots', mode: 'regenerate' }).blockers.length, 0)
 })
 test('补图只处理指定类别、缺图的卡，不等待确认；普通生图仍等待确认', () => {
   const project = view()
@@ -58,7 +58,7 @@ test('补图只处理指定类别、缺图的卡，不等待确认；普通生�
 test('缺前置不暗中执行，授权后只插入明确前置，前置依赖也保持可见', () => {
   const project = view(); project.summary.check.passed = false; project.plot.outline.check.passed = false
   const preview = checked(planRun(project, { to: 'story', scope: { only: 'characters' } }))
-  assert.ok(preview.prereq.some(item => item.key === 'summary@all'))
+  assert.ok(!preview.prereq.some(item => item.key === 'summary@all'))
   assert.deepEqual(preview.steps.map(step => step.key), ['generate@characters', 'review@characters', 'expand@images:characters'])
   assert.ok(preview.steps[0].input.required.length)
   const authorized = checked(planRun(project, { to: 'story', scope: { only: 'characters' } }, { authorizePrereq: ['summary@all', 'story@outline'] }))

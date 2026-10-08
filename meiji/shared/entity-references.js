@@ -35,14 +35,3 @@ export function collapseMentions(text, project) {
   }
   return value
 }
-const kindLabels = { character: '人物', scene: '场景', prop: '道具' }
-export function entityInstructions(project) {
-  const catalog = entityCatalog(project)
-  if (!catalog.length) return '【实体引用清单】\n本集无已登记的人物、场景或道具，正文直接描述。'
-  const lines = Object.entries(kindLabels).flatMap(([kind, label]) => {
-    const items = catalog.filter(e => e.kind === kind)
-    return items.length ? [`${label}：${items.map(e => `${entityMention(e)}${e.ownerId && kind !== 'character' && kind !== 'scene' ? `（属 ${e.ownerId}）` : ''}`).join('、')}`] : []
-  })
-  const sample = ['character', 'scene', 'prop'].map(kind => catalog.find(e => e.kind === kind)).filter(Boolean).map(entityMention).join('、')
-  return `【实体引用清单】\n${lines.join('\n')}\n正文每次提到以上人物、场景、道具或服装，都按清单原样写作「名字【名字|ID】」，例如 ${sample}。清单外的物件写普通描述；台词原文不插标记，说话人单独标注；仅被台词提及的人物不算出镜。`
-}

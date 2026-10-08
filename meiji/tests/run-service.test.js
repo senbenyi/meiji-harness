@@ -35,15 +35,15 @@ test('预览不执行，删除必须确认，客户端指定步骤和锁无效�
   const { run, deletions } = await e.service.plan({ ...e.input, steps: [{ kind: 'override' }], lock: 'episode' }, sessionId)
   assert.ok(deletions.length)
   assert.equal(calls, 0); assert.equal(run.status, 'draft')
-  assert.deepEqual(run.steps.map(step => step.kind), ['generate', 'review'])
+  assert.deepEqual(run.steps.map(step => step.kind), ['generate', 'review','generate'])
   // 锁范围由服务端按对象推导（剧情属于项目级写入），客户端传入的 lock 无效。
-  assert.ok(run.steps.every(step => step.scope === 'project'))
+  assert.ok(run.steps.every(step => step.scope === (step.target === 'summary' ? 'episode' : 'project')))
   await assert.rejects(e.service.confirm(e.id, run.id, sessionId), { code: 'DELETIONS_PENDING' })
   await assert.rejects(e.service.get(e.id, run.id, 'unbound'), { status: 409 })
   await e.service.confirm(e.id, run.id, sessionId, { confirmDelete: true }); await e.service.drain()
-  assert.equal(calls, 2)
+  assert.equal(calls, 3)
   const rows = await e.service.list(e.id, sessionId, { episodeId: e.episodeId, target: 'outline' })
-  assert.equal(rows.length, 1); assert.equal(rows[0].done, 2)
+  assert.equal(rows.length, 1); assert.equal(rows[0].done, 3)
   assert.ok(!Object.hasOwn(rows[0], 'steps')); assert.ok(!Object.hasOwn(rows[0], 'skillSnapshot'))
   assert.deepEqual(await e.service.list(e.id, sessionId, { target: 'seconds:S01' }), [])
 })
@@ -86,15 +86,13 @@ test('goal 接口用纯规划器生成单步图，镜头表通过后展开新的
   assert.equal(saved.status, 'completed'); assert.ok(seen.includes('seconds:S01')); assert.ok(seen.includes('seconds:S02'))
 })
 
-test('goal 缺前置不调用模型，前置变为满足后原任务可继续', async t => {
-  let calls = 0; const e = await setup(t, { execute: async () => { calls++; return { passed: true } } })
-  await e.store.save(e.id, root => { root.episodes[0].summary.check.passed = false; return root })
-  const { run, prereq } = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'story', scope: { only: 'outline' }, mode: 'regenerate' } }, sessionId)
-  assert.ok(prereq.some(item => item.key === 'summary@all'))
-  await e.service.confirm(e.id, run.id, sessionId, { confirmDelete: true }); await e.service.drain()
-  assert.equal(calls, 0); assert.equal((await e.service.get(e.id, run.id, sessionId)).pause.reasons[0].code, 'prereq_required')
-  await e.store.save(e.id, root => { root.episodes[0].summary.check.passed = true; return root }); await e.service.drain()
-  assert.equal(calls, 2); assert.equal((await e.service.get(e.id, run.id, sessionId)).status, 'completed')
+test('摘要未生成或未通过也不阻断故事目标', async t => {
+ let calls=0;const e=await setup(t,{execute:async()=>{calls++;return {passed:true}}})
+ await e.store.save(e.id,root=>{root.episodes[0].summary.check.passed=false;root.episodes[0].summary.content=null;return root})
+ const {run,prereq}=await e.service.plan(e.input,sessionId)
+ assert.equal(prereq.length,0)
+ await e.service.confirm(e.id,run.id,sessionId,{confirmDelete:true});await e.service.drain()
+ assert.equal(calls,3);assert.equal((await e.service.get(e.id,run.id,sessionId)).status,'completed')
 })
 
 test('生图后等待人工确认，不提前运行引用该卡片的成片', async t => {
@@ -336,7 +334,7 @@ test('真实审核用尽后任务直接结束，保留项目与剧集身份，�
   assert.equal(root.episodes[0].plot.outline.check.passed, false)
 })
 
-test('独立人物任务审核通过后为所有人物生图并自动保存，不等待确认', async t => {
+test('独立人物任务审核通过后只为缺图人物生图并自动保存，不等待确认', async t => {
   const seen = []
   const e = await setup(t, { execute: async (_run, step) => { seen.push(`${step.kind}@${step.target}`); return ['review', 're_review'].includes(step.kind) ? { passed: true } : {} } })
   await e.store.save(e.id, root => {
@@ -351,8 +349,8 @@ test('独立人物任务审核通过后为所有人物生图并自动保存，�
   const done = await e.service.get(e.id, run.id, sessionId)
   assert.equal(done.status, 'completed', JSON.stringify(done.failure))
   const plot = (await e.read()).plot, missing = card => !card.image.content?.localPath
-  // 所有人物均重新生图；场景即使缺图也不进入任务。
-  const expected = plot.characters.items.map(card => `image@image:${card.id}`)
+  // 已有人物图直接复用；场景即使缺图也不进入任务。
+  const expected = plot.characters.items.filter(missing).map(card => `image@image:${card.id}`)
   assert.ok(expected.length && plot.characters.items.some(card => !missing(card)))
   assert.deepEqual(seen.filter(item => item.startsWith('image@')).sort(), expected.sort())
   assert.ok(!done.steps.some(step => step.kind === 'wait_confirm'))
@@ -365,7 +363,7 @@ test('独立人物任务审核通过后为所有人物生图并自动保存，�
 })
 
 
-test('人物审核步骤异常持久化到人物节点并可重新生成，异常不自动生图', async t => {
+test('无效库引用在提取时失败并保留旧人物，可重新生成且异常不自动生图', async t => {
  const { storyPackageFixture, storyRequest } = await import('./fixtures/story-package.js')
  const { mergeLibraryGroup } = await import('../shared/library-rules.js')
  const { scopeProjects } = await import('../server/data/episode-data.js')
@@ -373,7 +371,7 @@ test('人物审核步骤异常持久化到人物节点并可重新生成，异�
  const e = await setup(t, { deps: { request: storyRequest(fixture), submitAssetImage: async () => { images++ } } })
  const current = await e.read()
  await scopeProjects(e.store, e.episodeId).save(e.id, mergeLibraryGroup(current, 'characters', current.plot.characters))
- const entry = (await e.store.read(e.id)).library.characters[0]
+ const entry = (await e.store.read(e.id)).library.characters[0], oldCharacters = (await e.read()).plot.characters
  fixture.characters.items[0].libraryId = 'R999'
  fixture.characters.items[0].name = '新人物身体'
  const input = { projectId: e.id, episodeId: e.episodeId, goal: { to: 'story', scope: { only: 'characters' }, mode: 'regenerate' } }
@@ -381,7 +379,8 @@ test('人物审核步骤异常持久化到人物节点并可重新生成，异�
  await e.service.confirm(e.id, run.id, sessionId, { confirmDelete: true }); await e.service.drain()
  const done = await e.service.get(e.id, run.id, sessionId), failed = await e.read()
  assert.equal(done.status, 'failed'); assert.match(done.failure.message, /库条目不存在/)
- assert.equal(failed.plot.characters.status, 'failed'); assert.match(failed.plot.characters.error, /库条目不存在/)
+ assert.equal(failed.plot.characters.status, 'passed'); assert.equal(failed.plot.characters.error, null)
+ assert.deepEqual(failed.plot.characters.items, oldCharacters.items)
  assert.equal(images, 0)
  delete fixture.characters.items[0].libraryId
  const next = await e.service.plan(input, sessionId)
@@ -393,7 +392,7 @@ test('人物审核步骤异常持久化到人物节点并可重新生成，异�
 })
 
 
-test('人物仅指定已有 libraryId 时真实审核入库复用唯一资料并继续自动生图保存', async t => {
+test('人物指定已有 libraryId 与合法名称时真实审核复用唯一资料并继续自动生图保存', async t => {
  const { storyPackageFixture, storyRequest } = await import('./fixtures/story-package.js')
  const { mergeLibraryGroup } = await import('../shared/library-rules.js')
  const { scopeProjects } = await import('../server/data/episode-data.js')
@@ -409,7 +408,7 @@ test('人物仅指定已有 libraryId 时真实审核入库复用唯一资料并
  await scopeProjects(e.store, e.episodeId).save(e.id, mergeLibraryGroup(current, 'characters', current.plot.characters))
  const entry = (await e.store.read(e.id)).library.characters[0]
  fixture.characters.items[0].libraryId = entry.id
- fixture.characters.items[0].name = '模型使用的角色称呼'
+ fixture.characters.items[0].name = entry.name
  const { run } = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'story', scope: { only: 'characters' }, mode: 'regenerate' } }, sessionId)
  await e.service.confirm(e.id, run.id, sessionId, { confirmDelete: true }); await e.service.drain()
  const done = await e.service.get(e.id, run.id, sessionId), saved = await e.read(), root = await e.store.read(e.id)
@@ -422,4 +421,15 @@ test('人物仅指定已有 libraryId 时真实审核入库复用唯一资料并
  assert.equal(images, 1)
  assert.ok(saved.plot.characters.items[0].image.content.assetId)
  assert.deepEqual(saved.pendingImages, {})
+})
+
+
+test('展示摘要提取失败仅记录旁支错误，不让已通过大纲任务失败或阻断拆镜',async t=>{
+ const e=await setup(t,{deps:{request:async message=>message.skill==='review'?reviewPass:message.skill==='episode'?'{"summary":""}':JSON.stringify(outlineFixture('完整故事'))}})
+ const {run}=await e.service.plan(e.input,sessionId)
+ await e.service.confirm(e.id,run.id,sessionId,{confirmDelete:true});await e.service.drain()
+ const saved=await e.service.get(e.id,run.id,sessionId),view=await e.read()
+ assert.equal(saved.status,'completed');assert.equal(view.plot.outline.check.passed,true)
+ assert.match(saved.steps.find(step=>step.target==='summary').output.optionalError,/摘要/)
+ const {canGenerate}=await import('../shared/generation-gates.js');assert.equal(canGenerate(view,'shots'),true)
 })

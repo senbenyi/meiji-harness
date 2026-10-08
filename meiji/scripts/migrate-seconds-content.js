@@ -8,7 +8,7 @@ export function migrateSeconds(project) {
   let changed = false
   for (const e of project.episodes) {
     if (!e.plot.props) { e.plot.props = { ...node('props'), items: [] }; changed = true }
-    const legacy = e.shots.items.filter(s => s.seconds.content && s.seconds.content.version !== 1)
+    const legacy = e.shots.items.filter(s => s.seconds.content && ![1, 2].includes(s.seconds.content.version))
     if (!legacy.length) continue
     changed = true
     e.shots.seconds = node('seconds')

@@ -16,7 +16,7 @@ import { builtinSkillSet } from '../server/data/skill-store.js'
 import { reviewRequest } from '../server/prompts/prompt-request.js'
 
 const stages = ['episode', 'outline', 'shots', 'shot-revise', 'seconds', 'image-prompt']
-const project = { outputLanguage: 'en', skills: {} }
+const project = { outputLanguage: 'en', skills: {}, plot: { outline: { content: { 故事小段: '1. 本集故事' } } } }
 const task = skill => ({ skill, project, instructions: '任务内容', reviewInstructions: '审核上下文' })
 const piece = text => segment('context', '', text)
 

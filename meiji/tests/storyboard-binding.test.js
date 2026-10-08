@@ -28,7 +28,7 @@ test('storyboard goal runs one program step that assembles and reviews without m
   await runOperation(e.op(action,{track:'S01'}),{home:e.home,operationId:action})
   const task=await latestRun(e.home, e.id, 'storyboard:S01')
   assert.equal(task.status,'completed');assert.deepEqual(task.kinds,['storyboard'])
-  assert.deepEqual(task.steps[0].attempts.map(a=>a.label),['程序组装','review','程序审核'])
+  assert.deepEqual(task.steps[0].attempts.map(a=>a.label),['匹配参与角色与既有资料','编排分镜提示词','校验分镜提示词'])
  }
 })
 test('manual final text still receives semantic review against selected seconds',()=>{

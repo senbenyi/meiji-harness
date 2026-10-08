@@ -9,15 +9,9 @@ import { checkContext } from '../server/runtime/operation-context.js'
 import { recordSteps } from './fixtures/nodes.js'
 const route = { baseUrl: 'https://test.local', apiKey: 'test', model: 'test' }
 
-test('episode generation repairs once and records both reviews',async()=>{
- const project = {...episodeFixture(), episodes: []};let calls=0
- const { result, nodes } = await recordSteps(() => checkContext.run({},() => generateEpisode({project,route,referenceDurationSeconds:10,request:async ({ skill, user: prompt }) =>{
- calls++;if(calls===2)return reviewFail('结尾未承接');if(calls===4)return reviewPass
- if(calls===3){assert.match(prompt,/结尾未承接/);assert.match(prompt,/初稿/)}
- return JSON.stringify({summary:calls===1?'初稿':'修订稿',durationSeconds:10})
- }})))
- assert.equal(calls,4);assert.equal(result.summary,'修订稿');assert.equal(result.check.passed,true)
- assert.deepEqual(nodes.map(step => `${step.kind}:${step.target}:${step.verdict ?? null}`), ['generate:summary:null', 'review:summary:fail', 'revise:summary:null', 're_review:summary:pass'])
+test('展示摘要提取不自审或修订，故事审核由大纲步骤负责',async()=>{
+ let calls=0;const {result,nodes}=await recordSteps(()=>generateEpisode({project:episodeFixture(),route,request:async()=>{calls++;return '{"summary":"展示摘要"}'}}))
+ assert.equal(calls,1);assert.equal(result.summary,'展示摘要');assert.deepEqual(nodes.map(step=>step.kind),['generate'])
 })
 test('story outline repairs once before extracting cards from the final outline', async () => {
  const fixture = storyPackageFixture()
@@ -32,10 +26,10 @@ test('story outline repairs once before extracting cards from the final outline'
  assert.equal(calls,8); assert.equal(result.check.passed,true)
  assert.deepEqual(nodes.map(step=>`${step.kind}:${step.target}`), ['generate:outline','review:outline','revise:outline','re_review:outline','generate:characters','review:characters','generate:scenes','review:scenes'])
 })
-test('episode invalid JSON fails program review and receives maxRevisions (default 2) revisions',async()=>{
+test('展示摘要无效JSON直接失败，不触发创作修订',async()=>{
  let calls=0
  await assert.rejects(generateEpisode({project:{...episodeFixture(),episodes:[]},route,request:async({skill})=>{calls++;return skill==='review'?reviewPass:'{bad'}}),/JSON/)
- assert.equal(calls,6)
+ assert.equal(calls,1)
 })
 
 test('character extraction independently reviews body coverage and stops scene extraction on failure', async () => {

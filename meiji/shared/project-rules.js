@@ -33,9 +33,6 @@ export function videoSizeOf(raw) {
 }
 
 export function sourcePatch(project, input) {
-  const summary = typeof input?.summary === 'string' ? input.summary.trim() : (typeof project?.summary?.content === 'string' ? project.summary.content.trim() : '')
-  if (!summary) throw Object.assign(new Error('摘要不能为空'), { status: 400 })
-  if (!project.episodeId && summary.length > 10000) throw Object.assign(new Error('剧本摘要需为 1–10000 字'), { status: 400 })
   const title = typeof input?.title === 'string' ? input.title.trim() : project.title
   if (!title || title.length > 100) throw Object.assign(new Error('短剧标题需为 1–100 字'), { status: 400 })
   const durationSeconds = input?.durationSeconds == null || input.durationSeconds === ''
@@ -43,11 +40,11 @@ export function sourcePatch(project, input) {
     : durationOf(input.durationSeconds)
   const storedAspect = project?.aspectRatio || defaultAspectRatio
   const aspectRatio = input?.aspectRatio == null || input.aspectRatio === '' ? storedAspect : aspectRatioOf(input.aspectRatio)
-  const changed = summary !== project.summary.content || durationSeconds !== project.durationSeconds || aspectRatio !== storedAspect
+  const changed = durationSeconds !== project.durationSeconds || aspectRatio !== storedAspect
   if (!changed) return title === project.title ? { summary: project.summary } : { summary: project.summary, title }
-  const patch = summary !== project.summary.content || durationSeconds !== project.durationSeconds
+  const patch = durationSeconds !== project.durationSeconds
     ? replaceFrom(project, 'summary', {}) : cascade(project, { type: 'aspect' }).patch
-  return { ...patch, summary: contentNode(project.summary, summary, { passed: true, failures: [] }), title, durationSeconds, aspectRatio }
+  return { ...patch, title, durationSeconds, aspectRatio }
 }
 
 

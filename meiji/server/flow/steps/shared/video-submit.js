@@ -73,7 +73,7 @@ export function formatFilmRequest(fields) {
     `size: ${fields.size || ''}`,
     `mode: ${fields.mode || ''}`,
   ]
-  if (fields.referenceImages?.length) lines.push(`reference_images（按顺序转为 base64 data URL 提交）: ${JSON.stringify(fields.referenceImages)}`)
+  if (fields.referenceImages?.length) lines.push(`reference_images 素材清单（本地读取来源；按 Picture 顺序以 Base64 data URL 提交）: ${JSON.stringify(fields.referenceImages)}`)
   if (fields.inputReference) lines.push(`input_reference: ${fields.inputReference}`)
   lines.push('prompt:')
   if (fields.prompt) lines.push(fields.prompt)
@@ -83,9 +83,10 @@ export function formatFilmRequest(fields) {
 export function filmSubmit(project, item, opening) {
   const images = item.video === 'text' ? [] : shotReferenceImages(project, item)
   const shot = (project.shots?.items || []).find(entry => entry.id === item.id)
-  if (item.compilerVersion === 1) {
+  if (item.compilerVersion >= 1) {
     const current = compileVideoPrompt(project, shot)
-    if (shot.seconds.check.passed !== true || item.secondsRevision !== shot.seconds.revision || JSON.stringify(item.referenceSnapshot) !== JSON.stringify(current.referenceSnapshot)) throw Object.assign(new Error('每秒分镜或参考素材已变化，请重新组装视频提示词'), { status: 409 })
+    if ((item.outfitSnapshot !== undefined || current.outfitSnapshot.length) && JSON.stringify(item.outfitSnapshot) !== JSON.stringify(current.outfitSnapshot)) throw Object.assign(new Error('每秒分镜人物着装已变化，请重新组装视频提示词'), {status:409})
+    if (shot.seconds.check.passed !== true || item.secondsRevision !== shot.seconds.revision || JSON.stringify(item.referenceSnapshot) !== JSON.stringify(current.referenceSnapshot) || (item.compilerVersion >= 2 || current.characterSnapshot.some(person => person.voiceDescription)) && JSON.stringify(item.characterSnapshot) !== JSON.stringify(current.characterSnapshot)) throw Object.assign(new Error('每秒分镜、人物声音或参考素材已变化，请重新组装视频提示词'), { status: 409 })
   }
   const mode = videoRequestMode({
     video: item.video,

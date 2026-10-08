@@ -29,11 +29,11 @@ test('outline, characters and scenes use separate generation and review requests
     }
     if (calls > 2) assert.match(body.messages[1].content, /旅人进入山洞，发现陌生脚印/)
     if (calls === 1) {
-      assert.match(body.messages[0].content, /顶层恰好包含.*七个中文字段/)
+      assert.match(body.messages[0].content, /顶层仅含「故事小段」字段/)
       assert.deepEqual(body.response_format, { type: 'json_object' })
       assert.doesNotMatch(body.messages[0].content, /### 角色卡|### 场景卡/)
     }
-    if (calls === 3) assert.match(body.messages[0].content, /角色卡覆盖大纲/)
+    if (calls === 3) assert.match(body.messages[0].content, /participants.*参与人物范围/s)
     if (calls === 5) assert.match(body.messages[0].content, /按实际空间覆盖建卡/)
     return Response.json({ choices: [{ message: { content: replies.shift() } }] })
   } })
@@ -73,14 +73,14 @@ test('剧情逐步骤保存失败稿，前项成功保留，依赖失败项的�
   assert.equal(saved.plot.props.items.length, 0)
   assert.equal(saved.shots.items.length, 0)
   assert.equal(saved.assembly.content, null)
-  assert.equal(canGenerate(saved, 'shots'), false)
+  assert.equal(canGenerate(saved, 'shots'), true)
   assert.deepEqual((await e.store.read(e.id)).episodes[1], before)
   await assert.rejects(runOperation(e.op('story'), { home: e.home, request: async () => { throw new Error('返回数据不完整') } }), /返回数据不完整/)
   assert.equal((await e.read()).plot.outline.content, null)
 })
 
 test('characters and scenes are generated from the plot tab and shown in the episode assets tab', () => {
-  assert.deepEqual(tabs.map(t => t.id), ['summary', 'script', 'assets', 'shots', 'seconds', 'film', 'assembly'])
+  assert.deepEqual(tabs.map(t => t.id), ['script', 'assets', 'shots', 'seconds', 'film', 'assembly'])
   assert.equal(tabOf({ summary: { content: '摘要', check: { passed: true } }, plot: {} }), 'script')
   assert.equal(canGenerate({ outline: '大纲' }, 'characters'), false)
 })
@@ -137,7 +137,7 @@ test('regenerate clears old story before requests and extracts same-name cards w
   }
   assert.deepEqual(after.plot.scenes.items, [])
   assert.deepEqual(after.plot.props.items, [])
-  assert.deepEqual(after.summary, before.summary)
+  assert.equal(after.summary.content, '展示摘要'); assert.equal(after.summary.outlineRevision, after.plot.outline.revision)
   assert.deepEqual(after.supplementalSkills, before.supplementalSkills)
 })
 

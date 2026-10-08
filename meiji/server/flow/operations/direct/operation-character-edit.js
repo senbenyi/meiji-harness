@@ -13,14 +13,15 @@ export async function opCharacterText(c) {
   let { operation, deps, projects, models, project, trace, note } = c
   const character = project.plot.characters.items.find(item => item.id === operation.itemId)
   if (!character) throw Object.assign(new Error('人物不存在'), { status: 404 })
-  const keys = ['nationality', 'name', 'role', 'gender', 'era', 'age', 'height', 'build', 'features']
+  const visualKeys = ['nationality', 'name', 'role', 'gender', 'era', 'age', 'height', 'build', 'features']
+  const keys = character.presence === 'voice' ? ['name', 'role', 'identity', 'voiceDescription'] : [...visualKeys, 'voiceDescription']
   const current = characterFieldValues(character)
-  if (keys.some(key => current[key] !== operation.original?.[key])) throw Object.assign(new Error('人物已更新，请刷新后编辑'), { status: 409 })
+  if (keys.some(key => current[key] !== String(operation.original?.[key] || ''))) throw Object.assign(new Error('人物已更新，请刷新后编辑'), { status: 409 })
   const values = Object.fromEntries(keys.map(key => [key, String(operation.fields?.[key] || '').trim()]))
-  if (Object.values(values).some(value => !value || value.length > 10000)) throw Object.assign(new Error('人物字段不能为空或超过10000字'), { status: 400 })
+  if (keys.some(key => values[key].length > 10000 || !values[key] && !(key === 'voiceDescription' && character.presence !== 'voice' || key === 'role' && character.presence === 'voice'))) throw Object.assign(new Error('人物字段不能为空或超过10000字'), { status: 400 })
   values.costume = current.costume
   if (project.plot.characters.items.some(item => item.id !== character.id && item.name === values.name)) throw Object.assign(new Error('人物名称重复'), { status: 400 })
-  const look = characterLookText(values)
+  const look = character.presence === 'voice' || visualKeys.every(key => values[key] === current[key]) ? character.look || '' : characterLookText(values)
   project = await runNode('save', () => projects.save(project.id, currentProject => {
     const linked = editLinkedCard(currentProject, 'characters', character.id, { ...values, figure: '', look }, { newVariant: operation.newVariant })
     const items = linked.plot.characters.items.map(item => item.id === character.id ? { ...item, ...values, figure: '', look } : item)

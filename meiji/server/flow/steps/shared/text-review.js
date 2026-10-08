@@ -15,7 +15,8 @@ export async function reviewStep({ kind = 'review', target = null, phase, label,
   return runNode(kind, async () => {
     const failures = check ? await nodeAttempt('程序审核', () => programFailures(check, text)) : []
     const model = message ? await nodeAttempt('大模型审核', async () => parseReviewResult(await runTextRequest(message, options))) : null
-    const issues = [...(model?.issues || []), ...failures.map(reason => ({ location: '程序校验', reason, requirement: '按该校验要求修正正文' }))]
+    const issues = [...new Map([...(model?.issues || []), ...failures.map(reason => ({ location: '程序校验', reason, requirement: '按该校验要求修正正文' }))]
+      .map(issue => [formatReviewIssue(issue), issue])).values()]
     const review = { passed: issues.length === 0, issues }
     const combined = issues.map(formatReviewIssue)
     const result = { review, reviewText: combined.join('\n') || '审核通过', check: { passed: review.passed, failures: combined } }
@@ -28,4 +29,3 @@ function markSaved() {
   const step = activeNode()
   if (step) step.saved = true
 }
-

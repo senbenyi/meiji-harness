@@ -14,7 +14,7 @@ export function materialize(project, episodeId) {
   if (!episode) throw Object.assign(new Error('这一集不存在'), { status: 404 })
   const ordered = [...project.episodes].reverse()
   const index = ordered.findIndex(item => item.id === episodeId)
-  return { ...episode, episodeNumber: index + 1, previousEpisodeSummary: ordered[index - 1]?.summary?.content, nextEpisodeSummary: ordered[index + 1]?.summary?.content, id: project.id, episodeId, title: project.title, aspectRatio: project.aspectRatio, outputLanguage: project.outputLanguage, script: project.script, scriptKind: project.scriptKind, mode: project.mode, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, libraryPendingImages: project.pendingImages, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
+  return { ...episode, episodeNumber: index + 1, previousEpisodeOutline: ordered[index - 1]?.plot?.outline?.content, previousEpisodeOutlines: ordered.slice(0, index).map(item => ({ episodeId: item.id, story: item.plot?.outline?.content })).filter(item => item.story), nextEpisodeOutline: ordered[index + 1]?.plot?.outline?.content, id: project.id, episodeId, title: project.title, aspectRatio: project.aspectRatio, outputLanguage: project.outputLanguage, script: project.script, scriptKind: project.scriptKind, mode: project.mode, premise: project.premise, scriptRevision: project.scriptRevision, library: project.library, libraryPendingImages: project.pendingImages, projectSummary: project.summary.content, skills: project.skills, revision: project.revision }
 }
 export function foldEpisode(project, episodeId, view) {
   const episode = project.episodes.find(item => item.id === episodeId)
@@ -31,8 +31,8 @@ export function episodeSummary(raw) {
 }
 
 export function blankEpisode(input) {
-  const result = episodeModel(crypto.randomUUID(), { createdAt: new Date().toISOString(), cover: null, durationSeconds: durationOf(input?.durationSeconds), summary: episodeSummary(input?.summary), stage: 'summary' })
-  setContent(result.summary, result.summary.content, { passed: true, failures: [] })
+  const result = episodeModel(crypto.randomUUID(), { createdAt: new Date().toISOString(), cover: null, durationSeconds: durationOf(input?.durationSeconds), summary: typeof input?.summary === 'string' ? input.summary.trim() : '', storyRequirements: String(input?.requirements || '').trim(), stage: 'outline' })
+  if (result.summary.content) setContent(result.summary, result.summary.content, { passed: true, failures: [] })
   return result
 }
 
@@ -45,12 +45,10 @@ export function editEpisode(project, episodeId, input) {
   const current = normalizeProject(project)
   const episode = current.episodes.find(item => item.id === episodeId)
   if (!episode) throw Object.assign(new Error('这一集不存在'), { status: 404 })
-  const summary = episodeSummary(input?.summary)
   const durationSeconds = durationOf(input?.durationSeconds)
-  const changed = summary !== episode.summary.content || durationSeconds !== episode.durationSeconds
-  const next = changed
-    ? { ...episode, ...replaceFrom(episode, 'summary', {}), summary: contentNode(episode.summary, summary, { passed: true, failures: [] }), durationSeconds }
-    : { ...episode, summary: contentNode(episode.summary, summary, { passed: true, failures: [] }), durationSeconds }
+  const changed = durationSeconds !== episode.durationSeconds
+  const next = { ...episode, ...(changed ? replaceFrom(episode, 'summary', {}) : {}), durationSeconds,
+    storyRequirements: String(input?.requirements ?? episode.storyRequirements ?? '').trim() }
   return {
     episodes: current.episodes.map(item => item.id === episodeId ? next : item),
   }

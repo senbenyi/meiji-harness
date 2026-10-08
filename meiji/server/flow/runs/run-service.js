@@ -72,17 +72,17 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
   const checkStep = async (run, step) => {
     if (!step || !run.request?.goal) return null
     const root = await projects.read(run.projectId), view = plannerView(root, run.episodeId)
-    if (['outline', 'characters', 'scenes'].includes(step.target) && !['review', 're_review'].includes(step.kind) && scriptFreshness(root).summaryNeedsUpdate) {
-      // 任务执行中剧本升版（如本任务的摘要回写）：先自动更新并审核项目摘要，再执行本步骤。
-      return { insert: planRun(root, { to: 'project-summary', mode: 'regenerate' }, { ...plannerPolicy(root, run.policy, run.episodeId), projectSummaryRequired: false }).steps }
+    // 前镜尾帧或角色引用可能在任务内更新：提交前重新核对，过期时只插入程序编排。
+    if (step.kind === 'video' && !storyboardReady(view, step.input.operation.track)) {
+      return { insert: planRun(view, { to: 'film', parts: 'storyboard', mode: 'regenerate', scope: { tracks: [step.input.operation.track] } }, plannerPolicy(root, run.policy, run.episodeId)).steps }
     }
     const required = step.input?.required || []
     for (const entry of required) {
       const prerequisite = planRun(entry.goal.to === 'project-summary' ? root : view, entry.goal, plannerPolicy(root, { review: true }, run.episodeId))
-      if (!prerequisite.steps.length || prerequisite.steps.some(item => item.status !== 'skipped')) return { pause: { code: 'prereq_required', message: entry.message, actions: ['authorize', 'cancel-branch'] } }
+      if (!prerequisite.steps.length || prerequisite.steps.some(item => !item.branch && item.status !== 'skipped')) return { pause: { code: 'prereq_required', message: entry.message, actions: ['authorize', 'cancel-branch'] } }
     }
     if (['summary', 'outline', 'characters', 'scenes', 'props', 'project-summary', 'script'].includes(step.target) && !['review', 're_review', 'sync', 'wait_script_confirm'].includes(step.kind)) {
-      const pending = scriptBlockers(root).filter(item => !(step.target === 'summary' && item.episodeId === run.episodeId && item.kind === 'episode-sync'))
+      const pending = scriptBlockers(root).filter(item => item.kind !== 'episode-sync')
       if (pending.length) return { pause: { code: 'script_pending', message: '剧本有待处理回写或方案，请在剧本页处理', actions: ['cancel-branch'] } }
     }
     if (step.kind === 'wait_confirm') {
@@ -100,7 +100,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
     return null
   }
   // 即时编辑对应的任务对象，以及该编辑波及某个任务的范围。
-  const editTarget = (operation, root) => ({ 'outline-text': 'outline', 'character-text': 'characters', 'scene-text': 'scenes', 'prop-text': 'props', source: 'summary', 'episode-edit': 'summary' })[operation.action] || (operation.action === 'storyboard-text' ? `storyboard:${operation.track}` : ['import-image', 'use-asset', 'clear-image', 'confirm-image'].includes(operation.action) ? `image:${operation.itemId || root.episodes.find(episode => episode.id === operation.episodeId)?.pendingImages?.[operation.draftId]?.itemId}` : null)
+  const editTarget = (operation, root) => ({ 'outline-text': 'outline', 'character-text': 'characters', 'character-delete': 'characters', 'scene-text': 'scenes', 'prop-text': 'props', source: 'summary', 'episode-edit': 'summary' })[operation.action] || (operation.action === 'storyboard-text' ? `storyboard:${operation.track}` : ['import-image', 'use-asset', 'clear-image', 'confirm-image'].includes(operation.action) ? `image:${operation.itemId || root.episodes.find(episode => episode.id === operation.episodeId)?.pendingImages?.[operation.draftId]?.itemId}` : null)
   const editReach = (run, operation, deletions, baseTarget) => {
     const affected = deletions.filter(item => item.episodeId === run.episodeId).map(item => item.track ? `${['video', 'tailFrame'].includes(item.kind) ? 'film' : item.kind}:${item.track}` : item.kind)
     const covered = new Set(run.steps.filter(step => !['superseded', 'cancelled'].includes(step.status)).map(step => step.target))
@@ -118,7 +118,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
       if (step.kind === 'wait_script_confirm') {
         const root = await projects.read(run.projectId)
         const affectedEpisodes = root.scriptProposals.some(item => item.runId === run.id && item.status === 'applied') ? root.episodes.filter(episode => episodeHints(root, episode).scriptUpdated).map(episode => episode.id) : []
-        return { confirmed: true, affectedEpisodes, optionalGoals: affectedEpisodes.map(episodeId => ({ episodeId, goal: { to: 'summary', mode: 'regenerate' } })) }
+        return { confirmed: true, affectedEpisodes, optionalGoals: affectedEpisodes.map(episodeId => ({ episodeId, goal: { to: 'story', mode: 'regenerate' } })) }
       }
       if (step.kind === 'wait_confirm') return { confirmed: true }
       return execute(run, step, { ...deps, ...context, home })
@@ -151,9 +151,9 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
         if (input.episodeNumber !== undefined) {
           if (!Number.isInteger(input.episodeNumber) || input.episodeNumber < 1 || input.episodeNumber > root.episodes.length + 1) throw reject('剧集不存在，不能跳集')
           if (input.episodeNumber <= root.episodes.length) episodeId = [...root.episodes].reverse()[input.episodeNumber - 1].id
-          else if (goal.to !== 'summary' || goal.mode !== 'generate') throw reject('只有生成摘要可以新建下一集')
+          else if (goal.to !== 'story' || goal.mode !== 'generate') throw reject('只有生成故事小段可以新建下一集')
           else if (!goal.draft) newEpisode = { id: randomUUID(), number: input.episodeNumber, durationSeconds: goal.durationSeconds || 150 }
-        } else if (!episodeId && !root.episodes.length && goal.to === 'summary' && !goal.draft) newEpisode = { id: randomUUID(), number: 1, durationSeconds: goal.durationSeconds || 150 }
+        } else if (!episodeId && !root.episodes.length && goal.to === 'story' && !goal.draft) newEpisode = { id: randomUUID(), number: 1, durationSeconds: goal.durationSeconds || 150 }
         if (newEpisode) episodeId = newEpisode.id
         if (!episodeId && !['project-summary', 'script-revise'].includes(goal.to) && !goal.draft && !goal.scope.library) throw reject('请指定剧集')
         if (episodeId && !newEpisode && !root.episodes.some(item => item.id === episodeId) && !(goal.to === 'script-sync' && root.scriptPendingDeletes.some(item => item.episodeId === episodeId))) throw reject('剧集不存在')
@@ -327,12 +327,12 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
         const manualTarget = changed || `image:${operation.itemId || operation.variantId || ''}`
         const text = ['summary', 'outline', 'characters', 'scenes', 'props', 'storyboard'].includes(manualTarget.split(':')[0])
         const plans = []
-        if (manualTarget === 'summary' && isAiCreation(root)) plans.push(planRun(view, { to: 'script-sync' }, plannerPolicy(root, run.policy, run.episodeId)))
+        if (manualTarget === 'outline') plans.push(planRun(view, { to: 'summary', mode: 'regenerate' }, plannerPolicy(root, run.policy, run.episodeId)))
         for (const target of targets) {
           if (target === manualTarget || target.startsWith('storyboard:') && targets.includes(target.replace('storyboard:', 'film:'))) continue
           plans.push(planRun(view, goalForRunTarget(target, { mode: 'generate' }), plannerPolicy(root, run.policy, run.episodeId)))
         }
-        const combined = mergeRunPlans(plans), kept = combined.steps.filter(step => covered.has(step.target) || manualTarget === 'summary' && step.target === 'script'), keptIds = new Set(kept.map(step => step.id))
+        const combined = mergeRunPlans(plans), kept = combined.steps.filter(step => covered.has(step.target) || manualTarget === 'outline' && step.target === 'summary'), keptIds = new Set(kept.map(step => step.id))
         for (const step of kept) { step.after = step.after.filter(id => keptIds.has(id)); step.origin = 'cascade' }
         const manual = { id: 'manual-edit', key: `manual_edit@${manualTarget}`, target: manualTarget, kind: 'manual_edit', scope: operation.lock === 'project' ? 'project' : 'episode', queue: null, actor: 'human', after: [], status: 'done', endedAt: new Date().toISOString(), input: { saved: true } }
         const inserted = [manual]
@@ -365,15 +365,13 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
           continuation = { runId: run.id, stepId: selected.id, target: manualTarget }
         }
       }
-      if (isAiCreation(root) && !summaryOwned && ['source', 'episode-add', 'episode-edit', 'episode-delete'].includes(operation.action)) {
-        const changedEpisode = root.episodes.find(episode => episode.summary.revision !== before.episodes.find(item => item.id === episode.id)?.summary.revision)
-        const deleted = root.scriptPendingDeletes.find(item => !before.scriptPendingDeletes.some(prior => prior.episodeId === item.episodeId))
-        const episodeId = changedEpisode?.id || deleted?.episodeId
-        if (episodeId && operation.sessionId) {
-          const planned = await this.plan({ projectId: root.id, episodeId, goal: { to: 'script-sync' } }, operation.sessionId)
-          if (planned.amend) await this.amend(root.id, planned.run.id, operation.sessionId, { goal: { to: 'script-sync' }, confirmDelete: true })
+      if (operation.action === 'outline-text' && !continuation) {
+        const episode = root.episodes.find(item => item.id === operation.episodeId)
+        if (episode?.plot.outline.check.passed === true) {
+          const planned = await this.plan({ projectId: root.id, episodeId: episode.id, goal: { to: 'summary', mode: 'regenerate' } }, operation.sessionId)
+          if (planned.amend) await this.amend(root.id, planned.run.id, operation.sessionId, { goal: { to: 'summary', mode: 'regenerate' }, confirmDelete: true })
           else await this.confirm(root.id, planned.run.id, operation.sessionId)
-          continuation = { runId: planned.run.id, kind: 'sync' }
+          continuation = { runId: planned.run.id, kind: 'summary' }
         }
       }
       return continuation

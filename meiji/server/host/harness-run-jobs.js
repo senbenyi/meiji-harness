@@ -1,3 +1,4 @@
+import { runGoalLabel } from '../../shared/run-view.js'
 // 只观察注入的 Run 服务；host 不引用 flow/runtime/data。
 export function createHarnessRunJobs({ home, registry, readRun, cancelRun, subscribeProject }) {
   const observers = new Map(), sources = new Map()
@@ -5,7 +6,7 @@ export function createHarnessRunJobs({ home, registry, readRun, cancelRun, subsc
     bind(run, sessionId, { afterRevision = null, source = run.initiator } = {}) {
       if (!registry?.start) throw Object.assign(new Error('Harness jobs 服务不可用'), { status: 409, code: 'JOBS_UNAVAILABLE' })
       let jobId, enteredId
-      try { jobId = registry.start({ kind: 'meiji-run', owner: sessionId, label: `制作任务 ${run.goal.to}`, outputLimitBytes: 16384,
+      try { jobId = registry.start({ kind: 'meiji-run', owner: sessionId, label: runGoalLabel(run), outputLimitBytes: 16384,
         run: job => {
           enteredId = job.id
           let resolve, stopped = false, checking = false, again = false

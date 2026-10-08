@@ -1,11 +1,29 @@
+import { bindNamedText } from './film-characters.js'
+import { libraryTarget } from './library-rules.js'
 import { referencedEntities, entityCatalog, collapseMentions, entityMention } from './entity-references.js'
-export const secondsVersion = 1
+export const secondsVersion = 2
 export const narratorId = 'NARRATOR'
 const fail = message => { throw new Error(message) }
 const nonempty = value => typeof value === 'string' && value.trim()
 const array = (value, name) => { if (!Array.isArray(value)) fail(`${name}必须为数组`); return value }
+// 只提供本集已建卡人物的称谓，不附固定资料，也不展开未关联的项目角色。
+export function secondsCharacterRoster(project) {
+  return (project?.plot?.characters?.items || []).map(card => {
+    const target = card.ref && libraryTarget(project, 'characters', card.ref)
+    const name = card.sourceName || card.name
+    return { name, aliases: [...new Set([card.name, card.sourceName, ...(target?.entry.aliases || [])].filter(value => value && value !== name))] }
+  })
+}
+// participants是角色卡参与子集；只清理卡外条目，不修改剧情及对白。
+export function normalizeSecondsParticipants(content, project) {
+  if (content?.version !== 2 || !Array.isArray(content.participants)) return content
+  const roster = secondsCharacterRoster(project)
+  const participants = content.participants.filter(person => !nonempty(person?.name) || person.name !== person.name.trim()
+    || roster.some(card => card.name === person.name || card.aliases.includes(person.name)))
+  return participants.length === content.participants.length ? content : { ...content, participants }
+}
 export function validateSeconds(content, shot, project) {
-  if (content?.version !== secondsVersion || content.shotId !== shot.id) fail(`${shot.id} 每秒指令结构或镜头ID错误`)
+  if (![1, secondsVersion].includes(content?.version) || content.shotId !== shot.id) fail(`${shot.id} 每秒指令结构或镜头ID错误`)
   if (!nonempty(content.summary)) fail(`${shot.id} 缺少本镜事件概要`)
   const beats = array(content.beats, 'beats')
   if (!beats.length) fail(`${shot.id} 没有动作节拍`)
@@ -26,7 +44,9 @@ export function validateSeconds(content, shot, project) {
   for (const d of dialogues) {
     if (!nonempty(d.id) || seen.has(d.id)) fail(`${shot.id} 对白ID缺失或重复`)
     seen.add(d.id)
-    const validSpeaker = d.speakerId === narratorId ? d.delivery === 'off' : speakers.has(d.speakerId)
+    const validSpeaker = content.version === 2
+      ? nonempty(d.speakerName) && (d.speakerName !== narratorId || d.delivery === 'off') && !/[【】]/.test(d.speakerName)
+      : d.speakerId === narratorId ? d.delivery === 'off' : speakers.has(d.speakerId)
     if (!validSpeaker || !nonempty(d.text) || !nonempty(d.language) || !['on', 'off', 'inner'].includes(d.delivery) || !nonempty(d.performance)) fail(`${shot.id}/${d.id} 对白身份、原文、语言或表演信息不完整`)
     if (!Number.isSafeInteger(d.startMs) || !Number.isSafeInteger(d.endMs) || d.startMs < 0 || d.endMs <= d.startMs || d.endMs > total) fail(`${shot.id}/${d.id} 对白时间越界`)
     if (/[【】]/.test(d.text)) fail(`${shot.id}/${d.id} 台词原文不得包含实体标记`)
@@ -41,10 +61,42 @@ export function validateSeconds(content, shot, project) {
   for (const [kind, events] of [['ambient', content.ambient], ['music', content.music]]) for (const e of array(events, kind)) {
     if (!nonempty(e.text) || !Number.isSafeInteger(e.startMs) || !Number.isSafeInteger(e.endMs) || e.startMs < 0 || e.endMs <= e.startMs || e.endMs > total) fail(`${shot.id} ${kind}声音内容或时间错误`)
   }
+  const participants = content.participants
+  if (participants !== undefined) {
+    const roster = secondsCharacterRoster(project)
+    const names = new Set()
+    for (const person of array(participants, 'participants')) {
+      if (!nonempty(person?.name) || person.name !== person.name.trim() || person.name === narratorId || /[【】]/.test(person.name) || !['visible', 'voice'].includes(person.presence) || names.has(person.name)) fail(`${shot.id} participants人物称谓、出镜类型错误或重复`)
+      if (person.outfit !== undefined && (typeof person.outfit !== 'string' || person.presence === 'visible' && (!person.outfit.trim() || /[【】]/.test(person.outfit)) || person.presence === 'voice' && person.outfit !== '')) fail(`${shot.id} participants人物「${person.name}」着装outfit错误：出镜人物填写一段非空文字，仅声音人物留空`)
+      names.add(person.name)
+    }
+    for (const dialogue of dialogues) {
+      const name = dialogue.speakerName
+      if (content.version !== 2 || name === narratorId) continue
+      const matches = roster.filter(card => card.name === name || card.aliases.includes(name))
+      if (matches.length > 1) fail(`${shot.id}/${dialogue.id} 说话人「${name}」对应多张本集角色卡，请先明确称谓`)
+      const person = participants.find(person => person.name === name || matches.length === 1 && (matches[0].name === person.name || matches[0].aliases.includes(person.name)))
+      // 卡外剧情人物仍保留动作和台词，不强制建卡，也不伪装成独立旁白。
+      if (!person && !matches.length) continue
+      if (!person) fail(`${shot.id}/${dialogue.id} 说话人「${name}」属于本集角色卡，必须列入participants参与人物清单`)
+      if (dialogue.delivery === 'on' && person.presence !== 'visible') fail(`${shot.id}/${dialogue.id} 说话人与participants出镜类型不一致：人物「${name}」的画内对白delivery=on，参与类型须为visible，当前为${person.presence}`)
+    }
+  }
   const visual = beats.map(b => [b.action, b.camera, b.space, b.endState].join('\n')).join('\n')
-  const entities = referencedEntities(visual, project)
+  const catalogForBinding = entityCatalog(project).filter(entity => !participants || entity.kind !== 'character' || participants.some(person => person.presence === 'visible' && (person.name === entity.name || person.name === entity.card.sourceName)))
+  const entities = referencedEntities(content.version === 2 ? bindNamedText(visual, project, catalogForBinding) : visual, project)
+  if (content.version === 2 && participants) {
+    for (const entity of catalogForBinding.filter(entity => entity.kind === 'character')) if (!entities.some(item => item.id === entity.id)) entities.push(entity)
+  }
   referencedEntities([content.summary, ...beats.map(b => b.sound), ...content.ambient.map(e => e.text), ...content.music.map(e => e.text)].join('\n'), project)
   // 已登记人物/场景在正文出现时不能绕过标记；对白原文不参加名称扫描。
+  if (content.version === 2) {
+    for (const dialogue of dialogues.filter(dialogue => dialogue.delivery === 'on')) {
+      const entity = entityCatalog(project).find(entity => entity.kind === 'character' && (entity.name === dialogue.speakerName || entity.card.sourceName === dialogue.speakerName))
+      if (entity && !entities.some(item => item.id === entity.id)) entities.push(entity)
+    }
+    return entities
+  }
   const missing = [], catalog = entityCatalog(project)
   for (const beat of beats) for (const field of ['action', 'camera', 'space', 'endState']) {
     for (const { entity, snippet } of bareMentions(beat[field], project, catalog)) missing.push(`${shot.id}/${beat.id}.${field} 片段「${snippet}」中的${entity.name}须写为${entityMention(entity)}（只改这一处，已标记的不动）`)
@@ -75,6 +127,20 @@ function bareMentions(text, project, catalog) {
     snippet: `${start > 12 ? '…' : ''}${full.slice(Math.max(0, start - 12), end + 12)}${end + 12 < full.length ? '…' : ''}`,
   }))
 }
+// 新响应必须返回角色清单；历史已保存指令仍可由 validateSeconds 兼容。
+function requireParticipants(content, shot, project) {
+  if (content?.version !== 2) return
+  if (!Array.isArray(content.participants)) fail(`${shot.id} 新每秒指令必须返回participants参与人物数组`)
+  const roster = secondsCharacterRoster(project), used = new Set()
+  for (const person of content.participants) {
+    if (person?.presence === 'visible' && !nonempty(person.outfit) || person?.presence === 'voice' && person.outfit !== '') fail(`${shot.id} participants人物「${person?.name || '未命名'}」必须返回outfit：出镜人物为非空着装段落，仅声音人物为空字符串`)
+    const matches = roster.filter(card => card.name === person?.name || card.aliases.includes(person?.name))
+    if (!matches.length) fail(`${shot.id} participants人物称谓无效：${person?.name || '未命名'}`)
+    if (matches.length > 1) fail(`${shot.id} participants人物「${person.name}」对应多张本集角色卡，请先明确称谓`)
+    if (used.has(matches[0])) fail(`${shot.id} participants人物「${person.name}」与已列人物对应同一本集角色卡，不得重复列出`)
+    used.add(matches[0])
+  }
+}
 export function parseSecondsResponse(text, shots, project) {
   let result
   try { result = JSON.parse(text) } catch { fail('每秒指令必须返回完整JSON，不能截断或包裹代码围栏') }
@@ -82,12 +148,13 @@ export function parseSecondsResponse(text, shots, project) {
   const ids = rows.map(s => s.shotId)
   if (new Set(ids).size !== ids.length || rows.length !== shots.length || shots.some(s => !ids.includes(s.id))) fail(`每秒指令镜头清单不符：应为${shots.map(s => s.id).join('、')}，实际${ids.join('、')}；不得漏镜、重复或新增镜头`)
   return shots.map(shot => {
-    const content = rows.find(s => s.shotId === shot.id)
+    const content = normalizeSecondsParticipants(rows.find(s => s.shotId === shot.id), project)
+    requireParticipants(content, shot, project)
     validateSeconds(content, shot, project)
     return content
   })
 }
-// 保存与验收分开：镜头可匹配时全部返回原内容，逐镜校验错误单独记录。
+// 保存与验收分开：保持剧情正文，只规范化参与清单，逐镜校验错误单独记录。
 export function parseSecondsPartial(text, shots, project) {
   let result
   try { result = JSON.parse(text) } catch { fail('每秒指令必须返回完整JSON，不能截断或包裹代码围栏') }
@@ -96,8 +163,8 @@ export function parseSecondsPartial(text, shots, project) {
   if (new Set(ids).size !== ids.length || rows.length !== shots.length || shots.some(s => !ids.includes(s.id))) fail(`每秒指令镜头清单不符：应为${shots.map(s => s.id).join('、')}，实际${ids.join('、')}；不得漏镜、重复或新增镜头`)
   const failures = {}
   const sections = shots.map(shot => {
-    const content = rows.find(s => s.shotId === shot.id)
-    try { validateSeconds(content, shot, project); return content }
+    const content = normalizeSecondsParticipants(rows.find(s => s.shotId === shot.id), project)
+    try { requireParticipants(content, shot, project); validateSeconds(content, shot, project); return content }
     catch (error) { failures[shot.id] = error.message.includes(shot.id) ? error.message : `${shot.id}：${error.message}`; return content }
   })
   return { sections, failures }
@@ -106,14 +173,16 @@ export const secondsRange = (start, end) => `${start / 1000}–${end / 1000}s`
 export function secondsText(content) {
   if (!content) return ''
   try {
-    if (content.version !== secondsVersion || !Array.isArray(content.beats)) return JSON.stringify(content, null, 2)
+    if (![1, secondsVersion].includes(content.version) || !Array.isArray(content.beats)) return JSON.stringify(content, null, 2)
     let start = 0
     const lines = [`事件：${content.summary}`]
+    lines.push(`参与人物：${Array.isArray(content.participants) ? content.participants.map(person => `${person.name}（${person.presence === 'visible' ? '出镜' : '仅声音'}）`).join('、') || '无' : '未记录'}`)
+    for (const person of content.participants || []) if (person.presence === 'visible') lines.push(`${person.name}着装：${person.outfit || '未记录'}`)
     for (const b of content.beats) {
       lines.push(`### ${secondsRange(start, start + b.durationMs)}`, `动作：${b.action}`, `镜头：${b.transition === 'cut' ? '切镜；' : ''}${b.camera}`, `空间：${b.space}`, `声音：${b.sound}`)
       for (const id of b.dialogueIds) {
         const d = content.dialogues.find(d => d.id === id)
-        lines.push(`${d.speakerId === narratorId ? '旁白' : '对白'} ${d.id}（${secondsRange(d.startMs, d.endMs)}，${d.speakerId}，${d.delivery}，${d.performance}）：${d.text}`)
+        lines.push(`${(d.speakerName || d.speakerId) === narratorId ? '旁白' : '对白'} ${d.id}（${secondsRange(d.startMs, d.endMs)}，${d.speakerName || d.speakerId}，${d.delivery}，${d.performance}）：${d.text}`)
       }
       lines.push(`交接：${b.endState}`); start += b.durationMs
     }

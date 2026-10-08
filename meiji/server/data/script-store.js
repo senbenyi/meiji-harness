@@ -52,7 +52,7 @@ export function scriptStore(home, projects) {
         const artifact = { id, target: 'script-proposal', kind: 'script-proposal', published: false, episodeId: proposal.episodeId || null, ...(proposal.runId ? { runId: proposal.runId, stepId: proposal.stepId } : {}), content: entry, createdAt: new Date().toISOString() }
         if (proposal.runId) await runStore(home, projectId).record(proposal.runId, proposal.stepId, 'artifacts', artifact)
         else await history.update('script-proposals', id, artifact)
-        return { scriptProposals: [...(project.scriptProposals || []).map(item => item.episodeId && item.episodeId === entry.episodeId && item.source === 'episode-sync' && item.status === 'pending' ? { ...item, status: 'superseded' } : item), { id, source: entry.source, baseRevision: entry.baseRevision, episodeId: entry.episodeId, summaryRevision: entry.summaryRevision, status: 'pending', ...(proposal.runId ? { runId: proposal.runId, stepId: proposal.stepId } : {}) }] }
+        return { scriptProposals: [...(project.scriptProposals || []).map(item => item.episodeId && item.episodeId === entry.episodeId && item.source === 'episode-sync' && item.status === 'pending' ? { ...item, status: 'superseded' } : item), { id, source: entry.source, baseRevision: entry.baseRevision, episodeId: entry.episodeId, outlineRevision: entry.outlineRevision, status: 'pending', ...(proposal.runId ? { runId: proposal.runId, stepId: proposal.stepId } : {}) }] }
       })
       return id
     },
@@ -64,13 +64,13 @@ export function scriptStore(home, projects) {
         const entry = project.scriptProposals.find(item => item.id === proposalId)
         if (!entry || entry.status !== 'pending') throw error('方案已处理或失效')
         const episode = project.episodes.find(item => item.id === proposal.episodeId), deletion = project.scriptPendingDeletes.find(item => item.episodeId === proposal.episodeId)
-        if (selected.length && (project.scriptRevision !== proposal.baseRevision || proposal.source === 'episode-sync' && (episode ? episode.summary.revision !== proposal.summaryRevision : !deletion || JSON.stringify(deletion) !== JSON.stringify(proposal.deleteFact)))) throw error('剧本或摘要依据已变化，请重新回写')
+        if (selected.length && (project.scriptRevision !== proposal.baseRevision || proposal.source === 'episode-sync' && (episode ? episode.plot.outline.revision !== proposal.outlineRevision : !deletion || JSON.stringify(deletion) !== JSON.stringify(proposal.deleteFact)))) throw error('剧本或故事小段依据已变化，请重新回写')
         const indexes = [...new Set(selected)]
         if (indexes.some(index => !Number.isInteger(index) || !proposal.changes[index])) throw Object.assign(new Error('方案选项无效'), { status: 400 })
         let patch = {}
         if (indexes.length) patch = await writeScriptRevision(home, project, applyScriptChanges(project, indexes.map(index => proposal.changes[index])), { ...proposal, source: 'proposal', note: proposal.note })
         if (proposal.source === 'episode-sync') {
-          if (episode) episode.summary.basis = { ...episode.summary.basis, scriptSyncedRevision: proposal.summaryRevision }
+          if (episode) episode.plot.outline.basis = { ...episode.plot.outline.basis, scriptSyncedRevision: proposal.outlineRevision }
           else patch.scriptPendingDeletes = project.scriptPendingDeletes.filter(item => item.episodeId !== proposal.episodeId)
         }
         patch.scriptProposals = project.scriptProposals.map(item => item.id === proposalId ? { ...item, status: indexes.length ? 'applied' : 'discarded' } : item)

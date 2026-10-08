@@ -20,12 +20,10 @@ export async function opEpisodeAdd(c) {
     await rm(incoming.directory, { recursive: true, force: true })
   }
   const previous = project.episodes.find(item => item.id === episode.id)
-  // 手动保存的摘要直接视为已通过，并清除旧的未通过原因。
-  markPassed(episode.summary)
   await rootProjects.save(project.id, patch)
   note(operation.action === 'episode-add' ? `已添加剧集，${episode.durationSeconds} 秒` : `已保存剧集，${episode.durationSeconds} 秒`)
-  if (previous && (previous.summary.content !== episode.summary.content || previous.durationSeconds !== episode.durationSeconds)) {
-    note('本集时长或摘要已修改，本集下游制作数据已重置，需要重新生成')
+  if (previous && (previous.durationSeconds !== episode.durationSeconds)) {
+    note('本集时长已修改，本集下游制作数据已重置，需要重新生成')
   }
   return trace
 }

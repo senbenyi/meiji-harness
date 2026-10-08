@@ -2,7 +2,7 @@
 import { node, setContent } from './drama-model.js'
 
 export const libraryKinds = {
-  characters: { prefix: 'R', label: '角色', variant: '造型', identity: ['nationality', 'gender', 'required'], fields: ['role', 'era', 'age', 'costume', 'height', 'build', 'features', 'appearance', 'prop', 'identity', 'look'] },
+  characters: { prefix: 'R', label: '角色', variant: '造型', identity: ['nationality', 'gender', 'required'], fields: ['role', 'era', 'age', 'costume', 'height', 'build', 'features', 'appearance', 'prop', 'identity', 'look', 'voiceDescription'] },
   scenes: { prefix: 'L', label: '场景', variant: '状态', identity: [], fields: ['landmark', 'light', 'space', 'look'] },
   props: { prefix: 'T', label: '道具', variant: '样式', identity: ['category', 'ownerLibraryId'], fields: ['description', 'evidence'] },
 }
@@ -16,6 +16,20 @@ export function libraryTarget(project, kind, ref) {
     ? entry.variants.find(item => item.id === entry.defaultVariantId) || entry.variants[0]
     : entry?.variants.find(item => item.id === ref?.variantId)
   return entry && variant ? { entry, variant } : null
+}
+// 同一角色先按明确关联查找，其次逐字匹配名称/别名；不猜测身份。
+export function characterLibraryTarget(project, card) {
+  const id = card.libraryId || card.ref?.libraryId
+  const names = [card.name, card.sourceName].filter(Boolean)
+  const matches = (project.library?.characters || []).filter(entry => id ? entry.id === id : [entry.name, ...(entry.aliases || [])].some(name => names.includes(name)))
+  if (matches.length > 1) bad(`人物名称或别名匹配多个项目角色：${card.name}`)
+  if (!matches.length) {
+    if (id) bad(`库条目不存在：${id}`)
+    return null
+  }
+  const target = libraryTarget(project, 'characters', { libraryId: matches[0].id })
+  if (!target) bad(`角色库资料不存在：${matches[0].id}`)
+  return target
 }
 export function libraryLinks(project, kind, libraryId, variantId) {
   return (project.episodes || []).flatMap(episode => (episode.plot[kind]?.items || []).filter(card => card.ref?.libraryId === libraryId && (!variantId || card.ref.variantId === variantId)).map(card => ({ episodeId: episode.id, cardId: card.id, name: card.name })))
@@ -91,6 +105,9 @@ export function mergeLibraryGroup(project, kind, group) {
         target = createLibraryEntry(next, kind, { ...card, ownerLibraryId: owner?.ref?.libraryId || '' }, { episodeId: project.episodeId, cardId: card.id })
       }
     }
+    // 旧库缺少声线时一次性采用本次资料，随后跨集统一复用。
+    if (kind === 'characters' && card.presence !== 'voice' && !target.variant.fields.look && card.look) target.variant.fields = { ...fieldsOf(kind, card), voiceDescription: target.variant.fields.voiceDescription || card.voiceDescription || '' }
+    if (kind === 'characters' && !target.variant.fields.voiceDescription && card.voiceDescription) target.variant.fields.voiceDescription = card.voiceDescription
     const result = applyLibraryCard(next, kind, card, target, linkedBy)
     for (const key of ['libraryId', 'variantId', 'variantLabel']) delete result[key]
     return result

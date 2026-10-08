@@ -10,8 +10,13 @@ export async function generateShotSeconds(options) {
   const { project, shotId } = options
   const shot = project.shots.items.find(item => item.id === shotId)
   const parse = text => parseSecondsPartial(text, [shot], project)
+  const prompts = promptsForSeconds(options), review = prompts.review
+  prompts.review = (text, revision) => {
+    try { return review(JSON.stringify({ shots: parse(text).sections }), revision) }
+    catch { return review(text, revision) }
+  }
   const patch = (text, check) => ({ ...project.shots, items: project.shots.items.map(item => item.id === shotId ? { ...item, seconds: setContent(structuredClone(item.seconds), parse(text).sections[0], check) } : item) })
-  const result = await runTextNodes({ target: `seconds:${shotId}`, prompts: promptsForSeconds(options), options, complete: retainSecondsResponse,
+  const result = await runTextNodes({ target: `seconds:${shotId}`, prompts, options, complete: retainSecondsResponse,
     check: text => Object.values(parse(text).failures), canPersist: text => parse(text).sections.length > 0, retainFailedDraft: true,
     persist: options.persist && ((text, check) => options.persist(patch(text, check))) })
   return patch(result.text, result.check)

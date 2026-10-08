@@ -231,83 +231,28 @@ export function overviewDialog(root, onSaved) {
   }
 }
 
-export function episodeDialog(root, onSaved, onGenerate, { openHistory } = {}) {
+export function episodeDialog(root, onSaved) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">本集时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>本集时长由你设定，AI 按此时长设计剧情容量，不会修改时长。</p><label for="episode-requirements">本次要求</label><textarea id="episode-requirements" name="requirements"></textarea><label for="episode-summary">本集剧情摘要</label><button class="ai-summary" type="button">AI 生成</button><button class="stop-summary" type="button" hidden>停止生成</button><textarea id="episode-summary" name="summary" required placeholder="填写摘要，或点击 AI 生成"></textarea><output class="summary-count" aria-live="polite"></output><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-episode" aria-labelledby="edit-episode-title"><div class="modal-head"><h2 id="edit-episode-title">新增剧集</h2><button class="cancel" type="button" aria-label="关闭剧集弹窗">×</button></div><form class="episode"><label for="episode-duration">本集时长（秒）</label><input id="episode-duration" name="duration" type="number" min="1" max="86400" step="1" required><p>剧本模式从剧本提取本集故事小段，自由模式按 AI 创作方向生成。摘要由故事小段提取，仅用于展示。</p><label for="episode-requirements">本集要求（选填）</label><textarea id="episode-requirements" name="requirements"></textarea><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
-  const dialog = root.querySelector('#edit-episode')
-  const form = dialog.querySelector('form')
-  const error = dialog.querySelector('.error')
-  const generate = dialog.querySelector('.ai-summary'), stop = dialog.querySelector('.stop-summary'), save = form.querySelector('[type=submit]')
-  const count = dialog.querySelector('.summary-count')
-  const history = element('button', '查看摘要任务历史 →', 'task-history-entry')
-  history.type = 'button'
-  history.onclick = () => { dialog.close(); openHistory?.({ ...current, episodeId: episode?.id || '' }) }
-  form.querySelector('footer').before(history)
-  let current, episode, controller, version = 0
-  const updateCount = () => {
-    const length = summaryLength(form.elements.summary.value)
-    count.textContent = `${length} 字（不计空白，标点计入）`
-  }
-  const busy = value => { generate.disabled = value; save.disabled = value; stop.hidden = !value }
-  const cancel = () => { version++; controller?.abort(); controller = null; busy(false) }
-  for (const button of dialog.querySelectorAll('.cancel')) button.onclick = () => { cancel(); dialog.close() }
-  dialog.addEventListener('cancel', cancel)
-  dialog.addEventListener('close', cancel)
-  stop.onclick = cancel
-  form.addEventListener('input', event => {
-    if (![form.elements.duration, form.elements.summary, form.elements.requirements].includes(event.target)) return
-    cancel()
-    updateCount()
-  })
-  generate.onclick = async () => {
-    error.textContent = ''
-    try {
-      const reference = referenceDuration(Number(form.elements.duration.value))
-      cancel()
-      const requestVersion = version, abort = controller = new AbortController()
-      busy(true)
-      try {
-        const draft = await onGenerate(current, { episodeId: episode?.id || '', referenceDurationSeconds: reference, requirements: form.elements.requirements.value.trim() }, { signal: abort.signal })
-        if (abort.signal.aborted || version !== requestVersion || !dialog.open) return
-        const failures = episodeSummaryFailures(draft)
-        if (failures.length) throw new Error(failures.join('；'))
-        form.elements.summary.value = draft.summary
-        updateCount()
-      } catch (failure) { if (!abort.signal.aborted && version === requestVersion) error.textContent = failure.message + (failure.draft ? `\n未通过的候选摘要：${failure.draft.summary}` : '') }
-      finally { if (version === requestVersion) { controller = null; busy(false) } }
-    } catch (failure) { error.textContent = failure.message }
-  }
+  const dialog = root.querySelector('#edit-episode'), form = dialog.querySelector('form'), error = dialog.querySelector('.error')
+  let current, episode
+  for (const button of dialog.querySelectorAll('.cancel')) button.onclick = () => dialog.close()
   form.onsubmit = async event => {
     event.preventDefault()
-    if (controller) return
-    save.disabled = true
-    error.textContent = ''
+    const save = form.querySelector('[type=submit]'); save.disabled = true; error.textContent = ''
     try {
-      const summary = form.elements.summary.value.trim()
-      if (!summaryLength(summary)) throw new Error('摘要不能为空')
-      const durationSeconds = referenceDuration(Number(form.elements.duration.value))
-      const result = await onSaved(current, { episodeId: episode?.id || '', durationSeconds, summary, requirements: form.elements.requirements.value.trim() })
-      if (result?.cancelled) return
-      dialog.close()
+      const result = await onSaved(current, { episodeId: episode?.id || '', durationSeconds: referenceDuration(Number(form.elements.duration.value)), requirements: form.elements.requirements.value.trim() })
+      if (!result?.cancelled) dialog.close()
     } catch (failure) { error.textContent = failure.message }
     finally { save.disabled = false }
   }
   return (project, currentEpisode) => {
-    cancel()
-    current = project
-    episode = currentEpisode
-    history.open = false
-    history.querySelector('section')?.remove()
+    current = project; episode = currentEpisode
     dialog.querySelector('h2').textContent = currentEpisode ? '编辑剧集' : '新增剧集'
     form.elements.duration.value = String(currentEpisode?.durationSeconds ?? defaultReferenceDuration)
-    form.elements.summary.value = currentEpisode?.summary?.content || ''
-    form.elements.requirements.required = false
-    form.elements.requirements.value = ''
-    dialog.querySelector('label[for=episode-requirements]').textContent = '本次要求（选填）'
-    updateCount()
-    error.textContent = ''
-    showPanelDialog(dialog)
+    form.elements.requirements.value = currentEpisode?.storyRequirements || ''
+    error.textContent = ''; showPanelDialog(dialog)
   }
 }
 
@@ -316,7 +261,7 @@ export function premiseDialog(root, onSaved) {
   let current
   text.setAttribute('aria-label', 'AI 创作方向'); text.maxLength = 1000; text.required = true
   cancel.type = 'button'; cancel.onclick = () => dialog.close()
-  form.append(element('h2', '编辑 AI 创作方向'), element('p', '用于每一集摘要的 AI 创作，不限于首集。最多 1000 字；本次要求和已发生剧情优先。'), text, error, cancel, save); dialog.append(form); root.append(dialog)
+  form.append(element('h2', '编辑 AI 创作方向'), element('p', '用于每一集故事小段的 AI 创作，不限于首集。最多 1000 字；本次要求和已发生剧情优先。'), text, error, cancel, save); dialog.append(form); root.append(dialog)
   form.onsubmit = async event => { event.preventDefault(); if (!text.value.trim()) { error.textContent = 'AI 创作方向必填'; return }; save.disabled = true; try { await onSaved(current, text.value.trim()); dialog.close() } catch (failure) { error.textContent = failure.message } finally { save.disabled = false } }
   return project => { current = project; text.value = project.premise || ''; error.textContent = ''; showPanelDialog(dialog) }
 }

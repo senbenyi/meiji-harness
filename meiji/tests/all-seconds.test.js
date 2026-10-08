@@ -106,7 +106,7 @@ test('本镜剧情、关联资料与前镜交接用于生成、自审与修订�
   assert.match(message.user, /大纲整体内容/)
   assert.equal(promptData(message.user, '【连续性参考：上一镜交接摘要】').endState, p.shots.items[0].seconds.content.beats.at(-1).endState)
   assert.ok(!message.user.includes(JSON.stringify(p.shots.items[0].seconds.content)))
-  assert.match(message.user, /上游事实：本镜关联人物/)
+  assert.doesNotMatch(message.user, /上游事实：本镜关联人物|人物称谓规则/)
   assert.match(message.user, /上游事实：本镜关联场景/)
   assert.doesNotMatch(message.user, /不应提供的/)
  }

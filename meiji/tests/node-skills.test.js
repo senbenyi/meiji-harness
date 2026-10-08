@@ -38,15 +38,15 @@ test('生成、修订与审核共用任务固定补充，人物/场景及其他�
     for (const prompt of [outline.generation, outline.revision('BASE', reviewFail('REASON')), outline.review('RESULT')]) { assert.match(prompt.system, /OUTLINE_ONLY/); assert.doesNotMatch(prompt.system, /LATER_EDIT|SUMMARY_ONLY/) }
     for (const kind of ['characters', 'scenes']) assert.doesNotMatch(buildStoryPrompts(view, kind).generation.system, /OUTLINE_ONLY/)
     assert.match(buildEpisodePrompts(root, e.episodeId).generation.system, /SUMMARY_ONLY/)
-    assert.doesNotMatch(buildEpisodePrompts(root).generation.system, /SUMMARY_ONLY/)
+    assert.throws(() => buildEpisodePrompts(root), /先生成本集故事小段/)
   })
 })
 
-test('首次大纲展开当前摘要，明确重新生成仍不沿用旧摘要', async t => {
+test('首次与重新生成大纲都直接按创作方向，不读取展示摘要', async t => {
   const e = await setupModel(t), view = await e.read()
   view.plot.outline.content = null
-  assert.match(buildStoryPrompts(view).generation.user, /【本集摘要】\n/)
-  assert.match(buildStoryPrompts(view).generation.user, /旅人进入庭院/)
+  assert.doesNotMatch(buildStoryPrompts(view).generation.user, /【本集摘要】\n/)
+  assert.match(buildStoryPrompts(view).generation.user, /【AI 创作方向】/)
 })
 
 test('迁移完整备份和读回，旧补充保留到已有节点；重复执行不新增', async t => {

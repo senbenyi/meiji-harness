@@ -11,19 +11,6 @@
   ],
   "stages": [
     {
-      "id": "summary",
-      "label": "摘要",
-      "tool": "run-plan",
-      "tasks": [
-        "summary"
-      ],
-      "skills": [
-        "episode"
-      ],
-      "after": [],
-      "inPanelOrder": true
-    },
-    {
       "id": "story",
       "label": "剧情",
       "tool": "run-plan",
@@ -35,10 +22,23 @@
       "skills": [
         "outline"
       ],
-      "after": [
+      "after": [],
+      "inPanelOrder": true
+    },
+    {
+      "id": "summary",
+      "label": "展示摘要",
+      "tool": "run-plan",
+      "tasks": [
         "summary"
       ],
-      "inPanelOrder": true
+      "skills": [
+        "episode"
+      ],
+      "after": [
+        "story"
+      ],
+      "inPanelOrder": false
     },
     {
       "id": "shots",

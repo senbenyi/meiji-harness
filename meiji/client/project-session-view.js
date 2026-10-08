@@ -283,7 +283,7 @@ export function projectDialog(root, onCreated) {
 
 export function sourceDialog(root, onSaved) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-source" aria-labelledby="edit-source-title"><div class="modal-head"><h2 id="edit-source-title">编辑原始资料</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><p>修改标题、时长、画幅和剧本摘要。时长、画幅或摘要一变，简报之后的步骤会重新待审。</p><form class="edit"><label for="edit-name">短剧标题</label><input id="edit-name" name="title" required maxlength="100"><label for="edit-duration">时长（秒）</label><input id="edit-duration" name="duration" type="number" min="1" max="86400" step="1" required><label for="edit-aspect">画幅</label><select id="edit-aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><label for="edit-summary">剧本摘要</label><textarea id="edit-summary" name="summary" required maxlength="10000"></textarea><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-source" aria-labelledby="edit-source-title"><div class="modal-head"><h2 id="edit-source-title">编辑原始资料</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><p>修改标题、时长和画幅。时长或画幅变化会清理受影响的下游内容。</p><form class="edit"><label for="edit-name">短剧标题</label><input id="edit-name" name="title" required maxlength="100"><label for="edit-duration">时长（秒）</label><input id="edit-duration" name="duration" type="number" min="1" max="86400" step="1" required><label for="edit-aspect">画幅</label><select id="edit-aspect" name="aspect"><option value="1344x768" selected>1344x768</option><option value="768x1344">768x1344</option></select><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#edit-source'), form = dialog.querySelector('form')
   const error = dialog.querySelector('.error')
@@ -298,7 +298,6 @@ export function sourceDialog(root, onSaved) {
         title: data.get('title').trim(),
         durationSeconds: Number(data.get('duration')),
         aspectRatio: data.get('aspect'),
-        summary: data.get('summary').trim(),
       })
       dialog.close()
     } catch (failure) { error.textContent = failure.message }
@@ -310,7 +309,6 @@ export function sourceDialog(root, onSaved) {
     form.elements.duration.value = String(project.durationSeconds || '')
     const aspect = { '16:9': '1344x768', '9:16': '768x1344' }[project.aspectRatio] || project.aspectRatio
     form.elements.aspect.value = ['1344x768', '768x1344'].includes(aspect) ? aspect : '1344x768'
-    form.elements.summary.value = project.summary.content || ''
     error.textContent = ''
     showPanelDialog(dialog)
   }
@@ -318,13 +316,14 @@ export function sourceDialog(root, onSaved) {
 
 export function storyDialog(root, onSaved) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-story" aria-labelledby="edit-story-title"><div class="modal-head"><h2 id="edit-story-title">编辑大纲</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><p>只修改故事大纲。保存后角色之后的步骤会重新待审。</p><form class="edit"><div class="outline-fields"></div><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-story" aria-labelledby="edit-story-title"><div class="modal-head"><h2 id="edit-story-title">编辑故事小段</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><p>按 1、2、3… 编号，每段直接写剧情和完整对白。保存后以编辑内容为拆镜依据，允许覆盖原始剧情来源；受影响的下游内容会清除并重新生成。</p><form class="edit"><div class="outline-fields"></div><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#edit-story'), form = dialog.querySelector('form')
   const fields = form.querySelector('.outline-fields')
   for (const [index, field] of outlineFields.entries()) {
     const label = element('label', `【${field}】`), input = element('textarea')
-    input.id = `edit-outline-${index}`; input.name = field; input.required = true; input.rows = 4
+    input.id = `edit-outline-${index}`; input.name = field; input.required = true; input.rows = 16
+    input.placeholder = '1. 第一段故事，写清行动、对白和结果。\n\n2. 接着发生的故事。'
     label.htmlFor = input.id
     fields.append(label, input)
   }

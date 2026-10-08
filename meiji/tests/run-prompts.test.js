@@ -36,7 +36,7 @@ test('请求失败仍可查看原提示词，自定义文本请求也记录且�
   assert.deepEqual(records[1].messages, [{ role: 'system', content: '修订规则' }, { role: 'user', content: '人工意见' }])
 })
 
-test('实际摘要生成、自审、修订、复审各在自己的步骤记录一份完整提示词', async t => {
+test('展示摘要提取只记录一次完整提示词，不再自审和修订', async t => {
   const { runOperation, latestRun } = await import('./fixtures/operation.js')
   const { runStore } = await import('../server/data/run-store.js')
   const e = await setupModel(t), messages = []
@@ -47,7 +47,7 @@ test('实际摘要生成、自审、修订、复审各在自己的步骤记录�
     return Response.json({ choices: [{ message: { content } }] })
   } })
   const run = await latestRun(e.home, e.id, 'summary')
-  assert.deepEqual(run.kinds, ['generate', 'review', 'revise', 're_review'])
+  assert.deepEqual(run.kinds, ['generate'])
   for (const [index, step] of run.steps.entries()) {
     const entries = await runStore(e.home, e.id).records(run.id, step.id, 'prompts')
     assert.equal(entries.length, 1, '请求包装层与网关不重复记录')

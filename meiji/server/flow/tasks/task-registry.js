@@ -24,7 +24,7 @@ export const taskRegistry = {
   'script-sync': { ...text('回写剧本', runScriptRevision, 'script-sync', 'script'), stage: 'project' },
   'script-revise': { ...text('修改剧本', runScriptRevision, 'script-revise', 'script'), stage: 'project' },
   'project-summary': { ...text('项目摘要', runProjectSummary, 'project-summary', 'project-summary'), stage: 'project' },
-  summary: { ...text('摘要', runSummary, 'episode-generate', 'summary'), stage: 'project' },
+  summary: { ...text('提取展示摘要', runSummary, 'episode-generate', 'summary'), stage: 'episode', maxRevisions: 0 },
   outline: text('大纲', runOutline, 'outline', 'outline'),
   characters: text('人物角色', runCharacters, 'characters', 'characters'),
   scenes: text('场景', runScenes, 'scenes', 'scenes'),

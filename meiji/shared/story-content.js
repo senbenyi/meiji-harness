@@ -1,7 +1,7 @@
 import { node, cardModel } from './drama-model.js'
+import { characterLibraryTarget, applyLibraryCard } from './library-rules.js'
 import { pictureRecord, usableLook } from './image-assets.js'
 import { videoPromptText as h3PromptText } from './video-prompt-text.js'
-import { episodeSummaryFailures, referenceDuration } from './episode-summary.js'
 import { outlineFailures } from './story-outline.js'
 
 export function required(value, message) {
@@ -25,19 +25,43 @@ function characterLookParts(look) {
   return ready ? parts : null
 }
 
-export function normalizeCharacters(raw) {
+export function normalizeCharacters(raw, { allowEmpty = false, requireVoice = false, participants = null, project = null } = {}) {
   const list = Array.isArray(raw?.items) ? raw.items : []
+  if (allowEmpty && Array.isArray(raw?.items) && !list.length) {
+    if (participants?.length) throw new Error('人物资料遗漏participants清单')
+    return { ...node('characters'), items: [] }
+  }
   if (!list.length) throw Object.assign(new Error('角色卡是空的'), { status: 502 })
+  const identities = new Set()
   const items = list.map((item, index) => {
+    const presence = item?.presence || 'visible'
+    if (!['visible', 'voice'].includes(presence)) throw new Error('人物参与类型必须为visible或voice')
+    const target = project && characterLibraryTarget(project, item)
+    if (target) {
+      if (identities.has(target.entry.id)) throw new Error(`同一项目角色重复引用：${target.entry.name}`)
+      identities.add(target.entry.id)
+      const name = required(item?.name, '引用人物缺少名称')
+      return applyLibraryCard(project, 'characters', cardModel({ id: `C${String(index + 1).padStart(2, '0')}`, type: 'role', name, presence,
+        ...(item.sourceName || name !== target.entry.name ? { sourceName: item.sourceName || name } : {}) }), target, item.libraryId || item.ref ? 'model' : 'name')
+    }
+    const voiceDescription = String(item?.voiceDescription || '').trim()
+    if (requireVoice && !voiceDescription) throw new Error('新人物资料必须包含声音特征voiceDescription')
+    if (presence === 'voice') return {
+      ...libraryFields(item, 'characters'), ...(item.sourceName ? { sourceName: item.sourceName } : {}), id: `C${String(index + 1).padStart(2, '0')}`,
+      name: required(item?.name, '仅声音人物缺少名称'), type: 'role', presence,
+      role: String(item?.role || '').trim(), identity: required(item?.identity, '仅声音人物缺少身份'),
+      voiceDescription: required(voiceDescription, '仅声音人物缺少声音特征'),
+      look: '', appearance: '', clothes: [], props: [], hairstyles: [], localPath: null,
+    }
     const look = usableLook(item?.look)
     if (!look) throw Object.assign(new Error('角色画面提示词需要至少 12 个文字字符'), { status: 502 })
     const parts = characterLookParts(look)
     if (!parts) throw Object.assign(new Error('角色画面提示词要按顺序写明国籍、姓名、身份、性别、年代、年龄、服装、身高、体型和面相'), { status: 502 })
     return {
-      ...libraryFields(item, 'characters'),
+      ...libraryFields(item, 'characters'), ...(item.sourceName ? { sourceName: item.sourceName } : {}),
       id: `C${String(index + 1).padStart(2, '0')}`,
       name: required(item?.name || parts?.姓名, `角色 ${index + 1} 没有姓名`),
-      type: 'role',
+      type: 'role', presence, voiceDescription,
       nationality: required(item?.nationality || parts?.国籍 || '中国', `角色 ${index + 1} 没有国籍`),
       role: required(item?.role || parts?.身份, `角色 ${index + 1} 没有身份`),
       gender: required(item?.gender || parts?.性别, `角色 ${index + 1} 没有性别`),
@@ -58,6 +82,9 @@ export function normalizeCharacters(raw) {
       localPath: item?.localPath || null,
     }
   }).map(pictureRecord)
+  if (participants) {
+    if (items.length !== participants.length || participants.some(person => !items.some(item => (item.name === person.name || item.sourceName === person.name) && item.presence === person.presence))) throw new Error('人物资料必须逐一匹配participants清单；请先修正每秒指令中的范围矛盾')
+  }
   return { ...node('characters'), items: items.map(cardModel) }
 }
 
@@ -81,13 +108,6 @@ export function normalizeScenes(raw) {
 
 export function storyboardPromptText(item) {
   return h3PromptText(item.prompt)
-}
-
-// 时长固定为用户设定值；模型返回的时长字段一律忽略。
-export function normalizeEpisodeDraft(raw, referenceDurationSeconds = 150) {
-  const failures = episodeSummaryFailures(raw)
-  if (failures.length) throw Object.assign(new Error(failures.join('；')), { status: 502, code: 'INVALID_EPISODE_SUMMARY' })
-  return { summary: raw.summary.trim(), durationSeconds: referenceDuration(referenceDurationSeconds) }
 }
 
 // 只检查格式，不依据词语猜测人物或环境的剧情语义。

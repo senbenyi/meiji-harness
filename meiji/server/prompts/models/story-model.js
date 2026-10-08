@@ -1,5 +1,7 @@
+import { filmCharacterSource, filmParticipants } from '../../../shared/film-characters.js'
 import { creativeDirection } from '../../../shared/script-assembly.js'
 import { libraryDirectory, requiredCharacters } from '../../../shared/library-rules.js'
+import { characterExtractionContent, characterExtractionDirectory, characterExtractionFacts } from '../../../shared/character-extraction.js'
 // 剧情四类资料（大纲、人物、场景、道具）共用一个 Model：资料与差异在 storyKinds 中声明，
 // 三类请求的结构统一由 prompt-request.js 组装（system＝角色/规则/协议，user＝任务/资料/基稿/待审内容）。
 import { reviewMethod, segment } from '../skill-prompts.js'
@@ -11,10 +13,10 @@ import { protocols } from '../../../skills/output-protocols.js'
 
 // 输出协议取自 skills/output-protocols.js 的 outline 对应小节（写明输出什么并附示例）。
 const protocolSection = title => (protocols.outline.split(/^## /m).find(chunk => chunk.startsWith(title)) || '').slice(title.length).trim()
-const characterOutputProtocol = '只返回一个合法 JSON 对象，顶层仅含 items：{"items":[角色, …]}。items 为本集完整人物角色集合，不输出大纲、其他卡片或解释。每个角色包含 name、nationality、role、gender、era、age、costume、height、build、features、appearance、prop、identity、look、libraryId。libraryId 有值时复用已有单一人物资料；没有时新建人物。不要输出 variantId、variantLabel、clothes、props 或 hairstyles。\n\n示例（仅示范格式）：\n{"items":[{"name":"旅人","nationality":"中国","role":"赶路人","gender":"男性","era":"古代","age":"三十岁","costume":"深灰长衣","height":"一米八","build":"结实","features":"方脸，浓眉","appearance":"三十岁男性，结实，方脸浓眉","prop":"铜灯","identity":"赶路人","look":"国籍：中国\\n姓名：旅人\\n身份：赶路人\\n性别：男性\\n年代：古代\\n年龄：三十岁\\n服装：深灰长衣\\n身高：一米八\\n体型：结实\\n面相：方脸，浓眉","libraryId":""}]}'
+const characterOutputProtocol = protocols.characters
 
 const cardFacts = model => [
-  segment('context', '【剧情大纲】', model.approvedOutline),
+  ...(model.filmCharacterExtraction ? [segment('context', '【已通过每秒指令：人物出镜唯一依据】', filmCharacterSource(model.source)), segment('context', '【本集参与人物清单：范围固定】', filmParticipants(model.source)), segment('context', '【已有角色声音与身份：复用资料】', (model.source.plot?.characters?.items || []).map(({name, sourceName, identity, voiceDescription}) => ({name, sourceName, identity, voiceDescription}))), segment('context', '【剧情大纲：仅作身份外貌背景】', model.approvedOutline)] : [segment('context', '【剧情大纲】', model.approvedOutline)]),
   segment('context', '【本次参数】', ''),
 ]
 const reviewTail = hasBase => `${hasBase
@@ -24,20 +26,19 @@ const reviewTail = hasBase => `${hasBase
 export const storyKinds = {
   outline: {
     role: '短剧剧情编剧', reviewRole: '独立剧情大纲审核员', stage: '剧情大纲', json: true,
-    referenceScope: '本集事件以本集摘要为准；项目背景和剧本只用于理解人物与世界设定。前集作为已发生事实，本集开场承接前集结尾；后集只约束本集结尾衔接，不提前演出后集事件。',
+    referenceScope: '本集按【剧情依据优先级】确定：剧本模式依据剧本顺序提取，自由模式依据 AI 创作方向生成；前集故事为已发生事实，后集故事仅约束结尾衔接。摘要只作展示，不参与创作。',
     outputProtocol: protocolSection('大纲输出'),
-    task: model => `根据【本集摘要】${model.mode === 'generate' ? '生成' : '重新生成'}本集剧情大纲，遵守基础规则和补充规则。【项目背景】与【剧本】用于理解设定，【前集摘要】用于承接开场，【后集摘要】用于衔接结尾。`,
-    reviewTarget: '审核【本次待审内容】中的本集剧情大纲，按审核标准和补充规则验收。【本集摘要】是本集事件依据，【项目背景】与【剧本】仅作设定参考，【前集摘要】用于核对已发生事实及开场承接，【后集摘要】仅用于核对结尾衔接，不提前演出后集事件。',
+    task: model => `${model.source.mode === 'free' ? '根据【AI 创作方向】，承接已发生的前集故事，直接生成' : '根据【剧本】顺序和已发生的前集故事，直接提取'}第 ${model.parameters.episodeNumber || 1} 集的编号故事小段，按本集时长选择连续剧情，保留本集全部明确细节，遵守基础规则和补充规则。`,
+    reviewTarget: '审核本集编号故事小段，按剧情依据优先级核对本集剧情细节、因果、连续性和结尾；摘要仅作展示，不能作为生成或审核依据。',
     facts: model => {
       const p = model.parameters
       return [
-        segment('context', '【本集摘要】', model.project.summary),
+        segment('context', '【本次集序】', { episodeNumber: model.parameters.episodeNumber || 1 }),
         segment('context', '【本次参数】', { durationSeconds: p.durationSeconds ?? null }),
-        segment('context', '【项目背景】', model.project.projectSummary),
-        segment('context', '【剧本】', model.project.script),
+        segment('context', model.source.mode === 'free' ? '【已回写剧情：仅作已发生事实参考】' : '【剧本】', model.project.script),
         segment('context', '【AI 创作方向】', model.project.premise),
-        segment('context', '【前集摘要】', model.project.previousEpisodeSummary),
-        segment('context', '【后集摘要】', model.project.nextEpisodeSummary),
+        segment('context', '【前集故事小段：已发生事实】', model.source.previousEpisodeOutlines || model.source.previousEpisodeOutline),
+        segment('context', '【后集故事小段：仅作衔接】', model.source.nextEpisodeOutline),
       ]
     },
   },
@@ -45,7 +46,7 @@ export const storyKinds = {
     role: '短剧角色设计师', reviewRole: '独立人物资料审核员', stage: '人物提取', json: true,
     cardExtraction: true,
     outputProtocol: protocolSection('人物输出'),
-    fields: ['name', 'nationality', 'role', 'gender', 'era', 'age', 'costume', 'height', 'build', 'features', 'appearance', 'prop', 'identity', 'look'],
+    fields: ['name', 'nationality', 'role', 'gender', 'era', 'age', 'costume', 'height', 'build', 'features', 'appearance', 'prop', 'identity', 'look', 'presence', 'voiceDescription'],
     task: model => `依据本集已通过大纲${model.mode === 'regenerate' ? '重新提取' : '提取'}人物角色资料，遵守基础规则和补充规则。`,
     revisionTask: automatic => `依据本集已通过大纲和${automatic ? '本轮自审意见' : '本次修改意见'}修订人物角色资料，遵守基础规则和补充规则。`,
     reviewTarget: '依据本集已通过大纲审核最新人物角色资料，按审核标准和补充规则验收。',
@@ -80,9 +81,9 @@ export class StoryModel {
     this.outputProtocol = outputProtocol || (kind === 'characters' ? characterOutputProtocol : config.outputProtocol)
     this.source = project
     this.project = kind === 'outline'
-      ? { title: project.title || '', summary: project.summary?.content || '', projectSummary: project.projectSummary || '', premise: creativeDirection(project), script: project.script || '',
-        previousEpisodeSummary: project.previousEpisodeSummary || '', nextEpisodeSummary: project.nextEpisodeSummary || '' }
+      ? { title: project.title || '', premise: creativeDirection(project), script: project.script || '' }
       : { title: project.title || '' }
+    this.filmCharacterExtraction = kind === 'characters' && project.filmCharacterExtraction === true
     this.approvedOutline = project.plot?.outline?.content || ''
     this.parameters = { episodeNumber: project.episodeNumber, durationSeconds: project.durationSeconds,
       aspectRatio: project.aspectRatio || '1344x768', outputLanguage: outputLanguage(project.outputLanguage) }
@@ -92,9 +93,17 @@ export class StoryModel {
   // 本步骤资料：目标、上游事实、补充任务资料与指导素材。审核时目标改为审核目标。
   contextSegments({ instructions = '', assets = [], review = false } = {}) {
     return [
+      ...(this.kind === 'outline' ? [segment('context', '【剧情依据优先级】', this.source.plot?.outline?.sourceMode === 'manual' && (review || this.mode === 'modify')
+        ? '当前基稿或待审故事小段是人工编辑版本，允许覆盖原始来源。按人工正文及本次意见检查内部因果、状态连续性和修改范围，不以删改原始来源判遗漏，不恢复已删除的情节或对白；原剧本或创作方向只作背景，不恢复人工删改内容。'
+        : this.source.mode === 'free' ? '直接按 AI 创作方向及本次要求创作本集故事小段，承接前集已发生事实；创作方向是持续指导，不要求首集一次实现全部方向。摘要不参与创作。' : '直接从剧本按顺序选择适合本集时长的连续剧情，承接前集进度；所选剧情的全部明确细节须保留，不以精简、关键事件或时长预算为由遗漏。摘要不参与创作。')] : []),
       ...this.config.facts(this),
-      segment('context', this.kind === 'outline' ? '【必须出场角色】' : '【项目库目录】', this.kind === 'outline' ? requiredCharacters(this.source) : libraryDirectory(this.source, this.kind)),
-      ...(this.kind === 'outline' ? [] : [segment('context', '【库关联规则】', '同一人物身份复用已有 libraryId；独立身体身份才新建角色。已有 libraryId 时复用该人物资料与图片；无 ID 时按名字或别名匹配，否则新建条目。审核核对剧情与关联依据。')]),
+      segment('context', this.kind === 'outline' ? '【必须出场角色】' : '【项目库目录】', this.kind === 'outline' ? requiredCharacters(this.source) : this.kind === 'characters' ? characterExtractionDirectory(this.source) : libraryDirectory(this.source, this.kind)),
+      ...(this.kind === 'outline' ? [] : [segment('context', '【库关联规则】', this.kind === 'characters'
+        ? review
+          ? '先查看项目库目录，按libraryId或名字/已登记别名核对关联。待审已有角色只包含name、presence、libraryId，审核其本集范围、身份关联及参与类型；固定资料与图片由程序读取，不能把程序展开的外貌、服装或声线当作模型新写的内容，也不能要求删除已保存的库资料。目录以本轮提取开始时为准，不在目录中的本轮新角色仍按完整资料审核；发布入库不改变本轮分类。'
+          : '先查看项目库目录，按libraryId或名字/已登记别名匹配。已有角色仅返回剧情称谓name、本集presence及libraryId，由程序直接引用固定身份、外貌、声音和已用图片；不重写库资料或重复新建。只有项目不存在的新角色返回完整资料。独立身体身份按剧情区分；审核核对范围和关联依据，完整外貌与声音要求仅用于新角色。'
+        : '同一人物身份复用已有 libraryId；独立身体身份才新建角色。已有 libraryId 时复用该人物资料与图片；无 ID 时按名字或别名匹配，否则新建条目。审核核对剧情与关联依据。')]),
+      segment('context', '【本集要求】', this.kind === 'outline' ? this.source.storyRequirements || '' : ''),
       segment('context', '【补充任务资料】', typeof instructions === 'string' ? instructions : ''),
       ...(this.config.cardExtraction ? [] : assets),
     ]
@@ -109,10 +118,11 @@ export class StoryModel {
 
   creation(kind, { baseContent, opinion = '', automatic = false, humanOpinion = '', additions, assetRules, language, protocol, boundary, assets, instructions, requirements } = {}) {
     let task = kind === 'generate' ? this.config.task(this) : automatic ? '修订本轮失败稿，仅修复本轮意见及必要连带关系。' : '按人工意见定向修改，保留未涉及内容。'
-    if (this.kind === 'outline' && kind !== 'generate') task = `依据本集摘要和${automatic ? '本轮自审意见' : '本次修改意见'}修订本集完整剧情大纲，遵守基础规则和补充规则。`
+    if (this.kind === 'outline' && kind !== 'generate') task = `依据当前剧情来源和${automatic ? '本轮自审意见' : '本次修改意见'}修订本集完整剧情大纲，遵守基础规则和补充规则。`
     if (this.config.revisionTask && kind !== 'generate') task = this.config.revisionTask(automatic)
+    if (this.filmCharacterExtraction) task = kind === 'generate' ? '依据本集已通过每秒指令的participants清单，先匹配项目角色库：已有角色仅返回name、presence、libraryId，程序直接引用固定资料及图片；新visible准备外貌及声音，新voice仅准备身份与声音，不补造身体或生图。返回完整集合，大纲仅补充新角色身份外貌背景。同一人物跨镜复用，名称逐字沿用清单；仅提及人物和独立旁白不建卡，空清单返回items空数组。旧指令无清单时依据画面与实际发声者提取。' : '依据已通过的最终每秒指令和本次意见修订人物资料，已有项目角色继续直接引用，保留未涉及内容，不改写镜头、台词与时间。'
     if (this.config.cardExtraction) boundary = segment('context', kind === 'generate' ? '【本次提取范围】' : '【本次修订范围】', kind === 'generate'
-      ? '本次提取仅依据提供的已通过大纲，不沿用旧卡片或历史意见。不要从时代常识或旧资料推导大纲未写出的实体或属性。'
+      ? this.filmCharacterExtraction ? '参与范围以已通过每秒指令participants清单为准，不重新猜测或增删清单；清单与正文冲突须指出具体来源并要求先修正每秒指令。voice不建外貌，visible才准备图片；复用项目库已有身份、外貌及声音。旧指令无清单时兼容正文依据。' : this.kind === 'characters' ? '本集角色范围仅依据已通过大纲，不沿用旧卡片推导出场范围或历史意见。范围内角色先匹配项目库并直接引用固定资料；只有新角色设计完整资料，不从时代常识补造大纲未写的实体或属性。' : '本次提取仅依据提供的已通过大纲，不沿用旧卡片或历史意见。不要从时代常识或旧资料推导大纲未写出的实体或属性。'
       : '以提供的最新基稿为唯一修改基准，按本次意见修正受影响卡片及必要连带关系，保留未涉及卡片与字段；修改意见不能替代大纲事实或改写剧情。返回完整卡片集合，不只返回修改部分。')
     return generationRequest({ json: this.config.json,
       role: segment('context', '【角色与职责】', `你是一名${this.role}。`),
@@ -130,6 +140,7 @@ export class StoryModel {
   toGenerateSegments(parts = {}) { return this.creation('generate', parts) }
 
   toReviseSegments({ baseContent = this.modification?.baseContent, opinion = this.modification?.opinion || '', automatic = false, humanOpinion = this.modification?.opinion || '', ...parts } = {}) {
+    if (this.kind === 'characters') baseContent = characterExtractionContent(this.source, baseContent)
     baseContent = contentText(baseContent)
     if (!baseContent.trim()) throw new Error('修订剧情需要提供基稿')
     return this.creation('revise', { ...parts, baseContent, opinion, automatic, humanOpinion })
@@ -137,6 +148,10 @@ export class StoryModel {
 
   toReviewSegments({ content, baseContent = this.modification?.baseContent, opinion = this.modification?.opinion || '', automatic = false, humanOpinion = this.modification?.opinion || '',
     criteria = segment('stage', '【审核标准】', this.reviewRules), method = segment('context', '【审核方式】', reviewMethod), additions, assetRules, language, assets, instructions, requirements, reviewContext = '' } = {}) {
+    if (this.kind === 'characters') {
+      content = characterExtractionContent(this.source, content)
+      baseContent = characterExtractionContent(this.source, baseContent)
+    }
     baseContent = contentText(baseContent)
     const hasBase = Boolean(baseContent.trim())
     const outline = this.kind === 'outline'
@@ -150,9 +165,10 @@ export class StoryModel {
       method: outline ? { ...method, title: '【审核原则】' } : method,
       criteria, additions: this.supplementSegments(additions), assetRules: this.config.cardExtraction ? [] : assetRules, language: language || this.languageSegment(),
       protocol: segment('protocol', '【本次审核协议】', reviewProtocol),
-      task: segment('context', '【本次任务】', this.config.reviewTarget + comparison),
+      task: segment('context', '【本次任务】', (this.filmCharacterExtraction ? '依据已通过每秒指令participants清单审核人物范围、身体身份与声音一致性，不重新推导范围或增删清单；visible有视觉资料，voice只要求身份和声音。清单冲突须先修正每秒指令；大纲仅作背景，空清单接受空集合。旧指令无清单时核对正文和发声者。' : this.config.reviewTarget) + comparison),
       requirements: requirementSegment(requirements),
-      facts: this.contextSegments({ instructions, assets, review: true }),
+      facts: [...this.contextSegments({ instructions, assets, review: true }),
+        ...(this.kind === 'characters' ? [segment('context', '【已有角色身份：只读库资料，不是待审生成稿】', characterExtractionFacts(this.source, content))] : [])],
       base: hasBase ? baseSegments({ kind: 'review', baseContent, opinion, humanOpinion, automatic, field: this.kind }) : [],
       continuity: segment('context', '【补充审核上下文】', reviewContext),
       content: segment('context', '【本次待审内容】', contentData(content, this.kind)),

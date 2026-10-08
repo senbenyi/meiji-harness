@@ -46,6 +46,7 @@ export function createRunEngine({ home, execute, beforeStep = async () => null, 
     // 暂停协作式收尾；取消/作废后晚到的结果不能把步骤恢复成 done。
     if (step.status !== 'running' || isRunEnded(current)) return current
     if (!failure && ['review', 're_review'].includes(step.kind) && typeof result?.passed !== 'boolean') failure = new Error('审核步骤缺少有效的 passed 结论')
+    if (failure && step.optional && step.target === 'summary') { result = { optionalError: failure.message || String(failure) }; failure = null }
     if (failure) failRun(current, [step], 'step_failed', failure.message || String(failure), now())
     else {
       step.output = result ?? null; step.endedAt = now(); step.error = null

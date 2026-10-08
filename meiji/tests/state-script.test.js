@@ -1,3 +1,4 @@
+import { materialize } from '../shared/episode-rules.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel, tempHome } from './fixtures/model.js'
@@ -60,14 +61,14 @@ test('删集与删除回写事实同次保存，清理历史和重启读取不�
   await runStore(e.home, e.id).removeEpisode(e.episodeId)
   const saved = await projectStore(e.home).read(e.id)
   assert.equal(saved.episodes.length, 0)
-  assert.equal(saved.scriptPendingDeletes[0].summaryBefore, before.summary.content)
+  assert.equal(saved.scriptPendingDeletes[0].summaryBefore, before.plot.outline.content.故事小段)
   assert.ok(scriptBlockers(saved).some(item => item.kind === 'episode-delete-sync'))
 })
 
 test('删集清理方案引用及历史，剧本页剩余方案可读取且版本与删除事实保留', async t => {
   const e = await setupModel(t), scripts = scriptStore(e.home, e.store), history = historyStore(e.home, e.id)
   await scripts.commit(e.id, { script: '原文', scriptKind: 'imported' }, { note: '初稿' })
-  const proposal = { source: 'episode-sync', baseRevision: 1, episodeId: e.episodeId, summaryRevision: e.episode.summary.revision, note: '本集方案', changes: [{ target: { kind: 'body' }, before: '原文', after: '新文' }] }
+  const proposal = { source: 'episode-sync', baseRevision: 1, episodeId: e.episodeId, outlineRevision: e.episode.plot.outline.revision, note: '本集方案', changes: [{ target: { kind: 'body' }, before: '原文', after: '新文' }] }
   const removed = await scripts.propose(e.id, proposal)
   const retained = await scripts.propose(e.id, { ...proposal, source: 'edit', episodeId: null, note: '项目方案' })
   const versions = await scripts.versions(e.id)
@@ -83,12 +84,12 @@ test('删集清理方案引用及历史，剧本页剩余方案可读取且版�
 
 test('方案部分确认或放弃即结束本次回写，旧摘要拒绝确认', async t => {
   const e = await setupModel(t)
-  await e.store.save(e.id, p => { delete p.episodes[0].summary.basis.scriptSyncedRevision; return p })
+  await e.store.save(e.id, p => { delete p.episodes[0].plot.outline.basis.scriptSyncedRevision; return p })
   const p = await e.store.read(e.id), scripts = scriptStore(e.home, e.store)
   await scripts.commit(e.id, { script: '原文剧情', scriptKind: 'imported' }, { note: '初稿' })
-  const proposal = { source: 'episode-sync', baseRevision: 1, episodeId: e.episodeId, summaryRevision: p.episodes[0].summary.revision, note: '回写', changes: [{ target: { kind: 'body' }, before: '原文', after: '新文' }, { target: { kind: 'body' }, before: '剧情', after: '故事' }] }
+  const proposal = { source: 'episode-sync', baseRevision: 1, episodeId: e.episodeId, outlineRevision: p.episodes[0].plot.outline.revision, note: '回写', changes: [{ target: { kind: 'body' }, before: '原文', after: '新文' }, { target: { kind: 'body' }, before: '剧情', after: '故事' }] }
   const id = await scripts.propose(e.id, proposal)
-  assert.ok(scriptBlockers(await e.store.read(e.id)).some(item => item.kind === 'episode-sync'))
+  assert.ok(!scriptBlockers(await e.store.read(e.id)).some(item => item.kind === 'episode-sync'))
   // 方案处理完毕（勾选写入或全部放弃）即结束本次回写，等待它的任务步骤随之继续；未勾选的改动不写入。
   await scripts.resolve(e.id, id, [0])
   assert.equal((await e.store.read(e.id)).script, '新文剧情')
@@ -99,7 +100,7 @@ test('方案部分确认或放弃即结束本次回写，旧摘要拒绝确认',
   assert.deepEqual(scriptBlockers(await e.store.read(e.id)), [])
   assert.equal((await e.store.read(e.id)).script, '新文剧情')
   const stale = await scripts.propose(e.id, { ...proposal, baseRevision: 2 })
-  await e.store.save(e.id, current => { current.episodes[0].summary.revision++; return current })
+  await e.store.save(e.id, current => { current.episodes[0].plot.outline.revision++; return current })
   await assert.rejects(scripts.resolve(e.id, stale, [0]), { status: 409 })
 })
 
@@ -112,26 +113,26 @@ test('摘要保存后回写任务只生成一次，只追加建立首版', async
     return JSON.stringify({ needsChange: true, note: '新增本集', changes: [{ target: { kind: 'episode', episodeId: e.episodeId }, before: '', after: '本集新剧情' }], appendOnly: false })
   }
   await runOperation(e.op('episode-edit', { fields: { durationSeconds: 10, summary: '本集新摘要' } }), { home: e.home })
-  assert.ok(scriptBlockers(await e.store.read(e.id)).some(item => item.kind === 'episode-sync'))
+  assert.ok(!scriptBlockers(await e.store.read(e.id)).some(item => item.kind === 'episode-sync'))
   await runOperation(e.op('script-sync'), { home: e.home, request })
   assert.equal(generates, 1)
   const project = await e.store.read(e.id)
   assert.equal(project.scriptRevision, 1)
   assert.equal(project.script, '本集新剧情')
-  assert.equal(project.episodes[0].summary.basis.scriptSyncedRevision, project.episodes[0].summary.revision)
+  assert.equal(project.episodes[0].plot.outline.basis.scriptSyncedRevision, project.episodes[0].plot.outline.revision)
   assert.deepEqual(scriptBlockers(project), [])
 })
 
 test('无需修改不产生版本，全部确认才解除回写', async t => {
   const e = await setupModel(t), scripts = scriptStore(e.home, e.store)
   await scripts.commit(e.id, { script: '原剧情', scriptKind: 'imported' }, { note: '首稿' })
-  const root = await e.store.read(e.id), revision = root.episodes[0].summary.revision
-  await e.store.save(e.id, p => { delete p.episodes[0].summary.basis.scriptSyncedRevision; return p })
+  const root = await e.store.read(e.id), revision = root.episodes[0].plot.outline.revision
+  await e.store.save(e.id, p => { delete p.episodes[0].plot.outline.basis.scriptSyncedRevision; return p })
   await runOperation(e.op('script-sync'), { home: e.home, request: async message => message.skill === 'review' ? reviewPass : JSON.stringify({ needsChange: false, note: '无需修改', changes: [] }) })
   assert.equal((await e.store.read(e.id)).scriptRevision, 1)
   assert.deepEqual(scriptBlockers(await e.store.read(e.id)), [])
-  await e.store.save(e.id, p => { delete p.episodes[0].summary.basis.scriptSyncedRevision; return p })
-  const proposal = await scripts.propose(e.id, { source: 'episode-sync', baseRevision: 1, episodeId: e.episodeId, summaryRevision: revision, note: '修改', changes: [{ target: { kind: 'body' }, before: '原', after: '新' }] })
+  await e.store.save(e.id, p => { delete p.episodes[0].plot.outline.basis.scriptSyncedRevision; return p })
+  const proposal = await scripts.propose(e.id, { source: 'episode-sync', baseRevision: 1, episodeId: e.episodeId, outlineRevision: revision, note: '修改', changes: [{ target: { kind: 'body' }, before: '原', after: '新' }] })
   await scripts.resolve(e.id, proposal, [0])
   assert.deepEqual(scriptBlockers(await e.store.read(e.id)), [])
 })
@@ -139,8 +140,8 @@ test('无需修改不产生版本，全部确认才解除回写', async t => {
 test('回写未执行时不回退摘要，保留依据后可手动发起回写', async t => {
   const e = await setupModel(t)
   await runOperation(e.op('episode-edit', { fields: { summary: '保存成功', durationSeconds: 10 } }), { home: e.home })
-  assert.equal((await e.read()).summary.content, '保存成功')
-  assert.ok(scriptBlockers(await e.store.read(e.id)).length)
+  assert.notEqual((await e.read()).summary.content, '保存成功')
+  assert.equal(scriptBlockers(await e.store.read(e.id)).length, 0)
   await runOperation(e.op('script-sync'), { home: e.home, request: async message => message.skill === 'review' ? reviewPass : JSON.stringify({ needsChange: true, note: '只追加', changes: [{ target: { kind: 'episode', episodeId: e.episodeId }, before: '', after: '保存成功' }] }) })
   assert.deepEqual(scriptBlockers(await e.store.read(e.id)), [])
 })
@@ -163,7 +164,7 @@ test('删除回写失败、停止及重启读取都保留删除事实，完成�
 test('新回写方案替换同集旧方案；旧剧本版本、旧摘要都不能写入', async t => {
   const e = await setupModel(t), scripts = scriptStore(e.home, e.store)
   await scripts.commit(e.id, { script: '旧内容', scriptKind: 'imported' }, { note: '首版' })
-  const p = await e.store.read(e.id), proposal = { source: 'episode-sync', baseRevision: 1, episodeId: e.episodeId, summaryRevision: p.episodes[0].summary.revision, note: '修改', changes: [{ target: { kind: 'body' }, before: '旧', after: '新' }] }
+  const p = await e.store.read(e.id), proposal = { source: 'episode-sync', baseRevision: 1, episodeId: e.episodeId, outlineRevision: p.episodes[0].plot.outline.revision, note: '修改', changes: [{ target: { kind: 'body' }, before: '旧', after: '新' }] }
   const old = await scripts.propose(e.id, proposal), current = await scripts.propose(e.id, proposal)
   assert.equal((await e.store.read(e.id)).scriptProposals.find(item => item.id === old).status, 'superseded')
   await assert.rejects(scripts.resolve(e.id, old, [0]), { status: 409 })
@@ -174,7 +175,7 @@ test('新回写方案替换同集旧方案；旧剧本版本、旧摘要都不�
 test('剧本待回写只暂停剧情层步骤，镜头表等下游步骤照常执行', async t => {
   const e = await setupModel(t), sessionId = 'session-11111111-1111-4111-8111-111111111111'
   useWorkspaces(t); await linkStore(e.home).selectProject(sessionId, e.id, e.store)
-  await e.store.save(e.id, root => { delete root.episodes[0].summary.basis.scriptSyncedRevision; return root })
+  await e.store.save(e.id, root => { delete root.episodes[0].plot.outline.basis.scriptSyncedRevision; return root })
   let executed = 0
   const service = createRunService({ home: e.home, execute: async () => { executed++; return { passed: true } } })
   t.after(() => service.dispose())
@@ -186,33 +187,26 @@ test('剧本待回写只暂停剧情层步骤，镜头表等下游步骤照常�
     return current
   }
   const story = await outcome({ to: 'story', scope: { only: 'outline' }, mode: 'regenerate' })
-  assert.equal(story.status, 'paused'); assert.equal(executed, 0)
-  assert.deepEqual(story.pause.reasons.map(reason => [reason.code, reason.target]), [['script_pending', 'outline']])
+  assert.equal(story.status, 'completed'); assert.equal(executed, 3)
+  assert.equal(story.pause, null)
   const shots = await outcome({ to: 'shots', mode: 'regenerate' })
   assert.equal(shots.status, 'completed'); assert.ok(executed > 0)
 })
 
-test('剧本更新后生成摘要自动先更新并审核项目摘要，不需要授权；意见进入项目摘要提示词', async t => {
-  const e = await setupModel(t), scripts = scriptStore(e.home, e.store)
-  await scripts.commit(e.id, { script: '导入剧本', scriptKind: 'imported' }, { note: '首版' })
-  const root = await e.store.read(e.id), plan = planRun(root, { to: 'summary', mode: 'regenerate' })
-  assert.deepEqual(plan.prereq, [])
-  const summary = plan.steps.filter(step => step.target === 'project-summary')
-  assert.deepEqual(summary.map(step => step.kind), ['generate', 'review'])
-  assert.deepEqual(plan.steps.find(step => step.key === 'generate@summary').after, [summary[1].id])
-  // 按意见修改剧集摘要时，意见不套用到项目摘要。
-  assert.ok(planRun(root, { to: 'summary', feedback: '加强悬念' }).steps.filter(step => step.target === 'project-summary').every(step => !step.input.operation.review && step.kind !== 'revise'))
-  const { buildTextPrompts } = await import('../server/prompts/text-prompts.js')
-  assert.match(buildTextPrompts({ skill: 'project-summary', project: root, opinion: '补结局' }).generation.user, /补结局/)
+test('剧本更新后大纲直接按剧本创作，不先生成项目摘要', async t => {
+ const e=await setupModel(t),scripts=scriptStore(e.home,e.store)
+ await scripts.commit(e.id,{script:'导入剧本',scriptKind:'imported'},{note:'首版'})
+ const root=await e.store.read(e.id),plan=planRun(materialize(root,e.episodeId),{to:'story',mode:'regenerate'})
+ assert.deepEqual(plan.prereq,[]);assert.equal(plan.steps.some(step=>step.target==='project-summary'),false)
+ assert.deepEqual(plan.steps.map(step=>step.target),['outline','outline','summary'])
 })
-
 
 test('第二集没有剧本小节时，错误无需修改进入修订，新小节保存后才完成回写', async t => {
   const e = await setupModel(t), firstId = e.episodeId
     const { reviewPass } = await import('./fixtures/review-result.js')
   await scriptStore(e.home, e.store).commit(e.id, { scriptKind: 'assembled', scriptSections: { sections: [{ episodeId: firstId, text: '第一集到家' }], future: '' }, script: '第一集到家' }, { source: 'edit', note: '已发生第一集' })
   const secondId = crypto.randomUUID()
-  await e.store.save(e.id, root => { const second = structuredClone(root.episodes[0]); second.id = secondId; second.summary.content = '第二集去渡口'; second.summary.revision++; root.episodes.unshift(second); return root })
+  await e.store.save(e.id, root => { const second = structuredClone(root.episodes[0]); second.id = secondId; second.plot.outline.content = { 故事小段: '1. 第二集去渡口' }; second.plot.outline.revision++; root.episodes.unshift(second); return root })
   let generated = 0
   await runOperation(e.op('script-sync', { episodeId: secondId }), { home: e.home, request: async message => {
     if (message.skill === 'review') return reviewPass
@@ -222,5 +216,5 @@ test('第二集没有剧本小节时，错误无需修改进入修订，新小�
   const root = await e.store.read(e.id), second = root.episodes.find(item => item.id === secondId)
   assert.equal(generated, 2); assert.equal(root.scriptRevision, 2)
   assert.equal(root.scriptSections.sections.find(item => item.episodeId === secondId).text, '第二集去渡口')
-  assert.equal(second.summary.basis.scriptSyncedRevision, second.summary.revision)
+  assert.equal(second.plot.outline.basis.scriptSyncedRevision, second.plot.outline.revision)
 })

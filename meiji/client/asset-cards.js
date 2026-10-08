@@ -45,7 +45,7 @@ function textMaterials(project, item, actions, hint, busy) {
     ? characterFieldValues(item)
     : prop ? { name: item.name || '', description: item.description || '', evidence: item.evidence || '' } : { name: item.name || '', landmark: item.landmark || '', light: item.light || '', space: item.space || '', look: item.look || '' }
   const specs = role
-    ? [
+    ? item.presence === 'voice' ? [['name', '姓名'], ['role', '身份'], ['identity', '身份特征', true], ['voiceDescription', '声音特征', true]] : [
       ['nationality', '国籍'],
       ['name', '姓名'],
       ['role', '身份'],
@@ -55,6 +55,7 @@ function textMaterials(project, item, actions, hint, busy) {
       ['height', '身高'],
       ['build', '体型', true],
       ['features', '面相', true],
+      ['voiceDescription', '声音特征', true],
     ]
     : prop ? [['name', '名称'], ['description', '描述', true], ['evidence', '依据', true]] : [
       ['name', '名称', false, true],
@@ -71,6 +72,7 @@ function textMaterials(project, item, actions, hint, busy) {
   const grid = element('div', '', 'image-text-grid')
   for (const [key, label, area, readOnly] of specs) {
     const control = materialControl(label, saved[key], { area, readOnly })
+    if (key === 'voiceDescription' && item.presence !== 'voice' || item.presence === 'voice' && key === 'role') control.input.required = false
     if (area) control.wrap.classList.add('image-text-wide')
     inputs[key] = control.input
     grid.append(control.wrap)
@@ -84,7 +86,7 @@ function textMaterials(project, item, actions, hint, busy) {
   }
   refreshPrompt()
   // 场景的生图描述即「画面」原文，详情页不再重复展示。
-  prompt.hidden = !role
+  prompt.hidden = !role || item.presence === 'voice'
   form.append(head, grid, prompt)
   const saving = project.operationActivity === (role ? 'character-text' : prop ? 'prop-text' : 'scene-text')
   const save = element('button', saving ? '保存中' : '保存', 'primary')
@@ -142,6 +144,7 @@ export function cardImageGate(project, item, gate) {
 }
 
 export function cardImageControls(project, item, actions, gate) {
+  if (item.presence === 'voice') return []
   if (gate) {
     const controls = renderDetailImageActions(project, actions, gate, { regenerate: false, blocked: targetBusy(project, `image:${item.id}`) })
     controls.classList.add('card-image-review')
@@ -257,6 +260,12 @@ export function stillCards(project, items, actions, hint, { editable = false, on
     hint.classList.add('warn')
   }
   const characterStudio = item => {
+    if (item.presence === 'voice') {
+      const card = element('article', '', 'character-studio')
+      card.append(element('h3', `${item.id} · ${item.name}（仅声音）`), cardLibraryControls(project, item, actions), textMaterials(project, item, actions, hint, targetBusy(project, 'characters')))
+      appendJsonCopy(card, item)
+      return card
+    }
     const reviewing = Boolean(imageGate && imageGate.itemId === item.id && !imageGate.track)
     const controlBusy = targetBusy(project, `image:${item.id}`) || targetBusy(project, item.type === 'role' ? 'characters' : item.type === 'prop' ? 'props' : 'scenes') || reviewing
     const mainReview = reviewing && !imageGate.slot

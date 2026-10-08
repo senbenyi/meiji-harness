@@ -255,7 +255,7 @@ export function mount() {
         edit: (run, target) => {
           const [kind, track] = target.split(':')
           openEpisode = run.episodeId || ''; openShot = track && ['shots', 'seconds', 'storyboard', 'film'].includes(kind) ? track : ''; shotTab = kind === 'storyboard' || kind === 'film' ? 'film' : 'seconds'
-          openTab = kind === 'outline' ? 'script' : ['characters', 'scenes', 'props', 'image'].includes(kind) ? 'assets' : kind === 'summary' ? 'summary' : 'shots'
+          openTab = kind === 'outline' ? 'script' : ['characters', 'scenes', 'props', 'image'].includes(kind) ? 'assets' : kind === 'summary' ? 'script' : 'shots'
           currentPage = null; hold = false; follow(true).catch(error => shell.status(error.message))
         },
       })
@@ -401,7 +401,7 @@ export function mount() {
   actions.openSource = sourceDialog(shell.root, saved)
   actions.openStory = storyDialog(shell.root, saved)
   actions.openEpisode = episodeDialog(shell.root, async (project, input) => {
-    const fields = { durationSeconds: input.durationSeconds, summary: input.summary, requirements: input.requirements }
+    const fields = { durationSeconds: input.durationSeconds, requirements: input.requirements }
     if (input.episodeId) return actions.perform(project, 'episode-edit', { episodeId: input.episodeId, fields })
     else return actions.perform(project, 'episode-add', { fields })
   }, generateEpisodeDraft, {

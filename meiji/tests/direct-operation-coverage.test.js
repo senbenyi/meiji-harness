@@ -69,16 +69,16 @@ test('按标题打开项目绑定专属工作区，拒绝缺失和重名项目',
   await assert.rejects(runOperation({ action: 'open', title: '测试剧' }, deps), /同名短剧/)
 })
 
-test('修改剧集原始摘要清空本集下游而保留项目摘要，非法输入不覆盖', async t => {
+test('修改剧集时长清空本集制作内容，展示摘要不可人工编辑', async t => {
   const e = await setupModel(t), root = await e.store.read(e.id)
   await runOperation(e.op('source', { fields: { summary: '旅人离开庭院', durationSeconds: 12 } }), { home: e.home })
   const p = await e.read()
-  assert.equal(p.summary.content, '旅人离开庭院')
-  assert.equal(p.summary.check.passed, true)
+  assert.equal(p.summary.content, null)
+  assert.equal(p.summary.check.passed, null)
   assert.equal(p.durationSeconds, 12)
   assert.equal(p.plot.outline.content, null)
   assert.deepEqual(p.shots.items, [])
   assert.equal((await e.store.read(e.id)).summary.content, root.summary.content)
-  await assert.rejects(runOperation(e.op('source', { fields: { summary: '' } }), { home: e.home }), /本集剧情摘要必须为非空字符串/)
-  assert.equal((await e.read()).summary.content, '旅人离开庭院')
+  await assert.rejects(runOperation(e.op('source', { fields: { durationSeconds: 0 } }), { home: e.home }), /时长/)
+  assert.equal((await e.read()).summary.content, null)
 })

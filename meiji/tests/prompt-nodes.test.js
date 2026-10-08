@@ -140,17 +140,17 @@ for (const action of ['outline', 'characters', 'scenes', 'shots', 'shot-seconds'
 }
 
 
-test('story regeneration keeps the episode summary as core input and drops the old story', () => {
+test('story regeneration uses direction and previous stories and drops old story and summaries', () => {
   const project = { ...episodeFixture(), projectSummary: 'PROJECT_BACKGROUND', episodeNumber: 2,
-    previousEpisodeSummary: 'PREVIOUS_EPISODE', nextEpisodeSummary: 'NEXT_EPISODE' }
+    previousEpisodeOutlines: [{ story: outlineFixture('PREVIOUS_EPISODE') }], nextEpisodeOutline: outlineFixture('NEXT_EPISODE') }
   project.summary.content = 'EPISODE_SUMMARY'
   project.plot.outline.content = outlineFixture('OLD_STORY')
   checkContext.run({ generationMode: 'regenerate', review: 'OLD_REVIEW' }, () => {
     const prompts = buildStoryPrompts(project)
     for (const message of [prompts.generation, prompts.review('NEW_STORY')]) {
       assert.doesNotMatch(message.user, /OLD_STORY|OLD_REVIEW/)
-      assert.deepEqual(promptData(message.user, '【本集摘要】'), 'EPISODE_SUMMARY')
-      assert.deepEqual(promptData(message.user, '【项目背景】'), 'PROJECT_BACKGROUND')
+      assert.doesNotMatch(message.user,/EPISODE_SUMMARY/)
+      assert.doesNotMatch(message.user,/PROJECT_BACKGROUND/)
       assert.match(message.user, /PREVIOUS_EPISODE/)
       assert.match(message.user, /NEXT_EPISODE/)
       assert.equal(promptData(message.user, '【本次要求】').durationSeconds, 10)
@@ -160,7 +160,7 @@ test('story regeneration keeps the episode summary as core input and drops the o
   })
   checkContext.run({ generationMode: 'modify', review: 'CHANGE_ROLE' }, () => {
     const message = buildStoryPrompts(project).generation
-    assert.match(message.user, /EPISODE_SUMMARY/)
+    assert.doesNotMatch(message.user, /EPISODE_SUMMARY/)
     assert.match(message.user, /OLD_STORY/)
     assert.match(message.user, /CHANGE_ROLE/)
   })

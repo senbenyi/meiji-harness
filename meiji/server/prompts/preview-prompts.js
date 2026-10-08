@@ -52,7 +52,7 @@ export function previewPrompts({ stage, root, view, skillSet, mode = 'reference'
     if (stage === 'storyboard') {
       const shot = view?.shots?.items?.find(s => `storyboard:${s.id}` === nodeKey) || view?.shots?.items?.[0]
       let text = '程序根据已通过的每秒分镜和素材清单组装；请先生成每秒分镜。'
-      if (shot?.seconds?.content?.version === 1) text = compileVideoPrompt(view, shot).prompt.text
+      if ([1, 2].includes(shot?.seconds?.content?.version)) text = compileVideoPrompt(view, shot).prompt.text
       return { generate: { system: [], user: [{ source: 'protocol', title: '【程序组装结果，无模型请求】', text }], chars: text.length }, modify: null, review: null, revise: null }
     }
     if (meta.output === 'video') {

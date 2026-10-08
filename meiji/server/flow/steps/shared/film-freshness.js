@@ -8,10 +8,13 @@ export const tailReady = shot => shot?.tailFrame.status === GenerationStatus.PAS
 export function storyboardReady(project, track) {
   const shot = project.shots.items.find(item => item.id === track), board = shot?.storyboard.content
   if (!board) return false
-  if (board.compilerVersion === 1) {
+  if (board.compilerVersion >= 1) {
     if (shot.seconds.check.passed !== true || board.secondsRevision !== shot.seconds.revision) return false
     try {
-      if (JSON.stringify(board.referenceSnapshot) !== JSON.stringify(compileVideoPrompt(project, shot).referenceSnapshot)) return false
+      const current = compileVideoPrompt(project, shot)
+      if ((board.outfitSnapshot !== undefined || current.outfitSnapshot.length) && JSON.stringify(board.outfitSnapshot) !== JSON.stringify(current.outfitSnapshot)) return false
+      if (JSON.stringify(board.referenceSnapshot) !== JSON.stringify(current.referenceSnapshot)) return false
+      if ((board.compilerVersion >= 2 || current.characterSnapshot.some(person => person.voiceDescription)) && JSON.stringify(board.characterSnapshot) !== JSON.stringify(current.characterSnapshot)) return false
     } catch { return false }
   }
   const tail = previousTail(project, track)

@@ -1,11 +1,17 @@
+import { deleteEpisodeProjectCharacter, deleteProjectCharacter } from './character-deletion.js'
 import { libraryKinds, libraryLinks } from './library-rules.js'
 import { cascadePreview } from './pipeline-cascade.js'
 
 // 一次操作合并所有受影响剧集；面板与会话共用同一份删除清单。
 export function operationDeletes(project, op) {
   if (!project || op.draft || op.mode === 'review') return []
+  if (op.action === 'entry-delete' && op.libraryKind === 'characters') return deleteProjectCharacter(project,op.libraryId,{preview:true}).deletions
   const episodes = project.episodes || [project]
   const selected = episodes.filter(episode => episode.id === op.episodeId || episode.episodeId === op.episodeId || (!op.episodeId && episodes.length === 1))
+  if (op.action === 'character-delete') {
+    const root = project.episodes ? project : { ...project, episodes: selected.map(episode => ({ ...episode, id:episode.episodeId || episode.id })), library: project.library || {characters:[],scenes:[],props:[]} }
+    return deleteEpisodeProjectCharacter(root,op.episodeId,op.itemId,{preview:true}).deletions
+  }
   const fields = op.fields || {}
   const cardActions = ['character-text', 'scene-text', 'prop-text', 'import-image', 'use-asset', 'clear-image', 'confirm-image']
   const source = selected[0], itemId = op.itemId || source?.pendingImages?.[op.draftId]?.itemId
@@ -26,8 +32,7 @@ export function operationDeletes(project, op) {
   if (op.action === 'project-delete') return episodes.flatMap(episode => cascadePreview(episode, { type: 'episode-delete' }))
   for (const episode of selected) {
     let change
-    if (op.action === 'summary') change = { type: 'summary' }
-    if (['episode-edit', 'source'].includes(op.action) && (fields.summary != null && fields.summary !== episode.summary.content || fields.durationSeconds != null && Number(fields.durationSeconds) !== episode.durationSeconds)) change = { type: 'summary' }
+    if (['episode-edit', 'source'].includes(op.action) && (fields.durationSeconds != null && Number(fields.durationSeconds) !== episode.durationSeconds)) change = { type: 'summary' }
     else if (op.action === 'source' && fields.aspectRatio && fields.aspectRatio !== project.aspectRatio) change = { type: 'aspect' }
     if (op.action === 'story') change = { type: op.only && op.only !== 'outline' ? 'cards' : 'outline', key: op.only }
     if (op.action === 'outline-text' && op.outline !== episode.plot.outline.content) change = { type: 'outline' }

@@ -11,7 +11,7 @@ import { normalizeOutline } from '../../../../shared/story-outline.js'
 export async function opOutlineText(c) {
   let { operation, deps, projects, models, project, trace, note } = c
   const outline = normalizeOutline(operation.outline, 400)
-  project = await runNode('save', () => projects.writeStep(project.id, 'outline', { ...plotPatch(project, { outline: contentNode(project.plot.outline, outline) }) }), { target: 'outline' })
+  project = await runNode('save', () => projects.writeStep(project.id, 'outline', { ...plotPatch(project, { outline: { ...contentNode(project.plot.outline, outline), sourceMode: 'manual' } }) }), { target: 'outline' })
   if (deps.deferReview) { note('大纲已保存，等待复审或人工通过'); return trace }
   const result = await (deps.reviewContent || reviewContent)({ project, stage: 'outline', text: JSON.stringify(outline), route: (modelRoutes(await models.read())).story })
   checkContext.getStore().validation = result.failures

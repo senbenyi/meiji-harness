@@ -7,7 +7,10 @@ export function checkSeconds(text, project, options = {}) {
 }
 // 复审复用此步骤，只更新审核结论，不生成或修订正文。
 export function reviewSeconds(input) {
-  return reviewStep({ ...input, message: input.prompts.review(input.text, input.revision),
+  let text = input.text
+  try { text = JSON.stringify({ shots: parseSecondsPartial(text, [input.options.project.shots.items.find(shot => shot.id === input.options.shotId)], input.options.project).sections }) }
+  catch { /* 解析错误由程序审核保留，不用空内容替代失败原稿。 */ }
+  return reviewStep({ ...input, text, message: input.prompts.review(text, input.revision),
     check: input.check || (text => checkSeconds(text, input.options.project, input.options)) })
 }
 

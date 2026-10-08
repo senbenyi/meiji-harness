@@ -176,7 +176,7 @@ test('JSON 大纲经解析保存后展示真实换行，不展示对象外壳或
  assert.deepEqual(saved.plot.outline.content, outline)
  container.replaceChildren(renderStage('outline', saved, { perform: async () => {}, fail: () => {} }, {}))
  assert.equal(container.querySelector('pre.story').textContent, outlineText(outline))
- assert.equal(container.querySelector('pre.story').textContent.split('\n\n').length, 7)
+ assert.equal(container.querySelector('pre.story').textContent.split('\n\n').length, 1)
 })
 
 test('超过15秒的小剧情同名分段标题经保存读回后在各镜头卡片完整展示', async t => {
@@ -416,21 +416,14 @@ test('film shows review only for existing content and independently for generate
  assert.equal(container.querySelector('.shot-card').querySelector('.workflow-review'),null)
 })
 
-test('summary editing and review target the current episode',async t=>{
- const container=domSetup(t),p=episodeFixture(),calls=[],edits=[]
- p.episodeId=p.id
- container.append(renderStage('summary',p,{perform:async(...args)=>calls.push(args),openEpisode:(...args)=>edits.push(args),fail:()=>{}},{}))
- assert.equal(container.querySelector('.episode-summary > .summary').textContent,p.summary.content)
- const edit=[...container.querySelectorAll('button')].find(b=>b.textContent==='编辑摘要')
- edit.click();assert.equal(edits[0][1].id,p.episodeId);assert.equal(edits[0][1].summary.content,p.summary.content)
- const area=container.querySelector('[data-review-target="summary"]'),input=area.querySelector('input')
- input.value='增加结尾悬念';input.dispatchEvent(new window.Event('input'));input.onblur()
- area.querySelector('button').click();await Promise.resolve()
- assert.equal(calls[0][1],'episode-generate');assert.equal(calls[0][2].episodeId,p.episodeId)
- assert.equal(calls[0][2].generationMode,'modify');assert.equal(calls[0][2].review,'增加结尾悬念')
- container.replaceChildren(renderStage('summary',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{}))
- container.querySelector('.workflow-regenerate').click();await Promise.resolve()
- assert.equal(calls[1][2].generationMode,'regenerate');assert.equal(calls[1][2].review,undefined)
+test('摘要只在剧情页展示，不提供编辑和创作审核入口',t=>{
+ const container=domSetup(t),p=episodeFixture()
+ p.summary.outlineRevision=p.plot.outline.revision
+ container.append(renderStage('script',p,{perform:async()=>{},fail:()=>{}},{}))
+ assert.match(container.textContent,/本集摘要（仅展示）/)
+ assert.ok(container.textContent.includes(p.summary.content))
+ assert.equal(container.querySelector('[data-review-target="summary"]'),null)
+ assert.ok(![...container.querySelectorAll('button')].some(b=>b.textContent==='编辑摘要'))
 })
 
 test('overview project deletion confirms and does not open episodes', async t => {
@@ -480,7 +473,7 @@ test('history entry navigates without loading inline history', t => {
 
 test('shot table and seconds are separate top-level tabs with scoped history', async t => {
  const { tabs } = await import('../client/flow-view.js')
- assert.deepEqual(tabs.map(tab => tab.label), ['摘要', '剧情', '本集资产', '镜头表', '每秒指令', '成片', '合成'])
+ assert.deepEqual(tabs.map(tab => tab.label), ['剧情', '本集资产', '镜头表', '每秒指令', '成片', '合成'])
  const container = domSetup(t), project = episodeFixture(), calls = []
  const actions = {perform:async()=>{},fail:()=>{},openHistory:(project,scope)=>calls.push(scope)}
  for (const [step,label] of [['shots','镜头表'],['seconds','每秒指令']]) {
@@ -497,7 +490,7 @@ test('shot table and seconds are separate top-level tabs with scoped history', a
 test('stage toolbar groups status, history, skills and generation controls', t => {
  const container = domSetup(t), project = episodeFixture()
  const actions = {perform:async()=>{},fail:()=>{},openHistory:()=>{},openSkill:()=>{}}
- for (const step of ['summary','script','shots','seconds','film','assembly']) {
+ for (const step of ['script','shots','seconds','film','assembly']) {
   container.replaceChildren(renderStage(step,project,actions,{}))
   const toolbar=container.querySelector('.stage-history-toolbar')
   assert.equal(toolbar.firstElementChild.className,'stage-status')
@@ -522,7 +515,7 @@ test('episode detail tabs show clean labels without progress or endpoint selecto
  const project = { id: 'p', title: '剧', revision: 1, episodes: [episode], summary: { content: '' } }
  const { renderSession } = await import('../client/project-session-view.js')
  container.append(renderSession(project, () => {}, { perform: async (...args) => calls.push(args), fail() {} }, { episodeId: episode.id }))
- assert.deepEqual([...container.querySelectorAll('.stage-overview .stage')].map(button => button.textContent), ['摘要', '剧情', '本集资产', '镜头表', '每秒指令', '成片', '合成'])
+ assert.deepEqual([...container.querySelectorAll('.stage-overview .stage')].map(button => button.textContent), ['剧情', '本集资产', '镜头表', '每秒指令', '成片', '合成'])
  assert.equal(container.querySelector('[aria-label="制作终点"]'), null)
  assert.equal(container.querySelector('.stage-overview .primary'), null)
  assert.equal(calls.length, 0)
@@ -848,10 +841,10 @@ test('本集人物审核意见只用于人物修订；历史与关卡归本集�
  review.querySelector('.workflow-review-action').click(); await Promise.resolve()
  assert.deepEqual(calls[0].slice(1), ['characters', { generationMode: 'modify', review: '补充角色身份' }])
  p.plot.characters.items = []; p.plot.characters.check.passed = null
- assert.equal(tabOf(p), 'assets')
+ assert.equal(tabOf(p), 'film')
  assert.deepEqual(historyTargets('script'), ['outline'])
  assert.deepEqual(historyTargets('assets'), ['characters', 'image:*'])
- assert.match(runGoalLabel({ goal: { to: 'story', scope: { only: 'characters' } } }), /生成人物角色/)
+ assert.match(runGoalLabel({ goal: { to: 'story', scope: { only: 'characters' } } }), /生成人物资料/)
  p.activeRuns = [{ progress: [{ target: 'characters', done: 1, total: 2 }] }]
  assert.equal(runTabProgress(p, 'script'), null)
  assert.deepEqual(runTabProgress(p, 'assets'), { done: 1, total: 2, paused: false })
