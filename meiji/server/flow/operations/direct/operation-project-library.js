@@ -1,6 +1,6 @@
 import { applyLibraryImageDraft } from '../../../data/library-image-storage.js'
 import { characterFieldValues, characterLookText } from '../../../../shared/character-facts.js'
-import { normalizeCostumes } from '../../../../shared/character-costumes.js'
+import { wardrobeFields } from '../../../../shared/character-costumes.js'
 import { deleteProjectCharacter } from '../../../../shared/character-deletion.js'
 import { libraryKinds, kindOf, libraryTarget, libraryLinks, createLibraryEntry, addLibraryVariant, applyLibraryCard } from '../../../../shared/library-rules.js'
 import { node, setContent, finish } from '../../../../shared/drama-model.js'
@@ -88,11 +88,12 @@ export async function opProjectLibrary(c) {
           if (typeof fields[key] !== 'string' || fields[key].length > 10000) invalid('变体字段格式无效')
           target.variant.fields[key] = fields[key].trim()
         }
-        if (kind === 'characters' && fields.costumes !== undefined) {
-          const previous = target.variant.fields.costumes || [], costumes = normalizeCostumes(fields.costumes, previous)
+        if (kind === 'characters' && (fields.costumes !== undefined || fields.defaultCostumeId !== undefined)) {
+          const previous = target.variant.fields.costumes || []
+          const normalized = wardrobeFields(fields, target.variant.fields), costumes = normalized.costumes
           const ids = new Set(costumes.map(row => row.id))
-          target.variant.fields.costumes = costumes
-          if (previous.some(row => !ids.has(row.id) && row.description === target.variant.fields.costume)) target.variant.fields.costume = costumes[0]?.description || ''
+          Object.assign(target.variant.fields, normalized)
+          if (previous.some(row => !ids.has(row.id) && row.description === target.variant.fields.costume)) target.variant.fields.costume = costumes.find(row => row.id === normalized.defaultCostumeId)?.description || ''
           const content = target.variant.image.content
           if (content?.costumes && Object.keys(content.costumes).some(id => !ids.has(id))) {
             setContent(target.variant.image, { ...content, costumes: Object.fromEntries(Object.entries(content.costumes).filter(([id]) => ids.has(id))) }, { passed: true, failures: [] })

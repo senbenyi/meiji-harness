@@ -17,7 +17,7 @@ export function operationDeletes(project, op) {
   if (op.action === 'entry-edit' && op.libraryKind === 'characters' && !op.data && !op.incomingId && !op.assetId) {
     const target = libraryTarget(project, 'characters', { libraryId: op.libraryId })
     const current = target && { ...target.entry, ...target.variant.fields, variantLabel: target.variant.label }
-    if (current && Object.entries(fields).every(([key, value]) => key === 'costumes' || JSON.stringify(value) === JSON.stringify(current[key] ?? (key === 'required' ? false : '')))) return []
+    if (current && Object.entries(fields).every(([key, value]) => ['costumes', 'defaultCostumeId'].includes(key) || JSON.stringify(value) === JSON.stringify(current[key] ?? (key === 'required' ? false : '')))) return []
   }
   const cardActions = ['character-text', 'scene-text', 'prop-text', 'import-image', 'use-asset', 'clear-image', 'confirm-image']
   const source = selected[0], itemId = op.itemId || source?.pendingImages?.[op.draftId]?.itemId

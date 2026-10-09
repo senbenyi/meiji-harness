@@ -1,4 +1,4 @@
-import { normalizeCostumes } from '../../../../shared/character-costumes.js'
+import { wardrobeFields } from '../../../../shared/character-costumes.js'
 import { editLinkedCard } from '../../../../shared/library-rules.js'
 // 操作：编辑人物文字
 import { checkContext } from '../../../runtime/operation-context.js'
@@ -22,7 +22,7 @@ export async function opCharacterText(c) {
   if (keys.some(key => values[key].length > 10000 || !values[key] && !(key === 'voiceDescription' && character.presence !== 'voice' || key === 'role' && character.presence === 'voice'))) throw Object.assign(new Error('人物字段不能为空或超过10000字'), { status: 400 })
   if (operation.fields?.costumes !== undefined) {
     if (JSON.stringify(operation.original?.costumes || []) !== JSON.stringify(character.costumes || [])) throw Object.assign(new Error('人物服装已更新，请刷新后编辑'), { status: 409 })
-    values.costumes = normalizeCostumes(operation.fields.costumes, character.costumes)
+    Object.assign(values, wardrobeFields(operation.fields, character))
   }
   values.costume = current.costume
   if (project.plot.characters.items.some(item => item.id !== character.id && item.name === values.name)) throw Object.assign(new Error('人物名称重复'), { status: 400 })

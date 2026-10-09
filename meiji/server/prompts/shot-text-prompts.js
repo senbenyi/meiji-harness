@@ -140,7 +140,7 @@ export function buildSecondsPrompts(options) {
     review: `验收 ${shotId}（0–${shot.duration}s）的每秒指令：剧情、台词、时长与交接状态符合本镜镜头表，具体镜头设计与空间调度符合关联资料，与上一镜交接摘要无实质矛盾。`,
     facts: [
       { title: '【本镜镜头表】', text: shotData(shot) },
-      { title: '【本集角色卡人物清单：参与人物仅从中选取】', text: secondsCharacterRoster(project) },
+      { title: '【本集角色卡人物清单：参与人物仅从中选取】', text: secondsCharacterRoster(project, shotId) },
       { title: '【连续性参考：上一镜交接摘要】', text: secondsHandoff(previous) },
       cards('scenes', '【上游事实：本镜关联场景】'), cards('props', '【上游事实：本镜关联道具】'),
       { title: '【剧情大纲】', text: project.plot.outline.content ? project.plot.outline.content : '' },

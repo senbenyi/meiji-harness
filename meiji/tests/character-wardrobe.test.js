@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
+import { JSDOM } from './fixtures/jsdom.js'
+import { renderCostumeDetail } from '../client/costume-detail-view.js'
 import { readdir } from 'node:fs/promises'
 import { setupModel } from './fixtures/model.js'
 import { scopeProjects } from '../server/data/episode-data.js'
@@ -138,4 +140,32 @@ test('移除服装同时清理对应图片引用和默认着装，其他服装�
  assert.deepEqual(v.fields.costumes,[costumes[1]]);assert.equal(v.fields.costume,costumes[1].description)
  assert.equal(v.image.content.localPath,'/main.png');assert.equal(v.image.content.costumes.daily,undefined);assert.equal(v.image.content.costumes.night.localPath,'/night.png')
  for(const episode of after.episodes){assert.deepEqual(episode.plot.characters.items[0].costumes,[costumes[1]]);assert.deepEqual(episode.plot.characters.items[0].image.content,v.image.content)}
+})
+
+
+test('修改默认服装同步所有关联剧集并保留已有图片指令成片', async t => {
+ const e=await fixture(t),before=await e.store.read(e.id),entry=before.library.characters[0]
+ await runOperation(e.op('entry-edit',{libraryKind:'characters',libraryId:entry.id,variantId:entry.defaultVariantId,fields:{defaultCostumeId:'night'}}),{home:e.home})
+ const after=await e.store.read(e.id)
+ assert.equal(after.library.characters[0].variants[0].fields.defaultCostumeId,'night')
+ for(const [i,episode] of after.episodes.entries()){
+  assert.equal(episode.plot.characters.items[0].defaultCostumeId,'night')
+  assert.deepEqual(episode.plot.characters.items[0].image,before.episodes[i].plot.characters.items[0].image)
+  assert.deepEqual(episode.shots,before.episodes[i].shots)
+ }
+})
+
+
+test('服装详情可指定默认并随保存提交，当前默认不可直接取消', async t => {
+ const dom=new JSDOM('<body></body>'),prior=globalThis.document;globalThis.document=dom.window.document
+ t.after(()=>{globalThis.document=prior;dom.window.close()})
+ const item={costumes,defaultCostumeId:'daily',image:{content:null}},saved=[]
+ const options={onBack:()=>{},onSave:async(...args)=>{saved.push(args)},onImageChange:()=>{}}
+ const current=renderCostumeDetail(item,costumes[0],null,options)
+ assert.equal(current.querySelector('[aria-label="设为默认服装"]').checked,true)
+ assert.equal(current.querySelector('[aria-label="设为默认服装"]').disabled,true)
+ const page=renderCostumeDetail(item,costumes[1],null,options)
+ const check=page.querySelector('[aria-label="设为默认服装"]');check.checked=true
+ await page.querySelector('form').onsubmit({preventDefault(){}})
+ assert.equal(saved[0][0].id,'night');assert.deepEqual(saved[0][1],{makeDefault:true})
 })

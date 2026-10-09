@@ -12,19 +12,25 @@ export function renderCostumeDetail(item, costume, pending, { onBack, onSave, on
     input.value = costume[key] || ''; input.maxLength = 10000; input.required = key !== 'context'; input.disabled = busy; input.setAttribute('aria-label', name)
     label.append(element('span', name), input); form.append(label); inputs[key] = input
   }
+  const defaultLabel = element('label'), defaultInput = element('input')
+  const isDefault = Boolean(costume.id && item.defaultCostumeId === costume.id)
+  defaultInput.type = 'checkbox'; defaultInput.checked = isDefault; defaultInput.disabled = busy || isDefault
+  defaultInput.setAttribute('aria-label', '设为默认服装')
+  defaultLabel.append(defaultInput, element('span', '设为默认服装')); form.append(defaultLabel)
   const buttons = element('div', '', 'costume-detail-actions form-save-footer'), save = element('button', '保存', 'primary'), remove = element('button', '移除服装'), error = element('p', '', 'hint warn')
   save.type = 'submit'; remove.type = 'button'; save.disabled = remove.disabled = busy; error.hidden = true; error.setAttribute('role', 'status')
   async function submit(deleting) {
     if (save.disabled) return { cancelled: true }
     save.disabled = remove.disabled = back.disabled = true
+    defaultInput.disabled = true
     for (const input of Object.values(inputs)) input.disabled = true
     error.hidden = true
     try {
-      const result = await onSave(deleting ? null : { ...costume, ...Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value.trim()])) })
+      const result = await onSave(deleting ? null : { ...costume, ...Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value.trim()])) }, { makeDefault: !deleting && defaultInput.checked })
       if (!result?.cancelled) await onBack()
       return result
     } catch (failure) { error.textContent = failure.message; error.hidden = false; return { cancelled: true } }
-    finally { save.disabled = remove.disabled = back.disabled = busy; for (const input of Object.values(inputs)) input.disabled = busy }
+    finally { save.disabled = remove.disabled = back.disabled = busy; defaultInput.disabled = busy || isDefault; for (const input of Object.values(inputs)) input.disabled = busy }
   }
   form.onsubmit = event => { event.preventDefault(); return submit(false) }
   remove.onclick = () => submit(true)

@@ -69,6 +69,7 @@ export function compileVideoPrompt(project, shot) {
   }
   let start = 0, cut = 0
   const details = [], speakers = new Map(), dialogueSpeakers = new Map()
+  if (content.dialogues.length) details.push('人声只朗读<d>内的台词正文，不朗读人物名、动作、心理叙述或表演说明。正常对白使用角色平常音调；心声沿用同一角色可辨认的基础声线，但明确降低音调并加入轻微短混响，与正常对白听感不同。切回对白时恢复正常音调，不沿用心声音效；心声人物不动嘴，其他人物听不到、不回应。')
   const speakerName = id => id === narratorId ? '旁白' : catalog.get(id)?.name || id
   if (content.participants) {
     const people = entities.filter(entity => entity.kind === 'character')
@@ -97,7 +98,7 @@ export function compileVideoPrompt(project, shot) {
       const visualSpeaker = d.delivery === 'on' && speaker ? substitute(`【${speaker.name}|${speaker.id}】`) : speakerName(d.speakerId)
       dialogueSpeakers.set(original.id, d.speakerId)
       if (!speakers.has(d.speakerId)) speakers.set(d.speakerId, speakers.size + 1)
-      details.push(`${secondsRange(d.startMs, d.endMs)} ${visualSpeaker} (S${speakers.get(d.speakerId)})，${d.speakerId === narratorId ? '独立画外旁白，不对口型' : { on: '画内', off: '画外', inner: '内心独白，不对口型' }[d.delivery]}，${d.performance}：<d>${d.language}: ${d.text}</d>`)
+      details.push(`${secondsRange(d.startMs, d.endMs)} ${visualSpeaker} (S${speakers.get(d.speakerId)})，${d.speakerId === narratorId ? '独立画外旁白，不对口型' : { on: '画内对白，正常音调', off: '画外对白，正常音调，不对口型', inner: '内心独白，不对口型；相对正常对白降调、轻微短混响，人物嘴唇不动' }[d.delivery]}，${d.performance}：<d>${d.language}: ${d.text}</d>`)
     }
     // 只记录已完成的状态，不添加后镜计划。
     details.push(`${b === content.beats.at(-1) ? '结尾状态' : '段末状态'}：${substitute(b.endState)}`)

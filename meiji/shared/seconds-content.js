@@ -7,12 +7,18 @@ const fail = message => { throw new Error(message) }
 const nonempty = value => typeof value === 'string' && value.trim()
 const array = (value, name) => { if (!Array.isArray(value)) fail(`${name}必须为数组`); return value }
 // 本集称谓和可选服装目录；不展开未关联的项目角色或重复固定外貌。
-export function secondsCharacterRoster(project) {
+export function secondsCharacterRoster(project, shotId) {
   return (project?.plot?.characters?.items || []).map(card => {
     const target = card.ref && libraryTarget(project, 'characters', card.ref)
     const name = card.sourceName || card.name
     const costumes = target?.variant.fields.costumes || card.costumes || []
-    return { name, aliases: [...new Set([card.name, card.sourceName, ...(target?.entry.aliases || [])].filter(value => value && value !== name))], ...(costumes.length ? { costumes } : {}) }
+    const aliases = [...new Set([card.name, card.sourceName, ...(target?.entry.aliases || [])].filter(value => value && value !== name))]
+    const defaultCostumeId = target?.variant.fields.defaultCostumeId ?? card.defaultCostumeId ?? ''
+    const rows = project.shots?.items || [], index = rows.findIndex(shot => shot.id === shotId)
+    const prior = rows.slice(0, Math.max(0, index)).reverse().filter(shot => shot.seconds?.check.passed === true)
+      .flatMap(shot => shot.seconds.content?.participants || []).find(person => person.presence === 'visible' && (person.name === name || aliases.includes(person.name)))
+    return { name, aliases, ...(costumes.length ? { costumes, defaultCostumeId,
+      ...(shotId ? { currentCostumeId: prior?.costumeId || defaultCostumeId, ...(prior ? { confirmedOutfit: prior.outfit } : {}) } : {}) } : {}) }
   })
 }
 // participants是角色卡参与子集；只清理卡外条目，不修改剧情及对白。
@@ -136,13 +142,21 @@ function bareMentions(text, project, catalog) {
 function requireParticipants(content, shot, project) {
   if (content?.version !== 2) return
   if (!Array.isArray(content.participants)) fail(`${shot.id} 新每秒指令必须返回participants参与人物数组`)
-  const roster = secondsCharacterRoster(project), used = new Set()
+  const roster = secondsCharacterRoster(project, shot.id), used = new Set()
   for (const person of content.participants) {
     if (person?.presence === 'visible' && !nonempty(person.outfit) || person?.presence === 'voice' && person.outfit !== '') fail(`${shot.id} participants人物「${person?.name || '未命名'}」必须返回outfit：出镜人物为非空着装段落，仅声音人物为空字符串`)
     const matches = roster.filter(card => card.name === person?.name || card.aliases.includes(person?.name))
     if (!matches.length) fail(`${shot.id} participants人物称谓无效：${person?.name || '未命名'}`)
     if (matches.length > 1) fail(`${shot.id} participants人物「${person.name}」对应多张本集角色卡，请先明确称谓`)
     if (person.presence === 'visible' && matches[0].costumes?.length && !matches[0].costumes.some(costume => costume.id === person.costumeId)) fail(`${shot.id} 人物「${person.name}」须从服装目录选择 costumeId`)
+    if (person.presence === 'visible' && matches[0].costumes?.length) {
+      const expected = matches[0].currentCostumeId
+      if (!expected) fail(`${shot.id} 人物「${person.name}」缺少默认服装，请在人物资料设置默认服装`)
+      const evidence = person.costumeEvidence
+      if (evidence !== undefined && typeof evidence !== 'string') fail(`${shot.id} costumeEvidence须为本镜服装依据原文或空字符串`)
+      if (evidence && !shot.content.includes(evidence.trim())) fail(`${shot.id} 服装依据必须逐字引用本镜镜头表，不能引用其他镜头或自行编造`)
+      if (person.costumeId !== expected && !evidence?.trim()) fail(`${shot.id} 人物「${person.name}」无明确服装依据，须沿用当前/默认服装 ${expected}；剧情明确指定另一套时填写costumeEvidence`)
+    }
     if (used.has(matches[0])) fail(`${shot.id} participants人物「${person.name}」与已列人物对应同一本集角色卡，不得重复列出`)
     used.add(matches[0])
   }

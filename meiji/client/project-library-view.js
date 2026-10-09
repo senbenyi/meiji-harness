@@ -99,10 +99,11 @@ export function renderProjectLibrary(initial, kind, actions, { entryId = null } 
             const updated = project.library.characters.find(row => row.id === entry.id).variants.find(row => row.id === variant.id)
             return { ...result, src: costumeImageSource({ image: updated.image }, costume) }
           }
-          const saveCostume = async (costume, updated) => {
+          const saveCostume = async (costume, updated, { makeDefault = false } = {}) => {
+            if (updated && !updated.id) updated = { ...updated, id: crypto.randomUUID() }
             const latestCostumes = project.library.characters.find(row => row.id === entry.id).variants.find(row => row.id === variant.id).fields.costumes || []
             const costumes = costume.id ? latestCostumes.flatMap(row => row.id === costume.id ? updated ? [updated] : [] : [row]) : [...latestCostumes, updated]
-            const result = await actions.perform(project, 'entry-edit', { libraryKind: kind, libraryId: entry.id, variantId: variant.id, fields: { costumes } })
+            const result = await actions.perform(project, 'entry-edit', { libraryKind: kind, libraryId: entry.id, variantId: variant.id, fields: { costumes, ...(makeDefault ? { defaultCostumeId: updated.id } : {}) } })
             if (!result?.cancelled) await page.refresh()
             return result
           }
@@ -116,7 +117,7 @@ export function renderProjectLibrary(initial, kind, actions, { entryId = null } 
                 if (body.querySelector('[data-dirty="true"]')) block.querySelector('.character-wardrobe').replaceWith(wardrobe())
                 else paint()
               },
-              onSave: updated => saveCostume(costume, updated),
+              onSave: (updated, options) => saveCostume(costume, updated, options),
             })
             page.append(costumePage)
           }

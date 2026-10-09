@@ -11,7 +11,7 @@ export function characterWardrobe(item, pending, { onOpen, onAdd, onImageChange,
     const card = element('article', '', 'wardrobe-image')
     card.dataset.costumeId = costume.id
     card.append(costumeImageControls(item, costume, pending, { onOpen: () => onOpen?.(costume), onChange: onImageChange ? fields => onImageChange(costume, fields) : undefined, onRemove: onRemove ? () => onRemove(costume) : undefined, stage, busy }))
-    const name = element('button', costume.name, 'wardrobe-name'); name.type = 'button'; name.onclick = () => onOpen?.(costume)
+    const name = element('button', `${costume.name}${costume.id === item.defaultCostumeId ? ' · 默认' : ''}`, 'wardrobe-name'); name.type = 'button'; name.onclick = () => onOpen?.(costume)
     card.append(name); list.append(card)
   }
   if (!item.costumes?.length) section.append(element('p', '暂无服装', 'meta'))

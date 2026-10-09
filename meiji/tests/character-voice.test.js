@@ -42,7 +42,7 @@ test('混合参与角色只有可见人物入图片清单，两位声音独立�
  assert.deepEqual(out.referenceSnapshot.map(ref=>ref.entityId),['C01'])
  assert.match(out.prompt.text,/旅人 \(S1\)，固定声音特征：成年男声/)
  assert.match(out.prompt.text,/电话顾客 \(S2\)，固定声音特征：成年女声/)
- assert.match(out.prompt.text,/画外，急促，不对口型：<d>zh-CN: 我到了。<\/d>/)
+ assert.match(out.prompt.text,/画外对白，正常音调，不对口型，急促，不对口型：<d>zh-CN: 我到了。<\/d>/)
  assert.deepEqual(s.seconds.content,before)
  assert.doesNotMatch(characterFactText(p.plot.characters.items[0]),/男声|普通话/)
 })
@@ -92,4 +92,17 @@ test('人工人物编辑保存声音并保持生图描述，拒绝过期声音�
  await runOperation(e.op('character-text',{itemId:card.id,original,fields}),{home:e.home,reviewContent:async()=>({passed:true,failures:[]})})
  const after=await e.read();assert.equal(after.plot.characters.items[0].voiceDescription,fields.voiceDescription);assert.equal(after.plot.characters.items[0].look,card.look)
  await assert.rejects(runOperation(e.op('character-text',{itemId:card.id,original,fields}),{home:e.home}),/已更新/)
+})
+
+
+test('同角色对白与心声分开音调，朗读正文不含动作且不改写台词', () => {
+ const p=voicedProject(),s=p.shots.items[0],c=s.seconds.content
+ c.dialogues[1]={...c.dialogues[1],speakerName:'旅人',delivery:'inner',text:'我哥真的还活着。',performance:'紧攥衣角，嘴唇不动'}
+ const before=structuredClone(c),text=compileVideoPrompt(p,s).prompt.text
+ assert.match(text,/画内对白，正常音调/)
+ assert.match(text,/内心独白，不对口型；相对正常对白降调、轻微短混响，人物嘴唇不动/)
+ assert.match(text,/切回对白时恢复正常音调/)
+ assert.match(text,/其他人物听不到、不回应/)
+ assert.deepEqual([...text.matchAll(/<d>(.*?)<\/d>/g)].map(m=>m[1]),['zh-CN: 你好。','zh-CN: 我哥真的还活着。'])
+ assert.deepEqual(c,before)
 })

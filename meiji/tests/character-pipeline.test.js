@@ -20,6 +20,7 @@ const costumes = [{ id: 'daily', name: '日常', description: '蓝色短衣', co
 function dressed() {
   const p = episodeFixture(), shot = p.shots.items[0], card = p.plot.characters.items[0]
   card.costumes = structuredClone(costumes)
+  card.defaultCostumeId = 'night'
   card.image.content = { localPath: '/base.png', costumes: Object.fromEntries(costumes.map(row => [row.id, { localPath: `/${row.id}.png`, description: row.description }])) }
   shot.seconds.content.version = 2
   shot.seconds.content.participants = [{ name: card.name, presence: 'visible', outfit: '黑色长袍，衣襟扣合', costumeId: 'night' }]
@@ -102,4 +103,29 @@ for (const failure of ['过期', '取消', '保存失败']) test(`库自动入�
   assert.deepEqual(await readdir(join(e.home, 'storages/meiji/assets/characters')), [old.assetId])
   assert.ok(await readImageDraft(e.home, draft.draftId))
   assert.equal((await readPicture(e.home, root, old)).bytes.toString(), 'old')
+})
+
+
+test('默认服装不随数组顺序或场景改变，换装须有本镜原文且承接最近已通过镜头', () => {
+  const { p, shot, card } = dressed()
+  card.defaultCostumeId = 'daily'
+  const person = shot.seconds.content.participants[0]
+  const parse = () => parseSecondsResponse(JSON.stringify({ shots: [shot.seconds.content] }), [shot], p)
+  assert.throws(parse, /无明确服装依据/)
+  person.costumeId = 'daily'; person.outfit = '蓝色短衣'
+  card.costumes.reverse()
+  assert.equal(secondsCharacterRoster(p, shot.id)[0].currentCostumeId, 'daily')
+  assert.doesNotThrow(parse)
+  person.costumeId = 'night'; person.outfit = '黑色长袍'
+  person.costumeEvidence = '他穿上黑色长袍'
+  assert.throws(parse, /逐字引用/)
+  shot.content += '他穿上黑色长袍。'
+  assert.doesNotThrow(parse)
+  const next = structuredClone(shot); next.id = 'S02'
+  p.shots.items = [shot, next]
+  shot.seconds.check.passed = false
+  assert.equal(secondsCharacterRoster(p, next.id)[0].currentCostumeId, 'daily')
+  shot.seconds.check.passed = true
+  assert.equal(secondsCharacterRoster(p, next.id)[0].currentCostumeId, 'night')
+  assert.equal(secondsCharacterRoster(p, next.id)[0].confirmedOutfit, '黑色长袍')
 })

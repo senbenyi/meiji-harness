@@ -92,7 +92,7 @@ for (const mode of ['save', 'cancel', 'error']) test(`服装独立编辑页图�
  const age=page.querySelector('[aria-label="年龄"]');age.value='四十岁';age.dispatchEvent(new dom.window.Event('input'))
  assert.equal(page.querySelector('.character-costumes-editor'),null)
  const tile=page.querySelector('[data-costume-id="a"]')
- assert.equal(tile.querySelector('.wardrobe-name').textContent,'常服');assert.ok(tile.querySelector('img'))
+ assert.equal(tile.querySelector('.wardrobe-name').textContent,'常服 · 默认');assert.ok(tile.querySelector('img'))
  tile.querySelector('[aria-label="编辑服装：常服"]').click()
  const detail=page.querySelector('.costume-detail')
  assert.equal(detail.querySelector('img').getAttribute('src'),'/a.png')
@@ -103,7 +103,7 @@ for (const mode of ['save', 'cancel', 'error']) test(`服装独立编辑页图�
  assert.equal(calls[0].fields.costumes[0].id,'a');assert.equal(calls[0].fields.costumes[1].name,'礼服')
  if(mode==='save'){
   assert.equal(page.querySelector('.costume-detail'),null)
-  assert.equal(page.querySelector('[data-costume-id="a"] .wardrobe-name').textContent,'新常服')
+  assert.equal(page.querySelector('[data-costume-id="a"] .wardrobe-name').textContent,'新常服 · 默认')
   assert.equal(page.querySelector('[aria-label="年龄"]'),age);assert.equal(age.value,'四十岁')
  }else{
   assert.equal(page.querySelector('.costume-detail'),detail);assert.equal(name.value,'新常服')
@@ -121,9 +121,10 @@ test('新增和移除服装从独立页保存，返回不提交',async t=>{
  add();detail=page.querySelector('.costume-detail');detail.querySelector('[aria-label="服装名称"]').value='新服';detail.querySelector('[aria-label="服装描述"]').value='红衣'
  await detail.querySelector('form').onsubmit({preventDefault(){}})
  assert.equal(page.querySelectorAll('.wardrobe-image').length,2)
+ const addedId=variant.fields.costumes.find(row=>row.name==='新服').id;assert.ok(addedId);assert.notEqual(addedId,'a')
  page.querySelector('[data-costume-id="a"] .costume-picture-preview').click();detail=page.querySelector('.costume-detail')
  ;detail.querySelector('[aria-label="删除服装：旧服"]').click();await settle()
- assert.deepEqual(variant.fields.costumes.map(row=>row.id),['new'])
+ assert.deepEqual(variant.fields.costumes.map(row=>row.id),[addedId])
  assert.equal(page.querySelectorAll('.wardrobe-image').length,1)
 })
 

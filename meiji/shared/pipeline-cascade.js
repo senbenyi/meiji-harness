@@ -145,7 +145,7 @@ export function cascadeChanges(before, after) {
         if (!current) change = { type: 'card-delete', itemId: card.id, name: card.sourceName || card.name }
         else {
           const preparingCharacters = key === 'characters' && old.plot.characters.secondsSource !== episode.plot.characters.secondsSource
-          const fields = value => Object.fromEntries(Object.entries({ ...value, ...(key === 'characters' ? { presence: value.presence || 'visible' } : {}) }).filter(([key]) => !(preparingCharacters && !card.voiceDescription && key === 'voiceDescription') && !['status', 'check', 'error', 'revision', 'operation', 'review', 'draft', 'source', 'image', 'costumes'].includes(key)))
+          const fields = value => Object.fromEntries(Object.entries({ ...value, ...(key === 'characters' ? { presence: value.presence || 'visible' } : {}) }).filter(([key]) => !(preparingCharacters && !card.voiceDescription && key === 'voiceDescription') && !['status', 'check', 'error', 'revision', 'operation', 'review', 'draft', 'source', 'image', 'costumes', 'defaultCostumeId'].includes(key)))
           change = !same(fields(card), fields(current)) ? { type: 'appearance', itemId: card.id, name: current?.name || card.name } : !same(card.image?.content, current.image?.content) ? { type: 'image', itemId: card.id, name: current?.name || card.name } : null
         }
         if (change) apply(change)

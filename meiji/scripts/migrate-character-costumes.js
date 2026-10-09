@@ -3,27 +3,28 @@ import { cp, mkdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { characterFieldValues } from '../shared/character-facts.js'
-import { normalizeCostumes, mergeCostumes } from '../shared/character-costumes.js'
+import { normalizeCostumes, mergeCostumes, wardrobeFields } from '../shared/character-costumes.js'
 import { indexFile, episodesDir, projectIds, readProjectFile, writeProjectFile, episodeSnapshot } from '../server/data/project-files.js'
 
 export function migrateCostumes(project) {
   const next = structuredClone(project)
   const fill = fields => {
-    if (Array.isArray(fields.costumes)) return
+    if (Array.isArray(fields.costumes)) { Object.assign(fields, wardrobeFields(fields)); return }
     const text = characterFieldValues(fields).costume
     fields.costumes = normalizeCostumes(text && !/未说明|未设定|未知/.test(text) ? [{ id: '', name: '默认服装', description: text, context: '' }] : [])
+    Object.assign(fields, wardrobeFields(fields))
   }
   for (const entry of next.library?.characters || []) for (const variant of entry.variants) fill(variant.fields)
   for (const episode of next.episodes) for (const card of episode.plot?.characters?.items || []) {
     const entry = next.library?.characters.find(item => item.id === card.ref?.libraryId)
     const fields = entry?.variants.find(item => item.id === entry.defaultVariantId)?.fields
     fill(card)
-    if (fields) fields.costumes = mergeCostumes(fields.costumes, card.costumes)
+    if (fields) Object.assign(fields, wardrobeFields({ costumes: mergeCostumes(fields.costumes, card.costumes) }, fields))
   }
   for (const episode of next.episodes) for (const card of episode.plot?.characters?.items || []) {
     const entry = next.library?.characters.find(item => item.id === card.ref?.libraryId)
     const fields = entry?.variants.find(item => item.id === entry.defaultVariantId)?.fields
-    if (fields) card.costumes = structuredClone(fields.costumes)
+    if (fields) { card.costumes = structuredClone(fields.costumes); card.defaultCostumeId = fields.defaultCostumeId }
   }
   return next
 }

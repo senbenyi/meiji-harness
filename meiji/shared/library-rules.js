@@ -1,5 +1,5 @@
 // 项目库纯规则；图片沿用内容节点，保存与占用由操作/项目存储入口负责。
-import { normalizeCostumes, mergeCostumes } from './character-costumes.js'
+import { wardrobeFields, mergeCostumes } from './character-costumes.js'
 import { node, setContent } from './drama-model.js'
 
 export const libraryKinds = {
@@ -43,7 +43,7 @@ export function libraryDirectory(project, kind) {
   })
 }
 export const requiredCharacters = project => (project.library?.characters || []).filter(item => item.required).map(item => ({ ...libraryDirectory(project, 'characters').find(row => row.id === item.id), required: true }))
-function fieldsOf(kind, fields) { return { ...Object.fromEntries(kindOf(kind).fields.map(key => [key, String(fields[key] || '').trim()])), ...(kind === 'characters' ? { costumes: normalizeCostumes(fields.costumes) } : {}) } }
+function fieldsOf(kind, fields) { return { ...Object.fromEntries(kindOf(kind).fields.map(key => [key, String(fields[key] || '').trim()])), ...(kind === 'characters' ? wardrobeFields(fields) : {}) } }
 function entryFields(kind, fields) { return Object.fromEntries(kindOf(kind).identity.map(key => [key, key === 'required' ? fields[key] === true : String(fields[key] || '').trim()])) }
 function variantOf(entry, kind, input, createdFrom) {
   const id = `${entry.id}-${Math.max(0, ...entry.variants.map(item => Number(item.id.split('-').at(-1)) || 0)) + 1}`
@@ -109,7 +109,7 @@ export function mergeLibraryGroup(project, kind, group) {
     // 旧库缺少声线时一次性采用本次资料，随后跨集统一复用。
     if (kind === 'characters' && card.presence !== 'voice' && !target.variant.fields.look && card.look) target.variant.fields = { ...fieldsOf(kind, card), voiceDescription: target.variant.fields.voiceDescription || card.voiceDescription || '' }
     if (kind === 'characters' && !target.variant.fields.voiceDescription && card.voiceDescription) target.variant.fields.voiceDescription = card.voiceDescription
-    if (kind === 'characters') target.variant.fields.costumes = mergeCostumes(target.variant.fields.costumes, card.costumes)
+    if (kind === 'characters') Object.assign(target.variant.fields, wardrobeFields({ costumes: mergeCostumes(target.variant.fields.costumes, card.costumes) }, target.variant.fields))
     const result = applyLibraryCard(next, kind, card, target, linkedBy)
     for (const key of ['libraryId', 'variantId', 'variantLabel']) delete result[key]
     return result

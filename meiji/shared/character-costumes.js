@@ -20,6 +20,18 @@ export function normalizeCostumes(value = [], previous = []) {
   })
 }
 
+// 仅在创建/编辑资料时确定默认项；读取与生成不能按数组顺序重新猜选。
+export function wardrobeFields(input, previous = {}) {
+  const costumes = normalizeCostumes(input.costumes ?? previous.costumes, previous.costumes)
+  let defaultCostumeId = input.defaultCostumeId ?? previous.defaultCostumeId
+  if (input.defaultCostumeId !== undefined && typeof input.defaultCostumeId !== 'string') invalid('默认服装 ID 无效')
+  if (input.defaultCostumeId && !costumes.some(row => row.id === input.defaultCostumeId)) invalid('默认服装不存在')
+  if (!costumes.some(row => row.id === defaultCostumeId)) {
+    defaultCostumeId = costumes.find(row => row.description === (input.costume ?? previous.costume))?.id || costumes[0]?.id || ''
+  }
+  return { costumes, defaultCostumeId }
+}
+
 // AI 提取只追加新服装，不改写已有 ID 下的人工资料。
 export function mergeCostumes(previous = [], incoming = []) {
   const result = structuredClone(previous)
