@@ -10,6 +10,7 @@ const row = { id: '', name: '工作服', description: '蓝色工作服、黑鞋'
 
 test('服装稳定 ID、编辑、重复提取及非法数组校验', () => {
   const first = normalizeCostumes([row]); assert.ok(first[0].id)
+  assert.deepEqual(Object.keys(first[0]).sort(), ['description', 'id', 'name'])
   assert.deepEqual(normalizeCostumes([row], first), first)
   assert.deepEqual(mergeCostumes(first, [row]), first)
   const edited = normalizeCostumes([{ ...first[0], description: '深蓝工作服' }], first)

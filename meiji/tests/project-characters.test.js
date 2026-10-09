@@ -11,7 +11,7 @@ import { planRun } from '../shared/run-planner.js'
 import { projectCharacterPrompts } from '../server/prompts/project-character-prompts.js'
 
 const session = 'session-11111111-1111-4111-8111-111111111111'
-const outfit = (name = '雨衣') => ({ id: '', name, description: `${name}、黑色长裤`, context: '雨夜' })
+const outfit = (name = '雨衣') => ({ id: '', name, description: `${name}、黑色长裤` })
 async function setup(t, request) {
   const e = await setupModel(t); useWorkspaces(t)
   await e.store.save(e.id, root => ({ ...root, mode: 'script', script: '完整剧本：第一场旅人穿雨衣。最后一场旅人换上礼服。路人围观。', scriptRevision: 3, episodes: [] }))

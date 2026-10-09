@@ -38,18 +38,17 @@ test('项目详情直接添加角色和多套服装，保存失败保留输入�
   button(dialog, '＋ 添加服装').click()
   dialog.querySelector('[aria-label="服装名称"]').value = '白大褂'
   dialog.querySelector('[aria-label="服装描述"]').value = '白色长袖大褂'
-  dialog.querySelector('[aria-label="适用场景"]').value = '医院'
   dialog.querySelector('form').dispatchEvent(new dom.window.Event('submit', { cancelable: true })); await settle()
   assert.match(dialog.textContent, /保存失败/)
   assert.equal(dialog.querySelector('[aria-label="服装名称"]').value, '白大褂')
   dialog.querySelector('form').dispatchEvent(new dom.window.Event('submit', { cancelable: true })); await settle()
   assert.equal(calls[1][1], 'entry-create'); assert.equal(refreshed, 1)
-  assert.deepEqual(calls[1][2].fields.costumes, [{ id: '', name: '白大褂', description: '白色长袖大褂', context: '医院' }])
+  assert.deepEqual(calls[1][2].fields.costumes, [{ id: '', name: '白大褂', description: '白色长袖大褂' }])
 })
 
 test('编辑已有服装保留固定 ID，移除与新加互不串位', async t => {
   const { project, dom } = setup(t), calls = []
-  const dialog = libraryEditor(project, 'characters', { perform: async (...args) => calls.push(args) }, { entry: { id: 'R01', aliases: [] }, variant: { id: 'R01-1', fields: { costumes: [{ id: 'outfit-a', name: '雨衣', description: '黄色雨衣', context: '' }] } } })
+  const dialog = libraryEditor(project, 'characters', { perform: async (...args) => calls.push(args) }, { entry: { id: 'R01', aliases: [] }, variant: { id: 'R01-1', fields: { costumes: [{ id: 'outfit-a', name: '雨衣', description: '黄色雨衣' }] } } })
   document.body.append(dialog)
   dialog.querySelector('[aria-label="服装描述"]').value = '蓝色雨衣'
   dialog.querySelector('form').dispatchEvent(new dom.window.Event('submit', { cancelable: true })); await settle()

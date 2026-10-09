@@ -61,7 +61,7 @@ test('项目详情点击角色或场景直达详情，并提供编辑、重新�
 })
 
 test('人物详情内联编辑，按服装ID展示图片；保存刷新资料且不会覆盖未保存输入',async t=>{
- const {project,dom}=setup(t),{entry,variant}=createLibraryEntry(project,'characters',{name:'角色',age:'三十岁',costumes:[{id:'daily',name:'常服',description:'蓝衣',context:''},{id:'formal',name:'礼服',description:'白衣',context:''}]})
+ const {project,dom}=setup(t),{entry,variant}=createLibraryEntry(project,'characters',{name:'角色',age:'三十岁',costumes:[{id:'daily',name:'常服',description:'蓝衣'},{id:'formal',name:'礼服',description:'白衣'}]})
  variant.image.content={localPath:'/main.png',costumes:{daily:{localPath:'/daily.png',description:'蓝衣'}}}
  const calls=[]
  const page=renderProjectLibrary(project,'characters',{back(){},load:async()=>({project}),perform:async(_p,action,input)=>{calls.push([action,input]);Object.assign(variant.fields,input.fields);return {completed:true}}},{entryId:entry.id})
@@ -80,7 +80,7 @@ test('人物详情内联编辑，按服装ID展示图片；保存刷新资料且
 })
 
 for (const mode of ['save', 'cancel', 'error']) test(`服装独立编辑页图片与单套保存：${mode}`,async t=>{
- const {project,dom}=setup(t),{entry,variant}=createLibraryEntry(project,'characters',{name:'角色',age:'三十岁',costumes:[{id:'a',name:'常服',description:'蓝衣',context:'白天'},{id:'b',name:'礼服',description:'白衣',context:'夜晚'}]})
+ const {project,dom}=setup(t),{entry,variant}=createLibraryEntry(project,'characters',{name:'角色',age:'三十岁',costumes:[{id:'a',name:'常服',description:'蓝衣'},{id:'b',name:'礼服',description:'白衣'}]})
  variant.image.content={costumes:{a:{localPath:'/a.png',description:'蓝衣'}}}
  const calls=[]
  const page=renderProjectLibrary(project,'characters',{load:async()=>({project}),perform:async(_p,action,input)=>{
@@ -96,7 +96,8 @@ for (const mode of ['save', 'cancel', 'error']) test(`服装独立编辑页图�
  tile.querySelector('[aria-label="编辑服装：常服"]').click()
  const detail=page.querySelector('.costume-detail')
  assert.equal(detail.querySelector('img').getAttribute('src'),'/a.png')
- assert.equal(detail.querySelector('[aria-label="适用场景"]').value,'白天')
+ assert.equal(detail.querySelector('[aria-label="适用场景"]'), null)
+ assert.match(detail.textContent, /ID a/)
  const name=detail.querySelector('[aria-label="服装名称"]');name.value='新常服'
  await page.refresh();assert.equal(detail.querySelector('[aria-label="服装名称"]').value,'新常服')
  await detail.querySelector('form').onsubmit({preventDefault(){}})
@@ -113,7 +114,7 @@ for (const mode of ['save', 'cancel', 'error']) test(`服装独立编辑页图�
 })
 
 test('新增和移除服装从独立页保存，返回不提交',async t=>{
- const {project}=setup(t),{entry,variant}=createLibraryEntry(project,'characters',{name:'角色',costumes:[{id:'a',name:'旧服',description:'蓝衣',context:''}]})
+ const {project}=setup(t),{entry,variant}=createLibraryEntry(project,'characters',{name:'角色',costumes:[{id:'a',name:'旧服',description:'蓝衣'}]})
  let calls=0
  const page=renderProjectLibrary(project,'characters',{load:async()=>({project}),perform:async(_p,_action,input)=>{calls++;variant.fields.costumes=input.fields.costumes.map(row=>({...row,id:row.id||'new'}));return {completed:true}}},{entryId:entry.id});document.body.append(page)
  const add=()=>[...page.querySelectorAll('button')].find(button=>button.textContent==='＋ 添加服装').click()
@@ -161,7 +162,7 @@ test('服装图加号底部选择、导入失败恢复、素材选择与减号�
 })
 
 test('人物与服装保存按钮置底，图片地址包含正确素材ID',async t=>{
- const {project}=setup(t),{entry,variant}=createLibraryEntry(project,'characters',{name:'角色',costumes:[{id:'a',name:'常服',description:'蓝衣',context:''}]})
+ const {project}=setup(t),{entry,variant}=createLibraryEntry(project,'characters',{name:'角色',costumes:[{id:'a',name:'常服',description:'蓝衣'}]})
  variant.image.content={costumes:{a:{assetId:'picture',assetCategory:'characters',description:'蓝衣'}}}
  const page=renderProjectLibrary(project,'characters',{perform(){},back(){}},{entryId:entry.id});document.body.append(page)
  let form=page.querySelector('form');assert.ok(form.lastElementChild.classList.contains('form-save-footer'))
@@ -173,7 +174,7 @@ test('人物与服装保存按钮置底，图片地址包含正确素材ID',asyn
 })
 
 for(const outcome of ['success','cancel','error']) test(`列表减号删除未生图服装：${outcome}`,async t=>{
- const {project,dom}=setup(t),{entry,variant}=createLibraryEntry(project,'characters',{name:'角色',costumes:[{id:'a',name:'常服',description:'蓝衣',context:''},{id:'b',name:'礼服',description:'白衣',context:''}]})
+ const {project,dom}=setup(t),{entry,variant}=createLibraryEntry(project,'characters',{name:'角色',costumes:[{id:'a',name:'常服',description:'蓝衣'},{id:'b',name:'礼服',description:'白衣'}]})
  const page=renderProjectLibrary(project,'characters',{load:async()=>({project}),perform:async(_p,action,input)=>{
   assert.equal(action,'entry-edit');assert.deepEqual(input.fields.costumes.map(row=>row.id),['b'])
   if(outcome==='cancel')return {cancelled:true}

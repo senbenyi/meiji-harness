@@ -7,9 +7,10 @@ export function renderCostumeDetail(item, costume, pending, { onBack, onSave, on
   header.append(back, element('h2', costume.id ? `${costume.name} · 服装资料` : '添加服装')); page.append(header)
   page.append(costumeImageControls(item, costume, pending, { onChange: onImageChange, onRemove: () => submit(true), stage, busy }))
   const form = element('form', '', 'image-text-editor'), inputs = {}
-  for (const [key, name] of [['name', '服装名称'], ['description', '服装描述'], ['context', '适用场景']]) {
+  if (costume.id) form.append(element('p', `ID ${costume.id}`, 'meta'))
+  for (const [key, name] of [['name', '服装名称'], ['description', '服装描述']]) {
     const label = element('label'), input = element(key === 'description' ? 'textarea' : 'input')
-    input.value = costume[key] || ''; input.maxLength = 10000; input.required = key !== 'context'; input.disabled = busy; input.setAttribute('aria-label', name)
+    input.value = costume[key] || ''; input.maxLength = 10000; input.required = true; input.disabled = busy; input.setAttribute('aria-label', name)
     label.append(element('span', name), input); form.append(label); inputs[key] = input
   }
   const defaultLabel = element('label'), defaultInput = element('input')

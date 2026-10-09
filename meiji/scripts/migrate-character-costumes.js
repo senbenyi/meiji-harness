@@ -11,7 +11,7 @@ export function migrateCostumes(project) {
   const fill = fields => {
     if (Array.isArray(fields.costumes)) { Object.assign(fields, wardrobeFields(fields)); return }
     const text = characterFieldValues(fields).costume
-    fields.costumes = normalizeCostumes(text && !/未说明|未设定|未知/.test(text) ? [{ id: '', name: '默认服装', description: text, context: '' }] : [])
+    fields.costumes = normalizeCostumes(text && !/未说明|未设定|未知/.test(text) ? [{ id: '', name: '默认服装', description: text }] : [])
     Object.assign(fields, wardrobeFields(fields))
   }
   for (const entry of next.library?.characters || []) for (const variant of entry.variants) fill(variant.fields)
