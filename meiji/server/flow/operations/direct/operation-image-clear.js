@@ -1,5 +1,5 @@
 // 操作：删除图片
-import { plotPatch } from '../../../../shared/drama-model.js'
+import { plotPatch } from '../../../models/data/drama-model.js'
 import { clearCharacterImage } from '../../../../shared/image-assets.js'
 import { visualPlace } from '../../steps/shared/image-files.js'
 import { saveStep } from '../../../../shared/task-plans.js'

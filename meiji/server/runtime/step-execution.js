@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { executionContext } from './task-context.js'
 import { writeStep } from '../data/run-records.js'
-import { StepStatus } from '../../shared/run-model.js'
+import { StepStatus } from '../models/tasks/run-model.js'
 const now = () => new Date().toISOString()
 const recordIdentity = context => ({ runId: context.runId, stepId: context.stepId })
 export async function recordNodePrompt({ kind, messages, prompt }) {

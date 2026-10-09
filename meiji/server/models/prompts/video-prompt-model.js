@@ -1,5 +1,5 @@
 // 视频接口独立定义最终 prompt；网络层只按原样发送。
-import { addition, currentSkillSet, recordUse, segment, render } from '../skill-prompts.js'
+import { addition, currentSkillSet, recordUse, segment, render } from '../../prompts/skill-prompts.js'
 import { builtinSkill } from '../../../skills/load-skills.js'
 import { withReviewPrompt } from '../../runtime/review-checks.js'
 

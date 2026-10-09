@@ -5,7 +5,7 @@ import { compileVideoPrompt } from '../server/prompts/video-prompt-renderer.js'
 import { parseSecondsResponse, validateSeconds, secondsText } from '../shared/seconds-content.js'
 import { h3PromptFailures } from '../shared/video-rules.js'
 import { generateShotStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
-import { cardModel } from '../shared/drama-model.js'
+import { cardModel } from '../server/models/data/drama-model.js'
 
 test('unpictured entities compile to text with no model call or invented picture', async () => {
  const p=episodeFixture(), item=(await generateShotStoryboard({project:p,shotId:'S01',request:()=>assert.fail('no model request')})).find(i=>i.id==='S01')

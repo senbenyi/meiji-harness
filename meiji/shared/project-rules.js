@@ -1,5 +1,5 @@
 import { cascade } from './pipeline-cascade.js'
-import { contentNode } from './drama-model.js'
+import { contentNode } from '../server/models/data/drama-model.js'
 
 export function replaceFrom(project, step, data) {
   const type = { summary: 'summary', outline: 'outline', shots: 'shots', storyboard: 'storyboard' }[step]

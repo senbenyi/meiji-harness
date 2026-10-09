@@ -1,6 +1,6 @@
 import { publishProjectCharacters } from './text/task-project-characters.js'
 import { modelRoutes } from '../../../models/model-config.js'
-import { finish, modelPatch, setContent } from '../../../shared/drama-model.js'
+import { finish, modelPatch, setContent } from '../../models/data/drama-model.js'
 import { normalizeSecondsParticipants } from '../../../shared/seconds-content.js'
 import { requireStepContent, textStepNode } from '../../../shared/text-step-target.js'
 import { mergeLibraryGroup } from '../../../shared/library-rules.js'

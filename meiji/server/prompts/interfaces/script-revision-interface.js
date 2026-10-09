@@ -1,4 +1,4 @@
-import { ScriptRevisionModel } from '../models/script-revision-model.js'
+import { ScriptRevisionModel } from '../../models/prompts/script-revision-model.js'
 import { generationParts, reviewParts, currentSkillSet } from '../skill-prompts.js'
 const model = task => new ScriptRevisionModel({ project: task.project, operation: task.operation, facts: task.facts,
   generationRules: currentSkillSet(task.project).skills['script-revision'].constraints, reviewRules: currentSkillSet(task.project).skills['script-revision'].review })

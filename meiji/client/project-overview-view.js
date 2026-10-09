@@ -4,7 +4,7 @@ import { projectCharactersGate } from '../shared/generation-gates.js'
 import { defaultReferenceDuration, referenceDuration, summaryLength, episodeSummaryFailures } from '../shared/episode-summary.js'
 import { targetBusy } from './run-activity.js'
 import { historyEntry } from './run-history-entry.js'
-import { pictureOf } from '../shared/drama-model.js'
+import { pictureOf } from '../server/models/data/drama-model.js'
 import { confirmPanel, showPanelDialog, element } from './panel-dom.js'
 import { episodeHints, isAiCreation } from '../shared/script-assembly.js'
 

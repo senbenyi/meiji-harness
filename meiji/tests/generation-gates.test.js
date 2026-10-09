@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { episodeFixture } from './fixtures/model.js'
 import { canGenerate, gateMessage, gateOf, shotsReady, hasFilm, hasStoryboard } from '../shared/generation-gates.js'
 import { clearShotDownstream, sourcePatch } from '../shared/project-rules.js'
-import { setContent } from '../shared/drama-model.js'
+import { setContent } from '../server/models/data/drama-model.js'
 import { stepRunLabel } from '../client/flow-view.js'
 test('AI self-check alone unlocks downstream without manual approval',()=>{const p=episodeFixture();assert.equal(canGenerate(p,'shots'),true);assert.equal(shotsReady(p),true);assert.equal(p.shots.review.text,'');p.shots.check.passed=false;assert.equal(canGenerate(p,'storyboard'),false)})
 test('镜头表门禁不再要求道具，缺失或未通过也可继续', () => {

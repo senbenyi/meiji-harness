@@ -1,5 +1,5 @@
 import { outlineText } from './story-outline.js'
-import { node, allNodes } from './drama-model.js'
+import { node, allNodes } from '../server/models/data/drama-model.js'
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const rules = { summary: 1, outline: 2, cards: 3, rename: 4, appearance: 5, image: 6, 'card-delete': 7, shots: 8, shot: 9, seconds: 10, storyboard: 11, video: 12, reference: 13, aspect: 14, library: 16, 'episode-delete': 18 }

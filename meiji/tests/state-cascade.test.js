@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { cascade, cascadePreview } from '../shared/pipeline-cascade.js'
-import { node, setContent } from '../shared/drama-model.js'
+import { node, setContent } from '../server/models/data/drama-model.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { scopeProjects } from '../server/data/episode-data.js'
 

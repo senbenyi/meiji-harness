@@ -6,7 +6,7 @@ import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { LAYOUT, indexFile, projectIds, readProjectFile, writeProjectFile } from '../server/data/project-files.js'
-import { schemaVersion } from '../shared/drama-model.js'
+import { schemaVersion } from '../server/models/data/drama-model.js'
 
 const canonical = value => JSON.stringify(value, (key, item) => item && typeof item === 'object' && !Array.isArray(item)
   ? Object.fromEntries(Object.keys(item).sort().map(name => [name, item[name]])) : item)

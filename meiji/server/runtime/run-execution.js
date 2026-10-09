@@ -1,4 +1,4 @@
-import { assertDrama } from '../../shared/drama-model.js'
+import { assertDrama } from '../models/data/drama-model.js'
 import { runRecordStore, runStore } from '../data/run-store.js'
 import { readProjectFile } from '../data/project-files.js'
 import { loadSkillSet } from '../data/skill-store.js'

@@ -4,7 +4,7 @@ import { cp, mkdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { outlineFailures } from '../shared/story-outline.js'
-import { aggregateStatus } from '../shared/drama-model.js'
+import { aggregateStatus } from '../server/models/data/drama-model.js'
 import { indexFile, episodesDir, projectIds, readProjectFile, writeProjectFile, episodeSnapshot } from '../server/data/project-files.js'
 
 export function convertOutline(value, durationSeconds) {

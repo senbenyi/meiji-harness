@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { RUN_SCHEMA, deriveRunStatus, isRunEnded, validateRun, failRun, failurePauseCodes } from '../../shared/run-model.js'
+import { RUN_SCHEMA, deriveRunStatus, isRunEnded, validateRun, failRun, failurePauseCodes } from '../models/tasks/run-model.js'
 
 const writes = new Map()
 const validId = /^[a-zA-Z0-9_-]{1,128}$/

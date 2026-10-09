@@ -1,4 +1,4 @@
-import { node } from '../../../../shared/drama-model.js'
+import { node } from '../../../models/data/drama-model.js'
 // 操作：修改镜头素材
 import { cascade } from '../../../../shared/pipeline-cascade.js'
 import { saveStep } from '../../../../shared/task-plans.js'

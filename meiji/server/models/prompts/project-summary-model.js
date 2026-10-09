@@ -1,6 +1,6 @@
 import { creativeDirection } from '../../../shared/script-assembly.js'
-import { segment, render } from '../skill-prompts.js'
-import { generationRequest, reviewRequest, baseSegments } from '../prompt-request.js'
+import { segment, render } from '../../prompts/skill-prompts.js'
+import { generationRequest, reviewRequest, baseSegments } from '../../prompts/prompt-request.js'
 import { reviewProtocol } from '../../../shared/review-result.js'
 import { outputLanguage } from '../../../shared/output-language.js'
 

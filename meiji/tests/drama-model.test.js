@@ -13,7 +13,7 @@ import { generateShots } from '../server/flow/tasks/text/task-shot-table.js'
 import { generateShotSeconds } from '../server/flow/tasks/text/task-shot-seconds.js'
 import { generateShotStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
 import { storyPackageFixture, storyRequest } from './fixtures/story-package.js'
-import { node, shotModel, begin, finish, saveReview, assertDrama, allNodes, contentNode } from '../shared/drama-model.js'
+import { node, shotModel, begin, finish, saveReview, assertDrama, allNodes, contentNode } from '../server/models/data/drama-model.js'
 import { migrateProject } from '../scripts/migrate-model.js'
 import { referenceReport } from '../client/storyboard-references.js'
 async function setup(t) {

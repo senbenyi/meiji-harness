@@ -6,16 +6,19 @@ import { fileURLToPath } from 'node:url'
 
 // 依赖只能从高层指向低层：http/tools → flow → 文本执行/网关/提示词 → runtime → data → models → shared。
 // host（Harness 适配层）与 shared（领域模块）可被任意服务端层引用；host 自身只依赖 shared。
+// server/models/data 与 server/models/tasks 是浏览器也可加载的叶子；提示词 model 与 server/prompts 同层互引。
 // 服务端、工具与脚本不得 import client/（浏览器界面）。
 const root = fileURLToPath(new URL('..', import.meta.url))
 const layers = [
   ['server/http', 7], ['tools', 7], ['index.js', 8], ['session.js', 8],
-  ['server/flow/steps', 4], ['server/flow', 6], ['server/gateway', 3.5], ['server/prompts', 3],
+  ['server/flow/steps', 4], ['server/flow', 6], ['server/gateway', 3.5], ['server/prompts', 3], ['server/models/prompts', 3],
   ['server/media', 1],
   ['server/runtime/task-context.js', 0], ['server/runtime/operation-context.js', 0],
   ['server/runtime', 2.5], ['server/data', 2], ['models', 1], ['skills', 1],
+  ['server/models/data', 0], ['server/models/tasks', 0],
   ['server/host', 0], ['shared', 0],
 ]
+const promptPeers = new Set(['server/prompts', 'server/models/prompts'])
 const layerOf = file => layers.filter(([prefix]) => file === prefix || file.startsWith(prefix + '/')).sort((a, b) => b[0].length - a[0].length)[0]
 
 function sources(dir = '') {
@@ -42,7 +45,7 @@ test('server layers only depend downward', () => {
     for (const target of imports(file)) {
       if (target.startsWith('client/')) { violations.push(`${file} → ${target}（不得引用 client/）`); continue }
       const to = layerOf(target)
-      if (!to || to === from) continue
+      if (!to || to === from || promptPeers.has(from[0]) && promptPeers.has(to[0])) continue
       if (from[0] === 'server/host' && to[0] !== 'shared') { violations.push(`${file} → ${target}（host 只能依赖 shared）`); continue }
       if (to[1] === 0) continue
       if (to[1] >= from[1]) violations.push(`${file} → ${target}（${from[0]} 不得依赖 ${to[0]}）`)
@@ -85,7 +88,7 @@ test('runtime context and state stay independent of storage and execution', () =
 
 test('shared rules have no server or Node dependencies', () => {
   for (const file of sources('shared')) {
-    for (const target of imports(file)) assert.ok(target.startsWith('shared/'), `${file} → ${target}`)
+    for (const target of imports(file)) assert.ok(target.startsWith('shared/') || /^server\/models\/(data|tasks)\//.test(target), `${file} → ${target}`)
     const source = readFileSync(join(root, file), 'utf8')
     const external = [...source.matchAll(/(?:\bfrom\s+|\bimport\(\s*)['"]([^.'"][^'"]*)['"]/g)]
     assert.deepEqual(external.map(match => match[1]), [], file)

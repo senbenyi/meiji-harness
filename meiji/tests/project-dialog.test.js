@@ -4,7 +4,7 @@ import { JSDOM } from './fixtures/jsdom.js'
 import { projectDialog } from '../client/project-session-view.js'
 import { renderOverview } from '../client/project-overview-view.js'
 import { renderLibrary } from '../client/asset-library-view.js'
-import { node } from '../shared/drama-model.js'
+import { node } from '../server/models/data/drama-model.js'
 
 function setup(t, create, options) {
   const dom = new JSDOM('<main></main>', { pretendToBeVisual: true, url: 'http://127.0.0.1:3080/' })

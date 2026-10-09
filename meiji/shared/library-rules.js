@@ -1,6 +1,6 @@
 // 项目库纯规则；图片沿用内容节点，保存与占用由操作/项目存储入口负责。
 import { wardrobeFields, mergeCostumes } from './character-costumes.js'
-import { node, setContent } from './drama-model.js'
+import { node, setContent } from '../server/models/data/drama-model.js'
 
 export const libraryKinds = {
   characters: { prefix: 'R', label: '角色', variant: '造型', identity: ['nationality', 'gender', 'required'], fields: ['role', 'era', 'age', 'costume', 'height', 'build', 'features', 'appearance', 'prop', 'identity', 'look', 'voiceDescription'] },

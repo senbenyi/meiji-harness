@@ -1,5 +1,5 @@
 // 剧集数据构造、修改及项目/剧集视图转换；无文件 IO。
-import { assertDrama, episodeModel, modelPatch, setContent, contentNode } from './drama-model.js'
+import { assertDrama, episodeModel, modelPatch, setContent, contentNode } from '../server/models/data/drama-model.js'
 import { cascade } from './pipeline-cascade.js'
 import { aspectRatioOf, durationOf, replaceFrom } from './project-rules.js'
 import { episodeScriptScene } from './script-scenes.js'

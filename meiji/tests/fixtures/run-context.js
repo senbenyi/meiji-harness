@@ -1,6 +1,6 @@
 import { runStore, runRecordStore } from '../../server/data/run-store.js'
 import { executionContext } from '../../server/runtime/task-context.js'
-import { RUN_SCHEMA } from '../../shared/run-model.js'
+import { RUN_SCHEMA } from '../../server/models/tasks/run-model.js'
 import { tempHome } from './model.js'
 export async function runContext(t, { home, projectId = 'project', kind = 'generate', target = null, episodeId = null } = {}) {
   home ||= await tempHome(t)

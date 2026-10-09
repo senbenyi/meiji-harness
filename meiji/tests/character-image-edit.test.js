@@ -12,7 +12,7 @@ import { builtinSkillSet } from '../server/data/skill-store.js'
 import { render } from '../server/prompts/skill-prompts.js'
 import { characterImageModificationPrompt } from '../server/prompts/interfaces/character-image-interface.js'
 import { canGenerate, gateMessage } from '../shared/generation-gates.js'
-import { node } from '../shared/drama-model.js'
+import { node } from '../server/models/data/drama-model.js'
 
 async function fixture(t, draft = false) {
   const e = await setupModel(t)

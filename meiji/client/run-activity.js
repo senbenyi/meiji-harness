@@ -1,4 +1,4 @@
-import { allNodes } from '../shared/drama-model.js'
+import { allNodes } from '../server/models/data/drama-model.js'
 import { runTargetMatches } from '../shared/run-view.js'
 export function targetBusy(project, target) {
   const locks = project?.executionLocks || []

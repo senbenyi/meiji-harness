@@ -1,6 +1,6 @@
 import { creativeDirection } from '../../../shared/script-assembly.js'
-import { segment } from '../skill-prompts.js'
-import { baseSegments, generationRequest, reviewRequest, requirementSegment } from '../prompt-request.js'
+import { segment } from '../../prompts/skill-prompts.js'
+import { baseSegments, generationRequest, reviewRequest, requirementSegment } from '../../prompts/prompt-request.js'
 import { reviewProtocol } from '../../../shared/review-result.js'
 
 export class ScriptRevisionModel {

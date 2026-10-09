@@ -1,4 +1,4 @@
-import { pictureOf, cardModel } from '../shared/drama-model.js'
+import { pictureOf, cardModel } from '../server/models/data/drama-model.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'

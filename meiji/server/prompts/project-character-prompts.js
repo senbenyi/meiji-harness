@@ -1,6 +1,6 @@
 import { characterExtractionProject } from '../../shared/character-extraction.js'
 import { currentSkillSet } from './skill-prompts.js'
-import { StoryCharacterModel } from './models/story-model.js'
+import { StoryCharacterModel } from '../models/prompts/story-model.js'
 import { buildTextPrompts } from './text-prompts.js'
 
 export function projectCharacterPrompts(project, base = '', opinion = '') {

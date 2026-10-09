@@ -1,7 +1,7 @@
 // 共享函数：任务与操作共用
 import { saveTaskDraft } from '../../data/content-records.js'
 import { activeNode } from '../../runtime/task-context.js'
-import { setContent } from '../../../shared/drama-model.js'
+import { setContent } from '../../models/data/drama-model.js'
 
 export async function retainSecondsResponse(text) {
   if (activeNode()) await saveTaskDraft('seconds-response', { text })

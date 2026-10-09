@@ -9,7 +9,7 @@ import { buildEpisodePrompts } from '../server/prompts/episode-summary-prompts.j
 import { executionContext } from '../server/runtime/task-context.js'
 import { builtinSkillSet } from '../server/data/skill-store.js'
 import { migrateNodeSkills, migrateProjectNodeSkills } from '../scripts/migrate-node-skills.js'
-import { assertDrama } from '../shared/drama-model.js'
+import { assertDrama } from '../server/models/data/drama-model.js'
 
 test('补充 skill CRUD 只影响当前集节点，非法节点/内容/ID 拒绝', async t => {
   const e = await setupModel(t), other = episodeFixture()

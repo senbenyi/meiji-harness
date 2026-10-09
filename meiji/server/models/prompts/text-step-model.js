@@ -1,10 +1,10 @@
 // 文本步骤的统一组装器：镜头表、单镜每秒指令、单镜修订、图片提示词改写共用同一套
 // 生成 / 审核 / 修订编排（结构见 prompt-request.js），各步骤只在 textSteps 中声明差异；输出协议统一来自 skills/output-protocols.js。
 import { shotTableTiming } from '../../../shared/shot-table-timing.js'
-import { currentSkillSet, generationParts, reviewParts, segment } from '../skill-prompts.js'
-import { baseSegments, factSegments, generationRequest, requirementSegment, reviewRequest, taskInput } from '../prompt-request.js'
-import { splitSecondsIssues } from '../seconds-feedback.js'
-import { contentData } from '../prompt-text.js'
+import { currentSkillSet, generationParts, reviewParts, segment } from '../../prompts/skill-prompts.js'
+import { baseSegments, factSegments, generationRequest, requirementSegment, reviewRequest, taskInput } from '../../prompts/prompt-request.js'
+import { splitSecondsIssues } from '../../prompts/seconds-feedback.js'
+import { contentData } from '../../prompts/prompt-text.js'
 
 const secondsBoundary = '以同编号已通过镜头表的事件、剧情起止状态、实际身体身份和固定时长为上游事实；依据本镜关联资料设计具体机位、景别、剪辑与空间调度，保留上游明确的空间事实与摄影要求，大纲仅作整体参考。镜头表从叙事读取必要事实，不要求固定栏目；前镜交接摘要只用于核对切点末态和必要空间、声音连续性，不重演前镜过程，不复制前镜摄影安排；允许有依据的转场、时间省略和机位变化。程序问题、语义审核问题和人工意见用于修复当前基稿，不能修改上游事实或重排镜头事件。逐项核对意见与同编号镜头表，冲突时以镜头表为准，不采纳要求改写上游的替代方案。上游自身矛盾时不假定已经修正镜头表，不编造新事件掩盖矛盾。'
 const secondsReviewMethod = '按 shotId 将最新待审镜头与同编号镜头表及本镜关联资料逐项对照。每项语义问题必须引用本次待审原文及对应上游事实或审核规则，不能把基稿、历史意见或其他镜头内容冒充该镜头依据；无法证实差异时不判失败。镜头表未规定的机位、景别、剪辑与具体调度由本阶段设计，不因上游缺少这些安排判失败。前镜交接摘要只核对必要状态与真实连续性，不要求前镜完整过程或摄影复制；不因镜头表缺少栏目、分段理由或未重复稳定状态判失败，允许有依据的转场、时间省略和机位变化。修正要求不得修改上游事件、剧情起止状态或把事件搬到别的镜头。上游自身矛盾时准确指出镜头表中的冲突来源，不声称待审稿遗漏了不存在的要求。只报告语义问题，不以“程序校验”命名问题；镜头 ID、毫秒时长、必填字段和实体标记由独立程序检查，不能因动作问题将正确时长判为“功能性时长偏差”。同一问题只列一次，不再以时长等名义重复列出。location 必须标明受影响镜头编号，跨镜问题列出相关编号。修订对照问题只用于核对最新稿，不直接复用旧失败结论。'

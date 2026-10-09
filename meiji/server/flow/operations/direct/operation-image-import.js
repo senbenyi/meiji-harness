@@ -1,7 +1,7 @@
 // 操作：导入图片
 import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { plotPatch } from '../../../../shared/drama-model.js'
+import { plotPatch } from '../../../models/data/drama-model.js'
 import { decodeImageData } from '../../../media/decode-image-data.js'
 import { importAssetImage, visualPlace } from '../../steps/shared/image-files.js'
 import { openIncoming } from '../../steps/shared/incoming.js'

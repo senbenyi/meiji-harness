@@ -1,7 +1,7 @@
 import { currentSkillSet } from './skill-prompts.js'
 import { checkContext } from '../runtime/operation-context.js'
 import { buildTextPrompts } from './text-prompts.js'
-import { StoryModel, storyKinds } from './models/story-model.js'
+import { StoryModel, storyKinds } from '../models/prompts/story-model.js'
 import { characterExtractionContent, characterExtractionProject } from '../../shared/character-extraction.js'
 
 // 修订基稿只给卡片内容字段；图片、审核状态、操作记录等内部状态不进入提示词。

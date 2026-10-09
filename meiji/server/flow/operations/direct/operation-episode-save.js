@@ -2,10 +2,10 @@
 import { rm } from 'node:fs/promises'
 import { addEpisode, editEpisode } from '../../../../shared/episode-rules.js'
 import { writeEpisodeCover } from '../../../data/episode-data.js'
-import { GenerationStatus } from '../../../../shared/drama-model.js'
+import { GenerationStatus } from '../../../models/data/drama-model.js'
 import { openIncoming } from '../../steps/shared/incoming.js'
 import { saveStep } from '../../../../shared/task-plans.js'
-import { markPassed } from '../../../../shared/content-state.js'
+import { markPassed } from '../../../models/tasks/content-state.js'
 
 // if (operation.action === 'episode-add' || operation.action === 'episode-edit')
 export async function opEpisodeAdd(c) {

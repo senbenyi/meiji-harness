@@ -1,9 +1,9 @@
 // 操作：忽略自审并通过
-import { GenerationStatus } from '../../../../shared/drama-model.js'
+import { GenerationStatus } from '../../../models/data/drama-model.js'
 import { runNode } from '../../../runtime/step-execution.js'
-import { targetNode } from '../../../../shared/drama-model.js'
+import { targetNode } from '../../../models/data/drama-model.js'
 import { overrideBlocker, overrideNodes } from '../../../../shared/review-feedback.js'
-import { markPassed } from '../../../../shared/content-state.js'
+import { markPassed } from '../../../models/tasks/content-state.js'
 
 // if (operation.action === 'review-override')
 // 人工忽略自审：新任务，只含一个 override 步骤（执行者为人），把当前版本的不通过改为通过并保留原 AI 理由；原任务不变。

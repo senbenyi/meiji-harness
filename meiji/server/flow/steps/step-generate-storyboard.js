@@ -2,7 +2,7 @@ import { resolveStoryboardProject } from '../../../shared/storyboard-characters.
 // 小任务：分镜文本提示词
 import { checkContext } from '../../runtime/operation-context.js'
 import { runNode } from '../../runtime/step-execution.js'
-import { node, shotResults, updateShotResults } from '../../../shared/drama-model.js'
+import { node, shotResults, updateShotResults } from '../../models/data/drama-model.js'
 import { feedbackOf } from '../../../shared/review-feedback.js'
 import { compileVideoPrompt } from '../../prompts/video-prompt-renderer.js'
 import { h3PromptFailures } from '../../../shared/video-rules.js'

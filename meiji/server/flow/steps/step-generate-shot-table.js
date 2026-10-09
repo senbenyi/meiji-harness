@@ -1,5 +1,5 @@
 import { parseJsonValue } from '../../gateway/model-gateway.js'
-import { shotModel } from '../../../shared/drama-model.js'
+import { shotModel } from '../../models/data/drama-model.js'
 import { buildTablePrompts, buildSingleShotPrompts } from '../../prompts/shot-text-prompts.js'
 import { generateStep } from './shared/text-generate.js'
 

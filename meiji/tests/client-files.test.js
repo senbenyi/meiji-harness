@@ -36,7 +36,7 @@ test('client file resolver rejects nested paths and traversal', () => {
 test('shared domain modules are served from their own flat directory', () => {
   const sharedRoot = fileURLToPath(new URL('../shared/', import.meta.url))
   const files = readdirSync(sharedRoot).filter(name => name.endsWith('.js'))
-  assert.ok(files.includes('drama-model.js'))
+  assert.equal(files.includes('drama-model.js'), false)
   for (const file of files) assert.equal(resolveClientFile(file, 'shared')?.path, join(sharedRoot, file), file)
   assert.equal(resolveClientFile('panel-app.js').path, join(clientRoot, 'panel-app.js'))
   assert.equal(resolveClientFile('../client/panel-app.js', 'shared'), undefined)
@@ -49,25 +49,38 @@ test('shared modules stay usable in the browser', async () => {
   for (const file of readdirSync(sharedRoot).filter(name => name.endsWith('.js'))) {
     const source = await readFile(join(sharedRoot, file), 'utf8')
     assert.doesNotMatch(source, /from ['"]node:/, `${file} must not import node: modules`)
-    assert.doesNotMatch(source, /from ['"]\.\.\/(server|tools|client)\//, `${file} must only import shared modules`)
+    assert.doesNotMatch(source, /from ['"]\.\.\/(tools|client)\//, `${file} must not import tools or client`)
+    assert.doesNotMatch(source, /from ['"]\.\.\/server\/(?!models\/(data|tasks)\/)/, `${file} must only import shared modules or data/task models`)
   }
 })
 
-// 浏览器按 /plugins/meiji/<dir>/<file> 加载模块：每个相对 import 都必须落在 client/ 或 shared/ 的平铺文件上。
+// 浏览器按 /plugins/meiji/<dir>/<file> 加载模块。client、shared 是平铺目录；数据与任务 model 在 server/models 下按类各一层。
 test('every browser import resolves to a served flat file', async () => {
   const { readFile } = await import('node:fs/promises')
   const { existsSync } = await import('node:fs')
-  const roots = { client: fileURLToPath(new URL('../client/', import.meta.url)), shared: fileURLToPath(new URL('../shared/', import.meta.url)) }
-  for (const [dir, root] of Object.entries(roots)) {
+  const roots = [
+    ['client', fileURLToPath(new URL('../client/', import.meta.url)), 'client'],
+    ['shared', fileURLToPath(new URL('../shared/', import.meta.url)), 'shared'],
+    ['models-data', fileURLToPath(new URL('../server/models/data/', import.meta.url)), 'server/models/data'],
+    ['models-tasks', fileURLToPath(new URL('../server/models/tasks/', import.meta.url)), 'server/models/tasks'],
+  ]
+  const targetOf = url => {
+    const flat = /^\/plugins\/meiji\/(client|shared)\/([^/]+)$/.exec(url)
+    if (flat) return { dir: flat[1], file: flat[2] }
+    const model = /^\/plugins\/meiji\/server\/models\/(data|tasks)\/([^/]+)$/.exec(url)
+    if (model) return { dir: model[1] === 'data' ? 'models-data' : 'models-tasks', file: model[2] }
+  }
+  for (const [dir, root, urlDir] of roots) {
     for (const file of readdirSync(root).filter(name => name.endsWith('.js'))) {
       const source = await readFile(join(root, file), 'utf8')
+      assert.doesNotMatch(source, /from ['"]node:/, `${urlDir}/${file} must not import node: modules`)
       for (const [, spec] of source.matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) {
         if (!spec.startsWith('.') && !spec.startsWith('/plugins/meiji/')) continue
-        const url = new URL(spec, `http://harness/plugins/meiji/${dir}/${file}`).pathname
-        const match = /^\/plugins\/meiji\/(client|shared)\/([^/]+)$/.exec(url)
-        assert.ok(match, `${dir}/${file} imports ${spec}, which the panel routes do not serve`)
-        const resolved = resolveClientFile(match[2], match[1])
-        assert.ok(resolved && existsSync(resolved.path), `${dir}/${file} imports missing ${url}`)
+        const url = new URL(spec, `http://harness/plugins/meiji/${urlDir}/${file}`).pathname
+        const match = targetOf(url)
+        assert.ok(match, `${urlDir}/${file} imports ${spec}, which the panel routes do not serve`)
+        const resolved = resolveClientFile(match.file, match.dir)
+        assert.ok(resolved && existsSync(resolved.path), `${urlDir}/${file} imports missing ${url}`)
       }
     }
   }

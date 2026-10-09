@@ -1,4 +1,4 @@
-import { cardModel, pictureOf } from './drama-model.js'
+import { cardModel, pictureOf } from '../server/models/data/drama-model.js'
 import { libraryTarget } from './library-rules.js'
 
 // 只读取既有身份/库资料，在编译副本绑定；不生成角色，不发模型或图片请求。

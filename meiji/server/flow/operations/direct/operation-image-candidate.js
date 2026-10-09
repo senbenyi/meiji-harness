@@ -1,8 +1,8 @@
 // 操作：确认 / 放弃候选图片
-import { targetNode } from '../../../../shared/drama-model.js'
+import { targetNode } from '../../../models/data/drama-model.js'
 import { applyImageDraft, removeDraftPictures } from '../../../data/image-storage.js'
 import { feedbackKey } from '../../../../shared/review-feedback.js'
-import { markFailed } from '../../../../shared/content-state.js'
+import { markFailed } from '../../../models/tasks/content-state.js'
 
 // if (operation.action === 'confirm-image' || operation.action === 'discard-image')
 export async function opConfirmImage(c) {

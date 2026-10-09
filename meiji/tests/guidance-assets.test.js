@@ -12,7 +12,7 @@ import { projectStore, revisionStore } from '../server/data/project-store.js'
 import { buildTextPrompts } from '../server/prompts/text-prompts.js'
 import { runOperation } from './fixtures/operation.js'
 import { saveIncoming } from '../server/flow/steps/shared/incoming.js'
-import { setContent } from '../shared/drama-model.js'
+import { setContent } from '../server/models/data/drama-model.js'
 import { guidanceTypes } from '../shared/guidance-categories.js'
 
 const guidance = (id, type = 'action', content = '动作参考') => ({ id, name: `${id}.md`, guidanceType: type, content })

@@ -9,7 +9,7 @@ import { JSDOM } from './fixtures/jsdom.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import { renderStage } from '../client/generation-stage-views.js'
 import { renderModelView, createModelStore } from '../client/drama-store.js'
-import { setContent } from '../shared/drama-model.js'
+import { setContent } from '../server/models/data/drama-model.js'
 import { secondsContent } from './fixtures/seconds.js'
 function domSetup(t) {
  const dom=new JSDOM('<body><main></main></body>',{url:'http://localhost'})
@@ -669,7 +669,7 @@ test('image detail shows editable text and a prompt without field keys', async t
 
 test('successful modification clears submitted opinion even while focused or dirty, and not on acceptance', async t => {
  const { appendWorkflowReview } = await import('../client/workflow-review.js')
- const { node, begin, finish } = await import('../shared/drama-model.js')
+ const { node, begin, finish } = await import('../server/models/data/drama-model.js')
  const container=domSetup(t), record=node('summary','摘要')
  const build=()=>{const root=document.createElement('div'),view=document.createElement('div');view.dataset.modelKey='opinion';const button=document.createElement('button');button.onclick=async()=>{};view.append(button);appendWorkflowReview(view,record,true,false,button);root.append(view);return root}
  container.append(build())
@@ -688,7 +688,7 @@ test('successful modification clears submitted opinion even while focused or dir
 
 test('successful modification preserves a new opinion typed while task runs', async t => {
  const { appendWorkflowReview } = await import('../client/workflow-review.js')
- const { node, begin, finish } = await import('../shared/drama-model.js')
+ const { node, begin, finish } = await import('../server/models/data/drama-model.js')
  const container=domSetup(t), record=node('summary','摘要')
  const build=()=>{const root=document.createElement('div'),view=document.createElement('div');view.dataset.modelKey='opinion';const button=document.createElement('button');button.onclick=async()=>{};view.append(button);appendWorkflowReview(view,record,true,false,button);root.append(view);return root}
  container.append(build())
@@ -702,7 +702,7 @@ test('successful modification preserves a new opinion typed while task runs', as
 })
 
 test('failed modification preserves persisted opinion, and a new image candidate clears gate opinion', async t => {
- const { node, begin, finish, saveReview } = await import('../shared/drama-model.js')
+ const { node, begin, finish, saveReview } = await import('../server/models/data/drama-model.js')
  const { syncImageGate } = await import('../client/image-review.js')
  const record=node('summary','摘要');saveReview(record,'保留意见',0)
  begin(record,{id:'one',consumesReview:true});finish(record,{passed:false,failures:['失败']})
@@ -724,7 +724,7 @@ test('image gate reads the image node error and ignores the episode story error'
 
 test('late draft acknowledgement cannot restore consumed opinion or block a newer draft save', async t => {
  const { appendWorkflowReview } = await import('../client/workflow-review.js')
- const { node, begin, finish } = await import('../shared/drama-model.js')
+ const { node, begin, finish } = await import('../server/models/data/drama-model.js')
  const container=domSetup(t),record=node('summary','摘要'),saved=[]
  container.addEventListener('meiji-review-draft',event=>saved.push(event.detail))
  const build=()=>{const root=document.createElement('div'),view=document.createElement('div');view.dataset.modelKey='opinion';const button=document.createElement('button');button.onclick=async()=>{};view.append(button);appendWorkflowReview(view,record,true,false,button);root.append(view);return root}

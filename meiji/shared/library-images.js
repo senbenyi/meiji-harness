@@ -1,6 +1,6 @@
 import { characterImagesReady } from './character-costumes.js'
 import { libraryTarget } from './library-rules.js'
-import { pictureOf } from './drama-model.js'
+import { pictureOf } from '../server/models/data/drama-model.js'
 export function imageItems(project, episode, itemIds) {
   if (itemIds && (!Array.isArray(itemIds) || itemIds.some(id => typeof id !== 'string') || new Set(itemIds).size !== itemIds.length)) throw Object.assign(new Error('图片目标不存在或重复'), { status: 400 })
   const selected = itemIds?.length ? new Set(itemIds) : null

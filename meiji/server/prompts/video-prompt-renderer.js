@@ -3,7 +3,7 @@ import { resolveStoryboardProject } from '../../shared/storyboard-characters.js'
 import { bindSecondsCharacters } from '../../shared/film-characters.js'
 import { collapseMentions, entityCatalog, referencePattern } from '../../shared/entity-references.js'
 import { validateSeconds, secondsRange, narratorId, secondsCharacterRoster } from '../../shared/seconds-content.js'
-import { pictureOf } from '../../shared/drama-model.js'
+import { pictureOf } from '../models/data/drama-model.js'
 import { costumePicture } from '../../shared/character-costumes.js'
 import { previousTail, tailFrameUrl } from '../../shared/tail-frame.js'
 

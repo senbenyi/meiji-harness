@@ -1,4 +1,4 @@
-import { GenerationStatus, contentNode, cardModel, node } from './drama-model.js'
+import { GenerationStatus, contentNode, cardModel, node } from '../server/models/data/drama-model.js'
 // Keep confirmed assets attached to stable names while replacing generated descriptions.
 export function preserveStoryAssets(project, result) {
   const patch = { outline: contentNode(project.plot.outline, result.outline, result.checks?.outline || result.check) }

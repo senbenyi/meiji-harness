@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ShotTableModel, ShotSecondsModel } from '../server/prompts/models/text-step-model.js'
-import { TextStoryboardModel } from '../server/prompts/models/text-storyboard-model.js'
+import { ShotTableModel, ShotSecondsModel } from '../server/models/prompts/text-step-model.js'
+import { TextStoryboardModel } from '../server/models/prompts/text-storyboard-model.js'
 import { render } from '../server/prompts/skill-prompts.js'
 import { builtinSkill } from '../skills/load-skills.js'
 for (const [Model, stage] of [[ShotTableModel, 'shots'], [ShotSecondsModel, 'seconds']]) {
@@ -35,7 +35,7 @@ test('给 Model 赋值基础规则后，生成与修订读取该属性，自审�
 })
 
 test('单镜修订与整集镜头表共用生成基础、自审用单镜修订审核 skill，三种编排都保持单镜范围', async () => {
- const { ShotRevisionModel } = await import('../server/prompts/models/text-step-model.js')
+ const { ShotRevisionModel } = await import('../server/models/prompts/text-step-model.js')
  const rules = builtinSkill('shots').constraints, review = builtinSkill('shot-revise').review
  const model = new ShotRevisionModel({ instructions: '仅 S02', modify: true, baseContent: '原镜头', opinion: '新意见' })
  assert.equal(model.generationRules, rules)
@@ -50,7 +50,7 @@ test('单镜修订与整集镜头表共用生成基础、自审用单镜修订�
 })
 
 test('图片提示词改写由 Model 定义生成规则，自审使用独立审核 skill', async () => {
- const { ImagePromptModel } = await import('../server/prompts/models/text-step-model.js')
+ const { ImagePromptModel } = await import('../server/models/prompts/text-step-model.js')
  assert.equal(builtinSkill('image-prompt').constraintFile, undefined)
  assert.equal(builtinSkill('image-prompt').reviewFile, 'review-image-prompt-skill.md')
  const model = new ImagePromptModel({ instructions: '原图描述', modify: true, baseContent: '基稿', opinion: '改为蓝色' })
@@ -110,7 +110,7 @@ test('审核请求不带生成指令，审核标准与规则在 system、任务�
 test('单镜上下文只带本镜及前后镜关联卡片与衔接段，大纲存在时不重复摘要', async () => {
  const { episodeFixture }=await import('./fixtures/model.js')
  const { shotContext }=await import('../server/prompts/shot-text-prompts.js')
- const { cardModel }=await import('../shared/drama-model.js')
+ const { cardModel }=await import('../server/models/data/drama-model.js')
  const project=episodeFixture()
  project.plot.characters.items.push(cardModel({ id: 'C09', name: '路人', type: 'role', look: '无关人物' }))
  project.plot.scenes.items.push(cardModel({ id: 'E09', name: '码头', type: 'scene', look: '无关场景' }))
@@ -186,7 +186,7 @@ test('镜头表与单镜修订三类请求采用直接叙事，审核兼容旧�
 test('每秒指令三类编排携带当前关联布局并允许独立设计摄影，排除其他地点资料及图片', async () => {
  const { buildSecondsPrompts }=await import('../server/prompts/shot-text-prompts.js')
  const { episodeFixture }=await import('./fixtures/model.js')
- const { cardModel }=await import('../shared/drama-model.js')
+ const { cardModel }=await import('../server/models/data/drama-model.js')
  const project=episodeFixture()
  project.plot.scenes.items[0].landmark='北侧石拱门'
  project.plot.scenes.items[0].light='西侧月光'

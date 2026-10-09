@@ -1,7 +1,7 @@
 // 摘要接口：从技能快照取生产规则、审核标准、补充与协议，交给 EpisodeSummaryModel 按统一结构组装。
 import { currentSkillSet, generationParts, reviewParts } from '../skill-prompts.js'
 import { checkContext } from '../../runtime/operation-context.js'
-import { EpisodeSummaryModel } from '../models/episode-summary-model.js'
+import { EpisodeSummaryModel } from '../../models/prompts/episode-summary-model.js'
 import { taskInput } from '../prompt-request.js'
 
 const modelOf = task => {

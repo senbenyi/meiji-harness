@@ -11,7 +11,7 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { episodeSnapshot, episodesDir, indexFile, projectIds, readProjectFile, writeProjectFile, LAYOUT } from '../server/data/project-files.js'
 import { categories } from '../server/data/asset-library-store.js'
-import { hasGatewayFileFields, node, pictureOf } from '../shared/drama-model.js'
+import { hasGatewayFileFields, node, pictureOf } from '../server/models/data/drama-model.js'
 import { tailFrameUrl } from '../shared/tail-frame.js'
 
 const remote = url => /^https?:\/\//i.test(String(url || ''))

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { episodeFixture } from './fixtures/model.js'
 import { planRun, invalidatedRunTargets } from '../shared/run-planner.js'
 import { normalizeRunGoal } from '../shared/run-templates.js'
-import { validateRun, RUN_SCHEMA } from '../shared/run-model.js'
+import { validateRun, RUN_SCHEMA } from '../server/models/tasks/run-model.js'
 const view = () => ({ ...episodeFixture(), episodeId: 'episode', id: 'project', library: { characters: [], scenes: [], props: [] } })
 const checked = result => { validateRun({ schemaVersion: RUN_SCHEMA, id: 'run', projectId: 'project', episodeId: 'episode', events: [], steps: result.steps.map(step => ({ status: 'pending', ...step })) }); return result }
 

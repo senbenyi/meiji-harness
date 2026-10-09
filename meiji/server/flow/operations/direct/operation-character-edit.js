@@ -5,7 +5,7 @@ import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
 import { runNode } from '../../../runtime/step-execution.js'
 import { reviewContent } from '../../steps/step-review-edited-content.js'
-import { plotPatch } from '../../../../shared/drama-model.js'
+import { plotPatch } from '../../../models/data/drama-model.js'
 import { characterFieldValues, characterLookText } from '../../../../shared/character-facts.js'
 import { editSteps } from '../../../../shared/task-plans.js'
 

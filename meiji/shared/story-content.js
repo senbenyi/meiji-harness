@@ -1,5 +1,5 @@
 import { wardrobeFields, mergeCostumes } from './character-costumes.js'
-import { node, cardModel } from './drama-model.js'
+import { node, cardModel } from '../server/models/data/drama-model.js'
 import { characterLibraryTarget, applyLibraryCard } from './library-rules.js'
 import { pictureRecord, usableLook } from './image-assets.js'
 import { videoPromptText as h3PromptText } from './video-prompt-text.js'

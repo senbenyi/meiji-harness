@@ -5,7 +5,7 @@ import {parseSecondsResponse,parseSecondsPartial,normalizeSecondsParticipants} f
 import {generateShotSeconds} from '../server/flow/tasks/text/task-shot-seconds.js'
 import {runOperation} from './fixtures/operation.js'
 import {reviewPass} from './fixtures/review-result.js'
-import {setContent} from '../shared/drama-model.js'
+import {setContent} from '../server/models/data/drama-model.js'
 import {runStore,runRecordStore} from '../server/data/run-store.js'
 function response(p){const shot=p.shots.items[0],c=structuredClone(shot.seconds.content);c.version=2;c.participants=[{name:'旅人',presence:'visible',outfit:'灰色长衣'},{name:'老板',presence:'voice',outfit:''}];for(const b of c.beats)for(const f of ['action','camera','space','sound','endState'])b[f]=b[f].replace(/【([^|]+)\|[^】]+】/g,'$1');c.beats[0].action='旅人询问，老板在后厨切菜并回答';c.beats[0].dialogueIds=['D02'];c.dialogues=[{id:'D02',speakerName:'老板',text:'咋，给你杀头猪？',language:'zh-CN',startMs:500,endMs:1500,delivery:'on',performance:'抬眼回话'}];return {shot,c,text:JSON.stringify({shots:[c]})}}
 const approved=text=>JSON.stringify({passed:true,issues:[]})

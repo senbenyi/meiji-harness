@@ -1,5 +1,5 @@
 import { materialize } from './episode-rules.js'
-import { targetNode } from './drama-model.js'
+import { targetNode } from '../server/models/data/drama-model.js'
 
 export function textStepNode(project, target, episodeId) {
   if (target === 'project-characters') return project.projectCharacters

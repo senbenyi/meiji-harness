@@ -12,7 +12,7 @@ import { render } from './skill-prompts.js'
 import characterImage from './interfaces/character-image-interface.js'
 import sceneImage from './interfaces/scene-image-interface.js'
 import { imagePreviewSegments } from './interfaces/prompt-interfaces.js'
-import { FilmModel } from './models/video-prompt-model.js'
+import { FilmModel } from '../models/prompts/video-prompt-model.js'
 
 const placeholder = '（任务与上下文由程序在运行时填入：本集资料、上下游内容与本次目标。当前剧集缺少所需的上游内容，此处以说明代替。）'
 const opinion = '（此处为人工修改意见）'

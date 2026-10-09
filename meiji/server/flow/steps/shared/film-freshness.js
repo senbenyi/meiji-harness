@@ -1,4 +1,4 @@
-import { GenerationStatus } from '../../../../shared/drama-model.js'
+import { GenerationStatus } from '../../../models/data/drama-model.js'
 import { h3PromptFailures } from '../../../../shared/video-rules.js'
 import { storyboardPromptText } from '../../../../shared/story-content.js'
 import { previousTail } from '../../../../shared/tail-frame.js'

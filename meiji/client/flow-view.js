@@ -1,4 +1,4 @@
-import { targetNode, statusLabels } from '../shared/drama-model.js'
+import { targetNode, statusLabels } from '../server/models/data/drama-model.js'
 import { gateOf, hasSummary, hasOutline, hasCharacters, hasScenes, hasShots, hasStoryboard } from '../shared/generation-gates.js'
 export * from '../shared/generation-gates.js'
 import { feedbackOf } from '../shared/review-feedback.js'

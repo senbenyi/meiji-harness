@@ -1,4 +1,4 @@
-import { cardModel, node } from '../shared/drama-model.js'
+import { cardModel, node } from '../server/models/data/drama-model.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { collectCharacters, episodeWork } from '../client/project-overview-view.js'

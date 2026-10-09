@@ -1,4 +1,4 @@
-import { GenerationStatus, shotResults } from './drama-model.js'
+import { GenerationStatus, shotResults } from '../server/models/data/drama-model.js'
 import { feedbackOf } from './review-feedback.js'
 import { shotSecondsReady } from './shot-timing.js'
 import { outlineFailures } from './story-outline.js'

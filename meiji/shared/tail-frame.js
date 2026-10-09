@@ -1,4 +1,4 @@
-import { GenerationStatus } from './drama-model.js'
+import { GenerationStatus } from '../server/models/data/drama-model.js'
 // 上一镜尾帧在分镜参考快照中的地址：由视频文件名确定，尾帧图片与视频同目录（<视频名>-last.png）。
 export const tailFrameUrl = sourceVideoFile => `tail-frame:${sourceVideoFile}`
 export function previousTail(project, shotId) {

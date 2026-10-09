@@ -1,5 +1,5 @@
 import { applyLibraryCard, libraryTarget } from '../../shared/library-rules.js'
-import { cardModel, finish, setContent } from '../../shared/drama-model.js'
+import { cardModel, finish, setContent } from '../models/data/drama-model.js'
 import { pictureTargetSnapshot, saveDraftPictures, removeDraftPictures, removePictureAssets } from './image-storage.js'
 
 // 项目库的人工确认与提取后的自动入库使用同一份快照校验和原子保存。

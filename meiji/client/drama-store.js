@@ -1,6 +1,6 @@
 import { syncConsumedReviewInputs } from './workflow-review.js'
 import { setCardExpanded } from './shot-card-state.js'
-import { assertDrama } from '../shared/drama-model.js'
+import { assertDrama } from '../server/models/data/drama-model.js'
 export function createModelStore() {
   const values = new Map(), listeners = new Set()
   return {

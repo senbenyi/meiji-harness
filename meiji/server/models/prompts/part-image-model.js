@@ -1,5 +1,5 @@
 // part-image 的图片 prompt 结构；修改此文件不会改变其他图片接口。
-import { imageParts, segment } from '../skill-prompts.js'
+import { imageParts, segment } from '../../prompts/skill-prompts.js'
 import { withReviewPrompt } from '../../runtime/review-checks.js'
 
 function generate(args) {

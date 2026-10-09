@@ -2,7 +2,7 @@
 import { rm } from 'node:fs/promises'
 import { clearCharacterReference } from '../../../../shared/image-assets.js'
 import { join } from 'node:path'
-import { plotPatch } from '../../../../shared/drama-model.js'
+import { plotPatch } from '../../../models/data/drama-model.js'
 import { saveCharacterReference, visualPlace, readUploadedImage } from '../../steps/shared/image-files.js'
 import { saveStep } from '../../../../shared/task-plans.js'
 

@@ -1,4 +1,4 @@
-import { finish, targetNode, pictureOf, setContent } from '../../shared/drama-model.js'
+import { finish, targetNode, pictureOf, setContent } from '../models/data/drama-model.js'
 import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises'

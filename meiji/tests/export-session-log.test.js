@@ -6,7 +6,7 @@ import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { tempHome } from './fixtures/model.js'
 import { runStore } from '../server/data/run-store.js'
-import { RUN_SCHEMA } from '../shared/run-model.js'
+import { RUN_SCHEMA } from '../server/models/tasks/run-model.js'
 import { exportSessionLog } from '../scripts/export-session-log.js'
 
 const run = (id, sessionId, extra = {}) => ({ schemaVersion: RUN_SCHEMA, id, projectId: 'project', episodeId: 'episode', sessionId, goal: {}, policy: { maxRevisions: 2 }, createdAt: new Date(1).toISOString(), events: [{ type: 'confirmed' }],

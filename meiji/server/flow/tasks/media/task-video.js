@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { modelRoutes } from '../../../../models/model-config.js'
 import { feedbackOf } from '../../../../shared/review-feedback.js'
-import { shotResults } from '../../../../shared/drama-model.js'
+import { shotResults } from '../../../models/data/drama-model.js'
 import { storyboardPromptText } from '../../../../shared/story-content.js'
 import { shotReferenceImages } from '../../../../shared/reference-images.js'
 import { aspectRatioOf } from '../../../../shared/project-rules.js'

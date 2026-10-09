@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { deriveRunStatus, readySteps, validateRun } from '../shared/run-model.js'
+import { deriveRunStatus, readySteps, validateRun } from '../server/models/tasks/run-model.js'
 
 const step = (id, status = 'pending', after = []) => ({ id, key: `generate@${id}`, kind: 'generate', target: id, status, after, scope: 'episode', queue: 'text' })
 const run = (steps, events = [{ type: 'confirmed' }]) => ({ schemaVersion: 1, id: 'run', projectId: 'project', episodeId: 'episode', steps, events, pause: null })

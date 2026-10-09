@@ -1,5 +1,5 @@
 import { generationParts, reviewParts, currentSkillSet } from '../skill-prompts.js'
-import { ProjectSummaryModel } from '../models/project-summary-model.js'
+import { ProjectSummaryModel } from '../../models/prompts/project-summary-model.js'
 
 const modelOf = task => new ProjectSummaryModel({ project: task.project,
   generationRules: currentSkillSet(task.project).skills['project-summary'].constraints,

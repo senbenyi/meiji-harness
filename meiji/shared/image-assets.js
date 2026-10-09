@@ -1,4 +1,4 @@
-import { pictureOf, node, setContent } from './drama-model.js'
+import { pictureOf, node, setContent } from '../server/models/data/drama-model.js'
 import { characterFieldValues, characterLookText } from './character-facts.js'
 
 export function usableLook(text) {

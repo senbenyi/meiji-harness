@@ -5,11 +5,11 @@ import { libraryDirectory, requiredCharacters } from '../../../shared/library-ru
 import { characterExtractionContent, characterExtractionDirectory, characterExtractionFacts } from '../../../shared/character-extraction.js'
 // 剧情四类资料（大纲、人物、场景、道具）共用一个 Model：资料与差异在 storyKinds 中声明，
 // 三类请求的结构统一由 prompt-request.js 组装（system＝角色/规则/协议，user＝任务/资料/基稿/待审内容）。
-import { reviewMethod, segment } from '../skill-prompts.js'
-import { contentText, contentData, messages } from '../prompt-text.js'
+import { reviewMethod, segment } from '../../prompts/skill-prompts.js'
+import { contentText, contentData, messages } from '../../prompts/prompt-text.js'
 import { outputLanguage } from '../../../shared/output-language.js'
 import { reviewProtocol } from '../../../shared/review-result.js'
-import { baseSegments, generationRequest, requirementSegment, reviewRequest } from '../prompt-request.js'
+import { baseSegments, generationRequest, requirementSegment, reviewRequest } from '../../prompts/prompt-request.js'
 import { protocols } from '../../../skills/output-protocols.js'
 
 // 输出协议取自 skills/output-protocols.js 的 outline 对应小节（写明输出什么并附示例）。

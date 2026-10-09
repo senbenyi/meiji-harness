@@ -1,9 +1,9 @@
 // 摘要仅从本集故事小段提取，用于列表展示，不参与创作或拆镜。
 import { reviewProtocol } from '../../../shared/review-result.js'
-import { segment, render } from '../skill-prompts.js'
+import { segment, render } from '../../prompts/skill-prompts.js'
 import { outputLanguage } from '../../../shared/output-language.js'
-import { generationRequest, reviewRequest, requirementSegment } from '../prompt-request.js'
-import { contentData } from '../prompt-text.js'
+import { generationRequest, reviewRequest, requirementSegment } from '../../prompts/prompt-request.js'
+import { contentData } from '../../prompts/prompt-text.js'
 import { outlineFailures } from '../../../shared/story-outline.js'
 
 export class EpisodeSummaryModel {

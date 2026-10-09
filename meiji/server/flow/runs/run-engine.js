@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { runStore } from '../../data/run-store.js'
 import { createQueue, defaultConcurrency } from '../tasks/task-queue.js'
 import { defaults } from '../../../models/model-config.js'
-import { RUN_SCHEMA, StepStatus, readySteps, isRunEnded, downstreamSteps, deriveRunStatus, failRun, tailSteps } from '../../../shared/run-model.js'
+import { RUN_SCHEMA, StepStatus, readySteps, isRunEnded, downstreamSteps, deriveRunStatus, failRun, tailSteps } from '../../models/tasks/run-model.js'
 
 const now = () => new Date().toISOString()
 const event = (run, type, actor, stepIds, payload) => run.events.push({ at: now(), type, actor, ...(stepIds ? { stepIds } : {}), ...(payload ? { payload } : {}) })

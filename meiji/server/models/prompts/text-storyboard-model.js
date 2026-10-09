@@ -1,7 +1,7 @@
 // storyboard 审核：文本分镜由程序编译，这里只组装人工编辑稿的审核请求。
-import { currentSkillSet, reviewParts, segment } from '../skill-prompts.js'
-import { baseSegments, factSegments, requirementSegment, reviewRequest, taskInput } from '../prompt-request.js'
-import { contentData } from '../prompt-text.js'
+import { currentSkillSet, reviewParts, segment } from '../../prompts/skill-prompts.js'
+import { baseSegments, factSegments, requirementSegment, reviewRequest, taskInput } from '../../prompts/prompt-request.js'
+import { contentData } from '../../prompts/prompt-text.js'
 
 function outputStructure(mode = 'text') {
   return `本次固定模式：${mode}。使用真实换行，按顺序输出 ${mode === 'reference' ? 'subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music' : 'integrated_multimodal_description、overall_soundscape、non_diegetic_music'}，每个英文标题后加冒号，另起行写非空正文。${mode === 'reference' ? 'subject_definitions 定义每张 Picture 与 Subject 的真实用途；summary 简述本镜；retention_analysis 说明参考特征的保留与变化；detailed_description 在原时段的动作或环境描述中使用对应 Subject。每张图片都绑定，每个已定义主体都在正文使用，图片与主体的编号体系独立。' : '没有图片，不写 Picture 或 Subject。'}不输出 JSON、代码围栏或额外说明。`

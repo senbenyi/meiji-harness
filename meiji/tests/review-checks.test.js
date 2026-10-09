@@ -11,7 +11,7 @@ import { generateShotSeconds } from '../server/flow/tasks/text/task-shot-seconds
 import { generateShotStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
 import { generateShots } from '../server/flow/tasks/text/task-shot-table.js'
 import { checkReasons, setCheck } from '../server/runtime/review-checks.js'
-import { targetNode, begin, saveReview, finish } from '../shared/drama-model.js'
+import { targetNode, begin, saveReview, finish } from '../server/models/data/drama-model.js'
 import { pictureTargetSnapshot } from '../server/data/image-storage.js'
 const reply=(text,verdict=reviewPass)=>async ({ skill }) =>skill==='review'?verdict:skill==='seconds'?secondsResponse([['S01',5,text]]):text
 

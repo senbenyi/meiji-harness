@@ -3,7 +3,7 @@ import { cp, mkdir, readFile, writeFile, rename } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { projectIds, readProjectFile, writeProjectFile, episodeSnapshot, indexFile, episodesDir } from '../server/data/project-files.js'
-import { node } from '../shared/drama-model.js'
+import { node } from '../server/models/data/drama-model.js'
 export function migrateSeconds(project) {
   let changed = false
   for (const e of project.episodes) {

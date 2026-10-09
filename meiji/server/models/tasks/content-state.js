@@ -10,7 +10,7 @@
 // | statusFromCheck | 写入审核结论后 | 结论通过为已通过，否则未通过 |
 // | settleByCheck | 任务结束释放节点 | 按结论落定，清除错误并释放操作 |
 // | refreshEpisodeStatus / refreshProjectStatus | 节点变化后 | 重新计算剧集 / 项目聚合状态 |
-import { GenerationStatus, aggregateStatus, modelPatch } from './drama-model.js'
+import { GenerationStatus, aggregateStatus, modelPatch } from '../data/drama-model.js'
 
 export function markGenerating(target, phase) {
   target.status = GenerationStatus.GENERATING

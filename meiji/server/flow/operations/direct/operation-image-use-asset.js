@@ -1,5 +1,5 @@
 // 操作：关联图片素材
-import { plotPatch } from '../../../../shared/drama-model.js'
+import { plotPatch } from '../../../models/data/drama-model.js'
 import { pictureReference } from '../../../data/image-storage.js'
 import { pictureRecord } from '../../../../shared/image-assets.js'
 import { visualPlace } from '../../steps/shared/image-files.js'

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { renderScriptView } from '../client/script-view.js'
 import { episodeDialog, renderOverview, premiseDialog } from '../client/project-overview-view.js'
-import { node } from '../shared/drama-model.js'
+import { node } from '../server/models/data/drama-model.js'
 
 function dom(t) {
   const env = new JSDOM('<main></main>', { pretendToBeVisual: true })

@@ -9,7 +9,7 @@ import { runOperation } from './fixtures/operation.js'
 import { cascade } from '../shared/pipeline-cascade.js'
 import { savePicture, saveImageDraft, readImageDraft, pictureTargetSnapshot } from '../server/data/image-storage.js'
 import { assetStore } from '../server/data/asset-library-store.js'
-import { node, contentNode, pictureOf, begin, setContent } from '../shared/drama-model.js'
+import { node, contentNode, pictureOf, begin, setContent } from '../server/models/data/drama-model.js'
 async function pending(t, kind='character') {
  const e=await setupModel(t),p=await e.read(),track=undefined,slot=kind==='part'?'clothes':undefined
  const target=track?{id:track,...p.shots.items[0].storyboard.content}:p.plot.characters.items[0]

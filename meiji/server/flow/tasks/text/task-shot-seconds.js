@@ -1,7 +1,7 @@
 // 小任务：单镜每秒指令
 import { runTextNodes } from '../text-workflow.js'
 import { modelRoutes } from '../../../../models/model-config.js'
-import { setContent } from '../../../../shared/drama-model.js'
+import { setContent } from '../../../models/data/drama-model.js'
 import { promptsForSeconds } from '../../steps/step-generate-seconds.js'
 import { parseSecondsPartial } from '../../../../shared/seconds-content.js'
 import { retainSecondsResponse, saveSecondsShot } from '../../shared/seconds-results.js'

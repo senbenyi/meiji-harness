@@ -2,7 +2,7 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { contentNode } from '../../../../shared/drama-model.js'
+import { contentNode } from '../../../models/data/drama-model.js'
 import { hasFilm } from '../../../../shared/generation-gates.js'
 import { concatFilms } from '../../../media/concat-videos.js'
 

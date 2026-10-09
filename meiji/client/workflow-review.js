@@ -1,4 +1,4 @@
-import { GenerationStatus } from '../shared/drama-model.js'
+import { GenerationStatus } from '../server/models/data/drama-model.js'
 import { overridable, overriddenBy, uniqueFeedback } from '../shared/review-feedback.js'
 import { confirmPanel, element } from './panel-dom.js'
 

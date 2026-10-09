@@ -1,4 +1,4 @@
-import { targetNode } from './drama-model.js'
+import { targetNode } from '../server/models/data/drama-model.js'
 
 export const nodeStage = key => ({ summary: 'episode', outline: 'outline', characters: 'outline', scenes: 'outline', props: 'outline', shots: 'shots', shot: 'shot-revise', seconds: 'seconds', storyboard: 'storyboard', film: 'video' })[key.split(':')[0]]
 const invalid = message => Object.assign(new Error(message), { status: 400 })

@@ -2,7 +2,7 @@ import { promptData } from './fixtures/prompt-data.js'
 import { reviewPass, reviewFail } from './fixtures/review-result.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { StoryOutlineModel, StoryCharacterModel, StorySceneModel } from '../server/prompts/models/story-model.js'
+import { StoryOutlineModel, StoryCharacterModel, StorySceneModel } from '../server/models/prompts/story-model.js'
 import { buildStoryPrompts } from '../server/prompts/story-prompts.js'
 import { generateStoryPackage } from './fixtures/story-generation.js'
 import { checkContext } from '../server/runtime/operation-context.js'
@@ -371,7 +371,7 @@ test('outline can be revised before cards exist; staged snapshots use aggregate 
 })
 
 test('三类剧情资料共用 StoryModel，差异只在 storyKinds 配置中声明；道具不由 AI 提取', async () => {
-  const { StoryModel, storyKinds } = await import('../server/prompts/models/story-model.js')
+  const { StoryModel, storyKinds } = await import('../server/models/prompts/story-model.js')
   const project = { ...episodeFixture(), projectSummary: 'PROJECT_BACKGROUND', script: 'SOURCE_SCRIPT', previousEpisodeSummary: 'PREVIOUS', nextEpisodeSummary: 'FOLLOWING' }
   assert.deepEqual(Object.keys(storyKinds), ['outline', 'characters', 'scenes'])
   for (const Model of [StoryOutlineModel, StoryCharacterModel, StorySceneModel]) assert.equal(Object.getPrototypeOf(Model.prototype), StoryModel.prototype)

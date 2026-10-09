@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { buildEpisodePrompts } from '../server/prompts/episode-summary-prompts.js'
-import { EpisodeSummaryModel } from '../server/prompts/models/episode-summary-model.js'
+import { EpisodeSummaryModel } from '../server/models/prompts/episode-summary-model.js'
 import { episodeFixture } from './fixtures/model.js'
 import { outlineFixture } from './fixtures/story-package.js'
 import { checkContext } from '../server/runtime/operation-context.js'

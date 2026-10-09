@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { renderOverview } from '../client/project-overview-view.js'
 import { libraryEditor } from '../client/project-library-view.js'
-import { node } from '../shared/drama-model.js'
+import { node } from '../server/models/data/drama-model.js'
 import { goalRequest } from '../client/goal-request.js'
 const settle = () => new Promise(resolve => setImmediate(resolve))
 function setup(t) {

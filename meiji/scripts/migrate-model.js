@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { convertOutline } from './migrate-story-outline.js'
 import { migrateFeedback } from './migrate-model-feedback.js'
-import { GenerationStatus, schemaVersion, node, episodeModel, cardModel, shotModel, targetNode, allNodes, assertDrama, modelPatch, aggregateStatus, shotResults } from '../shared/drama-model.js'
+import { GenerationStatus, schemaVersion, node, episodeModel, cardModel, shotModel, targetNode, allNodes, assertDrama, modelPatch, aggregateStatus, shotResults } from '../server/models/data/drama-model.js'
 import { pictureTargetSnapshot } from '../server/data/image-storage.js'
 import { foldEpisodeSkills } from './migrate-custom-skills.js'
 const textOf = value => typeof value === 'string' ? value : value == null ? '' : JSON.stringify(value, null, 2)

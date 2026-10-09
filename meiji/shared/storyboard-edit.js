@@ -1,4 +1,4 @@
-import { shotResult, updateShotResult } from './drama-model.js'
+import { shotResult, updateShotResult } from '../server/models/data/drama-model.js'
 import { videoPromptText as h3PromptText } from './video-prompt-text.js'
 import { clearShotDownstream } from './project-rules.js'
 export function storyboardTextPatch(project, { track, text, originalText, draftRevision }) {

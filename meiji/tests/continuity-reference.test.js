@@ -6,7 +6,7 @@ import { episodeFixture, setupModel } from './fixtures/model.js'
 import { generateShotStoryboard } from '../server/flow/steps/step-generate-storyboard.js'
 import { prepareFilmOpening } from '../server/flow/steps/shared/video-submit.js'
 import { runOperation } from './fixtures/operation.js'
-import { setContent } from '../shared/drama-model.js'
+import { setContent } from '../server/models/data/drama-model.js'
 
 test('storyboard keeps only current seconds and associated identity data, and strips the protocol marker', async () => {
   const p = episodeFixture()

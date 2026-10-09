@@ -1,7 +1,7 @@
 import { checkContext } from '../runtime/operation-context.js'
 import { buildTextPrompts } from './text-prompts.js'
 import { currentSkillSet } from './skill-prompts.js'
-import { EpisodeSummaryModel } from './models/episode-summary-model.js'
+import { EpisodeSummaryModel } from '../models/prompts/episode-summary-model.js'
 
 export function buildEpisodePrompts(project, episodeId, referenceDurationSeconds) {
   const ctx = checkContext.getStore()

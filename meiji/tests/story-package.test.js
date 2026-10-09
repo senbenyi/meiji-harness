@@ -1,7 +1,7 @@
 import { actionRequest } from '../client/goal-request.js'
 import { promptData } from './fixtures/prompt-data.js'
 import { reviewPass } from './fixtures/review-result.js'
-import { node, cardModel, shotModel, pictureOf } from '../shared/drama-model.js'
+import { node, cardModel, shotModel, pictureOf } from '../server/models/data/drama-model.js'
 import { episodeFixture, setupModel } from './fixtures/model.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'

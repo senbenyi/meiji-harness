@@ -2,7 +2,7 @@ import { confirmEditDelete } from './run-preview.js'
 import { goalRequest, actionRequest } from './goal-request.js'
 import { confirmRunPreview } from './run-preview.js'
 import { chooseEditContinuation } from './run-edit-choice.js'
-import { allNodes, shotMap } from '../shared/drama-model.js'
+import { allNodes, shotMap } from '../server/models/data/drama-model.js'
 
 // 剧集是否有步骤在执行：以内容节点上的执行标记为准（等待人工确认的候选图不算）。
 const episodeRunning = episode => allNodes(episode).some(node => node.operation && node.operation.phase !== 'awaiting-confirmation')

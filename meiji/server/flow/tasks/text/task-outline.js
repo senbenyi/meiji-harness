@@ -3,7 +3,7 @@ import { checkOutline } from '../../steps/step-review-outline.js'
 import { runTextNodes } from '../text-workflow.js'
 import { checkContext } from '../../../runtime/operation-context.js'
 import { promptsForOutline, parseOutline } from '../../steps/step-generate-outline.js'
-import { contentNode, plotPatch } from '../../../../shared/drama-model.js'
+import { contentNode, plotPatch } from '../../../models/data/drama-model.js'
 
 export async function runOutline({ operation, deps, projects, models, project, trace }) {
   const parse = parseOutline

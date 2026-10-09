@@ -1,5 +1,5 @@
 import { targetBusy } from './run-activity.js'
-import { pictureOf } from '../shared/drama-model.js'
+import { pictureOf } from '../server/models/data/drama-model.js'
 import { element, appendJsonCopy } from './panel-dom.js'
 import { characterSheet, cardImageControls, cardImageGate } from './asset-cards.js'
 

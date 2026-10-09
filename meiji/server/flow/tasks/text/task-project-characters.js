@@ -1,5 +1,5 @@
 import { projectCharacterPrompts } from '../../../prompts/project-character-prompts.js'
-import { node, setContent } from '../../../../shared/drama-model.js'
+import { node, setContent } from '../../../models/data/drama-model.js'
 import { characterExtractionContent, characterExtractionProject } from '../../../../shared/character-extraction.js'
 import { createLibraryEntry, characterLibraryTarget } from '../../../../shared/library-rules.js'
 import { mergeCostumes } from '../../../../shared/character-costumes.js'

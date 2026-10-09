@@ -3,7 +3,7 @@ import { characterFieldValues, characterLookText } from '../../../../shared/char
 import { wardrobeFields } from '../../../../shared/character-costumes.js'
 import { deleteProjectCharacter } from '../../../../shared/character-deletion.js'
 import { libraryKinds, kindOf, libraryTarget, libraryLinks, createLibraryEntry, addLibraryVariant, applyLibraryCard } from '../../../../shared/library-rules.js'
-import { node, setContent, finish } from '../../../../shared/drama-model.js'
+import { node, setContent, finish } from '../../../models/data/drama-model.js'
 import { pictureReference, savePicture, removeDraftPictures } from '../../../data/image-storage.js'
 import { openIncoming } from '../../steps/shared/incoming.js'
 import { readFile, rm } from 'node:fs/promises'

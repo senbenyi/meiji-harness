@@ -1,4 +1,4 @@
-// 状态稳定性约束：失败只记在步骤与内容节点上；服务端内容状态只经 shared/content-state.js 转换。
+// 状态稳定性约束：失败只记在步骤与内容节点上；服务端内容状态只经 server/models/tasks/content-state.js 转换。
 // 占用与并发规则见 state-locks、run-engine、run-service 测试。
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -24,9 +24,11 @@ function serverFiles(dir = 'server') {
     return statSync(join(root, path)).isDirectory() ? serverFiles(path) : path.endsWith('.js') ? [path] : []
   })
 }
-test('B4 服务端不直接修改内容节点状态，只经 shared/content-state.js 转换', () => {
+test('B4 服务端不直接修改内容节点状态，只经任务 model 与数据 model 转换', () => {
   // 任意 `.status =` 赋值（步骤状态 StepStatus 除外）或对象字面量 `status: GenerationStatus.` 都视为直接修改。
-  const offenders = serverFiles().flatMap(file => readFileSync(join(root, file), 'utf8').split('\n').map((line, index) => ({ file, line, index }))
+  // 数据 model 构造节点并维护基础状态；内容状态转换集中在任务 model。
+  const owners = new Set(['server/models/data/drama-model.js', 'server/models/tasks/content-state.js'])
+  const offenders = serverFiles().filter(file => !owners.has(file)).flatMap(file => readFileSync(join(root, file), 'utf8').split('\n').map((line, index) => ({ file, line, index }))
     .filter(({ line }) => (/\.status\s*=(?!=)/.test(line) && !/StepStatus/.test(line)) || /\bstatus:\s*GenerationStatus\./.test(line))
     .map(({ file, index }) => `${relative('.', file)}:${index + 1}`))
   assert.deepEqual(offenders, [])

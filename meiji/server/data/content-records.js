@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { executionContext, activeNode } from '../runtime/task-context.js'
 import { writeStep } from './run-records.js'
-import { markPendingReview } from '../../shared/content-state.js'
+import { markPendingReview } from '../models/tasks/content-state.js'
 const recordIdentity = context => ({ runId: context.runId, stepId: context.stepId })
 
 const now = () => new Date().toISOString()

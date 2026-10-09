@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 import { projectIds, indexFile, readProjectFile } from '../server/data/project-files.js'
-import { assertDrama } from '../shared/drama-model.js'
+import { assertDrama } from '../server/models/data/drama-model.js'
 
 export async function migrateProjectV3(home) {
   const pending = []

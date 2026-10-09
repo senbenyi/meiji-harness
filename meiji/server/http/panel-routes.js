@@ -2,7 +2,7 @@ import { syncChatModel } from '../host/harness-chat-model.js'
 import { scriptStore, readScriptProposalArtifact } from '../data/script-store.js'
 import { validateOperation } from '../flow/operations/operation-registry.js'
 import { subscribeProject } from '../data/project-events.js'
-import { targetNode } from '../../shared/drama-model.js'
+import { targetNode } from '../models/data/drama-model.js'
 import { shotReferenceImages } from '../../shared/reference-images.js'
 import { MAX_GUIDANCE_BYTES } from '../data/asset-library-store.js'
 import { MAX_SCRIPT_BYTES, scriptText } from '../../shared/script-content.js'
@@ -28,10 +28,12 @@ import { skillRoutes } from './skill-routes.js'
 import { runRoutes } from './run-routes.js'
 import { runStore } from '../data/run-store.js'
 
-// 浏览器可加载的两个平铺目录：client/ 为面板界面，shared/ 为前后端共用的领域模块。
+// 浏览器可加载的平铺目录：client/ 为面板界面，shared/ 为领域规则，models 的 data/tasks 为纯数据与任务 model。
 const staticRoots = {
   client: fileURLToPath(new URL('../../client/', import.meta.url)),
   shared: fileURLToPath(new URL('../../shared/', import.meta.url)),
+  'models-data': fileURLToPath(new URL('../models/data/', import.meta.url)),
+  'models-tasks': fileURLToPath(new URL('../models/tasks/', import.meta.url)),
 }
 const clientMime = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' }
 
@@ -142,14 +144,17 @@ export function registerPanel(ctx, ready = Promise.resolve(), edits, runs, runJo
     const url = new URL(req.url, 'http://localhost'), path = url.pathname
     try {
       try { await ready } catch { throw Object.assign(new Error('制作任务服务恢复失败，请检查服务日志'), { status: 503 }) }
-      if (path === base + '/panel.js' || path.startsWith(base + '/client/') || path.startsWith(base + '/shared/')) {
+      if (path === base + '/panel.js' || path.startsWith(base + '/client/') || path.startsWith(base + '/shared/') || path.startsWith(base + '/server/models/')) {
         if (req.method !== 'GET') {
           res.writeHead(405, { 'Content-Type': 'text/javascript; charset=utf-8' })
           return res.end()
         }
         if (path === base + '/panel.js') return serveClient(res, 'panel.js')
-        const dir = path.startsWith(base + '/shared/') ? 'shared' : 'client'
-        return serveClient(res, path.slice((base + '/' + dir + '/').length), dir)
+        const model = path.startsWith(base + '/server/models/') ? path.slice((base + '/server/models/').length).split('/') : null
+        const dir = model ? { data: 'models-data', tasks: 'models-tasks' }[model[0]] : path.startsWith(base + '/shared/') ? 'shared' : 'client'
+        const file = model ? model.slice(1).join('/') : path.slice((base + '/' + dir + '/').length)
+        if (!dir) { res.writeHead(404); return res.end() }
+        return serveClient(res, file, dir)
       }
       const rejection = ctx.connection.requestRejection(req)
       if (rejection) return json(res, rejection, { error: '请刷新并登录 Harness' })

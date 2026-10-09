@@ -1,7 +1,7 @@
 import { readdir, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { projectStore } from './project-store.js'
-import { node } from '../../shared/drama-model.js'
+import { node } from '../models/data/drama-model.js'
 
 const safeId = /^[A-Za-z0-9_-]{1,128}$/
 const sceneDraft = (draft, ids, variants) => draft.category === 'scenes' || draft.libraryKind === 'scenes' || ids.has(draft.itemId) || variants.has(draft.variantId)

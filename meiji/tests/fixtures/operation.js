@@ -1,7 +1,7 @@
 // 业务职责测试通过真实 Run 单步执行；即时编辑不建立制作记录。
 import { randomUUID } from 'node:crypto'
 import { projectStore } from '../../server/data/project-store.js'
-import { episodeModel } from '../../shared/drama-model.js'
+import { episodeModel } from '../../server/models/data/drama-model.js'
 import { materialize } from '../../shared/episode-rules.js'
 import { goalRequest } from '../../client/goal-request.js'
 import { planRun } from '../../shared/run-planner.js'

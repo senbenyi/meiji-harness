@@ -1,6 +1,6 @@
 import { characterImagesReady } from './character-costumes.js'
 import { runStages, stageDependencies, textTargets, normalizeRunGoal } from './run-templates.js'
-import { tailSteps } from './run-model.js'
+import { tailSteps } from '../server/models/tasks/run-model.js'
 import { imageItems } from './library-images.js'
 import { shotsReady, projectCharactersGate, hasCharacters } from './generation-gates.js'
 import { shotSecondsReady } from './shot-timing.js'

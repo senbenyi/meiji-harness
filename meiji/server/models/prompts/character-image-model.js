@@ -1,7 +1,7 @@
 // 人物图提示词的数据结构与基础转换。调用方负责提供规则正文和画幅；本模块不读取文件或发送请求。
-import { segment, render } from '../skill-prompts.js'
+import { segment, render } from '../../prompts/skill-prompts.js'
 import { characterFieldValues } from '../../../shared/character-facts.js'
-import { requirementsText } from '../prompt-requirements.js'
+import { requirementsText } from '../../prompts/prompt-requirements.js'
 
 const characterFields = [
   ['nationality', '国籍'], ['name', '姓名'], ['role', '身份'],

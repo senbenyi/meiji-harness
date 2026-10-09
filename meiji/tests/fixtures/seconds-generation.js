@@ -1,6 +1,6 @@
 // 任务：每秒指令（整集，逐镜生成与审核）
 import { modelRoutes } from '../../models/model-config.js'
-import { finish } from '../../shared/drama-model.js'
+import { finish } from '../../server/models/data/drama-model.js'
 import { selectCheck } from '../../server/runtime/review-checks.js'
 import { saveSecondsShot } from '../../server/flow/shared/seconds-results.js'
 import { generateShotSeconds } from '../../server/flow/tasks/text/task-shot-seconds.js'

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel, episodeFixture } from './fixtures/model.js'
-import { cardModel } from '../shared/drama-model.js'
+import { cardModel } from '../server/models/data/drama-model.js'
 import { scopeProjects } from '../server/data/episode-data.js'
 import { runOperation, latestRun } from './fixtures/operation.js'
 import { historyStore } from '../server/data/history-store.js'

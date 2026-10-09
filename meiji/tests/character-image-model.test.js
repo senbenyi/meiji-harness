@@ -2,7 +2,7 @@ import { promptData } from './fixtures/prompt-data.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { createCharacterImageModel, characterImageModelToPrompt } from '../server/prompts/models/character-image-model.js'
+import { createCharacterImageModel, characterImageModelToPrompt } from '../server/models/prompts/character-image-model.js'
 
 const input = {
   character: { name: '甲', role: '旅人', gender: '男', era: '现代', age: '23', height: '180cm', build: '健壮', features: '短发方脸', costume: '旧外套', prop: '木剑', look: '面向：背面' },

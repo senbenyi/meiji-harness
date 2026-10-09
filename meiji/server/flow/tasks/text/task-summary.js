@@ -4,7 +4,7 @@ import { promptsForSummary } from '../../steps/step-generate-summary.js'
 import { generateStep } from '../../steps/shared/text-generate.js'
 import { parseJsonValue } from '../../../gateway/model-gateway.js'
 import { modelRoutes } from '../../../../models/model-config.js'
-import { contentNode } from '../../../../shared/drama-model.js'
+import { contentNode } from '../../../models/data/drama-model.js'
 import { checkContext } from '../../../runtime/operation-context.js'
 
 export async function generateEpisode({ route, project, episodeId, signal, fetchImpl, request, persist }) {

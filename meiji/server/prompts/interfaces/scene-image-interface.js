@@ -1,6 +1,6 @@
 // 场景图接口负责技能快照和 model 赋值，model 内部生成最终提示词。
 import { aspectRatioOf } from '../../../shared/project-rules.js'
-import { createSceneImageModel } from '../models/scene-image-model.js'
+import { createSceneImageModel } from '../../models/prompts/scene-image-model.js'
 import { addition, currentSkillSet, recordUse } from '../skill-prompts.js'
 import { builtinSkill } from '../../../skills/load-skills.js'
 

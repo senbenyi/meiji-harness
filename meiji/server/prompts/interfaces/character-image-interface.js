@@ -5,7 +5,7 @@ import { characterFieldValues, characterSheet } from '../../../shared/character-
 import { currentSkillSet, recordUse } from '../skill-prompts.js'
 import { builtinSkill } from '../../../skills/load-skills.js'
 
-import { createCharacterImageModel } from '../models/character-image-model.js'
+import { createCharacterImageModel } from '../../models/prompts/character-image-model.js'
 
 const stage = 'character-image'
 // 人物图只选这些外观资料；不带剧情服装、道具与卡片的面向指令。

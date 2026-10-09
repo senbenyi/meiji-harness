@@ -2,7 +2,7 @@
 import { currentSkillSet, generationParts, reviewParts, segment } from '../skill-prompts.js'
 import { checkContext } from '../../runtime/operation-context.js'
 import { contentText, contentData } from '../prompt-text.js'
-import { StoryOutlineModel } from '../models/story-model.js'
+import { StoryOutlineModel } from '../../models/prompts/story-model.js'
 import { baseSegments, factSegments, requirementSegment, reviewRequest, taskInput } from '../prompt-request.js'
 import { reviewProtocol } from '../../../shared/review-result.js'
 

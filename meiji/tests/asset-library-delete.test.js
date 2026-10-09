@@ -7,7 +7,7 @@ import { assetStore } from '../server/data/asset-library-store.js'
 import { createImmediateService } from '../server/flow/immediate-service.js'
 import { registerPanel } from '../server/http/panel-routes.js'
 import { validateOperation } from '../server/flow/operations/operation-registry.js'
-import { setContent } from '../shared/drama-model.js'
+import { setContent } from '../server/models/data/drama-model.js'
 
 test('删除素材复用面板操作与权限校验，保留项目图片和原文件', async t => {
   const e = await setupModel(t), library = assetStore(e.home)

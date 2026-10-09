@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { setupModel } from './fixtures/model.js'
 import { scopeProjects } from '../server/data/episode-data.js'
-import { cardModel, pictureOf } from '../shared/drama-model.js'
+import { cardModel, pictureOf } from '../server/models/data/drama-model.js'
 import { submitAssetImage } from '../server/flow/steps/shared/image-files.js'
 import { runOperation, latestRun } from './fixtures/operation.js'
 

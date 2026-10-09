@@ -1,6 +1,6 @@
 // 场景图提示词的数据结构与基础转换。调用方负责提供规则正文和画幅；本模块不读取文件或发送请求。
-import { segment, render } from '../skill-prompts.js'
-import { requirementsText } from '../prompt-requirements.js'
+import { segment, render } from '../../prompts/skill-prompts.js'
+import { requirementsText } from '../../prompts/prompt-requirements.js'
 
 const sceneFields = [
   ['name', '名称'], ['landmark', '地标'], ['light', '光位'], ['space', '空间'], ['look', '画面'],

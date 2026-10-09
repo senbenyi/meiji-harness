@@ -33,7 +33,10 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 | `server/data/script-store.js` | 剧本版本、待确认方案与原子提交 |
 | `shared/library-rules.js` | 三类库、变体、关联及跨集同步；库目录只含文字和有图标记 |
 | `client/` | 原生 ES 模块面板，通过 `panel-api.js` 访问同源接口 |
-| `shared/` | 可用于前后端的纯领域规则：模型、剧集构造与视图、语言、素材保留、节点补充、分镜编辑、门禁、步骤状态及下游删除；不读写文件 |
+| `server/models/data/` | 项目、剧集、镜头与卡片的数据 model；纯模块，面板可加载 |
+| `server/models/prompts/` | 提示词 model：只编排输入和提示词，不调用 API、不保存项目 |
+| `server/models/tasks/` | 任务 model 与内容节点状态转换（`run-model.js`、`content-state.js`） |
+| `shared/` | 可用于前后端的纯领域规则：剧集构造与视图、语言、素材保留、节点补充、分镜编辑、门禁、步骤状态及下游删除；不读写文件。数据 model 与任务 model 从 `server/models` 引用 |
 | `server/http/`、`tools/` | 面板与会话入口，复用服务端流程；鉴权与同源检查在 HTTP 层 |
 | `server/flow/runs/` | 任务层：run-engine 唯一调度循环（依赖、分支暂停、审核修订、队列与步骤锁）；run-service 负责预览/确认/并入/恢复、会话归属、前置与剧本阻断检查、人工编辑接管 |
 | `server/flow/operations/` | 即时保存：registry 只登记 direct/ 下的人工操作，occupancy 是 Run 步骤与即时保存共用的内存占用；制作目标不在这里声明 |
@@ -62,7 +65,7 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 - 预览与提交复用同一组装入口；历史展示实际请求快照，不用当前资料重建。
 - 大纲审核的 system 只放角色、审核原则、节点审核标准及补充、返回协议；资料用途及修订对照范围放 user。程序检查 JSON 结构，模型检查有证据的剧情问题，不审核展示标题或强求无依据的弱点、微动作。
 
-参考：`server/prompts/models/`、`server/prompts/interfaces/`、`server/prompts/prompt-request.js`。
+参考：`server/models/prompts/`、`server/prompts/interfaces/`、`server/prompts/prompt-request.js`。
 
 ## 3. 任务与步骤
 
@@ -233,17 +236,17 @@ meiji 是 DeepSeek Harness 外部插件。本文记录项目专属的开发配�
 
 ### 15.1 修改入口
 
-`server/prompts/interfaces/prompt-interfaces.js` 只选择接口，未知接口报错，不补默认模板。下表路径相对 `server/prompts/`。
+`server/prompts/interfaces/prompt-interfaces.js` 只选择接口，未知接口报错，不补默认模板。下表接口路径相对 `server/prompts/`，model 路径相对 `meiji/`。
 
 | 任务 | 实际编排入口 |
 |---|---|
-| 项目摘要提取 | `interfaces/project-summary-interface.js` → `models/project-summary-model.js` |
-| 剧集摘要 | `episode-summary-prompts.js` → `interfaces/episode-summary-interface.js` → `models/episode-summary-model.js` |
-| 大纲、人物、场景、道具 | `story-prompts.js` → `interfaces/story-content-interface.js` → `models/story-model.js` |
-| 镜头表、单镜修订、单镜每秒指令、图片提示词改写 | `interfaces/prompt-interfaces.js` → `models/text-step-model.js` 的配置与 `stepInterface` |
-| 最终文本分镜 | `video-prompt-renderer.js` 程序编译；人工编辑的模型审核用 `models/text-storyboard-model.js` |
+| 项目摘要提取 | `interfaces/project-summary-interface.js` → `server/models/prompts/project-summary-model.js` |
+| 剧集摘要 | `episode-summary-prompts.js` → `interfaces/episode-summary-interface.js` → `server/models/prompts/episode-summary-model.js` |
+| 大纲、人物、场景、道具 | `story-prompts.js` → `interfaces/story-content-interface.js` → `server/models/prompts/story-model.js` |
+| 镜头表、单镜修订、单镜每秒指令、图片提示词改写 | `interfaces/prompt-interfaces.js` → `server/models/prompts/text-step-model.js` 的配置与 `stepInterface` |
+| 最终文本分镜 | `video-prompt-renderer.js` 程序编译；人工编辑的模型审核用 `server/models/prompts/text-storyboard-model.js` |
 | 人物图、场景图 | `interfaces/character-image-interface.js`、`scene-image-interface.js` → 对应图片 Model |
-| 道具图 | `interfaces/prompt-interfaces.js` → `models/part-image-model.js` |
+| 道具图 | `interfaces/prompt-interfaces.js` → `server/models/prompts/part-image-model.js` |
 
 `generationParts/reviewParts` 提供任务冻结的规则、节点补充、素材、语言和协议片段；Model 选择资料并经 `generationRequest/reviewRequest` 组装。`text-prompts.js` 负责分发和序列化，`server/gateway/model-gateway.js` 的 `runTextRequest` 负责一次网络请求、日志与取消。不能直接读内置 Markdown 绕过技能快照。
 

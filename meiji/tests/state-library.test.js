@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createLibraryEntry, addLibraryVariant, mergeLibraryGroup, editLinkedCard, libraryLinks } from '../shared/library-rules.js'
-import { cardModel, node, setContent, begin } from '../shared/drama-model.js'
+import { cardModel, node, setContent, begin } from '../server/models/data/drama-model.js'
 import { setupModel } from './fixtures/model.js'
 import { linkedOperationCard } from '../server/data/project-files.js'
 import { interruptRunning } from '../server/flow/tasks/task-interrupt.js'

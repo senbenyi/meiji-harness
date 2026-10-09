@@ -12,7 +12,7 @@ import { storyboardReady } from '../server/flow/steps/shared/film-freshness.js'
 import { filmSubmit } from '../server/flow/steps/shared/video-submit.js'
 import { textMaterials } from '../client/material-editor.js'
 import { runOperation } from './fixtures/operation.js'
-import { setContent } from '../shared/drama-model.js'
+import { setContent } from '../server/models/data/drama-model.js'
 
 const voice='成年女声，中音，清亮，普通话，吐字清晰'
 const voiceCard=()=>({name:'电话顾客',presence:'voice',identity:'只通过电话发声的顾客',voiceDescription:voice})

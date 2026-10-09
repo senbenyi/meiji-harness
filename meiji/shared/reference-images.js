@@ -1,4 +1,4 @@
-import { pictureOf } from './drama-model.js'
+import { pictureOf } from '../server/models/data/drama-model.js'
 export function shotReferenceImages(project, item) {
   if (Array.isArray(item?.referenceSnapshot)) return item.referenceSnapshot.map(image => ({ ...image }))
   const images = []

@@ -1,4 +1,4 @@
-import { targetNode, emptyCheck, emptyReview, node, aggregateStatus, GenerationStatus } from './drama-model.js'
+import { targetNode, emptyCheck, emptyReview, node, aggregateStatus, GenerationStatus } from '../server/models/data/drama-model.js'
 import { validateSeconds } from './seconds-content.js'
 import { h3PromptFailures } from './video-rules.js'
 import { storyboardPromptText } from './story-content.js'

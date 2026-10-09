@@ -1,7 +1,7 @@
 import { outlineFixture } from './fixtures/story-package.js'
 import { blankEpisode } from '../shared/episode-rules.js'
 import { scopeProjects } from '../server/data/episode-data.js'
-import { contentNode, plotPatch } from '../shared/drama-model.js'
+import { contentNode, plotPatch } from '../server/models/data/drama-model.js'
 import { feedbackOf } from '../shared/review-feedback.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'

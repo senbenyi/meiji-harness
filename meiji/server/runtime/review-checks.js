@@ -1,7 +1,7 @@
-import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch, episodeModel } from '../../shared/drama-model.js'
+import { GenerationStatus, targetNode, begin, finish, saveReview, modelPatch, episodeModel } from '../models/data/drama-model.js'
 import { feedbackKey, feedbackOf, uniqueFeedback, scopedCheck } from '../../shared/review-feedback.js'
 import { checkContext, apiFailed, inTextNode } from './operation-context.js'
-import { markFailed, markGenerating, markPendingReview } from '../../shared/content-state.js'
+import { markFailed, markGenerating, markPendingReview } from '../models/tasks/content-state.js'
 const batchActions = new Set(['seconds', 'storyboard', 'films'])
 const limitedOpinionActions = new Set(['shots', 'revise-shot', 'shot-seconds', 'image', 'revise-image'])
 const imageGenerationActions = new Set(['image', 'revise-image'])

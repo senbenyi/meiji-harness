@@ -1,5 +1,5 @@
 // 操作：删除道具
-import { plotPatch } from '../../../../shared/drama-model.js'
+import { plotPatch } from '../../../models/data/drama-model.js'
 import { saveStep } from '../../../../shared/task-plans.js'
 
 export async function opPropDelete(c) {

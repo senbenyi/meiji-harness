@@ -7,7 +7,7 @@ import { modelRoutes } from '../../../models/model-config.js'
 import { promptsForCharacters, parseCharacters } from '../steps/step-extract-characters.js'
 import { promptsForScenes, parseScenes } from '../steps/step-extract-scenes.js'
 import { preserveStoryAssets } from '../../../shared/preserve-story-assets.js'
-import { plotPatch } from '../../../shared/drama-model.js'
+import { plotPatch } from '../../models/data/drama-model.js'
 import { cascade } from '../../../shared/pipeline-cascade.js'
 import { characterExtractionProject } from '../../../shared/character-extraction.js'
 
