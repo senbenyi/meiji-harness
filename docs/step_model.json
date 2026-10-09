@@ -1,0 +1,62 @@
+{
+  "kind": [
+    { "值": "precheck", "名称": "前置检查" },
+    { "值": "generate", "名称": "生成" },
+    { "值": "review", "名称": "自审" },
+    { "值": "revise", "名称": "自审修订" },
+    { "值": "manual_edit", "名称": "人工编辑保存" },
+    { "值": "override", "名称": "人工放行" }
+  ],
+  "business_type": [
+    { "值": "project-summary", "名称": "项目摘要" },
+    { "值": "project-characters", "名称": "剧本重要角色" },
+    { "值": "script", "名称": "剧本" },
+    { "值": "summary", "名称": "展示摘要" },
+    { "值": "outline", "名称": "剧情" },
+    { "值": "characters", "名称": "本集资产" },
+    { "值": "shots", "名称": "镜头表" },
+    { "值": "seconds", "名称": "每秒分镜" },
+    { "值": "storyboard", "名称": "文本提示词" },
+    { "值": "film", "名称": "视频" },
+    { "值": "tail", "名称": "尾帧" },
+    { "值": "assembly", "名称": "合片" },
+    { "值": "image", "名称": "角色图片" }
+  ],
+  "step_status": [
+    { "值": "ready", "名称": "等待中" },
+    { "值": "running", "名称": "执行中" },
+    { "值": "done", "名称": "完成" },
+    { "值": "failed", "名称": "失败" },
+    { "值": "skipped", "名称": "已跳过" },
+    { "值": "cancelled", "名称": "已取消" },
+    { "值": "superseded", "名称": "已作废" }
+  ],
+  "task_status": [
+    { "值": "draft", "名称": "未生成" },
+    { "值": "running", "名称": "生成中" },
+    { "值": "paused", "名称": "待处理" },
+    { "值": "completed", "名称": "已通过" },
+    { "值": "failed", "名称": "未通过" },
+    { "值": "cancelled", "名称": "已取消" }
+  ],
+  "step": {
+    "id": "",
+    "taskId": "",
+    "projectId": "",
+    "episode_id": "",
+    "kind": "generate",
+    "business_type": "outline",
+    "step_status": "pending",
+    "error_reason": "",
+    "开始时间": "",
+    "结束时间": ""
+  }, 
+  "task":{
+    "id": "",
+    "projectId": "",
+    "episode_id": "",
+    "business_type": "outline",
+    "task_status": "draft",
+    "steps": []
+  }
+}

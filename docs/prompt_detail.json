@@ -1,0 +1,17 @@
+{
+  "system": {
+    "role": "",
+    "rules": "",
+    "additions": "",
+    "boundary": "",
+    "output": ""
+  },
+  "user": {
+    "task": "",
+    "requirements": "",
+    "materials": [{ "title": "", "content": "" }],
+    "draft": "",
+    "opinion": "",
+    "review_content": ""
+  }
+}
