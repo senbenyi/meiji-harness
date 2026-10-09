@@ -1,5 +1,5 @@
 import { deleteEpisodeProjectCharacter, deleteProjectCharacter } from './character-deletion.js'
-import { libraryKinds, libraryLinks } from './library-rules.js'
+import { libraryKinds, libraryLinks, libraryTarget } from './library-rules.js'
 import { cascadePreview } from './pipeline-cascade.js'
 
 // 一次操作合并所有受影响剧集；面板与会话共用同一份删除清单。
@@ -13,15 +13,21 @@ export function operationDeletes(project, op) {
     return deleteEpisodeProjectCharacter(root,op.episodeId,op.itemId,{preview:true}).deletions
   }
   const fields = op.fields || {}
+  // 服装集合尚未切换当前形象；仅编辑集合时不展示成片删除确认。
+  if (op.action === 'entry-edit' && op.libraryKind === 'characters' && !op.data && !op.incomingId && !op.assetId) {
+    const target = libraryTarget(project, 'characters', { libraryId: op.libraryId })
+    const current = target && { ...target.entry, ...target.variant.fields, variantLabel: target.variant.label }
+    if (current && Object.entries(fields).every(([key, value]) => key === 'costumes' || JSON.stringify(value) === JSON.stringify(current[key] ?? (key === 'required' ? false : '')))) return []
+  }
   const cardActions = ['character-text', 'scene-text', 'prop-text', 'import-image', 'use-asset', 'clear-image', 'confirm-image']
   const source = selected[0], itemId = op.itemId || source?.pendingImages?.[op.draftId]?.itemId
   const card = source && Object.keys(libraryKinds).flatMap(key => source.plot[key]?.items || []).find(item => item.id === itemId)
-  if ((cardActions.includes(op.action) && card?.ref && !op.newVariant) || ['entry-edit', 'entry-image', 'entry-image-clear', 'entry-image-confirm', 'entry-merge'].includes(op.action)) {
+  if ((cardActions.includes(op.action) && card?.ref && !op.newVariant) || ['entry-edit', 'entry-image', 'entry-image-clear', 'entry-image-confirm'].includes(op.action)) {
     const kind = op.libraryKind || Object.keys(libraryKinds).find(key => source?.plot[key].items.includes(card))
-    const links = libraryLinks(project, kind, op.libraryId || card.ref.libraryId, op.action === 'entry-merge' || ['name', 'aliases', ...libraryKinds[kind].identity].some(key => fields[key] !== undefined) ? null : op.variantId || card?.ref.variantId)
+    const links = libraryLinks(project, kind, op.libraryId || card.ref.libraryId, ['name', 'aliases', ...libraryKinds[kind].identity].some(key => fields[key] !== undefined) ? null : op.variantId || card?.ref.variantId)
     return links.flatMap(link => {
       const episode = episodes.find(item => item.id === link.episodeId)
-      return cascadePreview(episode, { type: op.action === 'entry-merge' ? 'merge' : 'library', itemId: link.cardId, name: link.name })
+      return cascadePreview(episode, { type: 'library', itemId: link.cardId, name: link.name })
     })
   }
   let changes = []

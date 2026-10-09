@@ -1,3 +1,4 @@
+import { runProjectCharacters } from './text/task-project-characters.js'
 import { textStepRegistry } from './text-step-registry.js'
 import { runLibraryImage } from '../steps/step-generate-library-image.js'
 // 单步职责注册：Run 步骤按 taskType 找到业务处理；步骤顺序由 shared/run-planner.js 规划。
@@ -23,6 +24,7 @@ export const taskRegistry = {
   'library-image': { ...image('库图片', runLibraryImage), stage: 'project', action: 'library-image', target: op => `image:${op.variantId}` },
   'script-sync': { ...text('回写剧本', runScriptRevision, 'script-sync', 'script'), stage: 'project' },
   'script-revise': { ...text('修改剧本', runScriptRevision, 'script-revise', 'script'), stage: 'project' },
+  'project-characters': { ...text('剧本重要角色', runProjectCharacters, 'project-characters', 'project-characters'), stage: 'project' },
   'project-summary': { ...text('项目摘要', runProjectSummary, 'project-summary', 'project-summary'), stage: 'project' },
   summary: { ...text('提取展示摘要', runSummary, 'episode-generate', 'summary'), stage: 'episode', maxRevisions: 0 },
   outline: text('大纲', runOutline, 'outline', 'outline'),

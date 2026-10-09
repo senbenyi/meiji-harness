@@ -3,6 +3,7 @@ export const runStages = ['story', 'summary', 'images', 'shots', 'seconds', 'fil
 export const stageDependencies = { summary: ['story'], story: [], images: ['story'], shots: ['story'], seconds: ['shots'], film: ['seconds'], assemble: ['film'] }
 export const textTargets = {
   summary: { taskType: 'summary', action: 'episode-generate', scope: 'episode' },
+  'project-characters': { taskType: 'project-characters', action: 'project-characters', scope: 'project' },
   'project-summary': { taskType: 'project-summary', action: 'project-summary', scope: 'project' },
   outline: { taskType: 'outline', action: 'outline', scope: 'project' },
   characters: { taskType: 'characters', action: 'characters', scope: 'project' },
@@ -17,7 +18,7 @@ export function normalizeRunGoal(input) {
   const goal = structuredClone(input)
   goal.to = goal.to === 'shot-table' ? 'shots' : goal.to
   goal.from = goal.from === 'shot-table' ? 'shots' : goal.from
-  if (![...runStages, 'project-summary', 'script-revise', 'script-sync'].includes(goal.to)) throw new Error('制作终点无效')
+  if (![...runStages, 'project-characters', 'project-summary', 'script-revise', 'script-sync'].includes(goal.to)) throw new Error('制作终点无效')
   if (goal.from && (!runStages.includes(goal.from) || !runStages.includes(goal.to) || runStages.indexOf(goal.from) > runStages.indexOf(goal.to))) throw new Error('制作起点无效')
   goal.mode ||= goal.feedback ? 'modify' : 'generate'
   if (!['generate', 'regenerate', 'modify', 'review'].includes(goal.mode)) throw new Error('制作模式无效')

@@ -31,7 +31,7 @@ test('outline tasks only describe the action and refer to separate rule blocks',
       assert.match(request.system, /【补充规则】\nSUPPLEMENT_REQUIREMENT/)
       assert.doesNotMatch(request.user, /SUPPLEMENT_REQUIREMENT|OTHER_NODE_RULE/)
       assert.doesNotMatch(request.system, /OTHER_NODE_RULE|【本节点补充要求】/)
-      assert.match(request.system, /顶层仅含「故事小段」字段/)
+      assert.match(request.system, /顶层直接为非空数组/)
     }
     const review = prompts.review('本轮待审稿')
     assert.equal(review.system.split('【角色与职责】\n')[1].split('\n\n')[0], '你是一名独立剧情大纲审核员。')
@@ -117,7 +117,7 @@ for (const [kind, label] of [['characters', '人物角色'], ['scenes', '场景'
   test(`${kind}: protocol example passes the actual card normalizer`, async () => {
     const { normalizeCharacters, normalizeScenes } = await import('../shared/story-content.js')
     const model = kind === 'characters' ? new StoryCharacterModel() : new StorySceneModel()
-    const example = model.outputProtocol.split('示例（仅示范格式）：\n')[1]
+    const example = model.outputProtocol.split(/示例[^\n]*：\n/)[1]
     const raw = JSON.parse(example)
     assert.deepEqual(Object.keys(raw), ['items'])
     const result = (kind === 'characters' ? normalizeCharacters : normalizeScenes)(raw)
@@ -403,14 +403,14 @@ test('人工编辑大纲仅审核最新故事小段，不要求下游卡片', as
 })
 
 test('大纲生成与修订协议仅含编号故事小段，正文换行只在值中', async () => {
-  const { outlineFields, normalizeOutline } = await import('../shared/story-outline.js')
+  const { normalizeOutline } = await import('../shared/story-outline.js')
   for (const outputLanguage of ['zh-CN', 'en']) {
     const model = new StoryOutlineModel({ project: { ...episodeFixture(), outputLanguage }, mode: 'generate' })
     for (const request of [model.toGenerateMessages(), model.toReviseMessages({ baseContent: outlineFixture(), opinion: '改结尾' })]) {
-      const example = JSON.parse(request[0].content.split('示例（仅示范格式）：\n')[1])
-      assert.deepEqual(Object.keys(normalizeOutline(example)), outlineFields)
-      assert.match(example.故事小段, /\n\n2\./)
-      for (const value of Object.values(example)) assert.doesNotMatch(value, /【/)
+      const example = JSON.parse(request[0].content.split(/示例[^\n]*：\n/)[1])
+      assert.ok(Array.isArray(normalizeOutline(example)))
+      assert.equal(example[1].编号, 2); assert.ok(example.every(part => Number.isInteger(part.时长秒)))
+      for (const part of example) assert.doesNotMatch(part.正文, /【/)
       assert.match(request[0].content, /字段名固定为中文/)
       assert.match(request[1].content, outputLanguage === 'en' ? /输出语言：English/ : /输出语言：简体中文/)
     }
@@ -425,7 +425,7 @@ test('无效大纲对象触发程序校验，修订使用最新失败对象', as
   const replies = [JSON.stringify(invalid), reviewPass, outlineResponse(), reviewPass, JSON.stringify(fixture.characters), reviewPass, JSON.stringify(fixture.scenes), reviewPass]
   const result = await generateStoryPackage({ project: episodeFixture(), request: async message => { calls.push(message); return replies.shift() } })
   assert.equal(result.check.passed, true);assert.equal(calls.length, 8)
-  assert.match(calls[2].user, /大纲字段「故事小段」必须为非空字符串/)
+  assert.match(calls[2].user, /大纲必须为非空 JSON 数组/)
   assert.deepEqual(promptData(calls[2].user, '【最新失败稿（唯一修改基准）】'), invalid)
 })
 

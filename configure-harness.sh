@@ -64,6 +64,7 @@ if [[ -d "$DSH_DATA/storages/meiji/projects" ]]; then
   node "$PLUGIN/scripts/migrate-image-url.js" "$DSH_DATA"
   echo "检查 meiji 大纲字段结构"
   node "$PLUGIN/scripts/migrate-story-outline.js" "$DSH_DATA"
+  node "$PLUGIN/scripts/migrate-character-costumes.js" "$DSH_DATA"
 fi
 
 echo "启动 Harness"

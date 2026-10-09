@@ -53,9 +53,9 @@ export function confirmEditDelete(project, operation, confirm = confirmPanel) {
   if (operation.confirmDelete === true) return true
   const source = project.episodes?.find(episode => episode.id === operation.episodeId), itemId = operation.itemId || source?.pendingImages?.[operation.draftId]?.itemId
   const card = source && Object.keys(libraryKinds).flatMap(kind => source.plot[kind].items).find(item => item.id === itemId)
-  const syncActions = ['character-text', 'scene-text', 'prop-text', 'import-image', 'use-asset', 'clear-image', 'confirm-image', 'entry-edit', 'entry-image', 'entry-image-clear', 'entry-image-confirm', 'entry-merge']
+  const syncActions = ['character-text', 'scene-text', 'prop-text', 'import-image', 'use-asset', 'clear-image', 'confirm-image', 'entry-edit', 'entry-image', 'entry-image-clear', 'entry-image-confirm']
   const kind = operation.libraryKind || Object.keys(libraryKinds).find(kind => source?.plot[kind].items.includes(card))
-  const links = kind && syncActions.includes(operation.action) && !operation.newVariant ? libraryLinks(project, kind, operation.libraryId || card?.ref?.libraryId, operation.action === 'entry-merge' || ['name', 'aliases', ...libraryKinds[kind].identity].some(key => operation.fields?.[key] !== undefined) ? null : operation.variantId || card?.ref?.variantId) : []
+  const links = kind && syncActions.includes(operation.action) && !operation.newVariant ? libraryLinks(project, kind, operation.libraryId || card?.ref?.libraryId, ['name', 'aliases', ...libraryKinds[kind].identity].some(key => operation.fields?.[key] !== undefined) ? null : operation.variantId || card?.ref?.variantId) : []
   const count = new Set(links.map(link => link.episodeId)).size
   if (!deletes.length && !count) return true
   const lines = (project.episodes || [project]).flatMap((episode, index) => {

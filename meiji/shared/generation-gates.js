@@ -87,3 +87,8 @@ export function gateMessage(project, step) {
   if (step === 'assembly') return '全片拼接和背景音乐后期接入。卡片先留在这里。'
   return '步骤无效'
 }
+
+export function projectCharactersGate(project) {
+  const allowed = project.mode === 'script' && typeof project.script === 'string' && Boolean(project.script.trim())
+  return { allowed, reason: allowed ? '' : '请先导入或填写剧本' }
+}

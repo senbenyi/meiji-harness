@@ -1,7 +1,10 @@
+import { applyLibraryImageDraft } from '../../../data/library-image-storage.js'
+import { characterFieldValues, characterLookText } from '../../../../shared/character-facts.js'
+import { normalizeCostumes } from '../../../../shared/character-costumes.js'
 import { deleteProjectCharacter } from '../../../../shared/character-deletion.js'
 import { libraryKinds, kindOf, libraryTarget, libraryLinks, createLibraryEntry, addLibraryVariant, applyLibraryCard } from '../../../../shared/library-rules.js'
-import { node, setContent, cardModel, finish } from '../../../../shared/drama-model.js'
-import { pictureReference, savePicture, readImageDraft, pictureTargetSnapshot } from '../../../data/image-storage.js'
+import { node, setContent, finish } from '../../../../shared/drama-model.js'
+import { pictureReference, savePicture, removeDraftPictures } from '../../../data/image-storage.js'
 import { openIncoming } from '../../steps/shared/incoming.js'
 import { readFile, rm } from 'node:fs/promises'
 import { decodeImageData } from '../../../media/decode-image-data.js'
@@ -24,18 +27,25 @@ async function photo(c) {
 export async function opProjectLibrary(c) {
   const { operation: op, projects, project } = c, kind = op.libraryKind, spec = kindOf(kind)
   if (kind === 'characters' && ['entry-variant-add', 'entry-variant-delete'].includes(op.action)) invalid('人物不支持多造型')
+  if (op.costumeId) {
+    const target = libraryTarget(project, kind, op)
+    if (kind !== 'characters' || !['entry-image', 'entry-image-clear'].includes(op.action) || !target?.variant.fields.costumes?.some(row => row.id === op.costumeId)) invalid('服装不存在或操作无效')
+  }
   const image = await photo(c)
   if (['entry-image-confirm', 'entry-image-discard'].includes(op.action)) {
     const pending = project.pendingImages?.[op.draftId], target = pending && libraryTarget(project, pending.libraryKind, pending)
     if (!pending || !target || pending.libraryKind !== kind) invalid('候选图已处理或不属于目标库')
-    const type = kind === 'characters' ? 'role' : kind === 'scenes' ? 'scene' : 'prop'
-    const card = applyLibraryCard(project, kind, cardModel({ id: pending.variantId, type }), target)
-    if (pictureTargetSnapshot(card) !== pending.target && op.action === 'entry-image-confirm') throw Object.assign(new Error('变体已修改，请放弃旧候选图'), { status: 409 })
-    const file = await readImageDraft(c.home, op.draftId)
-    if (file.metadata.projectId !== project.id || file.metadata.itemId !== pending.variantId) invalid('候选图归属无效')
-    const reference = op.action === 'entry-image-confirm' ? { ...await savePicture(c.home, file.bytes, file.metadata.mime, kind, target.entry.name, file.metadata), source: 'ai' } : null
-    await projects.save(project.id, root => { const current = libraryTarget(root, kind, pending); if (reference) setContent(current.variant.image, reference, { passed: true, failures: [] }); finish(current.variant.image, { passed: Boolean(reference || current.variant.image.content), failures: [] }); delete root.pendingImages[op.draftId]; return root })
-    await rm(file.directory, { recursive: true, force: true }); return c.trace
+    if (op.libraryId !== pending.libraryId || op.variantId !== pending.variantId) invalid('候选图归属无效')
+    if (op.action === 'entry-image-confirm') {
+      await applyLibraryImageDraft(c.home, projects, project, pending, c.deps.signal)
+      return c.trace
+    }
+    await projects.save(project.id, root => {
+      const current = libraryTarget(root, kind, pending)
+      finish(current.variant.image, { passed: Boolean(current.variant.image.content), failures: [] })
+      delete root.pendingImages[op.draftId]; return root
+    })
+    await removeDraftPictures(c.home, pending); return c.trace
   }
   const result = await projects.save(project.id, root => {
     const next = structuredClone(root), list = next.library[kind]
@@ -55,7 +65,7 @@ export async function opProjectLibrary(c) {
       }
     } else {
       if (!entry || !target) invalid('库条目或变体不存在')
-      if (target.variant.image.operation && ['entry-edit', 'entry-image', 'entry-image-clear', 'entry-delete', 'entry-variant-delete', 'entry-merge'].includes(op.action)) throw Object.assign(new Error('库图片正在执行，无法修改'), { status: 409 })
+      if (target.variant.image.operation && ['entry-edit', 'entry-image', 'entry-image-clear', 'entry-delete', 'entry-variant-delete'].includes(op.action)) throw Object.assign(new Error('库图片正在执行，无法修改'), { status: 409 })
       if (op.action === 'entry-edit') {
         const fields = op.fields || {}
         if (fields.name != null) {
@@ -78,12 +88,31 @@ export async function opProjectLibrary(c) {
           if (typeof fields[key] !== 'string' || fields[key].length > 10000) invalid('变体字段格式无效')
           target.variant.fields[key] = fields[key].trim()
         }
+        if (kind === 'characters' && fields.costumes !== undefined) {
+          const previous = target.variant.fields.costumes || [], costumes = normalizeCostumes(fields.costumes, previous)
+          const ids = new Set(costumes.map(row => row.id))
+          target.variant.fields.costumes = costumes
+          if (previous.some(row => !ids.has(row.id) && row.description === target.variant.fields.costume)) target.variant.fields.costume = costumes[0]?.description || ''
+          const content = target.variant.image.content
+          if (content?.costumes && Object.keys(content.costumes).some(id => !ids.has(id))) {
+            setContent(target.variant.image, { ...content, costumes: Object.fromEntries(Object.entries(content.costumes).filter(([id]) => ids.has(id))) }, { passed: true, failures: [] })
+          }
+        }
+        if (kind === 'characters' && ['name', 'nationality', 'gender', ...spec.fields.filter(key => key !== 'look' && key !== 'voiceDescription')].some(key => fields[key] !== undefined)) target.variant.fields.look = characterLookText(characterFieldValues({ ...target.variant.fields, ...entry }))
         if (fields.variantLabel) target.variant.label = String(fields.variantLabel).trim()
         if (image) setContent(target.variant.image, image, { passed: true, failures: [] })
       } else if (op.action === 'entry-image' || op.action === 'entry-image-clear') {
         if (target.variant.image.operation) throw Object.assign(new Error('图片正在执行'), { status: 409 })
         if (op.action === 'entry-image' && !image) invalid('请选择照片')
-        setContent(target.variant.image, image, { passed: image ? true : null, failures: [] })
+        if (op.costumeId) {
+          const costume = kind === 'characters' && target.variant.fields.costumes?.find(row => row.id === op.costumeId)
+          if (!costume) invalid('服装不存在')
+          const content = structuredClone(target.variant.image.content || {}), costumes = { ...content.costumes }
+          if (image) costumes[costume.id] = { ...image, description: costume.description }
+          else delete costumes[costume.id]
+          content.costumes = costumes
+          setContent(target.variant.image, content, { passed: true, failures: [] })
+        } else setContent(target.variant.image, image, { passed: image ? true : null, failures: [] })
       } else if (op.action === 'entry-delete' || op.action === 'entry-variant-delete') {
         const variantId = op.action === 'entry-variant-delete' ? target.variant.id : null
         if (kind === 'characters' && op.action === 'entry-delete') {
@@ -99,33 +128,11 @@ export async function opProjectLibrary(c) {
           if (next.library.props.some(item => item.ownerLibraryId === entry.id)) throw Object.assign(new Error('条目仍是道具归属，请先修改归属'), { status: 409 })
           next.library[kind] = list.filter(item => item.id !== entry.id)
         }
-      } else if (op.action === 'entry-merge') {
-        const destination = list.find(item => item.id === op.destinationId)
-        if (!destination || destination === entry) invalid('请选择同类目标条目')
-        const ids = new Map()
-        if (kind === 'characters') {
-          for (const variant of entry.variants) ids.set(variant.id, destination.defaultVariantId)
-          const source = entry.variants.find(item => item.id === entry.defaultVariantId) || entry.variants[0]
-          const targetVariant = destination.variants.find(item => item.id === destination.defaultVariantId) || destination.variants[0]
-          if (source && targetVariant) targetVariant.fields = { ...source.fields, ...targetVariant.fields }
-        } else for (const variant of entry.variants) {
-          const added = addLibraryVariant(next, kind, destination.id, { fields: variant.fields, label: variant.label, image: variant.image }, variant.createdFrom)
-          ids.set(variant.id, added.variant.id)
-        }
-        destination.aliases = [...new Set([...destination.aliases, entry.name, ...entry.aliases])].filter(name => name !== destination.name)
-        if (kind === 'characters') destination.required ||= entry.required
-        for (const episode of next.episodes) for (const card of episode.plot[kind].items) if (card.ref?.libraryId === entry.id) {
-          const ref = { libraryId: destination.id, variantId: ids.get(card.ref.variantId), linkedBy: 'human' }
-          Object.assign(card, applyLibraryCard(episode, kind, card, libraryTarget(next, kind, ref), 'human'))
-          if (kind === 'characters') Object.assign(card, (entry.variants.find(item => item.id === entry.defaultVariantId) || entry.variants[0])?.fields || {})
-        }
-        for (const prop of next.library.props) if (prop.ownerLibraryId === entry.id) prop.ownerLibraryId = destination.id
-        next.library[kind] = list.filter(item => item.id !== entry.id)
       } else invalid('不支持的库操作')
     }
     return next
   })
   c.trace.result = { library: result.library[kind] }; c.note(`${spec.label}库已保存`); return c.trace
 }
-const labels = { 'entry-image-confirm': '确认库图片', 'entry-image-discard': '放弃库图片', 'entry-create': '新建库条目', 'entry-edit': '编辑库条目', 'entry-variant-add': '新增库变体', 'entry-variant-delete': '删除库变体', 'entry-delete': '删除库条目', 'entry-merge': '合并库条目', 'entry-image': '指定库照片', 'entry-image-clear': '清除库照片', 'card-link': '关联项目库', 'card-unlink': '解除库关联' }
+const labels = { 'entry-image-confirm': '确认库图片', 'entry-image-discard': '放弃库图片', 'entry-create': '新建库条目', 'entry-edit': '编辑库条目', 'entry-variant-add': '新增库变体', 'entry-variant-delete': '删除库变体', 'entry-delete': '删除库条目', 'entry-image': '指定库照片', 'entry-image-clear': '清除库照片', 'card-link': '关联项目库', 'card-unlink': '解除库关联' }
 export const operations = Object.fromEntries(Object.entries(labels).map(([id, label]) => [id, { label, scope: 'project', lock: 'project', agent: false, stage: 'project', step: () => ({ kind: 'save', target: 'library' }), run: opProjectLibrary }]))

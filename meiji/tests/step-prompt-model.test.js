@@ -13,7 +13,8 @@ for (const [Model, stage] of [[ShotTableModel, 'shots'], [ShotSecondsModel, 'sec
     assert.equal(count(review, builtinSkill(stage).review), 1)
     assert.equal(count(review, builtinSkill(stage).constraints), 0)
     assert.match(render(creation.user), /HUMAN_BASE/)
-    assert.match(render(review.user), /HUMAN_BASE.*HUMAN_OPINION/s)
+    if (stage === 'shots') { assert.doesNotMatch(render(review.user), /HUMAN_BASE/); assert.match(render(review.user), /HUMAN_OPINION/) }
+    else assert.match(render(review.user), /HUMAN_BASE.*HUMAN_OPINION/s)
     assert.match(render(review.user), /LATEST/)
     assert.match(render(revised.user), /FAILED_BASE.*FAIL_NEW.*HUMAN_OPINION/s)
     assert.doesNotMatch(render(revised.user), /HUMAN_BASE/)
@@ -129,14 +130,14 @@ test('镜头表三类编排先规划时间和同名分段，不再要求摄影�
  project.shots.items[1].content='标题：发现旧信2\n旅人取出信件，辨认名字。'
  const table=buildTablePrompts({project})
  for(const message of [table.generation,table.revision('失败稿','时间不足')]) {
-  assert.match(message.system,/先按编号故事小段.*估计必要动作.*再分配本集预算/s)
-  assert.match(message.system,/发现旧信1.*发现旧信2/s)
-  assert.match(message.system,/末尾依次直接加 1、2、3/)
+  assert.match(message.system,/逐个小段拆分/)
+  assert.match(message.system,/使用相同基础标题/)
+  assert.match(message.system,/加1、2、3/)
   assert.doesNotMatch(message.system,/- 机位与构图：|- 切镜点与理由：|每镜写明主要景别/)
  }
  const review=table.review('最新镜头表')
- assert.match(review.system,/不要求机位、景别、构图/)
- assert.match(review.system,/不能仅凭人物、(?:场景|地点)相同/)
+ assert.match(review.system,/不要求固定栏目、分段理由、机位、景别/)
+ assert.match(review.system,/不能凭个人节奏偏好判失败/)
  assert.doesNotMatch(review.system,/- 调度与机位：|- 景别：|- 切镜：/)
  const single=buildSingleShotPrompts({project,shotId:'S01',review:'只补充必要环境'})
  for(const message of [single.generation,single.revision('标题：发现旧信1\n环境描述不完整的失败稿','缺少环境'),single.review('标题：发现旧信1\n修订正文')]) {
@@ -155,8 +156,8 @@ test('镜头表与单镜修订三类请求采用直接叙事，审核兼容旧�
  project.shots.items[0].content = narrative
  for (const prompts of [buildTablePrompts({ project }), buildSingleShotPrompts({ project, shotId: 'S01', review: '保留未拆封状态' })]) {
   for (const message of [prompts.generation, prompts.revision(narrative, '保留原台词')]) {
-   assert.match(message.system, /一段或少量自然段直接叙事/)
-   assert.match(message.system, /不列固定栏目、不解释分段理由/)
+   assert.match(message.system, /一段或少量自然段(?:直接叙事|的完整叙事)/)
+   assert.match(message.system, /不列固定栏目、不解释分段理由|不写固定栏目、拆分理由/)
    assert.doesNotMatch(message.system, /content 内依次写以下条目|每段重复同一结构|- 叙事任务与事件过程：/)
   }
   const review = prompts.review(narrative)
@@ -164,7 +165,9 @@ test('镜头表与单镜修订三类请求采用直接叙事，审核兼容旧�
   assert.match(review.system, /不.*固定栏目.*分段理由/)
  }
  for (const stage of ['shots', 'shot-revise']) {
-  const rows = JSON.parse(protocols[stage].split(/示例[^\n]*：\n/)[1]).shots
+  const rows = stage === 'shots'
+   ? [{ shotId: 'S01', durationSeconds: 15, title: '取信1', content: narrative }, { shotId: 'S02', durationSeconds: 5, title: '取信2', content: '旅人看着尚未拆封的旧信。' }]
+   : JSON.parse(protocols[stage].split(/示例[^\n]*：\n/)[1]).shots
   const parsed = readShotSections(JSON.stringify({ shots: rows }), stage === 'shot-revise' ? 1 : 0)
   assert.equal(parsed.length, rows.length)
   assert.equal(parsed.at(-1).content, `标题：${rows.at(-1).title}\n${rows.at(-1).content}`)
@@ -208,21 +211,16 @@ test('每秒指令三类编排携带当前关联布局并允许独立设计摄�
  assert.match(prompts.review('待审').system,/同一画面或切换中超过三名重要人物/)
 })
 
-test('镜头表生成修订与审核按小剧情合并，不按动作和摄影切镜拆视频片段', async () => {
- const { buildTablePrompts,buildSingleShotPrompts }=await import('../server/prompts/shot-text-prompts.js')
+test('镜头表按小段固定预算拆分，不跨段合镜或增加事件', async () => {
+ const { buildTablePrompts }=await import('../server/prompts/shot-text-prompts.js')
  const { episodeFixture }=await import('./fixtures/model.js')
- const project=episodeFixture(),prompts=buildTablePrompts({project})
- for(const message of [prompts.generation,prompts.revision('最新失败稿','连续动作合并')]) {
-  assert.match(message.system,/不按大纲条目逐条分镜/)
-  assert.match(message.system,/景别变化、运镜、特写、反应或动作完成不自动成为视频片段边界/)
-  assert.match(message.system,/没有必须保留的边界，就合并/)
-  assert.doesNotMatch(message.system,/在动作结果、完整对白、关键反应或可连续承接的中间状态拆段/)
+ const prompts=buildTablePrompts({project:episodeFixture()})
+ for(const message of [prompts.generation,prompts.revision('最新失败稿','修正拆分')]) {
+  assert.match(message.system,/镜头不能跨小段/)
+  assert.match(message.system,/每镜不超过15秒，允许15秒/)
+  assert.match(message.system,/不复制剧情、追加内容或删减事实凑时长/)
  }
- const review=prompts.review('标题：查阅旧信\n连续呈现查找、取出与辨认。')
- assert.match(review.system,/一个片段含多个动作或故事节拍/)
- assert.match(review.system,/不能仅因短或片段多判失败/)
- const single=buildSingleShotPrompts({project,shotId:'S01',review:'合写连续动作'}).review('单镜修订结果')
- assert.match(single.system,/不要求修改编号、时长或合并相邻片段/)
+ assert.match(prompts.review('待审正文').system,/不跨段合镜、借秒或重排事件/)
 })
 
 test('每秒三类编排允许整镜连续beat，不设篇幅和5秒节拍上限', async () => {
@@ -235,26 +233,6 @@ test('每秒三类编排允许整镜连续beat，不设篇幅和5秒节拍上限
  }
  assert.match(prompts.generation.system,/不设置固定段数或字数配额/)
  assert.match(prompts.review('最新稿').system,/不因 beat 长于 5 秒而失败/)
-})
-
-test('镜头表补时编排允许有作用的扩充与旁白，审核不将细化误判成新增主线',async()=>{
- const { buildTablePrompts,buildSingleShotPrompts }=await import('../server/prompts/shot-text-prompts.js')
- const { episodeFixture }=await import('./fixtures/model.js')
- const project=episodeFixture(),prompts=buildTablePrompts({project})
- for(const message of [prompts.generation,prompts.revision('短稿','补足本集时间')]){
-  assert.match(message.system,/基础呈现时间不足时.*必要时增加有作用的旁白/s)
-  assert.match(message.system,/不能只把片段秒数写长或只报告时间不足/)
-  assert.match(message.system,/不能把并行的动作和旁白时间重复相加/)
-  assert.match(message.system,/明确禁止旁白或所有人声时/)
-  assert.match(message.system,/仅要求无人物对白时，独立画外旁白仍可使用/)
-  assert.doesNotMatch(message.system,/不能增加调查.*扩充容量|预算冲突应指出具体缺口/)
- }
- const review=prompts.review('动作与旁白补时后的完整镜头表')
- assert.match(review.system,/合理扩充.*不视为新增主线/s)
- assert.match(review.system,/不因大纲未逐字写出而失败/)
- assert.match(review.system,/新增独立支线、重大线索、人物、地点、关键道具或新危机/)
- const single=buildSingleShotPrompts({project,shotId:'S01',review:'丰富动作和旁白，补足本镜时间'})
- assert.match(single.review('单镜补时稿').system,/补时意见允许在本镜既定事件内丰富动作、反应、环境互动与旁白/)
 })
 
 test('每秒生成修订审核继承镜头表补时内容，独立旁白协议无需角色卡',async()=>{

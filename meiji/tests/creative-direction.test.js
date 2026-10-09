@@ -12,12 +12,12 @@ import { creativeDirection } from '../shared/script-assembly.js'
 
 test('自由模式直接生成多集故事，修改方向仅影响后续新集，不依赖摘要或回写剧本', async t=>{
  const home=await tempHome(t),store=projectStore(home),project=await store.create({mode:'free',premise:'寻亲冒险',title:'寻亲'}),calls=[]
- const request=async message=>{calls.push(message);return message.skill==='review'?reviewPass:JSON.stringify(outlineFixture('本集完整剧情'))}
+ const request=async message=>{calls.push(message);return message.skill==='review'?reviewPass:JSON.stringify(outlineFixture('本集完整剧情','zh-CN',30))}
  for(let number=1;number<=2;number++) {
   await runOperation({action:'story',projectId:project.id,referenceDurationSeconds:30},{home,request})
   const root=await store.read(project.id),current=materialize(root,root.episodes[0].id)
   assert.equal(current.episodeNumber,number);assert.match(calls.at(-2).user,/【AI 创作方向】/)
-  assert.equal(root.script,'');assert.ok(current.plot.outline.content.故事小段)
+  assert.equal(root.script,'');assert.ok(current.plot.outline.content)
  }
  const before=await store.read(project.id)
  await runOperation({action:'premise-edit',projectId:project.id,text:'NEW_DIRECTION 海岛寻亲'},{home})

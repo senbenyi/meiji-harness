@@ -13,7 +13,7 @@ export function goalRequest(action, fields = {}) {
   if (action === 'run-goal') return { goal: fields.goal, ...(fields.episodeId ? { episodeId: fields.episodeId } : {}) }
   const operation = actionRequest(action, fields)
   const to = { 'shot-table': 'shots', 'character-image': 'images', 'scene-image': 'images', 'prop-image': 'images', 'library-image': 'images' }[operation.action] || operation.action
-  if (!['summary', 'story', 'images', 'shots', 'seconds', 'film', 'assemble', 'project-summary', 'script-revise', 'script-sync'].includes(to)) return null
+  if (!['summary', 'story', 'images', 'shots', 'seconds', 'film', 'assemble', 'project-characters', 'project-summary', 'script-revise', 'script-sync'].includes(to)) return null
   const feedback = String(operation.review || operation.instruction || '').trim()
   const scope = { ...(operation.only ? { only: operation.only } : {}), ...(operation.track ? { tracks: [operation.track] } : {}), ...(operation.itemIds?.length ? { itemIds: operation.itemIds } : operation.itemId ? { itemIds: [operation.itemId] } : {}), ...(operation.fromEpisode ? { fromEpisode: Number(operation.fromEpisode) } : {}) }
   if (operation.action === 'library-image') scope.library = { kind: operation.libraryKind, id: operation.libraryId, variantId: operation.variantId }

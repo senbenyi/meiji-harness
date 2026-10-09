@@ -47,7 +47,7 @@ test('invalid table syntax is reviewed and revised up to maxRevisions (default 2
  let count=0;await assert.rejects(generateShots({project:episodeFixture(),request:async ({ skill }) =>{count++;return skill==='review'?reviewFail('标题错误'):'{"items":[]}'}}),/镜头表.*(?:JSON|shots)|shots/);assert.equal(count,6)
 })
 
-test('summary re-review compares the current revision base and opinion without restoring older source', async () => {
+test('shot table re-review only checks current output while revision retains failed draft and opinion', async () => {
   let generation = 0, reviews = 0
   await runTextNodes({
     prompts: buildTextPrompts({ skill: 'shots', project: episodeFixture(), instructions: { task: '任务依据：向北走；人工意见：保持背影。旧基稿：OLD_BASE',
@@ -63,8 +63,7 @@ test('summary re-review compares the current revision base and opinion without r
       assert.doesNotMatch(prompt, /OLD_BASE|【本轮定向修订】/)
       if (reviews === 1) assert.doesNotMatch(prompt, /OLD_VERDICT|【修订基稿/)
       if (reviews === 2) {
-        assert.match(prompt, /【修订基稿.*FAILED_DRAFT/s)
-        assert.match(prompt, /【本轮修订意见】[\s\S]*OLD_VERDICT/)
+        assert.doesNotMatch(prompt, /【修订基稿|FAILED_DRAFT|OLD_VERDICT/)
         assert.match(prompt, /【本次待审内容】\nLATEST_OUTPUT/)
       }
       return reviews === 1 ? reviewFail('OLD_VERDICT') : reviewPass

@@ -3,7 +3,7 @@ import { normalizeOutline } from '../../../shared/story-outline.js'
 import { reviewStep } from './shared/text-review.js'
 
 export function checkOutline(text, project, options = {}) {
-  normalizeOutline(JSON.parse(text)); return []
+  normalizeOutline(JSON.parse(text), 502, project.durationSeconds); return []
 }
 // 复审复用此步骤，只更新审核结论，不生成或修订正文。
 export function reviewOutline(input) {

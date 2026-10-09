@@ -6,12 +6,17 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
   const area = element('div', '', 'workflow-review workflow-review-panel')
   const check = record?.check
   const failed = check?.passed === false || Boolean(record?.error)
+  const generationMode = generated ? 'regenerate' : 'generate'
+  area.dataset.generationMode = generationMode
+  if (actionButton && !busy) {
+    actionButton.textContent = generated ? '重新生成' : 'AI生成'
+    actionButton.setAttribute('aria-label', actionButton.textContent)
+  }
   if (!generated && !failed) return area
   area.dataset.reviewTarget = record?.id || ''
   const paused = record?.status === GenerationStatus.PAUSED
   if (paused) {
     area.append(element('p', '任务已暂停，可重新生成', 'hint'))
-    if (actionButton) actionButton.textContent = '重新生成'
   }
   if (failed) area.classList.add('workflow-review-failed')
   const failures = check?.passed === false ? uniqueFeedback(check.failures || []) : []
@@ -88,12 +93,8 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
   }
   if (actionButton) {
     actionButton.classList.add('workflow-regenerate')
-    if (!busy && (generated || failed)) {
-      actionButton.textContent = '重新生成'
-      actionButton.setAttribute('aria-label', actionButton.textContent)
-    }
     const run = actionButton.onclick
-    actionButton.onclick = event => { area.dataset.generationMode = 'regenerate'; return run?.call(actionButton, event) }
+    actionButton.onclick = event => { area.dataset.generationMode = generationMode; return run?.call(actionButton, event) }
     if (!compiled) {
     const modify = element('button', '提交修改', 'workflow-review-action')
     modify.type = 'button'
@@ -114,7 +115,7 @@ export function appendWorkflowReview(parent, record, generated, busy = false, ac
 
 export function reviewFields(parent) {
   const area = parent.querySelector(':scope > .workflow-review')
-  const generationMode = area?.dataset.generationMode || 'regenerate'
+  const generationMode = area?.dataset.generationMode || 'generate'
   const input = area?.querySelector('input')
   return { generationMode, ...(generationMode === 'modify' && input ? { review: input.value.trim() } : {}) }
 }

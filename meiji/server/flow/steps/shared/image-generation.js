@@ -1,9 +1,9 @@
 // 任务：角色图 / 场景图 / 道具图（阶段 2 按类型拆为 character-image、scene-image、prop-image）
-import { rm } from 'node:fs/promises'
+import { characterWardrobePrompts } from '../../../prompts/character-wardrobe-prompts.js'
 import { join } from 'node:path'
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
-import { applyImageDraft, pictureTargetSnapshot, readImageDraft, readPicture } from '../../../data/image-storage.js'
+import { applyImageDraft, pictureTargetSnapshot, readImageDraft, readPicture, removeDraftPictures } from '../../../data/image-storage.js'
 import { characterImageSize, gatewayImageSize } from '../../../gateway/model-gateway.js'
 import { readStill } from '../../../media/image-files.js'
 import { usableLook } from '../../../../shared/image-assets.js'
@@ -13,7 +13,7 @@ import { sceneImagePrompt, sceneImageModificationModel } from '../../../prompts/
 import { aspectRatioOf } from '../../../../shared/project-rules.js'
 import { imageSeed, submitAssetImage, visualPlace, stageImageDraft } from './image-files.js'
 
-export async function startImage(operation, project, { projects, models, home, submitAssetImage, defer }) {
+export async function startImage(operation, project, { projects, models, home, submitAssetImage, defer, fetchImpl, signal }) {
   const place = visualPlace(project, operation.itemId)
   if (!place) throw Object.assign(new Error('请先写好角色卡或场景卡'), { status: 409 })
   const item = place.bag.items.find(entry => entry.id === operation.itemId)
@@ -86,8 +86,11 @@ export async function startImage(operation, project, { projects, models, home, s
   }
   const seed = imageSeed(`${item.id}:${Date.now()}`)
   defer(submitAssetImage({
-    assets: bag, itemId: item.id, aspectRatio: size, backend: route.image,
+    assets: bag, itemId: item.id, aspectRatio: size, backend: route.image, fetchImpl, signal,
+    reuseCurrent: autoSave,
     projectId: project.id, episodeId: project.episodeId, directory, referenceBytes: referenceBase64 ? undefined : referenceBytes, referenceMime, referenceBase64, seed, home, prompt: submitted,
+    costumePrompts: characterWardrobePrompts(current, project, { canvas, referenceBase64,
+      instruction: imageModification ? String(operation.instruction || operation.review || checkContext.getStore()?.review || '').trim() : '' }),
     stepTarget: `image:${item.id}`,
     onSaved: async next => {
       const draft = next.items.find(entry => entry.id === item.id).pendingImage
@@ -95,7 +98,7 @@ export async function startImage(operation, project, { projects, models, home, s
       if (autoSave) {
         try { await applyImageDraft(home, projects, project, { ...draft, ...target }, checkContext.getStore()?.signal) }
         catch (error) {
-          if (draft?.draftId) await rm(join(home, 'storages', 'meiji', 'image-drafts', draft.draftId), { recursive: true, force: true })
+          if (draft?.draftId) await removeDraftPictures(home, draft)
           throw error
         }
       } else await stageImageDraft(projects, project, draft, target, home)
@@ -116,6 +119,6 @@ export async function startImage(operation, project, { projects, models, home, s
 // if (operation.action === 'image' || operation.action === 'revise-image')
 export async function opImage(c) {
   let { operation, deps, home, projects, models, project } = c
-  const lines = await startImage(operation, project, { projects, models, home, submitAssetImage: deps.submitAssetImage || submitAssetImage, defer: deps.defer })
+  const lines = await startImage(operation, project, { projects, models, home, submitAssetImage: deps.submitAssetImage || submitAssetImage, defer: deps.defer, fetchImpl: deps.fetchImpl, signal: deps.signal })
   return lines
 }

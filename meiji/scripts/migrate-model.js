@@ -18,7 +18,7 @@ function migrateEpisode(source) {
   episode.revision = old.revision || 0
   episode.summary.status = GenerationStatus.PASSED
   episode.summary.check.passed = true
-  episode.plot.outline.content = typeof outline === 'string' ? (outline.trim() ? convertOutline(outline) : null) : outline || null
+  episode.plot.outline.content = outline ? convertOutline(outline, episode.durationSeconds) : null
   for (const key of ['characters', 'scenes']) {
     episode.plot[key].items = (old[key]?.items || []).map(item => cardModel(item))
   }

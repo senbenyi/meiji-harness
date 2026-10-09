@@ -29,8 +29,8 @@ test('outline, characters and scenes use separate generation and review requests
     }
     if (calls > 2) assert.match(body.messages[1].content, /旅人进入山洞，发现陌生脚印/)
     if (calls === 1) {
-      assert.match(body.messages[0].content, /顶层仅含「故事小段」字段/)
-      assert.deepEqual(body.response_format, { type: 'json_object' })
+      assert.match(body.messages[0].content, /顶层直接为非空数组/)
+      assert.equal(body.response_format, undefined)
       assert.doesNotMatch(body.messages[0].content, /### 角色卡|### 场景卡/)
     }
     if (calls === 3) assert.match(body.messages[0].content, /participants.*参与人物范围/s)

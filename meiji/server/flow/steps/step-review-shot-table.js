@@ -1,13 +1,13 @@
 import { promptsForShotTable, readShotSections } from './step-generate-shot-table.js'
 import { referencedEntities } from '../../../shared/entity-references.js'
+import { shotTableTiming } from '../../../shared/shot-table-timing.js'
 import { reviewStep } from './shared/text-review.js'
 
 export function checkShotTable(text, project, options = {}) {
   const items = readShotSections(text)
   const rows = items.map(item => ({ content: item.content, durationSeconds: item.duration }))
   referencedEntities(rows.map(row => row.content).join('\n'), project)
-  const total = rows.reduce((sum, row) => sum + row.durationSeconds, 0)
-  return [...(rows.some(row => !Number.isInteger(row.durationSeconds) || row.durationSeconds < 1 || row.durationSeconds > 15 || !row.content?.trim()) ? ['镜头时长或正文无效'] : []), ...(Math.abs(total - project.durationSeconds) > 10 ? [`镜头总时长 ${total} 秒，目标 ${project.durationSeconds} 秒，相差超过 10 秒；需${total < project.durationSeconds ? '增加' : '减少'}约 ${Math.abs(total - project.durationSeconds)} 秒（可调整各镜时长或增减镜头，每镜 1–15 秒）`] : [])]
+  return shotTableTiming(rows.map(row => row.durationSeconds), project.durationSeconds, project.plot.outline.content).failures
 }
 // 复审复用此步骤，只更新审核结论，不生成或修订正文。
 export function reviewShotTable(input) {

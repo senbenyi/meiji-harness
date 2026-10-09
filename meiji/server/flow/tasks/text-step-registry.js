@@ -1,3 +1,4 @@
+import { savedProjectCharactersInput, reviewProjectCharacters } from '../steps/step-review-project-characters.js'
 import { generateScriptChanges } from '../steps/step-generate-script-changes.js'
 import { reviewScriptChanges } from '../steps/step-review-script-changes.js'
 import { reviseScriptChanges } from '../steps/step-revise-script-changes.js'
@@ -30,6 +31,7 @@ export const textStepRegistry = {
   'characters': { generate: extractCharacters, review: reviewCharacters, reviewInput: savedCharactersInput, revise: reviseCharacters },
   'scenes': { generate: extractScenes, review: reviewScenes, reviewInput: savedScenesInput, revise: reviseScenes },
   'summary': { generate: generateSummary, review: reviewSummary, reviewInput: savedSummaryInput, revise: reviseSummary },
+  'project-characters': { generate: extractCharacters, review: reviewProjectCharacters, reviewInput: savedProjectCharactersInput, revise: reviseCharacters },
   'project-summary': { generate: generateProjectSummary, review: reviewProjectSummary, reviewInput: savedProjectSummaryInput, revise: reviseProjectSummary },
   'shots': { generate: generateShotTable, review: reviewShotTable, reviewInput: savedShotTableInput, revise: reviseShotTable },
   'seconds': { generate: generateSeconds, review: reviewSeconds, reviewInput: savedSecondsInput, revise: reviseSeconds },

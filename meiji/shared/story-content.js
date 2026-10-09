@@ -1,3 +1,4 @@
+import { normalizeCostumes, mergeCostumes } from './character-costumes.js'
 import { node, cardModel } from './drama-model.js'
 import { characterLibraryTarget, applyLibraryCard } from './library-rules.js'
 import { pictureRecord, usableLook } from './image-assets.js'
@@ -41,8 +42,10 @@ export function normalizeCharacters(raw, { allowEmpty = false, requireVoice = fa
       if (identities.has(target.entry.id)) throw new Error(`同一项目角色重复引用：${target.entry.name}`)
       identities.add(target.entry.id)
       const name = required(item?.name, '引用人物缺少名称')
-      return applyLibraryCard(project, 'characters', cardModel({ id: `C${String(index + 1).padStart(2, '0')}`, type: 'role', name, presence,
+      const linked = applyLibraryCard(project, 'characters', cardModel({ id: `C${String(index + 1).padStart(2, '0')}`, type: 'role', name, presence,
         ...(item.sourceName || name !== target.entry.name ? { sourceName: item.sourceName || name } : {}) }), target, item.libraryId || item.ref ? 'model' : 'name')
+      linked.costumes = mergeCostumes(target.variant.fields.costumes, item.costumes)
+      return linked
     }
     const voiceDescription = String(item?.voiceDescription || '').trim()
     if (requireVoice && !voiceDescription) throw new Error('新人物资料必须包含声音特征voiceDescription')
@@ -50,7 +53,7 @@ export function normalizeCharacters(raw, { allowEmpty = false, requireVoice = fa
       ...libraryFields(item, 'characters'), ...(item.sourceName ? { sourceName: item.sourceName } : {}), id: `C${String(index + 1).padStart(2, '0')}`,
       name: required(item?.name, '仅声音人物缺少名称'), type: 'role', presence,
       role: String(item?.role || '').trim(), identity: required(item?.identity, '仅声音人物缺少身份'),
-      voiceDescription: required(voiceDescription, '仅声音人物缺少声音特征'),
+      voiceDescription: required(voiceDescription, '仅声音人物缺少声音特征'), costumes: [],
       look: '', appearance: '', clothes: [], props: [], hairstyles: [], localPath: null,
     }
     const look = usableLook(item?.look)
@@ -61,7 +64,7 @@ export function normalizeCharacters(raw, { allowEmpty = false, requireVoice = fa
       ...libraryFields(item, 'characters'), ...(item.sourceName ? { sourceName: item.sourceName } : {}),
       id: `C${String(index + 1).padStart(2, '0')}`,
       name: required(item?.name || parts?.姓名, `角色 ${index + 1} 没有姓名`),
-      type: 'role', presence, voiceDescription,
+      type: 'role', presence, voiceDescription, costumes: normalizeCostumes(item.costumes),
       nationality: required(item?.nationality || parts?.国籍 || '中国', `角色 ${index + 1} 没有国籍`),
       role: required(item?.role || parts?.身份, `角色 ${index + 1} 没有身份`),
       gender: required(item?.gender || parts?.性别, `角色 ${index + 1} 没有性别`),

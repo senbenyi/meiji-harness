@@ -1,3 +1,6 @@
+import { libraryEditor } from './project-library-view.js'
+import { episodeScriptScene } from '../shared/script-scenes.js'
+import { projectCharactersGate } from '../shared/generation-gates.js'
 import { defaultReferenceDuration, referenceDuration, summaryLength, episodeSummaryFailures } from '../shared/episode-summary.js'
 import { targetBusy } from './run-activity.js'
 import { historyEntry } from './run-history-entry.js'
@@ -163,6 +166,26 @@ export function renderOverview(project, actions, context) {
 
   const libraries = element('article', '', 'overview-card library-tabs-card')
   const libraryTabs = element('div', '', 'library-tabs')
+  const addCharacter = element('button', '＋ 添加角色')
+  addCharacter.type = 'button'; addCharacter.disabled = busy
+  addCharacter.onclick = () => {
+    const dialog = libraryEditor(project, 'characters', actions, { done: () => actions.refresh?.() })
+    page.append(dialog); showPanelDialog(dialog)
+  }
+  const extract = element('button', '提取剧本重要角色')
+  extract.type = 'button'
+  const extractionGate = projectCharactersGate(project)
+  extract.disabled = busy || !extractionGate.allowed; extract.title = extractionGate.reason
+  extract.onclick = async () => {
+    if (extract.disabled) return
+    extract.disabled = true
+    try {
+      const result = await actions.perform(project, 'project-characters', { generationMode: 'regenerate' })
+      if (result?.accepted && result.runId) await actions.openRun?.(project, result.runId)
+    }
+    catch (error) { actions.fail?.(error) }
+    finally { extract.disabled = busy || !extractionGate.allowed }
+  }
   const libraryPanels = []
   for (const [index, [kind, title]] of [['characters', '角色库']].entries()) {
     const tab = element('button', title, 'library-tab')
@@ -170,7 +193,7 @@ export function renderOverview(project, actions, context) {
     const panel = element('div', '', 'library-tab-panel'); panel.setAttribute('role', 'tabpanel'); panel.hidden = index !== 0
     const entries = project.library?.[kind] || []
     if (!entries.length) {
-      panel.append(element('p', `暂无${title}数据，将根据剧集自动提取人物角色。`, 'library-empty'))
+      panel.append(element('p', `暂无${title}数据，可手动添加角色或提取剧本重要角色。`, 'library-empty'))
     } else {
       const strip = element('div', '', `characters-strip library-card-strip library-card-strip-${kind}`)
       for (const entry of entries) {
@@ -192,6 +215,8 @@ export function renderOverview(project, actions, context) {
     libraryPanels.push(panel); libraryTabs.append(tab)
     tab.onclick = () => libraryPanels.forEach((other, otherIndex) => { other.hidden = otherIndex !== index; libraryTabs.children[otherIndex].setAttribute('aria-selected', otherIndex === index ? 'true' : 'false') })
   }
+  libraryTabs.append(addCharacter)
+  if (project.mode === 'script') libraryTabs.append(extract)
   libraries.append(libraryTabs, ...libraryPanels)
   page.append(libraries)
   return page
@@ -250,9 +275,15 @@ export function episodeDialog(root, onSaved) {
   return (project, currentEpisode) => {
     current = project; episode = currentEpisode
     dialog.querySelector('h2').textContent = currentEpisode ? '编辑剧集' : '新增剧集'
-    form.elements.duration.value = String(currentEpisode?.durationSeconds ?? defaultReferenceDuration)
+    let scene = null, sceneError = ''
+    try { scene = episodeScriptScene(project, currentEpisode ? [...project.episodes].reverse().findIndex(item => item.id === currentEpisode.id) + 1 : project.episodes.length + 1) }
+    catch (failure) { sceneError = failure.message }
+    form.elements.duration.value = String(currentEpisode?.durationSeconds ?? scene?.durationSeconds ?? defaultReferenceDuration)
+    form.elements.duration.readOnly = !currentEpisode && Boolean(scene?.durationSeconds)
+    form.querySelector('p').textContent = scene ? `第 ${scene.number} 集对应「${scene.title}」，完整提取本场剧情，不跨场拆分或合并。` : '剧本模式从剧本提取本集故事小段，自由模式按 AI 创作方向生成。摘要由故事小段提取，仅用于展示。'
+    form.querySelector('[type=submit]').disabled = Boolean(sceneError)
     form.elements.requirements.value = currentEpisode?.storyRequirements || ''
-    error.textContent = ''; showPanelDialog(dialog)
+    error.textContent = sceneError; showPanelDialog(dialog)
   }
 }
 

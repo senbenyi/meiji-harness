@@ -4,7 +4,7 @@ import { JSDOM } from './fixtures/jsdom.js'
 import { setupModel, episodeFixture } from './fixtures/model.js'
 import { mount } from '../client/panel-app.js'
 import { gateFromAction, syncImageGate } from '../client/image-review.js'
-import { cardModel } from '../shared/drama-model.js'
+import { createLibraryEntry } from '../shared/library-rules.js'
 
 const settle = () => new Promise(resolve => setImmediate(resolve))
 
@@ -40,9 +40,11 @@ test('同集并发图片刷新按本卡执行锁禁用旧候选确认', () => {
 
 async function panel(t, { pending = false, failure = false } = {}) {
  const e = await setupModel(t), project = await e.store.read(e.id)
+ const character = project.episodes[0].plot.characters.items[0]
+ const { entry, variant } = createLibraryEntry(project, 'characters', character)
+ character.ref = { libraryId: entry.id, variantId: variant.id }
  if (pending) {
-  project.episodes[0].plot.props.items.push(cardModel({ id: 'P01', name: '旧信', type: 'prop', description: '未拆封旧信' }))
-  project.episodes[0].pendingImages = { old: { draftId: 'old', itemId: 'P01', name: '旧信', previewUrl: '/old', aspect: '1344x768' } }
+  project.episodes[0].pendingImages = { old: { draftId: 'old', itemId: project.episodes[0].plot.scenes.items[0].id, name: '庭院', previewUrl: '/old', aspect: '1344x768' } }
  }
  const dom = new JSDOM('<body></body>', { url: 'http://localhost', pretendToBeVisual: true })
  const keys = ['window', 'document', 'localStorage', 'MutationObserver', 'requestAnimationFrame', 'fetch', 'setInterval', 'CustomEvent', 'Event']
@@ -76,7 +78,10 @@ async function panel(t, { pending = false, failure = false } = {}) {
  localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId: 'session-11111111-1111-4111-8111-111111111111' }))
  mount(); await settle(); await settle()
  const root = document.querySelector('meiji-workbench').shadowRoot
- if (!pending) {
+ if (pending) {
+  assert.equal(root.querySelector('.image-review-overlay'), null)
+  ;[...root.querySelectorAll('button')].find(button => button.textContent === '查看场景详情').click()
+ } else {
   // 从概要进入实际人物详情，后续按钮使用 mount 内的真实 actions。
   root.querySelector('.episode-card').click(); await settle(); await settle()
   ;[...root.querySelectorAll('.stage')].find(button => button.textContent === '本集资产').click()
@@ -89,21 +94,23 @@ async function panel(t, { pending = false, failure = false } = {}) {
 
 test('mounted 面板首次生图取消 Run 预览后退出忙碌', async t => {
  const { root, calls } = await panel(t)
- const generate = root.querySelector('[aria-label="AI生成"]')
+ assert.match(root.textContent, /旅人 · 人物资料/)
+ assert.ok(root.querySelector('[aria-label="年龄"]'))
+ const generate = root.querySelector('[aria-label="重新生成角色图片：旅人"]')
  assert.ok(generate, root.textContent)
  generate.click(); await settle(); await settle()
  const dialog = root.querySelector('.run-preview-dialog')
  assert.ok(dialog)
  ;[...dialog.querySelectorAll('button')].find(button => button.textContent === '取消').click()
  await settle(); await settle()
- assert.equal(root.querySelector('[aria-label="AI生成"]').disabled, false)
+ assert.equal(root.querySelector('[aria-label="重新生成角色图片：旅人"]').disabled, false)
  assert.equal(root.querySelector('.detail-image-actions'), null)
  assert.ok(calls.some(call => call.path === 'runs/new-run/cancel'))
 })
 
 for (const failure of [false, true]) test(`mounted 候选图重新生成${failure ? '请求失败' : '预览取消'}后旧图可继续确认`, async t => {
  const { root, calls, project } = await panel(t, { pending: true, failure })
- const regenerate = root.querySelector('.workflow-regenerate')
+ const regenerate = [...root.querySelectorAll('.detail-image-buttons button')].find(button => button.textContent === '重新生成')
  assert.ok(regenerate, root.textContent)
  regenerate.click(); await settle(); await settle()
  if (!failure) {
@@ -111,7 +118,7 @@ for (const failure of [false, true]) test(`mounted 候选图重新生成${failur
   ;[...dialog.querySelectorAll('button')].find(button => button.textContent === '取消').click()
   await settle(); await settle()
  }
- const confirm = [...root.querySelectorAll('.image-review-actions button')].find(button => button.textContent === '确认')
+ const confirm = root.querySelector('.detail-image-buttons .primary')
  assert.ok(confirm)
  assert.equal(confirm.disabled, false)
  assert.ok(project.episodes[0].pendingImages.old)

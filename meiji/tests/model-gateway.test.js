@@ -44,14 +44,16 @@ test('several reference images go to images/edits in order as image[] files', as
   await assert.rejects(generateGatewayImage({ ...route, prompt: '太多', references: Array.from({ length: 11 }, () => ({ bytes: first, mime: 'image/png' })), fetchImpl: async () => assert.fail('不能提交') }), /最多 10 张/)
 })
 
-test('人物修改原图以 Base64 字符串提交，结果下载 URL，职责只放入 prompt', async () => {
+test('人物修改 Base64 原图解码为文件上传，结果下载 URL，职责只放入 prompt', async () => {
   const base64 = 'data:image/png;base64,b3JpZ2luYWw='
   const bytes = await generateGatewayImage({ ...route, prompt: '你是一名人物角色设计师。将头发改为黑色。', aspectRatio: '1000x1504', referenceBase64: [base64], fetchImpl: async (url, options) => {
     if (options.method === 'GET') return new Response(Buffer.from([0]))
     assert.equal(url.pathname, '/v1/images/edits')
     assert.deepEqual([...options.body.keys()], ['model', 'prompt', 'size', 'image[]'])
-    assert.equal(options.body.get('image[]'), base64)
-    assert.equal(typeof options.body.get('image[]'), 'string')
+    const file = options.body.get('image[]')
+    assert.equal(file.type, 'image/png')
+    assert.equal(file.name, 'reference-1.png')
+    assert.equal(Buffer.from(await file.arrayBuffer()).toString(), 'original')
     assert.equal(options.body.get('size'), '1000x1504')
     assert.equal(options.body.has('role'), false)
     return Response.json({ data: [{ url: '/v1/media/image_1' }] })
@@ -320,4 +322,17 @@ test('stopping after receiving image bytes fails the combined download/Base64 ac
 test('没有请求体的 GET（下载图片/查询视频）留痕时不会因脱敏报错', () => {
   assert.equal(publicData(undefined, 'test-key'), undefined)
   assert.equal(redactJson(undefined, 'test-key'), null)
+})
+
+test('混合文件和 Base64 参考图统一上传文件，顺序和 MIME 不变', async () => {
+  const references = [{ bytes: Buffer.from('first'), mime: 'image/png' }]
+  const referenceBase64 = ['data:image/jpeg;base64,c2Vjb25k', 'data:image/webp;base64,dGhpcmQ=']
+  await generateGatewayImage({ ...route, references, referenceBase64, fetchImpl: async (_url, options) => {
+    const files = options.body.getAll('image[]')
+    assert.ok(files.every(file => typeof file !== 'string'), '真实网关拒绝 image[] 文本字段')
+    assert.deepEqual(files.map(file => file.type), ['image/png', 'image/jpeg', 'image/webp'])
+    assert.deepEqual(await Promise.all(files.map(async file => Buffer.from(await file.arrayBuffer()).toString())), ['first', 'second', 'third'])
+    return Response.json({ data: [{ b64_json: 'AA==' }] })
+  } })
+  assert.equal(references.length, 1)
 })

@@ -1,4 +1,5 @@
 // 任务：镜头表（生成；按审核意见重写单镜）
+import { checkShotTable } from '../../steps/step-review-shot-table.js'
 import { runTextNodes } from '../text-workflow.js'
 import { checkContext } from '../../../runtime/operation-context.js'
 import { modelRoutes } from '../../../../models/model-config.js'
@@ -15,12 +16,6 @@ export function body(shot) { return shot?.content || '' }
 export async function generateShots(options) {
   const { project, persist } = options
   const original = checkContext.getStore()?.originalProject || project
-  const timingFailures = text => {
-    const items = readShotSections(text)
-    referencedEntities(items.map(item => item.content).join('\n'), project)
-    const total = items.reduce((sum, shot) => sum + shot.duration, 0)
-    return Math.abs(total - project.durationSeconds) > 10 ? [`镜头总时长 ${total}s，与目标 ${project.durationSeconds}s 相差超过10秒`] : []
-  }
   const normalize = (text, check, reviewText = '') => {
     const items = readShotSections(text).map(item => {
       const previous = original.shots?.items?.find(shot => shot.id === item.id && shot.duration === item.duration && body(shot) === item.content)
@@ -28,7 +23,7 @@ export async function generateShots(options) {
     })
     return { ...node('shots'), revision: project.shots.revision + 1, items, failedOutput: '', reviewText, format: 'text', check }
   }
-  const result = await runTextNodes({ target: 'shots', prompts: promptsForShotTable(options), options, check: timingFailures, canPersist: text => Boolean(readShotSections(text)), retainFailedDraft: true, persist: persist && ((text, check) => persist(normalize(text, check))) })
+  const result = await runTextNodes({ target: 'shots', prompts: promptsForShotTable(options), options, check: text => checkShotTable(text, project), canPersist: text => Boolean(readShotSections(text)), retainFailedDraft: true, persist: persist && ((text, check) => persist(normalize(text, check))) })
   const shots = normalize(result.text, result.check, result.reviewText)
   const failures = shots.check.failures
   if (persist) {

@@ -117,3 +117,26 @@ for (const failure of ['保存失败', '取消', '资料过期']) test(`自动�
   assert.equal((await assetStore(e.home).list('characters')).length, 1)
   assert.equal((await readImageDraft(e.home, pending.draftId)).bytes.toString(), 'old-candidate')
 })
+
+test('本集空角色列表残留通过状态时，生成任务实际提取并保存人物和图片', async t => {
+  const seen = [], e = await setup(t, async (env, args) => { seen.push(args.itemId); return generated(env, args) })
+  await scopeProjects(e.store, e.episodeId).save(e.id, p => {
+    p.plot.characters.items = []
+    p.plot.characters.check.passed = true
+    return { plot: p.plot }
+  })
+  const before = await e.read()
+  assert.equal(before.plot.characters.items.length, 0)
+  assert.equal(before.plot.characters.check.passed, true)
+  const { run } = await e.service.plan({ projectId: e.id, episodeId: e.episodeId, goal: { to: 'story', scope: { only: 'characters' }, mode: 'generate' } }, sessionId)
+  await e.service.confirm(e.id, run.id, sessionId, { confirmDelete: true })
+  await e.service.drain()
+  const done = await e.service.get(e.id, run.id, sessionId), saved = await e.read()
+  assert.equal(done.status, 'completed', JSON.stringify(done.failure))
+  assert.deepEqual(done.steps.filter(step => step.target === 'characters').map(step => [step.kind, step.status]), [['generate', 'done'], ['review', 'done']])
+  assert.deepEqual(saved.plot.characters.items.map(item => item.name), ['旅人', '同行人'])
+  assert.equal(saved.plot.characters.check.passed, true)
+  assert.equal(seen.length, 2)
+  assert.ok(saved.plot.characters.items.every(item => item.image.content?.assetId))
+  assert.ok(!done.steps.some(step => step.kind === 'wait_confirm'))
+})

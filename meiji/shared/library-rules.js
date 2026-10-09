@@ -1,4 +1,5 @@
 // 项目库纯规则；图片沿用内容节点，保存与占用由操作/项目存储入口负责。
+import { normalizeCostumes, mergeCostumes } from './character-costumes.js'
 import { node, setContent } from './drama-model.js'
 
 export const libraryKinds = {
@@ -42,7 +43,7 @@ export function libraryDirectory(project, kind) {
   })
 }
 export const requiredCharacters = project => (project.library?.characters || []).filter(item => item.required).map(item => ({ ...libraryDirectory(project, 'characters').find(row => row.id === item.id), required: true }))
-function fieldsOf(kind, fields) { return Object.fromEntries(kindOf(kind).fields.map(key => [key, String(fields[key] || '').trim()])) }
+function fieldsOf(kind, fields) { return { ...Object.fromEntries(kindOf(kind).fields.map(key => [key, String(fields[key] || '').trim()])), ...(kind === 'characters' ? { costumes: normalizeCostumes(fields.costumes) } : {}) } }
 function entryFields(kind, fields) { return Object.fromEntries(kindOf(kind).identity.map(key => [key, key === 'required' ? fields[key] === true : String(fields[key] || '').trim()])) }
 function variantOf(entry, kind, input, createdFrom) {
   const id = `${entry.id}-${Math.max(0, ...entry.variants.map(item => Number(item.id.split('-').at(-1)) || 0)) + 1}`
@@ -90,11 +91,11 @@ export function mergeLibraryGroup(project, kind, group) {
   const next = structuredClone(project)
   next.library ||= { characters: [], scenes: [], props: [] }
   next.plot[kind] = { ...group, items: group.items.map(card => {
-    let target, linkedBy = 'model'
-    if (card.libraryId) {
-      const entry = next.library[kind].find(item => item.id === card.libraryId)
+    let target, linkedBy = card.ref?.linkedBy || 'model'
+    if (card.libraryId || kind === 'characters' && card.ref?.libraryId) {
+      const entry = next.library[kind].find(item => item.id === (card.libraryId || card.ref.libraryId))
       if (!entry) bad(`库条目不存在：${card.libraryId}`)
-      target = kind === 'characters' || card.variantId ? libraryTarget(next, kind, { libraryId: card.libraryId, variantId: card.variantId }) : addLibraryVariant(next, kind, entry.id, { ...card, image: null }, { episodeId: project.episodeId, cardId: card.id })
+      target = kind === 'characters' || card.variantId ? libraryTarget(next, kind, { libraryId: entry.id, variantId: card.variantId }) : addLibraryVariant(next, kind, entry.id, { ...card, image: null }, { episodeId: project.episodeId, cardId: card.id })
       if (!target) bad(`库变体不存在：${card.variantId}`)
     } else {
       if (card.variantId) bad('变体 ID 必须带库条目 ID')
@@ -108,6 +109,7 @@ export function mergeLibraryGroup(project, kind, group) {
     // 旧库缺少声线时一次性采用本次资料，随后跨集统一复用。
     if (kind === 'characters' && card.presence !== 'voice' && !target.variant.fields.look && card.look) target.variant.fields = { ...fieldsOf(kind, card), voiceDescription: target.variant.fields.voiceDescription || card.voiceDescription || '' }
     if (kind === 'characters' && !target.variant.fields.voiceDescription && card.voiceDescription) target.variant.fields.voiceDescription = card.voiceDescription
+    if (kind === 'characters') target.variant.fields.costumes = mergeCostumes(target.variant.fields.costumes, card.costumes)
     const result = applyLibraryCard(next, kind, card, target, linkedBy)
     for (const key of ['libraryId', 'variantId', 'variantLabel']) delete result[key]
     return result

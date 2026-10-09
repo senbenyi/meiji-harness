@@ -1,7 +1,7 @@
 import { jsonOutput, currentProject, sessionIdOf } from './operation-context-query.js'
 import { goalForRunTarget } from '../shared/run-templates.js'
 const goalSchema = { type: 'object', additionalProperties: false, required: ['to'], properties: {
-  to: { type: 'string', enum: ['summary', 'story', 'images', 'shots', 'seconds', 'film', 'assemble', 'project-summary', 'script-revise', 'script-sync'] },
+  to: { type: 'string', enum: ['summary', 'story', 'images', 'shots', 'seconds', 'film', 'assemble', 'project-characters', 'project-summary', 'script-revise', 'script-sync'] },
   from: { type: 'string', enum: ['summary', 'story', 'images', 'shots', 'seconds', 'film', 'assemble'] },
   mode: { type: 'string', enum: ['generate', 'regenerate', 'modify', 'review'] }, feedback: { type: 'string' }, requirements: { type: 'string' }, durationSeconds: { type: 'integer', minimum: 1, maximum: 86400 },
   scope: { type: 'object', additionalProperties: false, properties: { only: { type: 'string', enum: ['outline', 'characters', 'scenes', 'props'] }, tracks: { type: 'array', items: { type: 'string' }, uniqueItems: true }, itemIds: { type: 'array', items: { type: 'string' }, uniqueItems: true }, fromEpisode: { type: 'integer', minimum: 1 } } },

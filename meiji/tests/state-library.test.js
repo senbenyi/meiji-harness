@@ -79,7 +79,7 @@ test('库变体图片重启释放 operation，保留已确认图片', async t =>
 })
 
 
-test('库操作创建、关联、删除预览、合并迁移和解除关联使用同一 manager', async t => {
+test('库操作创建、关联、删除预览和解除关联；已移除合并操作拒绝且不修改数据', async t => {
   const { runOperation } = await import('./fixtures/operation.js'), e = await setupModel(t)
   const run = (action, fields = {}) => runOperation(e.op(action, { libraryKind: 'characters', ...fields }), { home: e.home })
   await run('entry-create', { fields: { name: '原角色', aliases: ['别名'], age: '青年' } })
@@ -88,13 +88,14 @@ test('库操作创建、关联、删除预览、合并迁移和解除关联使�
   await run('card-link', { itemId: 'C01', libraryId: source.id, variantId: source.defaultVariantId })
   const {operationDeletes}=await import('../shared/operation-cascade.js')
   assert.ok(operationDeletes(await e.store.read(e.id),{action:'entry-delete',libraryKind:'characters',libraryId:source.id}).some(item=>item.kind==='character-library'))
-  await run('entry-merge', { libraryId: source.id, destinationId: destination.id })
+  const before = await e.store.read(e.id)
+  await assert.rejects(run('entry-merge', { libraryId: source.id, destinationId: destination.id }), /不支持的面板操作/)
   root = await e.store.read(e.id)
-  assert.equal(root.library.characters.length, 1); assert.equal(root.episodes[0].plot.characters.items[0].ref.libraryId, destination.id)
-  assert.equal(root.episodes[0].plot.characters.items[0].age, ''); assert.equal(root.library.characters[0].variants.length, 1)
-  assert.equal(root.episodes[0].shots.items[0].storyboard.content, null)
+  assert.deepEqual(root, before)
+  assert.equal(root.episodes[0].plot.characters.items[0].ref.libraryId, source.id)
   await run('card-unlink', { itemId: 'C01' })
   root = await e.store.read(e.id); assert.equal(root.episodes[0].plot.characters.items[0].ref, undefined)
+  await run('entry-delete', { libraryId: source.id })
   await run('entry-delete', { libraryId: destination.id })
   assert.equal((await e.store.read(e.id)).library.characters.length, 0)
 })

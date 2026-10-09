@@ -1,29 +1,31 @@
-// 大纲只保存编号故事小段；同一小段可包含多行正文和对白。
-export const outlineFields = Object.freeze(['故事小段'])
-
-export function outlineFailures(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return ['大纲必须为仅含「故事小段」的 JSON 对象']
+// 小段是故事单位；时长为正整数秒，不受单镜15秒限制。
+export function outlineFailures(value, durationSeconds) {
+  if (!Array.isArray(value) || !value.length) return ['大纲必须为非空 JSON 数组']
   const failures = []
-  for (const field of outlineFields) {
-    if (typeof value[field] !== 'string' || !value[field].trim()) failures.push(`大纲字段「${field}」必须为非空字符串`)
-    else if (value[field].trim().startsWith(`【${field}】`)) failures.push(`大纲字段「${field}」只写正文，不重复小节标题`)
-  }
-  for (const field of Object.keys(value)) if (!outlineFields.includes(field)) failures.push(`大纲不允许额外字段「${field}」`)
-  if (typeof value.故事小段 === 'string' && value.故事小段.trim()) {
-    const text = value.故事小段.trim(), markers = [...text.matchAll(/^(\d+)[.、．]\s*/gm)]
-    if (!markers.length || markers[0].index !== 0 || markers.some((marker, index) => Number(marker[1]) !== index + 1)) failures.push('故事小段须从 1 开始按 1、2、3… 连续编号，每段编号独占行首')
-    else if (markers.some((marker, index) => !text.slice(marker.index + marker[0].length, markers[index + 1]?.index ?? text.length).trim())) failures.push('故事小段不能有空白段落')
+  value.forEach((part, index) => {
+    if (!part || typeof part !== 'object' || Array.isArray(part) || Object.keys(part).length !== 3 || !['编号', '时长秒', '正文'].every(key => Object.hasOwn(part, key))) {
+      failures.push(`故事小段 ${index + 1} 必须仅含编号、时长秒、正文`); return
+    }
+    if (part.编号 !== index + 1) failures.push('故事小段编号必须从1开始连续递增')
+    if (!Number.isInteger(part.时长秒) || part.时长秒 <= 0) failures.push(`故事小段 ${index + 1} 的时长秒必须为正整数`)
+    if (typeof part.正文 !== 'string' || !part.正文.trim()) failures.push(`故事小段 ${index + 1} 的正文必须为非空字符串`)
+  })
+  if (!failures.length && Number.isInteger(durationSeconds) && durationSeconds > 0) {
+    const total = value.reduce((sum, part) => sum + part.时长秒, 0)
+    const min = Math.max(1, durationSeconds - 10), max = durationSeconds + 10
+    if (total < min || total > max) failures.push(`故事小段总时长 ${total} 秒，剧集目标 ${durationSeconds} 秒，允许 ${min}–${max} 秒；请按原事件重新分配各段时长和有效内容，保留完整剧情与结尾，输出完整故事小段数组`)
   }
   return failures
 }
 
-export function normalizeOutline(value, status = 502) {
-  const failures = outlineFailures(value)
+export function normalizeOutline(value, status = 502, durationSeconds) {
+  const failures = outlineFailures(value, durationSeconds)
   if (failures.length) throw Object.assign(new Error(failures.join('；')), { status })
-  return Object.fromEntries(outlineFields.map(field => [field, value[field].trim()]))
+  return value.map(part => ({ 编号: part.编号, 时长秒: part.时长秒, 正文: part.正文.trim() }))
 }
 
 export function outlineText(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
-  return typeof value.故事小段 === 'string' ? value.故事小段 : ''
+  if (!Array.isArray(value)) return ''
+  const total = value.reduce((sum, part) => sum + part.时长秒, 0)
+  return `${value.map(part => `${part.编号}.（${part.时长秒}秒）${part.正文}`).join('\n\n')}\n\n总时长：${total}秒`
 }

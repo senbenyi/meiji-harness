@@ -7,6 +7,7 @@ import { gatewayBaseUrl } from '../../models/model-config.js'
 import { recordNodePrompt, recordNodeResponse, runNode } from '../runtime/step-execution.js'
 import { setTimeout as delay } from 'node:timers/promises'
 import { builtinSkill, isSkill } from '../../skills/load-skills.js'
+import { decodeImageData } from '../media/decode-image-data.js'
 
 const imageSizes = {
   '1344x768': '1344x768',
@@ -213,8 +214,9 @@ export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, asp
   const images = references.filter(item => item?.bytes?.length)
   if (!Array.isArray(referenceBase64) || referenceBase64.some(value => typeof value !== 'string' || !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value))) throw Object.assign(new Error('参考图 Base64 无效'), { status: 400 })
   if (images.length + referenceBase64.length > 10) throw Object.assign(new Error('参考图最多 10 张'), { status: 400 })
+  images.push(...referenceBase64.map(value => decodeImageData(value)))
   let request
-  if (images.length || referenceBase64.length) {
+  if (images.length) {
     const body = new FormData()
     body.append('model', model || '')
     body.append('prompt', prompt)
@@ -223,8 +225,7 @@ export async function generateGatewayImage({ baseUrl, apiKey, model, prompt, asp
       if (!imageExt[item.mime]) throw Object.assign(new Error('参考图需为 PNG、JPG 或 WebP'), { status: 400 })
       body.append('image[]', new Blob([item.bytes], { type: item.mime }), `reference-${index + 1}.${imageExt[item.mime]}`)
     })
-    referenceBase64.forEach(value => body.append('image[]', value))
-    const logBody = { model: model, prompt, size, 'image[]': [...images.map((item, index) => `reference-${index + 1}.${imageExt[item.mime]}（${item.mime}，${item.bytes.length} 字节）`), ...referenceBase64.map(value => `[Base64 图片，${value.length} 字符]`)] }
+    const logBody = { model: model, prompt, size, 'image[]': images.map((item, index) => `reference-${index + 1}.${imageExt[item.mime]}（${item.mime}，${item.bytes.length} 字节）`) }
     request = { path: 'images/edits', headers, body, logBody }
   } else {
     const body = { model: model, prompt, size, ...(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff ? { seed } : {}) }

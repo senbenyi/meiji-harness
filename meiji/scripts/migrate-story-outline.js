@@ -1,20 +1,33 @@
 // 停止 Harness 后运行：node meiji/scripts/migrate-story-outline.js <DSH_HOME>
-// 旧大纲转为编号故事小段；先备份全部待迁移项目，写入后读回核对，失败还原。
+// 旧大纲转为带时长的故事小段数组；先备份全部待迁移项目，写入后读回核对，失败还原。
 import { cp, mkdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { outlineFields, outlineFailures } from '../shared/story-outline.js'
+import { outlineFailures } from '../shared/story-outline.js'
 import { aggregateStatus } from '../shared/drama-model.js'
 import { indexFile, episodesDir, projectIds, readProjectFile, writeProjectFile, episodeSnapshot } from '../server/data/project-files.js'
 
-export function convertOutline(value) {
-  if (value && typeof value === 'object' && typeof value.故事小段 === 'string') return value
-  if (typeof value === 'string' && !outlineFailures({ 故事小段: value.trim() }).length) return { 故事小段: value.trim() }
-  const bodies = typeof value === 'string' ? [value.trim()] : Object.entries(value || {}).filter(([, body]) => typeof body === 'string' && body.trim()).map(([title, body]) => `${title}：\n${body.trim()}`)
-  // 缩进旧稿内部的编号，避免与新的故事小段编号混淆；保留全部正文。
-  return { 故事小段: bodies.filter(Boolean).map((body, index) => `${index + 1}. ${body.replace(/^(\d+[.、．])/gm, '  $1')}`).join('\n\n') }
+export function convertOutline(value, durationSeconds) {
+  if (Array.isArray(value)) return value
+  const text = typeof value === 'string' ? value.trim() : typeof value?.故事小段 === 'string' ? value.故事小段.trim() : ''
+  const markers = [...text.matchAll(/^(\d+)[.、．]\s*/gm)]
+  let bodies
+  if (markers.length && markers[0].index === 0) bodies = markers.map((marker, index) => text.slice(marker.index + marker[0].length, markers[index + 1]?.index ?? text.length).trim())
+  else if (text) bodies = [text]
+  else bodies = Object.entries(value || {}).filter(([, body]) => typeof body === 'string' && body.trim()).map(([title, body]) => `${title}：\n${body.trim()}`)
+  if (!bodies.length) return null
+  // 仅迁移时按正文长度分配暂估预算；不改正文，不声称语义审核通过。
+  const total = Math.max(durationSeconds, bodies.length), remaining = total - bodies.length
+  const weights = bodies.map(body => Math.max(1, body.length)), weight = weights.reduce((sum, n) => sum + n, 0)
+  let used = 0, cumulative = 0
+  return bodies.map((正文, index) => {
+    cumulative += weights[index]
+    const end = Math.round(remaining * cumulative / weight), 时长秒 = 1 + end - used
+    used = end
+    return { 编号: index + 1, 时长秒, 正文 }
+  })
 }
-const oldOutline = content => content != null && (typeof content !== 'object' || Array.isArray(content) || !Object.hasOwn(content, '故事小段'))
+const oldOutline = content => content != null && !Array.isArray(content)
 
 export async function migrateStoryOutline(home) {
   const projects = []
@@ -38,15 +51,20 @@ export async function migrateStoryOutline(home) {
     for (const episode of next.episodes) {
       const target = episode.plot?.outline
       if (!oldOutline(target?.content)) continue
-      target.content = typeof target.content === 'string' && !target.content.trim() ? null : convertOutline(target.content)
-      const failures = target.content && outlineFailures(target.content)
+      target.content = typeof target.content === 'string' && !target.content.trim() ? null : convertOutline(target.content, episode.durationSeconds)
+      const failures = target.content && outlineFailures(target.content, episode.durationSeconds)
+      if (target.content) {
+        target.revision++
+        target.check = { ...target.check, passed: null, failures: ['分段时长为旧稿迁移暂估值，请复审或调整后保存'], revision: target.revision }
+        target.status = 'failed'; episode.plot.status = 'failed'; episode.status = 'failed'
+      }
       if (failures?.length) {
         target.check = { ...target.check, passed: false, failures, revision: target.revision }
         target.status = 'failed'; episode.plot.status = 'failed'; episode.status = 'failed'
         incomplete.push({ projectId: project.id, episodeId: episode.id })
       }
     }
-    if (incomplete.some(item => item.projectId === project.id)) next.status = aggregateStatus(next.episodes)
+    next.status = aggregateStatus(next.episodes)
     try {
       await writeProjectFile(home, next, episodeSnapshot(project))
       if (JSON.stringify(await readProjectFile(home, project.id)) !== JSON.stringify(next)) throw new Error('读回内容不一致')

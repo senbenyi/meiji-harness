@@ -10,7 +10,7 @@ import { characterFieldValues, characterFactText } from '../shared/character-fac
 import { compileVideoPrompt } from '../server/prompts/video-prompt-renderer.js'
 import { storyboardReady } from '../server/flow/steps/shared/film-freshness.js'
 import { filmSubmit } from '../server/flow/steps/shared/video-submit.js'
-import { renderCharacterDetail } from '../client/character-views.js'
+import { textMaterials } from '../client/material-editor.js'
 import { runOperation } from './fixtures/operation.js'
 import { setContent } from '../shared/drama-model.js'
 
@@ -80,11 +80,11 @@ test('人物声线通过库编辑同步两集，仅清理依赖分镜，指令�
 test('仅声音人物详情可编辑声线且不显示图片控件',t=>{
  const dom=new JSDOM('<body></body>'),prior=globalThis.document;globalThis.document=dom.window.document;t.after(()=>{globalThis.document=prior;dom.window.close()})
  const p=episodeFixture();p.plot.characters.items=normalizeCharacters({items:[voiceCard()]}).items
- const page=renderCharacterDetail(p,'C01',{perform:async()=>{}},{})
+ const page=textMaterials(p,p.plot.characters.items[0],{perform:async()=>{}},document.createElement('p'),false)
  assert.equal(page.querySelector('[aria-label="声音特征"]').value,voice)
  assert.equal(page.querySelector('[aria-label="面相"]'),null)
  assert.equal(page.querySelector('[aria-label="AI生成"]'),null)
- assert.equal(page.querySelector('input[type="file"]')?.hidden,true)
+ assert.equal(page.querySelector('input[type="file"]'),null)
 })
 
 test('人工人物编辑保存声音并保持生图描述，拒绝过期声音稿',async t=>{

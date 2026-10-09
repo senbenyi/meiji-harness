@@ -17,7 +17,7 @@ test('道具生成候选、人工确认入库、原图修改使用同一 P ID', 
   assert.match(prompt,/灰色长衣/)
   assert.match(prompt,/道具素材设计师/)
   assert.equal(url.pathname,editing?'/v1/images/edits':'/v1/images/generations')
-  if(editing)assert.equal(options.body.get('image[]'),`data:image/png;base64,${Buffer.from('prop-image').toString('base64')}`)
+  if(editing)assert.deepEqual(Buffer.from(await options.body.get('image[]').arrayBuffer()),Buffer.from('prop-image'))
   return Response.json({data:[{url:'/v1/media/prop'}]})
  }})}
  await runOperation(e.op('prop-image', {itemId:'P01'}),{...deps,operationId:'prop-generate'})

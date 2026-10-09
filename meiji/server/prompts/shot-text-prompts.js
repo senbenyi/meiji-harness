@@ -1,3 +1,4 @@
+import { shotTableBudget } from '../../shared/shot-table-timing.js'
 import { secondsCharacterRoster } from '../../shared/seconds-content.js'
 import { checkReasons } from '../runtime/review-checks.js'
 import { checkContext } from '../runtime/operation-context.js'
@@ -75,6 +76,7 @@ export function buildShotPrompts(skill, instructions, options) {
   }
   return buildTextPrompts({ skill, project: options.project, shotId: options.shotId, opinion, mode: options.mode || '', modify: Boolean(previous && opinion),
     instructions, baseContent: previous && opinion ? previous : '',
+    reviewOpinion: ctx?.generationMode === 'regenerate' ? '' : options.review ?? ctx?.batchReview ?? ctx?.review ?? '',
   })
 }
 
@@ -86,16 +88,17 @@ function tableFacts(project, min, max) {
     { title: '【拆镜依据优先级】', text: '最新故事小段是本集拆镜的剧情依据，逐项覆盖其全部明确细节；人工编辑版本允许覆盖原剧本或创作方向，不恢复已删除或改写的内容。摘要只用于展示，不作为拆镜和审核依据。' },
     { title: '【剧情大纲】', text: project.plot.outline.content },
     { title: '【本次参数】', text: { durationSeconds: project.durationSeconds, minDurationSeconds: min, maxDurationSeconds: max, minShotDurationSeconds: 1, maxShotDurationSeconds: 15 } },
+    { title: '【逐段固定拆镜预算】', text: shotTableBudget(project.plot.outline.content) },
     ...cards,
   ].filter(fact => fact.text)
 }
 
 export function buildTablePrompts(options) {
   const { project } = options
-  const min = Math.max(1, project.durationSeconds - 10), max = project.durationSeconds + 10
+  const { target } = shotTableBudget(project.plot.outline.content), min = target, max = target
   return buildShotPrompts('shots', {
-    task: '依据编号故事小段按顺序拆成本集完整镜头表，逐项保留全部明确细节，遵守拆镜依据优先级、基础规则和补充规则。',
-    review: `验收本集完整镜头表：按拆镜依据优先级逐项核对故事小段全部细节覆盖，不只检查关键事件；编号连续、单镜1–15秒且总时长在 ${min}–${max} 秒内（含边界），叙事清楚、完整台词保留，镜头之间剧情状态承接；不要求固定栏目或分段理由。`,
+    task: '按大纲各小段既定时长和正文逐段拆镜，每镜1–15秒，段内合计精确等于来源时长；不跨段、不改剧情、不扩写补时，输出完整镜头表。',
+    review: `验收本集完整镜头表：按拆镜依据优先级逐项核对故事小段全部细节覆盖，不只检查关键事件；编号连续、单镜1–15秒及各段固定时长及全表总时长 ${min} 秒由程序校验；语义审核检查叙事清楚、完整台词保留，镜头之间剧情状态承接；不要求固定栏目或分段理由。`,
     facts: tableFacts(project, min, max),
   }, options)
 }

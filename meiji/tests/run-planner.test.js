@@ -31,7 +31,8 @@ test('本集人物独立提取审核后补图；剧情及下游前置不会带�
   assert.deepEqual(expand.input.policy, { autoSaveImages: true })
   assert.equal(byKey.has('generate@outline'), false)
   const ready = checked(planRun(view(), { to: 'story', scope: { only: 'characters' } }))
-  assert.ok(ready.steps.every(step => step.status === 'skipped'))
+  assert.ok(ready.steps.filter(step => step.kind !== 'expand').every(step => step.status === 'skipped'))
+  assert.ok(ready.steps.some(step => step.kind === 'expand' && step.status !== 'skipped'))
   assert.ok(!checked(planRun(view(), { to: 'story', scope: { only: 'characters' }, mode: 'review' })).steps.some(step => step.kind === 'expand'))
   const missing = view(); missing.plot.characters.items = []; missing.plot.characters.check.passed = null
   const shots = checked(planRun(missing, { to: 'shots' }, { authorizePrereq: ['story@all', 'story@characters'] }))
@@ -104,4 +105,15 @@ test('图片变更只作废引用镜头及其尾帧链，不作废无关镜头',
 })
 test('目标拒绝任意执行字段、非法范围、空意见与反向链', () => {
   for (const goal of [{ to: 'film', actor: 'human' }, { to: 'film', scope: { tracks: ['S01', 'S01'] } }, { to: 'story', mode: 'modify', feedback: ' ' }, { from: 'film', to: 'story' }]) assert.throws(() => normalizeRunGoal(goal))
+})
+
+test('本集人物空列表即使审核通过也执行提取与审核', () => {
+  const project = view()
+  project.plot.characters.items = []
+  project.plot.characters.check.passed = true
+  const result = checked(planRun(project, { to: 'story', scope: { only: 'characters' }, mode: 'generate' }))
+  const text = result.steps.filter(step => step.target === 'characters')
+  assert.deepEqual(text.map(step => step.kind), ['generate', 'review'])
+  assert.ok(text.every(step => step.status !== 'skipped'))
+  assert.ok(result.steps.some(step => step.target === 'images:characters'))
 })

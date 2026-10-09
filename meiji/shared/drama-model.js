@@ -31,6 +31,7 @@ export function episodeModel(id, fields) {
 }
 export function targetNode(project, key) {
   const [kind, id, slot] = key.split(':')
+  if (kind === 'project-characters') return project.projectCharacters
   if (kind === 'summary' || kind === 'project-summary') return project.summary
   if (kind === 'plot') return project.plot
   if (kind === 'outline') return project.plot?.outline
@@ -142,7 +143,7 @@ export function assertDrama(project) {
     if (hasGatewayFileFields(episode)) throw Object.assign(new Error('剧集仍含网关文件地址（imageUrl），请停止服务后执行：node meiji/scripts/migrate-image-url.js <DSH_HOME>'), { code: 'OLD_IMAGE_URL', status: 409 })
     if (['feedback', 'outline', 'characters', 'scenes', 'storyboard', 'boards', 'films'].some(key => Object.hasOwn(episode, key))) throw new Error('剧集包含已移除的旧字段')
     if (!episode.plot || !episode.shots?.items || !episode.summary?.check) throw new Error('剧集 Model 不完整')
-    if (episode.plot.outline.content != null && (typeof episode.plot.outline.content !== 'object' || Array.isArray(episode.plot.outline.content) || !Object.hasOwn(episode.plot.outline.content, '故事小段'))) throw Object.assign(new Error('大纲仍为旧格式，请停止服务后执行：node meiji/scripts/migrate-story-outline.js <DSH_HOME>'), { code: 'OLD_STORY_OUTLINE', status: 409 })
+    if (episode.plot.outline.content != null && !Array.isArray(episode.plot.outline.content)) throw Object.assign(new Error('大纲仍为旧格式，请停止服务后执行：node meiji/scripts/migrate-story-outline.js <DSH_HOME>'), { code: 'OLD_STORY_OUTLINE', status: 409 })
     episode.shots.seconds ??= { ...node('seconds'), review: { ...emptyReview(), text: episode.shots.items.filter(shot => shot.seconds.review.text).map(shot => `${shot.id}：${shot.seconds.review.text}`).join('\n') } }
     for (const value of allNodes(episode)) {
       if (!Object.hasOwn(statusLabels, value.status) || !value.check || !value.review) throw new Error(`节点 ${value.id} 不完整`)

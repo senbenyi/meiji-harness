@@ -21,7 +21,7 @@ export async function addBaselines(store, project, operation, stage, baselines) 
 const omitted = new Set(['revision', 'status', 'check', 'review', 'draft', 'operation', 'error', 'source', 'image', 'parts', 'localPath', 'assetId', 'assetCategory'])
 const textData = value => JSON.parse(JSON.stringify(value, (key, item) => omitted.has(key) ? undefined : item))
 export function contentTargets(project) {
-  return [{ episodeId: null, key: 'project-summary', node: project.summary, content: { summary: project.summary.content }, check: project.summary.check, exists: Boolean(project.summary.content) }, ...project.episodes.flatMap(episode => {
+  return [...(project.projectCharacters ? [{ episodeId: null, key: 'project-characters', node: project.projectCharacters, content: textData(project.projectCharacters.items), check: project.projectCharacters.check, exists: true }] : []), { episodeId: null, key: 'project-summary', node: project.summary, content: { summary: project.summary.content }, check: project.summary.check, exists: Boolean(project.summary.content) }, ...project.episodes.flatMap(episode => {
     const entries = [
       ['summary', episode.summary, { summary: episode.summary.content, durationSeconds: episode.durationSeconds }],
       ['outline', episode.plot.outline, episode.plot.outline.content],

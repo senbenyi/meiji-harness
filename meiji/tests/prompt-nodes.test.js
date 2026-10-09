@@ -40,7 +40,7 @@ for (const stage of ['outline', 'characters', 'scenes', 'shots', 'seconds']) {
         assert.equal(payload.messages[1].content, message.user)
         assert.match(message.user, /输出语言：English/)
         assert.equal((message.system + message.user).split('CUSTOM_RULE').length - 1, 1)
-        assert.deepEqual(payload.response_format, { type: 'json_object' })
+        assert.deepEqual(payload.response_format, stage === 'outline' && !isReview ? undefined : { type: 'json_object' })
         if (isReview) {
           assert.match(message.user, /CURRENT_DRAFT/)
           assert.match(message.system, /【审核标准】/)
@@ -65,7 +65,7 @@ test('story regeneration excludes old results; revision uses only latest failed 
     const prompts = buildStoryPrompts(project)
     assert.match(prompts.generation.user, /OLD_DRAFT/)
     assert.deepEqual(promptData(prompts.generation.user, '【修改基稿】'), outlineFixture('OLD_DRAFT'))
-    assert.equal(prompts.generation.json, true)
+    assert.equal(prompts.generation.json, false)
     assert.match(prompts.generation.user, /HUMAN_OPINION/)
     const revision = prompts.revision('LATEST_FAILED', reviewFail('NEW_REASON'))
     assert.match(revision.user, /LATEST_FAILED/)

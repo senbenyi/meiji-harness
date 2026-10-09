@@ -92,7 +92,7 @@ test('真实网关调用保存原始响应并沿用密钥与 Base64 脱敏', asy
   const engine = createRunEngine({ home: e.home, execute: (run, step, deps) => executeRunStep(run, step, {
     ...deps, home: e.home, fetchImpl: async (_url, options) => {
       const request = JSON.parse(options.body), reviewing = ['review', 're_review'].includes(step.kind)
-      assert.equal(request.response_format.type, 'json_object')
+      assert.deepEqual(request.response_format, step.target === 'outline' && !reviewing ? undefined : {type:'json_object'})
       return new Response(JSON.stringify({ api_key: '不可出现在记录中的密钥', b64_json: 'AAAA', choices: [{ message: { content: reviewing ? reviewPass : JSON.stringify(outlineFixture('HTTP 生成稿')) } }] }), { status: 200, headers: { 'Content-Type': 'application/json' } })
     },
   }) })

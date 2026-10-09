@@ -26,7 +26,7 @@ for (const draft of [false, true]) test(`场景意见修改使用${draft ? '待�
       requests.push([url.pathname, options.method])
       if (options.method === 'GET') return new Response(Buffer.from([137, 80, 78, 71]))
       assert.equal(url.pathname, '/v1/images/edits')
-      assert.equal(options.body.get('image[]'), `data:image/png;base64,${Buffer.from(draft ? 'candidate-scene' : 'confirmed-scene').toString('base64')}`)
+      assert.deepEqual(Buffer.from(await options.body.get('image[]').arrayBuffer()), Buffer.from(draft ? 'candidate-scene' : 'confirmed-scene'))
       assert.match(options.body.get('prompt'), /你是一名影视场景设计师/)
       assert.match(options.body.get('prompt'), /"space":"南门北墙"/)
       assert.match(options.body.get('prompt'), /【本次修改意见】\n镜头后退，扩大安全边距/)

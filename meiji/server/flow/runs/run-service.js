@@ -1,3 +1,4 @@
+import { episodeScriptScene } from '../../../shared/script-scenes.js'
 // 面板与会话共用制作服务；客户端不能指定 step、actor 或执行锁。
 import { createRunEngine } from './run-engine.js'
 import { executeRunStep } from '../shared/task-executor.js'
@@ -81,7 +82,7 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
       const prerequisite = planRun(entry.goal.to === 'project-summary' ? root : view, entry.goal, plannerPolicy(root, { review: true }, run.episodeId))
       if (!prerequisite.steps.length || prerequisite.steps.some(item => !item.branch && item.status !== 'skipped')) return { pause: { code: 'prereq_required', message: entry.message, actions: ['authorize', 'cancel-branch'] } }
     }
-    if (['summary', 'outline', 'characters', 'scenes', 'props', 'project-summary', 'script'].includes(step.target) && !['review', 're_review', 'sync', 'wait_script_confirm'].includes(step.kind)) {
+    if (['summary', 'outline', 'characters', 'scenes', 'props', 'project-summary', 'project-characters', 'script'].includes(step.target) && !['review', 're_review', 'sync', 'wait_script_confirm'].includes(step.kind)) {
       const pending = scriptBlockers(root).filter(item => item.kind !== 'episode-sync')
       if (pending.length) return { pause: { code: 'script_pending', message: '剧本有待处理回写或方案，请在剧本页处理', actions: ['cancel-branch'] } }
     }
@@ -147,15 +148,19 @@ export function createRunService({ home, execute = executeRunStep, deps = {}, li
     async plan(input, sessionId, initiator = 'panel') {
       if (input.goal) {
         const root = await requireProject(input.projectId, sessionId), goal = normalizeRunGoal(input.goal)
-        let episodeId = input.episodeId || (['project-summary', 'script-revise'].includes(goal.to) || goal.draft || goal.scope.library ? null : root.episodes.length === 1 ? root.episodes[0].id : null), newEpisode = null
+        let episodeId = goal.to === 'project-characters' ? null : input.episodeId || (['project-summary', 'project-characters', 'script-revise'].includes(goal.to) || goal.draft || goal.scope.library ? null : root.episodes.length === 1 ? root.episodes[0].id : null), newEpisode = null
         if (input.episodeNumber !== undefined) {
           if (!Number.isInteger(input.episodeNumber) || input.episodeNumber < 1 || input.episodeNumber > root.episodes.length + 1) throw reject('剧集不存在，不能跳集')
           if (input.episodeNumber <= root.episodes.length) episodeId = [...root.episodes].reverse()[input.episodeNumber - 1].id
           else if (goal.to !== 'story' || goal.mode !== 'generate') throw reject('只有生成故事小段可以新建下一集')
           else if (!goal.draft) newEpisode = { id: randomUUID(), number: input.episodeNumber, durationSeconds: goal.durationSeconds || 150 }
         } else if (!episodeId && !root.episodes.length && goal.to === 'story' && !goal.draft) newEpisode = { id: randomUUID(), number: 1, durationSeconds: goal.durationSeconds || 150 }
-        if (newEpisode) episodeId = newEpisode.id
-        if (!episodeId && !['project-summary', 'script-revise'].includes(goal.to) && !goal.draft && !goal.scope.library) throw reject('请指定剧集')
+        if (newEpisode) {
+          const scene = episodeScriptScene(root, newEpisode.number)
+          newEpisode.durationSeconds = scene?.durationSeconds ?? newEpisode.durationSeconds
+          episodeId = newEpisode.id
+        }
+        if (!episodeId && !['project-summary', 'project-characters', 'script-revise'].includes(goal.to) && !goal.draft && !goal.scope.library) throw reject('请指定剧集')
         if (episodeId && !newEpisode && !root.episodes.some(item => item.id === episodeId) && !(goal.to === 'script-sync' && root.scriptPendingDeletes.some(item => item.episodeId === episodeId))) throw reject('剧集不存在')
         if (input.policy && Object.keys(input.policy).some(key => key !== 'review') || input.policy?.review !== undefined && typeof input.policy.review !== 'boolean') throw reject('审核策略无效')
         if (input.authorizePrereq !== undefined && (!Array.isArray(input.authorizePrereq) || input.authorizePrereq.some(key => typeof key !== 'string'))) throw reject('前置授权无效')

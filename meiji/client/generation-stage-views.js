@@ -173,7 +173,7 @@ function renderStory(project, actions, context) {
   const head = element('div', '', 'outline-head')
   head.append(element('h3', '剧情生成与审核'))
   const generated = hasOutline(project)
-  const label = generated ? '重新生成剧情' : '生成剧情'
+  const label = generated ? '重新生成' : 'AI生成'
   const generate = element('button', project.operationActivity === 'outline' ? '生成中' : label, 'primary')
   generate.disabled = targetBusy(project, 'outline') || !canGenerate(project, 'outline')
   bindBusy(generate, async () => {
@@ -324,7 +324,7 @@ function renderShots(project, actions, stage = 'shots') {
   if (stage === 'shots') paintShotTable(view, project, actions)
   else paintSeconds(view, project, actions)
   view.querySelectorAll(':scope > .shot-card').forEach((card, index) => {
-    const shot = project.shots.items[index]
+    const shot = project.shots.items.find(item => card.dataset.modelKey === `shot:${item.id}`)
     const model = stage === 'shots' ? (shot.check.passed === null ? project.shots : shot) : shot.seconds
     decorateShotCard(card, model, shot.id, index === 0)
   })
@@ -338,7 +338,7 @@ function paintShotTable(view, project, actions) {
   const tableBusy = targetBusy(project, 'shots')
   const ready = canGenerate(project, 'shots')
   const hasTable = hasShots(project)
-  const label = hasTable ? '重新生成' : '写镜头表'
+  const label = hasTable || Boolean(project.shots?.failedOutput) ? '重新生成' : 'AI生成'
   const button = element('button', project.operationActivity === 'shots' ? '生成中' : label, 'primary')
   button.type = 'button'
   button.disabled = tableBusy || !ready
@@ -387,36 +387,34 @@ function shotTableCard(shot) {
 
 function paintSeconds(view, project, actions) {
   const shots = project.shots?.items || []
-  if (!shots.length) {
-    appendWorkflowReview(view, feedbackOf(project, 'seconds'), false)
-    return
-  }
   const busy = targetBusy(project, 'seconds:*')
   const controls = element('div', '', 'workflow-generation-row')
   controls.append(element('span', statusLabels[feedbackOf(project, 'seconds').status], 'story-status'))
-  const button = element('button', '整集重新生成', 'primary')
+  const label = shots.some(shot => Boolean(shot.seconds.content)) ? '重新生成' : 'AI生成'
+  const button = element('button', label, 'primary')
   button.type = 'button'
-  button.disabled = busy
+  button.disabled = busy || !shots.length
   button.onclick = () => {
     if (button.disabled) return
     button.disabled = true
     button.textContent = '生成中'
     actions.perform(project, 'seconds', reviewFields(view)).catch(error => {
       button.disabled = false
-      button.textContent = '整集重新生成'
+      button.textContent = label
       actions.fail(error)
     })
   }
   controls.append(button)
   view.append(controls)
   appendWorkflowReview(view, feedbackOf(project, 'seconds'), shots.some(shot => Boolean(shot.seconds.content)), busy, button, { allowFailureOpinion: true })
-  for (const shot of shots) {
+  const generatedShots = shots.filter(shot => Boolean(shot.seconds.content || shot.seconds.archivedContent))
+  if (!generatedShots.length) view.append(element('p', shots.length ? '暂无每秒指令，点击 AI生成。' : '暂无每秒指令，请先生成镜头表。', 'meta'))
+  for (const shot of generatedShots) {
     const card = element('article', '', 'shot-card')
     card.dataset.modelKey = `shot:${shot.id}`
     card.append(element('h3', shotHeading(shot)))
     if (shot.seconds.content) card.append(element('p', secondsText(shot.seconds.content), 'prompt full'))
     if (shot.seconds.content && shot.seconds.check?.passed === false) card.append(element('p', `本镜自审未通过：${(shot.seconds.check.failures || []).join('；')}`, 'hint warn'))
-    else if (shot.seconds.check?.passed === false) card.append(element('p', `本镜未保存：${(shot.seconds.check.failures || []).join('；')}。提交修改或整集重新生成时一并修正。`, 'hint warn'))
     if (shot.seconds.archivedContent) { const archive = element('details'); archive.append(element('summary', '查看迁移前的每秒指令（只读）'), element('pre', String(shot.seconds.archivedContent), 'prompt full')); card.append(archive) }
     appendJsonCopy(card, shot.seconds.content || { id: shot.id, duration: shot.duration, seconds: shot.seconds })
     view.append(card)
@@ -476,11 +474,14 @@ function paintBoards(view, project, actions) {
 function renderFilm(project, actions, context) {
   const view = element('section', '', 'session-project')
   view.append(element('h3', '成片'), skillField(project, 'storyboard', actions), skillField(project, 'film', actions))
-  const all = element('button', '依次生成全部成片', 'primary')
-  all.disabled = targetBusy(project, 'film:*') || targetBusy(project, 'storyboard:*')
-  bindBusy(all, () => actions.perform(project, 'produce-all'), '任务已启动')
-  if (!context.onlyShot) view.append(all)
-  for (const shot of project.shots.items.filter(s => !context.onlyShot || s.id === context.onlyShot)) {
+  const selected = project.shots.items.filter(shot => !context.onlyShot || shot.id === context.onlyShot)
+  const generated = selected.some(shot => Boolean(shot.video.content?.url || shot.video.content?.file))
+  const all = element('button', generated ? '重新生成' : 'AI生成', 'primary')
+  all.disabled = !selected.length || targetBusy(project, 'film:*') || targetBusy(project, 'storyboard:*')
+  bindBusy(all, () => actions.perform(project, context.onlyShot ? 'produce' : 'produce-all', { generationMode: generated ? 'regenerate' : 'generate', ...(context.onlyShot ? { track: context.onlyShot } : {}) }), '任务已启动')
+  if (!context.onlyShot || !generated) view.append(all)
+  if (!selected.length) view.append(element('p', '暂无镜头，请先生成镜头表。', 'meta'))
+  for (const shot of selected) {
     const card = element('article', '', 'shot-card')
     card.dataset.modelKey = `film:${shot.id}`
     card.append(element('h3', shotHeading(shot)))
@@ -501,7 +502,7 @@ function renderFilm(project, actions, context) {
     }
     if (!story?.prompt) storySection.append(element('div', '分镜提示词尚未生成', 'storyboard-empty film-prompt-empty'))
     appendWorkflowReview(storySection, shot.storyboard, Boolean(story?.prompt), targetBusy(project, `storyboard:${shot.id}`), storyGenerate)
-    storyGenerate.textContent = story?.prompt ? '重新生成提示词' : '生成提示词'
+    storyGenerate.textContent = story?.prompt ? '重新生成' : 'AI生成'
     storyGenerate.setAttribute('aria-label', storyGenerate.textContent)
     const videoReview = element('section', '', 'film-video-section')
     const media = element('div', '', 'film-media-row')
@@ -531,7 +532,7 @@ function renderFilm(project, actions, context) {
     }
     videoReview.append(mediaActions)
     appendWorkflowReview(videoReview, { ...shot.video, error: shot.video.error || clip?.error }, Boolean(clip?.url), targetBusy(project, `film:${shot.id}`), retry)
-    retry.textContent = clip?.url ? '重新生成视频' : '生成视频'
+    retry.textContent = clip?.url ? '重新生成' : 'AI生成'
     retry.setAttribute('aria-label', retry.textContent)
     card.append(videoReview)
     decorateShotCard(card, shot.storyboard, shot.id, project.shots.items[0].id === shot.id)

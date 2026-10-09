@@ -2,7 +2,7 @@ import { outlineText } from './story-outline.js'
 import { node, allNodes } from './drama-model.js'
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
-const rules = { summary: 1, outline: 2, cards: 3, rename: 4, appearance: 5, image: 6, 'card-delete': 7, shots: 8, shot: 9, seconds: 10, storyboard: 11, video: 12, reference: 13, aspect: 14, library: 16, merge: 17, 'episode-delete': 18 }
+const rules = { summary: 1, outline: 2, cards: 3, rename: 4, appearance: 5, image: 6, 'card-delete': 7, shots: 8, shot: 9, seconds: 10, storyboard: 11, video: 12, reference: 13, aspect: 14, library: 16, 'episode-delete': 18 }
 const labels = { outline: '剧情大纲', characters: '人物卡', scenes: '场景卡', props: '道具卡', shots: '镜头表', seconds: '每秒指令', storyboard: '分镜提示词', video: '视频', tailFrame: '尾帧', assembly: '合成' }
 
 export function shotReferences(shot, id, name) {
@@ -17,7 +17,7 @@ export function shotReferences(shot, id, name) {
 // 预览和实际删除共用选择逻辑；预览允许展示正在执行的节点，保存必须拒绝。
 function compute(project, change, preview) {
   const rule = rules[change.type] || Number(String(change.type).replace(/^R/, ''))
-  if (!rule || rule < 1 || rule > 18) throw new Error('下游删除规则无效')
+  if (!rule || rule < 1 || rule > 18 || rule === 17) throw new Error('下游删除规则无效')
   const next = structuredClone(project), deletions = []
   const clear = (parent, key, kind = key, track) => {
     const value = parent?.[key]
@@ -61,7 +61,7 @@ function compute(project, change, preview) {
       cards('props')
     }
     shots(); removeTracks = new Set(items.map(shot => shot.id))
-  } else if ([4, 5, 6, 16, 17].includes(rule)) {
+  } else if ([4, 5, 6, 16].includes(rule)) {
     for (let i = 0; i < items.length; i++) if (shotReferences(items[i], change.itemId, change.name) || (change.name && ((items[i].cast || []).includes(change.name) || items[i].scene === change.name))) { film(items[i]); chain(i); assembly() }
   } else if (rule === 7) {
     if (items.some(shot => shot.seconds?.content?.version !== 2 && shotReferences(shot, change.itemId))) shots()
@@ -145,7 +145,7 @@ export function cascadeChanges(before, after) {
         if (!current) change = { type: 'card-delete', itemId: card.id, name: card.sourceName || card.name }
         else {
           const preparingCharacters = key === 'characters' && old.plot.characters.secondsSource !== episode.plot.characters.secondsSource
-          const fields = value => Object.fromEntries(Object.entries({ ...value, ...(key === 'characters' ? { presence: value.presence || 'visible' } : {}) }).filter(([key]) => !(preparingCharacters && !card.voiceDescription && key === 'voiceDescription') && !['status', 'check', 'error', 'revision', 'operation', 'review', 'draft', 'source', 'image'].includes(key)))
+          const fields = value => Object.fromEntries(Object.entries({ ...value, ...(key === 'characters' ? { presence: value.presence || 'visible' } : {}) }).filter(([key]) => !(preparingCharacters && !card.voiceDescription && key === 'voiceDescription') && !['status', 'check', 'error', 'revision', 'operation', 'review', 'draft', 'source', 'image', 'costumes'].includes(key)))
           change = !same(fields(card), fields(current)) ? { type: 'appearance', itemId: card.id, name: current?.name || card.name } : !same(card.image?.content, current.image?.content) ? { type: 'image', itemId: card.id, name: current?.name || card.name } : null
         }
         if (change) apply(change)

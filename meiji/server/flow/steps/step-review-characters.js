@@ -7,7 +7,7 @@ import { reviewStep } from './shared/text-review.js'
 export function checkCharacters(text, project, options = {}) {
   const raw = JSON.parse(text)
   for (const item of raw?.items || []) if (item && typeof item === 'object') characterExtractionTarget(project || {}, item)
-  normalizeCharacters(raw, { project, allowEmpty: project?.filmCharacterExtraction || options.characterSource === 'seconds', participants: project?.filmCharacterExtraction || options.characterSource === 'seconds' ? filmParticipants(project) : null }); return []
+  normalizeCharacters(raw, { project, allowEmpty: true, participants: project?.filmCharacterExtraction || options.characterSource === 'seconds' ? filmParticipants(project) : null }); return []
 }
 // 复审复用此步骤，只更新审核结论，不生成或修订正文。
 export function reviewCharacters(input) {

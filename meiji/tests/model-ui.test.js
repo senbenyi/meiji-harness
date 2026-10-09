@@ -124,7 +124,7 @@ test('storyboard badges distinguish missing pending, revision and failed content
  ]){
   Object.assign(n,{status,content,error:null,operation,check:{passed,failures:passed===false?['动作错误']:[]}})
   container.replaceChildren(renderStage('film',e,{perform:async()=>{},fail:()=>{}},{shotsPane:'board'}))
-  const card=container.querySelector('.shot-card')
+  const card=[...container.querySelectorAll('.shot-card')].find(card => card.dataset.modelKey.endsWith('film:S01'))
   assert.equal(card.querySelector('.shot-check-badge').textContent,label)
   assert.equal(card.classList.contains('shot-unpassed'),red)
  }
@@ -153,6 +153,7 @@ test('generated and revised shot titles appear on production cards', async t => 
  assert.match(project.shots.items[0].content, /^标题：夜访庭院/)
  const actions = { perform: async () => {}, fail: () => {} }
  const checkCards = title => {
+  project.shots.items.forEach(shot => { shot.seconds.content = secondsContent(shot.id, shot.duration) })
   for (const shotsPane of ['table', 'seconds', 'board']) {
    container.replaceChildren(renderStage(shotsPane === 'seconds' ? 'seconds' : 'shots', project, actions, { shotsPane }))
    assert.ok([...container.querySelectorAll('h3')].some(el => el.textContent.includes(`S01 / 5s · ${title}`)), shotsPane)
@@ -176,7 +177,7 @@ test('JSON 大纲经解析保存后展示真实换行，不展示对象外壳或
  assert.deepEqual(saved.plot.outline.content, outline)
  container.replaceChildren(renderStage('outline', saved, { perform: async () => {}, fail: () => {} }, {}))
  assert.equal(container.querySelector('pre.story').textContent, outlineText(outline))
- assert.equal(container.querySelector('pre.story').textContent.split('\n\n').length, 1)
+ assert.equal(container.querySelector('pre.story').textContent.split('\n\n').length, 2)
 })
 
 test('超过15秒的小剧情同名分段标题经保存读回后在各镜头卡片完整展示', async t => {
@@ -195,6 +196,7 @@ test('超过15秒的小剧情同名分段标题经保存读回后在各镜头卡
  saved=await e.read()
  assert.deepEqual(saved.shots.items[0],revised.items[0])
  const actions={perform:async()=>{},fail:()=>{}}
+ saved.shots.items.forEach(shot => { shot.seconds.content = secondsContent(shot.id, shot.duration); shot.storyboard.content = { prompt: { text: '已有提示词' } } })
  for(const stage of ['shots','seconds','film']) {
   container.replaceChildren(renderStage(stage,saved,actions,{}))
   const headings=[...container.querySelectorAll('h3')].map(el=>el.textContent)
@@ -345,7 +347,7 @@ test('seconds renders unpublished task failure and clears it after a successful 
  assert.equal(area.querySelector('.workflow-review-override'),null)
  assert.ok([...container.querySelectorAll('button')].some(b=>/查看.*任务历史/.test(b.textContent)))
  container.querySelector('.workflow-regenerate').click()
- assert.equal(calls[0][2].generationMode,'regenerate')
+ assert.equal(calls[0][2].generationMode,'generate')
  p.shots.seconds.error=null;p.shots.seconds.status='passed'
  for(const shot of p.shots.items){shot.seconds.content={beats:[]};shot.seconds.check={passed:true,failures:[]};shot.seconds.status='passed'}
  renderModelView(container,build())
@@ -395,9 +397,9 @@ test('empty plot has a unified generate button and no separate card review',asyn
  p.plot.outline.content='';p.plot.characters.items=[];p.plot.scenes.items=[];p.plot.props.check.passed=null
  container.append(renderStage('script',p,{perform:async(...args)=>calls.push(args),fail:()=>{}},{}))
  assert.equal(container.querySelectorAll('.workflow-review').length,0)
- const button=container.querySelector('[aria-label="生成剧情"]');assert.ok(button);assert.equal(button.disabled,false)
+ const button=container.querySelector('[aria-label="AI生成"]');assert.ok(button);assert.equal(button.disabled,false)
  button.click();await Promise.resolve()
- assert.equal(calls[0][1],'outline');assert.equal(calls[0][2].generationMode,'regenerate')
+ assert.equal(calls[0][1],'outline');assert.equal(calls[0][2].generationMode,'generate')
 })
 test('film shows review only for existing content and independently for generated video',async t=>{
  const container=domSetup(t),p=episodeFixture(),calls=[]
@@ -413,7 +415,8 @@ test('film shows review only for existing content and independently for generate
  assert.ok(container.querySelector('.film-video-section [data-review-target="film:S01"]'))
  p.shots.items[0].storyboard.content=null;p.shots.items[0].video.content=null
  container.replaceChildren(renderStage('film',p,{perform:async()=>{},fail:()=>{}},{}))
- assert.equal(container.querySelector('.shot-card').querySelector('.workflow-review'),null)
+ assert.ok([...container.querySelectorAll('.shot-card')].some(card => card.dataset.modelKey.endsWith('film:S01')))
+ assert.equal(container.querySelectorAll('.workflow-review').length, 1)
 })
 
 test('摘要只在剧情页展示，不提供编辑和创作审核入口',t=>{
@@ -580,7 +583,7 @@ test('image generation from an episode page repaints with the full project, not 
 })
 
 test('a ready candidate image can be confirmed even though images have no AI review', async t => {
- const { renderImageReview } = await import('../client/image-review.js')
+ const { renderDetailImageActions, syncImageGate } = await import('../client/image-review.js')
  const container = domSetup(t), e = await setupModel(t)
  const root = await e.store.save(e.id, project => {
   const episode = project.episodes[0], image = episode.plot.characters.items[0].image
@@ -591,19 +594,19 @@ test('a ready candidate image can be confirmed even though images have no AI rev
  assert.equal(root.episodes[0].plot.characters.items[0].image.check.passed, null)
  const calls = []
  const actions = { reviewImage: async (...args) => { calls.push(args.slice(2)) }, closeImageReview: async () => {}, regenerateImage: async () => {} }
- container.append(renderImageReview(root, actions, null))
- const [confirm, discard] = container.querySelectorAll('.image-review-actions button')
+ container.append(renderDetailImageActions(root, actions, syncImageGate(root, null)))
+ const [discard, confirm] = container.querySelectorAll('.detail-image-buttons button')
  assert.equal(confirm.disabled, false); assert.equal(discard.disabled, false)
  await confirm.onclick()
  assert.deepEqual(calls, [['d1', 'confirm-image']])
  // 仍在生成（还没有候选图）时不能确认或放弃。
  const generating = { ...root, episodes: [{ ...root.episodes[0], pendingImages: {} }] }
- container.replaceChildren(renderImageReview(generating, actions, actionRequest('image', { phase: 'generating', held: true, episodeId: e.episodeId, itemId: 'C01', name: '旅人' })))
- const [busyConfirm, busyDiscard] = container.querySelectorAll('.image-review-actions button')
+ container.replaceChildren(renderDetailImageActions(generating, actions, syncImageGate(generating, { phase: 'generating', held: true, episodeId: e.episodeId, itemId: 'C01', name: '旅人' })))
+ const [busyDiscard, busyConfirm] = container.querySelectorAll('.detail-image-buttons button')
  assert.equal(busyConfirm.disabled, true); assert.equal(busyDiscard.disabled, true)
 })
 
-test('detail page confirms an image without opening the review page', async t => {
+test('人物卡确认候选图无需旧详情页面', async t => {
  const container = domSetup(t), episode = episodeFixture(), calls = []
  episode.pendingImages = { d1: { draftId: 'd1', previewUrl: '/draft.png', itemId: 'C01', name: '旅人' } }
  const root = { id: 'p', title: '剧', revision: 1, episodes: [episode], summary: { content: '' } }
@@ -617,15 +620,13 @@ test('detail page confirms an image without opening the review page', async t =>
   fail() {},
   characterImageUrl: () => '',
  }, {
-  character: { episodeId: episode.id, itemId: 'C01' },
+  episodeId: episode.id, tab: 'assets',
   imageGate: actionRequest('image', { phase: 'ready', held: false, episodeId: episode.id, itemId: 'C01', name: '旅人', draftId: 'd1', previewUrl: '/draft.png', slot: '', track: '' }),
-  onBackCharacter() {},
  }))
  assert.equal(container.querySelector('.image-review-overlay'), null)
- assert.equal(container.querySelector('.asset-still img').src.endsWith('/draft.png'), true)
+ assert.equal(container.querySelector('.character-card img').src.endsWith('/draft.png'), true)
  const labels = [...container.querySelectorAll('.detail-image-buttons button')].map(button => button.textContent)
  assert.deepEqual(labels, ['放弃', '确定'])
- assert.ok(container.querySelector('.studio-tools [aria-label="AI生成"]'))
  container.querySelector('.detail-image-buttons .primary').click()
  await Promise.resolve()
  assert.deepEqual(calls, [[episode.id, 'd1', 'confirm-image']])
@@ -648,12 +649,11 @@ test('本集资产只显示人物，不显示已有场景或道具入口', async
 test('image detail shows editable text and a prompt without field keys', async t => {
  const container = domSetup(t), p = episodeFixture(), calls = []
  p.episodeId = p.id
- const { renderCharacterDetail } = await import('../client/character-views.js')
- container.append(renderCharacterDetail(p, 'C01', { perform: async (...args) => calls.push(args), beginImage: async () => {}, fail() {} }, {}))
+ const { textMaterials } = await import('../client/material-editor.js')
+ container.append(textMaterials(p, p.plot.characters.items[0], { perform: async (...args) => calls.push(args), beginImage: async () => {}, fail() {} }, document.createElement('p'), false))
  const prompt = container.querySelector('.image-text-prompt')
  assert.equal(prompt.textContent, '中国，旅人，探险者，男性，古代，三十岁，一米八，结实，方脸')
  assert.equal(container.querySelector('.image-text-editor [aria-label="服装"]'), null)
- assert.equal(container.querySelector('.studio-parts'), null)
  assert.equal(/姓名|性别/.test(prompt.textContent), false)
  const name = container.querySelector('[aria-label="姓名"]')
  name.value = '武松'
@@ -665,45 +665,6 @@ test('image detail shows editable text and a prompt without field keys', async t
  assert.equal(calls[0][2].fields.name, '武松')
  assert.equal(calls[0][2].fields.gender, '男性')
  assert.equal(calls[0][2].original.name, '旅人')
-})
-
-test('character detail lays out the portrait, reference and text without ancillary images', async t => {
- const container = domSetup(t), p = episodeFixture(), calls = []
- p.episodeId = p.id
- const { renderCharacterDetail } = await import('../client/character-views.js')
- container.append(renderCharacterDetail(p, 'C01', { perform: async () => {}, beginImage: async (...args) => calls.push(args), fail() {} }, {}))
- const aspect = container.querySelector('[aria-label="画幅"]')
- assert.equal(aspect.value, '9:16')
- assert.equal(container.querySelector('[aria-label="AI生成"]').disabled, false)
- assert.equal(container.querySelector('[aria-label="参考图生图"]'), null)
- assert.equal(container.querySelector('[aria-label="文字生图"]'), null)
- const pair = container.querySelector('.studio-pair')
- const text = container.querySelector('.image-text-editor')
- const parts = container.querySelector('.studio-parts')
- assert.equal(pair.compareDocumentPosition(text) & 4, 4)
- assert.equal(parts, null)
- container.querySelector('[aria-label="AI生成"]').click()
- await Promise.resolve()
- assert.equal(calls[0][1], 'image')
- assert.equal(calls[0][2].aspect, '9:16')
- assert.equal(calls[0][2].useReference, false)
- p.plot.characters.items[0].reference = { localPath: '/ref.png', mime: 'image/png' }
- container.replaceChildren(renderCharacterDetail(p, 'C01', { perform: async () => {}, beginImage: async (...args) => calls.push(args), fail() {} }, {}))
- const reference = container.querySelector('[aria-label="AI生成"]')
- assert.equal(reference.disabled, false)
- container.querySelector('[aria-label="画幅"]').value = '3:4'
- reference.click()
- await Promise.resolve()
- assert.equal(calls.at(-1)[2].aspect, '3:4')
- assert.equal(calls.at(-1)[2].useReference, true)
- p.plot.characters.items[0].image = { content: { localPath: '/portrait.png' } }
- container.replaceChildren(renderCharacterDetail(p, 'C01', { perform: async () => {}, beginImage: async () => {}, fail() {} }, {}))
- const dialog = container.querySelector('dialog.still-preview')
- dialog.show = () => { dialog.open = true }
- container.querySelector('[aria-label="查看大图：人物图片"]').click()
- const preview = container.querySelector('dialog.still-preview img')
- assert.equal(preview.src.endsWith('/portrait.png'), true)
- assert.equal(preview.alt, '旅人 · 人物图片')
 })
 
 test('successful modification clears submitted opinion even while focused or dirty, and not on acceptance', async t => {
@@ -810,7 +771,7 @@ test('本集资产生成按钮只提交人物目标，大纲未通过和执行�
  assert.ok(button); assert.equal(button.disabled, false)
  button.click(); await Promise.resolve()
  assert.equal(calls.length, 1); assert.equal(calls[0][1], 'characters')
- assert.deepEqual(actionRequest(calls[0][1], calls[0][2]), { action: 'story', generationMode: 'regenerate', only: 'characters' })
+ assert.deepEqual(actionRequest(calls[0][1], calls[0][2]), { action: 'story', generationMode: 'generate', only: 'characters' })
  p.plot.outline.check.passed = false
  container.replaceChildren(renderStage('assets', p, actions, {}))
  assert.equal(container.querySelector('[aria-label="生成人物角色"]').disabled, true)
@@ -904,4 +865,121 @@ test('历史审核异常或无人物失败稿仍显示原因和重生成，忙�
  p.executionLocks = []; p.plot.outline.check.passed = false
  container.replaceChildren(renderStage('assets', p, actions, {}))
  assert.equal(container.querySelector('[aria-label="重新生成人物角色"]').disabled, true)
+})
+
+
+test('各阶段按自身数据切换生成按钮，成片展示全部镜头', async t => {
+ const container = domSetup(t), p = episodeFixture(), calls = []
+ const actions = { perform: async (...args) => calls.push(args), fail: assert.fail }
+ for (const shot of p.shots.items) { shot.seconds.content = null; shot.storyboard.content = null; shot.video.content = null }
+ for (const stage of ['seconds', 'film']) {
+  container.replaceChildren(renderStage(stage, p, actions, {}))
+  assert.equal(container.querySelectorAll('.shot-card').length, stage === 'film' ? p.shots.items.length : 0)
+  const button = container.querySelector('.stage-primary-actions button.primary')
+  assert.equal(button.textContent, 'AI生成'); button.click(); await Promise.resolve()
+  assert.equal(calls.at(-1)[2].generationMode, 'generate')
+ }
+ p.shots.items[1].seconds.content = secondsContent(p.shots.items[1].id, p.shots.items[1].duration)
+ container.replaceChildren(renderStage('seconds', p, actions, {}))
+ assert.equal(container.querySelectorAll('.shot-card').length, 1)
+ assert.match(container.querySelector('.shot-card').dataset.modelKey, /S02$/)
+ const button = container.querySelector('.stage-primary-actions button.primary')
+ assert.equal(button.textContent, '重新生成'); button.click(); await Promise.resolve()
+ assert.equal(calls.at(-1)[2].generationMode, 'regenerate')
+ p.shots.items[1].video.content = { url: '/second.mp4', status: 'ready' }
+ container.replaceChildren(renderStage('film', p, actions, {}))
+ assert.equal(container.querySelectorAll('.shot-card').length, p.shots.items.length)
+ assert.equal(container.querySelector('[data-model-key$="film:S02"] video').getAttribute('src'), '/second.mp4')
+ const empty = container.querySelector('[data-model-key$="film:S01"]')
+ assert.match(empty.textContent, /本镜视频尚未生成/)
+ const createPrompt = empty.querySelector('.film-storyboard-section button.primary')
+ assert.equal(createPrompt.textContent, 'AI生成'); assert.equal(createPrompt.disabled, false)
+ createPrompt.click(); await Promise.resolve()
+ assert.equal(calls.at(-1)[1], 'shot-storyboard'); assert.equal(calls.at(-1)[2].track, 'S01')
+ assert.equal(container.querySelector('.stage-primary-actions button.primary').textContent, '重新生成')
+ p.plot.outline.content = null
+ container.replaceChildren(renderStage('script', p, actions, {}))
+ assert.equal(container.querySelector('.stage-primary-actions button.primary').textContent, 'AI生成')
+ p.shots.items = []
+ container.replaceChildren(renderStage('shots', p, actions, {}))
+ assert.equal(container.querySelector('.stage-primary-actions button.primary').textContent, 'AI生成')
+})
+
+test('每秒指令失败无内容仍显示AI生成，请求失败恢复相同文案', async t => {
+ const container = domSetup(t), p = episodeFixture(), errors = []
+ p.shots.items.forEach(shot => { shot.seconds.content = null })
+ p.shots.seconds.error = '网络错误'
+ container.replaceChildren(renderStage('seconds', p, { perform: async () => { throw Error('请求失败') }, fail: e => errors.push(e.message) }, {}))
+ const button = container.querySelector('.stage-primary-actions button.primary')
+ assert.equal(button.textContent, 'AI生成'); button.click()
+ await new Promise(resolve => setImmediate(resolve))
+ assert.equal(button.textContent, 'AI生成'); assert.equal(button.disabled, false)
+ assert.deepEqual(errors, ['请求失败'])
+ assert.equal(container.querySelectorAll('.shot-card').length, 0)
+})
+
+test('资料保存后重绘保留表单，按钮恢复且再次保存使用最新基准', async t => {
+ const container=domSetup(t), p=episodeFixture(), calls=[]
+ p.episodeId=p.id
+ const {textMaterials}=await import('../client/material-editor.js')
+ const actions={perform:async(_p,action,fields)=>{
+  calls.push(structuredClone(fields))
+  const page=document.createElement('section')
+  page.append(textMaterials(p,p.plot.characters.items[0],actions,document.createElement('p'),false))
+  renderModelView(container,page)
+  return {completed:true}
+ },beginImage:async()=>{},fail:assert.fail}
+ const page=document.createElement('section')
+ page.append(textMaterials(p,p.plot.characters.items[0],actions,document.createElement('p'),false))
+ container.append(page)
+ const form=container.querySelector('.image-text-editor'), input=form.querySelector('[aria-label="年龄"]'), button=form.querySelector('button[type="submit"]')
+ input.value='35岁';input.dispatchEvent(new window.Event('input'))
+ await form.onsubmit({preventDefault(){}})
+ assert.equal(container.querySelector('.image-text-editor'),form)
+ assert.equal(button.disabled,false);assert.equal(button.textContent,'保存')
+ assert.equal(form.dataset.dirty,undefined)
+ input.value='36岁';input.dispatchEvent(new window.Event('input'))
+ await form.onsubmit({preventDefault(){}})
+ assert.equal(calls[0].original.age,'三十岁')
+ assert.equal(calls[1].original.age,'35岁');assert.equal(calls[1].fields.age,'36岁')
+})
+
+for(const outcome of ['cancel','error','editing']) test(`资料保存${outcome}保留未提交修改并恢复按钮`, async t=>{
+ const container=domSetup(t),p=episodeFixture(),calls=[];p.episodeId=p.id
+ const {textMaterials}=await import('../client/material-editor.js')
+ let release
+ const actions={perform:async(_p,_action,fields)=>{
+  calls.push(structuredClone(fields))
+  if(calls.length>1)return {completed:true}
+  if(outcome==='cancel')return {cancelled:true}
+  if(outcome==='error')throw new Error('保存失败示例')
+  return await new Promise(resolve=>{release=resolve})
+ },beginImage:async()=>{},fail:assert.fail}
+ const page=document.createElement('section')
+ page.append(textMaterials(p,p.plot.characters.items[0],actions,document.createElement('p'),false))
+ container.append(page)
+ const form=container.querySelector('.image-text-editor'), input=form.querySelector('[aria-label="年龄"]'),button=form.querySelector('button[type="submit"]')
+ input.value='35岁';input.dispatchEvent(new window.Event('input'))
+ const pending=form.onsubmit({preventDefault(){}})
+ if(outcome==='editing') {input.value='36岁';input.dispatchEvent(new window.Event('input'));release({completed:true})}
+ await pending
+ assert.equal(button.disabled,false);assert.equal(button.textContent,'保存')
+ assert.equal(input.dataset.dirty,'true');assert.equal(form.dataset.dirty,'true')
+ assert.equal(input.value,outcome==='editing'?'36岁':'35岁')
+ await form.onsubmit({preventDefault(){}})
+ assert.equal(calls[1].original.age,outcome==='editing'?'35岁':'三十岁')
+})
+
+for (const state of ['generating', 'ready']) test(`旧图片${state}状态不再显示全屏确认页`, async t => {
+ const container = domSetup(t), e = await setupModel(t), root = await e.store.read(e.id)
+ const episode = root.episodes[0]
+ if (state === 'generating') episode.executionLocks = [{ episodeId: episode.id, target: 'image:unknown', scope: 'episode' }]
+ else episode.pendingImages = { old: { draftId: 'old', itemId: 'unknown', previewUrl: '/old.png' } }
+ const before = structuredClone(root)
+ const { renderSession } = await import('../client/project-session-view.js')
+ container.append(renderSession(root, () => {}, {}, { episodeId: episode.id, tab: 'story' }))
+ assert.equal(container.querySelector('.image-review-overlay'), null)
+ assert.equal(container.querySelector('[aria-label="图片生成预览"]'), null)
+ assert.ok(container.querySelector('.session-body'))
+ assert.deepEqual(root, before)
 })

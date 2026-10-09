@@ -14,6 +14,6 @@ export function extractCharacters(input) {
 export function parseCharacters(text, project) {
   const raw = parseJsonValue(text)
   for (const item of raw?.items || []) if (item && typeof item === 'object') characterExtractionTarget(project || {}, item)
-  return { ...normalizeCharacters(raw, { project, allowEmpty: project?.filmCharacterExtraction, requireVoice: true, participants: project?.filmCharacterExtraction ? filmParticipants(project) : null }),
+  return { ...normalizeCharacters(raw, { project, allowEmpty: true, requireVoice: true, participants: project?.filmCharacterExtraction ? filmParticipants(project) : null }),
     extractionLibraryIds: (project?.library?.characters || []).map(entry => entry.id) }
 }

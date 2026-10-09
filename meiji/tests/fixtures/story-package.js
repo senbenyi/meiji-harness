@@ -1,7 +1,6 @@
-import { outlineFields } from '../../shared/story-outline.js'
 export function storyPackageFixture(seconds = 10) {
   return {
-    outline: outlineFixture(`（${seconds}秒）旅人在庭院等待回应。`),
+    outline: outlineFixture(`旅人在庭院等待回应。`, 'zh-CN', seconds),
     summary: { summary: '旅人在庭院等待回应。' },
     characters: { items: [{ name: '旅人', voiceDescription: '成年男声，中低音，普通话，吐字清晰', appearance: '方脸短发的高大成年男子', identity: '本集旅人的独立身体', look: '国籍：中国\n姓名：旅人\n身份：旅人\n性别：男\n年代：现代\n年龄：30岁\n服装：灰色外套\n身高：180cm\n体型：高大\n面相：方脸短发', clothes: [], props: [], hairstyles: [] }] },
     props: { items: [{name:'旅人灰色外套',category:'clothing',ownerId:'C01',description:'灰色外套',evidence:'人物服装为灰色外套'}] },
@@ -9,8 +8,10 @@ export function storyPackageFixture(seconds = 10) {
   }
 }
 
-export function outlineFixture(content = '旅人在庭院等待回应。', language = 'zh-CN') {
-  return { 故事小段: /^1[.、．]/.test(content.trim()) ? content : `1. ${content}` }
+export function outlineFixture(content = '旅人在庭院等待回应。', language = 'zh-CN', durationSeconds = 10) {
+  const text = content.trim(), markers = [...text.matchAll(/^(\d+)[.、．]\s*/gm)]
+  const bodies = markers.length && markers[0].index === 0 ? markers.map((marker, i) => text.slice(marker.index + marker[0].length, markers[i + 1]?.index ?? text.length).trim()) : [text]
+  return bodies.map((正文, index) => ({ 编号: index + 1, 时长秒: Math.floor(durationSeconds / bodies.length) + (index < durationSeconds % bodies.length ? 1 : 0), 正文 }))
 }
 
 export const outlineResponse = (...args) => JSON.stringify(outlineFixture(...args))

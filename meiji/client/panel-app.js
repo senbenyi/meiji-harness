@@ -103,7 +103,6 @@ export function mount() {
     })
   }
 
-  let openCharacter = null
   let openScene = null
   let imageGate = null
   let navigation = 0, library, workspace = null, shown = '', shownMark = '', shownLiveMark = '', hold = false, openEpisode = '', openShot = '', shotTab = 'seconds', openTab = '', shownProject = ''
@@ -115,11 +114,13 @@ export function mount() {
     imageGate,
     onBind: () => openCatalog().catch(error => shell.status(error.message)),
     onPick: project => bind(project).catch(error => shell.status(error.message)),
-    character: openCharacter,
     scene: openScene,
-    onOpenCharacter: (episodeId, itemId) => { openCharacter = { episodeId, itemId }; openScene = null; follow(true).catch(error => shell.status(error.message)) },
-    onBackCharacter: () => { openCharacter = null; follow(true).catch(error => shell.status(error.message)) },
-    onOpenScene: (episodeId, itemId) => { openScene = { episodeId, itemId }; openCharacter = null; follow(true).catch(error => shell.status(error.message)) },
+    onOpenCharacter: (episodeId, itemId) => {
+      const root = modelStore.get(shownProject), card = root?.episodes.find(episode => episode.id === episodeId)?.plot.characters.items.find(item => item.id === itemId)
+      if (card?.ref?.libraryId) { actions.openLibraryEntry(root, 'characters', card.ref.libraryId); return }
+      shell.status('该人物未关联项目角色库，请先关联角色资料。')
+    },
+    onOpenScene: (episodeId, itemId) => { openScene = { episodeId, itemId }; follow(true).catch(error => shell.status(error.message)) },
     onBackScene: () => { openScene = null; follow(true).catch(error => shell.status(error.message)) },
     episodeId: openEpisode,
     shotId: openShot,
@@ -134,7 +135,7 @@ export function mount() {
   })
   const paintProject = (project, nextWorkspace = workspace) => {
     workspace = nextWorkspace ?? workspace
-    if ((project?.id || '') !== shownProject) { openCharacter = null; openScene = null; openEpisode = ''; openShot = ''; openTab = ''; shotTab = 'seconds'; imageGate = null }
+    if ((project?.id || '') !== shownProject) { openScene = null; openEpisode = ''; openShot = ''; openTab = ''; shotTab = 'seconds'; imageGate = null }
     shownProject = project?.id || ''
     shown = signature(project)
     shownMark = projectRefreshMark(project)
@@ -164,7 +165,6 @@ export function mount() {
   const showUnbound = projects => {
     shown = signature(null)
     shownProject = ''
-    openCharacter = null
     openScene = null
     openEpisode = ''
     openShot = ''
@@ -176,7 +176,7 @@ export function mount() {
   }
   shell.root.addEventListener('meiji-review-draft', async event => {
     const { key, text, revision, kind, onSaved, onError } = event.detail
-    const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId || openScene?.episodeId
+    const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openScene?.episodeId
     if (!projectId || !episodeId) return
     try {
       const result = await request('review-draft', { method: 'PUT', ...jsonBody({ projectId, episodeId, sessionId: currentSessionId(), key, text, revision, kind }) })
@@ -188,7 +188,7 @@ export function mount() {
   // 人工忽略自审：面板直接执行 review-override（会话工具不能发起）。
   shell.root.addEventListener('meiji-review-override', async event => {
     const { key, onError } = event.detail
-    const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId || openScene?.episodeId
+    const projectId = shownProject, episodeId = event.detail.episodeId || openEpisode || openScene?.episodeId
     if (!projectId || !episodeId) return
     try {
       const scope = { projectId, sessionId: currentSessionId() }, { runs } = await request('runs?' + new URLSearchParams({ ...scope, episodeId, target: key }))
@@ -204,14 +204,14 @@ export function mount() {
   shell.root.addEventListener('meiji-view-failure', event => {
     const root = modelStore.get(shownProject)
     if (!root) return
-    const episodeId = event.detail.episodeId || openEpisode || openCharacter?.episodeId || openScene?.episodeId
+    const episodeId = event.detail.episodeId || openEpisode || openScene?.episodeId
     actions.openLatestTask({ id: root.id, episodeId }, event.detail.target).catch(error => shell.status(error.message))
   })
   const actions = {
-    openLibraryCard: (episodeId, itemId, kind) => { currentPage = null; hold = false; if (kind === 'characters') { openCharacter = { episodeId, itemId }; openScene = null } else if (kind === 'scenes') { openScene = { episodeId, itemId }; openCharacter = null } else { openEpisode = episodeId; openTab = tabs[0].id }; follow(true).catch(error => shell.status(error.message)) },
+    openLibraryCard: (episodeId, itemId, kind) => { currentPage = null; hold = false; if (kind === 'characters') { contextFor().onOpenCharacter(episodeId, itemId); return } else if (kind === 'scenes') { openScene = { episodeId, itemId } } else { openEpisode = episodeId; openTab = tabs[0].id }; follow(true).catch(error => shell.status(error.message)) },
     openLibrary: (project, kind, entryId = null) => {
       hold = true; navigation++
-      currentPage = renderProjectLibrary(rootProject(modelStore, project) || project, kind, { ...actions, load: async () => { const result = await request('projects/' + project.id); result.project = withRunActivity(result.project, liveRuns); return result }, back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) } }, { entryId })
+      currentPage = renderProjectLibrary(rootProject(modelStore, project) || project, kind, { ...actions, load: async () => { const result = await request('projects/' + project.id); modelStore.accept(result.project); result.project = withRunActivity(result.project, liveRuns); return result }, back: () => { currentPage = null; follow(true).catch(error => shell.status(error.message)) } }, { entryId })
       display(currentPage)
     },
     openLibraryEntry: (project, kind, entryId) => actions.openLibrary(project, kind, entryId),

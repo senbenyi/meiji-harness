@@ -142,6 +142,17 @@
         "script-revision"
       ],
       "after": []
+    },
+    {
+      "id": "project-characters",
+      "tool": "run-plan",
+      "tasks": [
+        "project-characters"
+      ],
+      "skills": [
+        "outline"
+      ],
+      "after": []
     }
   ],
   "panelOnlySkills": [

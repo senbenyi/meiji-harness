@@ -75,13 +75,13 @@ test('explicit shot cast excludes names mentioned only as background',async()=>{
 
 
 test('local duration failure joins review and automatic revision even when AI returns PASS', async () => {
- const project=episodeFixture();project.durationSeconds=30
+ const project=episodeFixture();project.durationSeconds=30;project.plot.outline.content[0].时长秒=30
  const calls=[]
  const replies=[tableResponse('## S01 / 5s\n过短片段'),reviewPass,tableResponse('## S01 / 15s\n第一段\n\n## S02 / 15s\n第二段'),reviewPass]
  const saved=[]
  const out=await generateShots({project,request:async message=>{calls.push(message);return replies.shift()},persist:shots=>saved.push(shots)})
  assert.equal(calls.length,4)
- assert.match(calls[2].user,/镜头总时长 5s/)
+ assert.match(calls[2].user,/总时长 5 秒/)
  assert.equal(out.check.passed,true)
  assert.ok(saved.some(shots=>shots.check.passed===false))
 })
@@ -92,15 +92,16 @@ test('review preserves the issue evidence verbatim without stripping text',async
  assert.deepEqual(out.check.failures,['位置：本次内容；原因：S01：实际冲突\n\n整体建议（非失败项）：\n增强视觉冲击力；修正要求：修正上述问题'])
 })
 
-test('镜头表时间不足进入补时修订，扩充动作与完整旁白随分段原文保存',async()=>{
- const project=episodeFixture();project.durationSeconds=30
+test('镜头表按来源固定时长重新拆分，保留来源动作与完整旁白',async()=>{
+ const project=episodeFixture();project.durationSeconds=30;project.plot.outline.content[0].时长秒=30
  const short='## S01 / 5s\n标题：走近查看\n旅人【旅人|C01】走到门前。'
  const expanded='## S01 / 15s\n标题：走近查看1\n旅人【旅人|C01】沿石径走近紧闭的门，避过路面碎石，观察门上风化的旧痕。独立画外旁白：「旧友的失约，一直让他难以释怀。」\n\n## S02 / 15s\n标题：走近查看2\n旅人【旅人|C01】走到门前，借灯光辨认旧痕，停步确认门仍紧闭，犹豫后决意敲门，尚未敲下。'
+ project.plot.outline.content[0].正文=expanded
  const replies=[tableResponse(short),reviewPass,tableResponse(expanded),reviewPass],saved=[]
  const result=await generateShots({project,persist:shots=>saved.push(shots),request:async message=>{
   if(replies.length===2){
-   assert.match(message.user,/镜头总时长 5s/)
-   assert.match(message.system,/必要时增加有作用的旁白/)
+   assert.match(message.user,/总时长 5 秒/)
+   assert.match(message.system,/不.*补时/)
   }
   return replies.shift()
  }})

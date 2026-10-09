@@ -144,7 +144,7 @@ export function renderRunDetail(project, { load, back, loadRecords, target = '' 
           const card = element('section', '', 'run-record-card')
           card.append(element('h3', `${index + 1}. ${targetLabel(artifact.target)} · ${artifact.published ? '已保存' : '草稿'}${artifact.version ? ` · V${artifact.version}` : ''}`))
           const value = artifact.content
-          card.append(element('pre', artifact.target === 'outline' && value && typeof value === 'object' ? outlineText(value) : typeof value === 'string' ? value : JSON.stringify(value, null, 2)))
+          card.append(element('pre', artifact.target === 'outline' && value && typeof value === 'object' ? outlineText(value) || JSON.stringify(value, null, 2) : typeof value === 'string' ? value : JSON.stringify(value, null, 2)))
           appendJsonCopy(card, value); page.append(card)
         }
       } else {

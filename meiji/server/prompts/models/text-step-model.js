@@ -1,5 +1,6 @@
 // 文本步骤的统一组装器：镜头表、单镜每秒指令、单镜修订、图片提示词改写共用同一套
 // 生成 / 审核 / 修订编排（结构见 prompt-request.js），各步骤只在 textSteps 中声明差异；输出协议统一来自 skills/output-protocols.js。
+import { shotTableTiming } from '../../../shared/shot-table-timing.js'
 import { currentSkillSet, generationParts, reviewParts, segment } from '../skill-prompts.js'
 import { baseSegments, factSegments, generationRequest, requirementSegment, reviewRequest, taskInput } from '../prompt-request.js'
 import { splitSecondsIssues } from '../seconds-feedback.js'
@@ -7,6 +8,8 @@ import { contentData } from '../prompt-text.js'
 
 const secondsBoundary = '以同编号已通过镜头表的事件、剧情起止状态、实际身体身份和固定时长为上游事实；依据本镜关联资料设计具体机位、景别、剪辑与空间调度，保留上游明确的空间事实与摄影要求，大纲仅作整体参考。镜头表从叙事读取必要事实，不要求固定栏目；前镜交接摘要只用于核对切点末态和必要空间、声音连续性，不重演前镜过程，不复制前镜摄影安排；允许有依据的转场、时间省略和机位变化。程序问题、语义审核问题和人工意见用于修复当前基稿，不能修改上游事实或重排镜头事件。逐项核对意见与同编号镜头表，冲突时以镜头表为准，不采纳要求改写上游的替代方案。上游自身矛盾时不假定已经修正镜头表，不编造新事件掩盖矛盾。'
 const secondsReviewMethod = '按 shotId 将最新待审镜头与同编号镜头表及本镜关联资料逐项对照。每项语义问题必须引用本次待审原文及对应上游事实或审核规则，不能把基稿、历史意见或其他镜头内容冒充该镜头依据；无法证实差异时不判失败。镜头表未规定的机位、景别、剪辑与具体调度由本阶段设计，不因上游缺少这些安排判失败。前镜交接摘要只核对必要状态与真实连续性，不要求前镜完整过程或摄影复制；不因镜头表缺少栏目、分段理由或未重复稳定状态判失败，允许有依据的转场、时间省略和机位变化。修正要求不得修改上游事件、剧情起止状态或把事件搬到别的镜头。上游自身矛盾时准确指出镜头表中的冲突来源，不声称待审稿遗漏了不存在的要求。只报告语义问题，不以“程序校验”命名问题；镜头 ID、毫秒时长、必填字段和实体标记由独立程序检查，不能因动作问题将正确时长判为“功能性时长偏差”。同一问题只列一次，不再以时长等名义重复列出。location 必须标明受影响镜头编号，跨镜问题列出相关编号。修订对照问题只用于核对最新稿，不直接复用旧失败结论。'
+
+const shotsRevisionBoundary = '本次仅拆分已带时长的大纲。每个小段的正文、时长和顺序固定；只在出错小段内部调整镜头边界、内容分配和秒数，每镜1–15秒，各段镜头合计精确等于来源时长，不跨段借秒，不重新分配整集预算。保留全部原事件、对白和结尾，不添加旁白、心理活动或重复画面补时，不删剧情凑数。审核意见不是新增事实，先对照大纲再修正。输出完整连续编号的镜头表。'
 
 export const textSteps = {
   shots: { stage: 'shots', role: '短剧镜头规划师', reviewRole: '独立短剧镜头规划师审核员', json: true,
@@ -52,13 +55,15 @@ export class TextStepModel {
     const { stage, role, json } = this.config
     const p = generationParts({ ...this.task, stage, kind, rules: this.generationRules })
     const seconds = stage === 'seconds'
+    const current = stage === 'shots' ? contentData(baseContent, 'shotTable')?.shots : null
+    const timing = Array.isArray(current) && current.length && current.every(row => Number.isInteger(row?.durationSeconds)) ? shotTableTiming(current.map(row => row.durationSeconds), this.task.project.durationSeconds, this.task.project.plot?.outline?.content) : null
     const output = seconds ? segment('protocol', '【本次输出范围】', `只返回 ${this.task.shotId || '当前指定镜头'} 的一个完整 shots 条目；生成、修改和自动修订均不得输出其他镜头。`) : null
     return generationRequest({ json,
       role: segment('context', '【角色与职责】', `你是一名${role}。`),
       scope: this.scope(), rules: { ...p.generate, title: '【基础规则】' }, additions: p.additions, assetRules: p.assetRules,
-      boundary: [...(seconds ? [segment('context', '【上游与意见边界】', secondsBoundary)] : []), ...(kind === 'generate' ? [] : p.revisionBoundary)], language: p.language, protocol: [p.protocol, output],
+      boundary: [...(seconds ? [segment('context', '【上游与意见边界】', secondsBoundary)] : []), ...(kind === 'generate' ? [] : stage === 'shots' ? [segment('context', '【本次修订范围】', shotsRevisionBoundary)] : p.revisionBoundary)], language: p.language, protocol: [p.protocol, output],
       task: segment('context', '【本次任务】', kind !== 'generate' && this.config.reviseTask ? this.config.reviseTask(automatic) : this.input.task), requirements: requirementSegment(),
-      facts: factSegments(this.input.facts), assets: p.assetContent,
+      facts: [...factSegments(this.input.facts), ...(timing ? [segment('context', '【最新基稿程序统计与修订预算】', timing)] : [])], assets: p.assetContent,
       base: this.base(kind, { baseContent, opinion, humanOpinion, automatic }),
     })
   }
@@ -72,13 +77,16 @@ export class TextStepModel {
   toReviewSegments(content) {
     const { task } = this
     const p = reviewParts({ ...task, stage: this.config.stage }, contentData(content, this.config.stage === 'seconds' ? 'seconds' : this.config.stage === 'image-prompt' ? 'prompt' : 'shotTable'))
-    const method = this.config.stage === 'seconds' ? { ...p.method, text: `${p.method.text}\n\n${secondsReviewMethod}` } : p.method
+    const shots = this.config.stage === 'shots'
+    const current = shots ? contentData(content, 'shotTable')?.shots : null
+    const timing = Array.isArray(current) && current.every(row => Number.isInteger(row?.durationSeconds)) ? shotTableTiming(current.map(row => row.durationSeconds), task.project.durationSeconds, task.project.plot?.outline?.content) : null
+    const method = shots ? { ...p.method, text: `${p.method.text}\n\n只审核【本次待审内容】。数值时长、编号和必填字段由程序校验；以【当前稿程序统计】为准，不自行重算或输出数值校验失败。只报告当前稿可引用的语义问题，不复用历史结论。每个故事小段可拆多镜；仅核对该段正文，不能跨段合镜或要求改变原时长。动作、台词能否按正常节奏完成仍须审核。` } : this.config.stage === 'seconds' ? { ...p.method, text: `${p.method.text}\n\n${secondsReviewMethod}` } : p.method
     return reviewRequest({
       role: segment('context', '【角色与职责】', `你是一名${this.config.reviewRole}，验收最新待审内容。`),
       scope: this.scope(), method, criteria: p.criteria, additions: p.additions, assetRules: p.assetRules, language: p.language, protocol: p.protocol,
       stage: p.stage, task: segment('context', '【审核目标】', this.input.review || this.config.reviewTask), requirements: requirementSegment(),
-      facts: factSegments(this.input.facts), assets: p.assetContent,
-      base: this.base('review', { baseContent: task.baseContent, opinion: task.revisionOpinion || task.opinion, humanOpinion: task.opinion, automatic: task.revisionReview }),
+      facts: [...factSegments(this.input.facts), ...(timing ? [segment('context', '【当前稿程序统计】', { count: timing.count, total: timing.total, target: timing.target, min: timing.min, max: timing.max })] : [])], assets: p.assetContent,
+      base: shots ? [segment('context', '【人工修改要求（仅核对当前稿，不作为历史事实）】', task.reviewOpinion ?? task.opinion ?? '')] : this.base('review', { baseContent: task.baseContent, opinion: task.revisionOpinion || task.opinion, humanOpinion: task.opinion, automatic: task.revisionReview }),
       continuity: p.continuity, content: p.content,
     })
   }

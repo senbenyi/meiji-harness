@@ -4,6 +4,7 @@ import { bindSecondsCharacters } from '../../shared/film-characters.js'
 import { collapseMentions, entityCatalog, referencePattern } from '../../shared/entity-references.js'
 import { validateSeconds, secondsRange, narratorId, secondsCharacterRoster } from '../../shared/seconds-content.js'
 import { pictureOf } from '../../shared/drama-model.js'
+import { costumePicture } from '../../shared/character-costumes.js'
 import { previousTail, tailFrameUrl } from '../../shared/tail-frame.js'
 
 // 唯一视频提示词编译入口：不请求模型、不改写动作与台词。
@@ -20,12 +21,19 @@ export function compileVideoPrompt(project, shot) {
   const images = [], subjects = new Map(), bindings = new Map()
   const subjectEntity = e => (e.kind === 'clothes' || e.kind === 'hairstyles') && catalog.get(e.ownerId)?.kind === 'character' ? catalog.get(e.ownerId) : e
   const addPicture = (entity, subjectId) => {
-    const picture = pictureOf(entity.card)
+    let picture = pictureOf(entity.card), costume
+    if (entity.kind === 'character' && entity.card.costumes?.length) {
+      const person = content.participants?.find(person => person.name === entity.name || person.name === entity.card.sourceName)
+      costume = entity.card.costumes.find(row => row.id === person?.costumeId)
+      if (!costume) throw new Error(`${shot.id} 人物「${entity.name}」未选择有效服装 ID，请补齐每秒指令的 costumeId`)
+      picture = costumePicture(costume, picture)
+      if (!picture?.localPath) throw new Error(`${shot.id} 人物「${entity.name}」的「${costume.name}」穿搭图缺失或已过期，请先完成人物图片生成`)
+    }
     if (!picture.localPath) return
     const key = picture.assetId || picture.localPath
     let image = images.find(i => (i.assetId || i.url) === key)
     if (!image) {
-      image = { id: entity.card.id, entityId: entity.id, kind: entity.kind, label: entity.name, url: picture.localPath, localPath: picture.localPath, assetId: picture.assetId || null, assetCategory: picture.assetCategory || null, subjectIds: [] }
+      image = { id: entity.card.id, entityId: entity.id, kind: entity.kind, label: costume ? `${entity.name} · ${costume.name}` : entity.name, ...(costume ? { costumeId: costume.id } : {}), url: picture.localPath, localPath: picture.localPath, assetId: picture.assetId || null, assetCategory: picture.assetCategory || null, subjectIds: [] }
       images.push(image)
     }
     if (!image.subjectIds.includes(subjectId)) image.subjectIds.push(subjectId)
@@ -69,9 +77,9 @@ export function compileVideoPrompt(project, shot) {
       return pictureOf(entity.card).localPath ? name : `${name}（文字外观：${visualLook(entity)}）`
     }).join('；'))
   }
-  const outfitSnapshot = (content.participants || []).filter(person => person.presence === 'visible' && person.outfit).map(person => ({name:person.name,outfit:person.outfit}))
+  const outfitSnapshot = (content.participants || []).filter(person => person.presence === 'visible' && person.outfit).map(person => ({name:person.name,outfit:person.outfit,...(person.costumeId ? {costumeId:person.costumeId} : {})}))
   if (outfitSnapshot.length) {
-    details.push('本镜着装（着装状态以本镜描述及动作过程为准，角色资料和参考图仅提供固定身份外貌）：' + outfitSnapshot.map(person => {
+    details.push('本镜着装（已选穿搭图确定人物与服装外观；穿脱、破损等动态变化以本镜描述及动作过程为准）：' + outfitSnapshot.map(person => {
       const entity = entities.find(entity => entity.kind === 'character' && (entity.name === person.name || entity.card.sourceName === person.name))
       return `${entity ? substitute(`【${entity.name}|${entity.id}】`) : person.name}：${person.outfit}`
     }).join('；'))

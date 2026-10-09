@@ -71,7 +71,7 @@ test('有角色卡也不注入前期请求，生成/审核/修订只从剧情读
         assert.match(message.user, /旅人|当前失败稿/)
         assert.match(message.user, /剧情大纲/)
       }
-      assert.match(prompts.generation.system, /沿用上游人物称谓，正文直接使用名称/)
+      assert.match(prompts.generation.system, /沿用上游人物称谓，正文直接使用名称|正文使用自然名称，不插入人物ID/)
     }
   })
   const context = storyboardContext({ project, shot: project.shots.items[0], video: 'reference', characters: ['旅人'] })

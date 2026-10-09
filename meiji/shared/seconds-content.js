@@ -6,12 +6,13 @@ export const narratorId = 'NARRATOR'
 const fail = message => { throw new Error(message) }
 const nonempty = value => typeof value === 'string' && value.trim()
 const array = (value, name) => { if (!Array.isArray(value)) fail(`${name}必须为数组`); return value }
-// 只提供本集已建卡人物的称谓，不附固定资料，也不展开未关联的项目角色。
+// 本集称谓和可选服装目录；不展开未关联的项目角色或重复固定外貌。
 export function secondsCharacterRoster(project) {
   return (project?.plot?.characters?.items || []).map(card => {
     const target = card.ref && libraryTarget(project, 'characters', card.ref)
     const name = card.sourceName || card.name
-    return { name, aliases: [...new Set([card.name, card.sourceName, ...(target?.entry.aliases || [])].filter(value => value && value !== name))] }
+    const costumes = target?.variant.fields.costumes || card.costumes || []
+    return { name, aliases: [...new Set([card.name, card.sourceName, ...(target?.entry.aliases || [])].filter(value => value && value !== name))], ...(costumes.length ? { costumes } : {}) }
   })
 }
 // participants是角色卡参与子集；只清理卡外条目，不修改剧情及对白。
@@ -68,6 +69,10 @@ export function validateSeconds(content, shot, project) {
     for (const person of array(participants, 'participants')) {
       if (!nonempty(person?.name) || person.name !== person.name.trim() || person.name === narratorId || /[【】]/.test(person.name) || !['visible', 'voice'].includes(person.presence) || names.has(person.name)) fail(`${shot.id} participants人物称谓、出镜类型错误或重复`)
       if (person.outfit !== undefined && (typeof person.outfit !== 'string' || person.presence === 'visible' && (!person.outfit.trim() || /[【】]/.test(person.outfit)) || person.presence === 'voice' && person.outfit !== '')) fail(`${shot.id} participants人物「${person.name}」着装outfit错误：出镜人物填写一段非空文字，仅声音人物留空`)
+      if (person.costumeId !== undefined) {
+        const costumes = roster.find(card => card.name === person.name || card.aliases.includes(person.name))?.costumes || []
+        if (typeof person.costumeId !== 'string' || person.costumeId && (person.presence !== 'visible' || !costumes.some(costume => costume.id === person.costumeId))) fail(`${shot.id} 人物「${person.name}」服装 ID 无效`)
+      }
       names.add(person.name)
     }
     for (const dialogue of dialogues) {
@@ -137,6 +142,7 @@ function requireParticipants(content, shot, project) {
     const matches = roster.filter(card => card.name === person?.name || card.aliases.includes(person?.name))
     if (!matches.length) fail(`${shot.id} participants人物称谓无效：${person?.name || '未命名'}`)
     if (matches.length > 1) fail(`${shot.id} participants人物「${person.name}」对应多张本集角色卡，请先明确称谓`)
+    if (person.presence === 'visible' && matches[0].costumes?.length && !matches[0].costumes.some(costume => costume.id === person.costumeId)) fail(`${shot.id} 人物「${person.name}」须从服装目录选择 costumeId`)
     if (used.has(matches[0])) fail(`${shot.id} participants人物「${person.name}」与已列人物对应同一本集角色卡，不得重复列出`)
     used.add(matches[0])
   }

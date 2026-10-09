@@ -121,7 +121,7 @@ test('语义审核失败仍保存提取稿，项目状态释放并保留失败�
 
 test('剧本提取与自由创作直接生成大纲，摘要不参与定位前后集', async () => {
  const {buildStoryPrompts}=await import('../server/prompts/story-prompts.js')
- const project={mode:'script',script,premise:'FREE_DIRECTION',episodeNumber:2,previousEpisodeOutlines:[{story:{故事小段:'1. 送信'}}],nextEpisodeOutline:{故事小段:'1. 道别'},summary:{content:'旧摘要不要用'},plot:{outline:{content:null}}}
+ const project={mode:'script',script,premise:'FREE_DIRECTION',episodeNumber:2,previousEpisodeOutlines:[{story:[{编号:1,时长秒:10,正文:'送信'}]}],nextEpisodeOutline:[{编号:1,时长秒:10,正文:'道别'}],summary:{content:'旧摘要不要用'},plot:{outline:{content:null}}}
  for(const mode of ['script','free']) {
   const prompts=buildStoryPrompts({...project,mode})
   assert.match(prompts.generation.user,mode==='script'?/【剧本】/:/【AI 创作方向】/)

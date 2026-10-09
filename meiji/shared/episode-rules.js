@@ -2,6 +2,7 @@
 import { assertDrama, episodeModel, modelPatch, setContent, contentNode } from './drama-model.js'
 import { cascade } from './pipeline-cascade.js'
 import { aspectRatioOf, durationOf, replaceFrom } from './project-rules.js'
+import { episodeScriptScene } from './script-scenes.js'
 
 const scriptLimit = 200000
 export function normalizeProject(project) {
@@ -38,7 +39,8 @@ export function blankEpisode(input) {
 
 export function addEpisode(project, input) {
   const current = normalizeProject(project)
-  return { episodes: [blankEpisode(input), ...current.episodes] }
+  const scene = episodeScriptScene(current, current.episodes.length + 1)
+  return { episodes: [blankEpisode({ ...input, durationSeconds: scene?.durationSeconds ?? input?.durationSeconds }), ...current.episodes] }
 }
 
 export function editEpisode(project, episodeId, input) {

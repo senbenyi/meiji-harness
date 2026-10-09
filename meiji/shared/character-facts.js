@@ -1,3 +1,4 @@
+import { costumesText } from './character-costumes.js'
 const characterLabels = ['国籍', '姓名', '身份', '性别', '年代', '年龄', '服装', '身高', '体型', '身型', '面相', '面向']
 
 function labeledParts(text, labels) {
@@ -18,7 +19,7 @@ export function characterFieldValues(item) {
   const parsed = labeledParts(item?.look, characterLabels)
   const build = [item?.build || parsed.体型, item?.figure || parsed.身型].map(value => String(value || '').trim()).filter(Boolean)
   return {
-    nationality: String(item?.nationality || parsed.国籍 || '中国').trim(),
+    nationality: String(item?.nationality || parsed.国籍 || '未说明').trim(),
     name: String(item?.name || parsed.姓名 || '').trim(),
     role: String(item?.role || parsed.身份 || '').trim(),
     gender: String(item?.gender || parsed.性别 || '').trim(),
@@ -47,6 +48,7 @@ export function characterSheet(item) {
     ['体型', values.build],
     ['面相', values.features],
     ['声音特征', values.voiceDescription],
+    ...(item?.costumes?.length ? [['全部服装', costumesText(item.costumes)]] : []),
   ]
 }
 

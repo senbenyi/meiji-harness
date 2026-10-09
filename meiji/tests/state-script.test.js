@@ -1,3 +1,4 @@
+import { outlineText } from '../shared/story-outline.js'
 import { materialize } from '../shared/episode-rules.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -61,7 +62,7 @@ test('删集与删除回写事实同次保存，清理历史和重启读取不�
   await runStore(e.home, e.id).removeEpisode(e.episodeId)
   const saved = await projectStore(e.home).read(e.id)
   assert.equal(saved.episodes.length, 0)
-  assert.equal(saved.scriptPendingDeletes[0].summaryBefore, before.plot.outline.content.故事小段)
+  assert.equal(saved.scriptPendingDeletes[0].summaryBefore, outlineText(before.plot.outline.content))
   assert.ok(scriptBlockers(saved).some(item => item.kind === 'episode-delete-sync'))
 })
 
@@ -206,7 +207,7 @@ test('第二集没有剧本小节时，错误无需修改进入修订，新小�
     const { reviewPass } = await import('./fixtures/review-result.js')
   await scriptStore(e.home, e.store).commit(e.id, { scriptKind: 'assembled', scriptSections: { sections: [{ episodeId: firstId, text: '第一集到家' }], future: '' }, script: '第一集到家' }, { source: 'edit', note: '已发生第一集' })
   const secondId = crypto.randomUUID()
-  await e.store.save(e.id, root => { const second = structuredClone(root.episodes[0]); second.id = secondId; second.plot.outline.content = { 故事小段: '1. 第二集去渡口' }; second.plot.outline.revision++; root.episodes.unshift(second); return root })
+  await e.store.save(e.id, root => { const second = structuredClone(root.episodes[0]); second.id = secondId; second.plot.outline.content = [{编号:1,时长秒:10,正文:'第二集去渡口'}]; second.plot.outline.revision++; root.episodes.unshift(second); return root })
   let generated = 0
   await runOperation(e.op('script-sync', { episodeId: secondId }), { home: e.home, request: async message => {
     if (message.skill === 'review') return reviewPass

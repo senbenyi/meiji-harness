@@ -1,5 +1,4 @@
-import { finish, targetNode, pictureOf } from '../../shared/drama-model.js'
-import { pictureRecord } from '../../shared/image-assets.js'
+import { finish, targetNode, pictureOf, setContent } from '../../shared/drama-model.js'
 import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises'
@@ -81,6 +80,33 @@ export function pictureTargetSnapshot(item) {
   return JSON.stringify(item, (key, value) => ['check', 'review', 'draft', 'revision', 'status', 'operation', 'error'].includes(key) ? undefined : value)
 }
 
+// 服装候选与主图共用归属校验；确认时原子发布整套图片引用。
+export async function removeDraftPictures(home, draft) {
+  const ids = new Set([draft.draftId, ...Object.values(draft.costumes || {}).map(row => row.draftId)])
+  for (const id of ids) await rm(join(home, 'storages', 'meiji', 'image-drafts', id), { recursive: true, force: true })
+}
+export async function removePictureAssets(home, reference) {
+  const images = [reference, ...Object.values(reference.costumes || {})]
+  for (const image of images) if (image.assetId) await rm(join(home, 'storages', 'meiji', 'assets', image.assetCategory, image.assetId), { recursive: true, force: true })
+}
+export async function saveDraftPictures(home, draft, expected, signal) {
+  const references = new Map()
+  try {
+    for (const id of new Set([draft.draftId, ...Object.values(draft.costumes || {}).map(row => row.draftId)])) {
+      signal?.throwIfAborted()
+      const file = await readImageDraft(home, id)
+      if (Object.entries(expected).some(([key, value]) => (key !== 'itemId' || file.metadata.itemId) && file.metadata[key] !== value)) throw Object.assign(new Error('图片不属于当前项目或人物'), { status: 409 })
+      references.set(id, await savePicture(home, file.bytes, file.metadata.mime, file.metadata.category, file.metadata.name, file.metadata))
+    }
+    const reference = { ...references.get(draft.draftId) }
+    if (draft.costumes) reference.costumes = Object.fromEntries(Object.entries(draft.costumes).map(([id, row]) => [id, { ...references.get(row.draftId), description: row.description }]))
+    return reference
+  } catch (error) {
+    for (const reference of references.values()) await removePictureAssets(home, reference)
+    throw error
+  }
+}
+
 // 人工确认和人物自动保存共用同一入库事务；调用方负责确认策略与执行权限。
 export async function applyImageDraft(home, projects, project, draft, signal) {
   const targetKey = `image:${draft.itemId}`
@@ -90,27 +116,23 @@ export async function applyImageDraft(home, projects, project, draft, signal) {
     return item
   }
   validate(project)
-  const file = await readImageDraft(home, draft.draftId)
-  if (file.metadata.projectId !== project.id || file.metadata.episodeId !== project.episodeId || file.metadata.itemId && file.metadata.itemId !== draft.itemId) throw Object.assign(new Error('图片不属于当前剧集或人物'), { status: 409 })
-  signal?.throwIfAborted()
-  const reference = await savePicture(home, file.bytes, file.metadata.mime, file.metadata.category, file.metadata.name, file.metadata)
-  reference.prompt = file.metadata.prompt || ''
-  const discarded = new Set([draft.draftId])
+  const reference = await saveDraftPictures(home, draft, { projectId: project.id, episodeId: project.episodeId, itemId: draft.itemId }, signal)
+  const discarded = new Map([[draft.draftId, draft]])
   try {
     signal?.throwIfAborted()
     await projects.save(project.id, current => {
       signal?.throwIfAborted()
       validate(current)
       const next = structuredClone(current)
-      next.plot[draft.key].items = next.plot[draft.key].items.map(item => item.id === draft.itemId ? pictureRecord({ ...item, ...reference }) : item)
-      for (const [id, pending] of Object.entries(next.pendingImages || {})) if (pending.itemId === draft.itemId && !pending.slot) { discarded.add(id); delete next.pendingImages[id] }
+      next.plot[draft.key].items = next.plot[draft.key].items.map(item => item.id === draft.itemId ? { ...item, image: setContent(structuredClone(item.image), reference, { passed: true, failures: [] }) } : item)
+      for (const [id, pending] of Object.entries(next.pendingImages || {})) if (pending.itemId === draft.itemId && !pending.slot) { discarded.set(id, pending); delete next.pendingImages[id] }
       finish(targetNode(next, targetKey), { passed: true, failures: [] })
       return next
     }, { final: true })
   } catch (error) {
-    await rm(join(home, 'storages', 'meiji', 'assets', reference.assetCategory, reference.assetId), { recursive: true, force: true })
+    await removePictureAssets(home, reference)
     throw error
   }
-  for (const id of discarded) await rm(join(home, 'storages', 'meiji', 'image-drafts', id), { recursive: true, force: true })
+  for (const pending of discarded.values()) await removeDraftPictures(home, pending)
   return reference
 }

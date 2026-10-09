@@ -14,7 +14,7 @@ const content = '- 事件：旅人读到 "明天见"。\n- 结果：保留\\书�
 const shot = { shotId: 'S01', durationSeconds: 5, title: '读信1', content }
 const response = shots => JSON.stringify({ shots })
 
-test('所有文本生成/修订都启用 JSON 模式，协议示例为对象', () => {
+test('大纲输出JSON数组不启用对象模式，其他文本保留JSON对象模式', () => {
   for (const kind of Object.keys(textSteps)) {
     const model = new TextStepModel(kind, { project: episodeFixture(), instructions: '本次任务' })
     assert.equal(model.toGenerateSegments().json, true)
@@ -23,16 +23,16 @@ test('所有文本生成/修订都启用 JSON 模式，协议示例为对象', (
   }
   for (const kind of ['outline', 'characters', 'scenes']) {
     const model = new StoryModel(kind, { project: episodeFixture() })
-    assert.equal(model.toGenerateSegments().json, true)
-    assert.equal(model.toReviseSegments({ baseContent: '基稿', opinion: '意见' }).json, true)
+    assert.equal(model.toGenerateSegments().json, kind !== 'outline')
+    assert.equal(model.toReviseSegments({ baseContent: '基稿', opinion: '意见' }).json, kind !== 'outline')
   }
-  for (const stage of ['shots', 'shot-revise', 'image-prompt']) {
+  for (const stage of ['shot-revise', 'image-prompt']) {
     const example = protocols[stage].split(/示例[^\n]*：\n/)[1]
     assert.ok(JSON.parse(example) && !Array.isArray(JSON.parse(example)))
   }
 })
 
-test('大纲修订返回对象，解析换行后审核、提取与保存使用同一正文', async () => {
+test('大纲修订返回数组，解析换行后审核、提取与保存使用同一正文', async () => {
   const project = episodeFixture(), fixture = storyPackageFixture()
   const draft = outlineFixture('原稿 "引号"\n第二行'), repaired = outlineFixture('最新稿 "引号"\n第二行')
   const replies = [JSON.stringify(draft), reviewFail('修改正文'), JSON.stringify(repaired), reviewPass,

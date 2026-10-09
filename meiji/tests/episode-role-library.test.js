@@ -89,14 +89,14 @@ test('真实人物提取保存简短别名引用，保持库身份声线和图�
   assert.deepEqual(after.library.characters[0],entry);assert.equal(after.library.characters.length,2)
   assert.equal(card.name,'餐馆老板');assert.equal(card.sourceName,'旅人');assert.equal(card.image.content.assetId,old.assetId)
   assert.equal(card.voiceDescription,entry.variants[0].fields.voiceDescription)
-  assert.ok(requests.some(m=>m.skill==='review'));assert.ok(requests.every(m=>m.user.includes('先查看项目库目录')))
+  assert.ok(requests.some(m=>m.skill==='review'));assert.ok(requests.every(m=>m.user.includes('查看项目库目录')))
 })
 
 test('生成、修改与审核提示词明确先查项目目录及已有角色简短引用分支',()=>{
   const {p}=libraryProject()
   for(const mode of ['regenerate','modify'])checkContext.run({generationMode:mode,originalProject:p},()=>{
     const prompts=buildStoryPrompts(p,'characters'),requests=[prompts.generation,prompts.review('{"items":[]}'),prompts.revision('{"items":[]}','核对人物')]
-    for(const request of requests){assert.match(request.user,/先查看项目库目录/);assert.match(request.system,/已有角色|已有项目角色/);assert.match(request.user,/R01/)}
+    for(const request of requests){assert.match(request.user,/查看项目库目录/);assert.match(request.system,/已有角色|已有项目角色/);assert.match(request.user,/R01/)}
     assert.match(prompts.generation.system,/已有角色仅返回 name/)
   })
 })

@@ -1,12 +1,13 @@
+import { characterImagesReady } from './character-costumes.js'
 import { runStages, stageDependencies, textTargets, normalizeRunGoal } from './run-templates.js'
 import { tailSteps } from './run-model.js'
 import { imageItems } from './library-images.js'
-import { shotsReady } from './generation-gates.js'
+import { shotsReady, projectCharactersGate, hasCharacters } from './generation-gates.js'
 import { shotSecondsReady } from './shot-timing.js'
 import { shotReferences, cascadePreview } from './pipeline-cascade.js'
 import { scriptFreshness, isAiCreation } from './script-assembly.js'
 import { operationDeletes } from './operation-cascade.js'
-import { libraryTarget } from './library-rules.js'
+import { libraryTarget, characterLibraryTarget } from './library-rules.js'
 const passed = node => node?.check?.passed === true
 const unique = entries => [...new Map(entries.map(value => [JSON.stringify(value), value])).values()]
 const stageReady = (project, stage) => stage === 'summary' ? Boolean(project.summary?.content) && passed(project.summary) : stage === 'story' ? passed(project.plot?.outline) : stage === 'shots' ? shotsReady(project) : stage === 'seconds' ? Boolean(project.shots?.items.length) && project.shots.items.every(shot => shotSecondsReady(shot) && passed(shot.seconds)) : stage === 'film' ? Boolean(project.shots?.items.length) && project.shots.items.every(shot => shot.video?.content?.status === 'ready') : false
@@ -71,17 +72,23 @@ export function planRun(project, rawGoal, policy = {}) {
         if (target !== 'outline' && roots.has('outline')) deps.push(roots.get('outline'))
         else if (target !== 'outline' && !passed(project.plot?.outline)) requireStage('story', deps, needs, { to: 'story', scope: { only: 'outline' } })
         // 人物在大纲审核通过后提取并并入项目角色库；不再自动提取场景和道具。
-        roots.set(target, text(target, textTargets[target], deps, needs, passed(project.plot?.[target]), {}, target !== 'outline' && !goal.scope.only))
+        const ready = passed(project.plot?.[target]) && (target !== 'characters' || hasCharacters(project))
+        roots.set(target, text(target, textTargets[target], deps, needs, ready, {}, target !== 'outline' && !goal.scope.only))
         // 人物提取通过后复用已有角色图：运行时展开，仅缺图人物生图并直接入库使用；
         // 自动保存，不等待人工确认，也不作为人物文字阶段的末端，镜头表等下游不等图片。
-        // 提取步骤被跳过（已通过、补齐生成时不重做）时，补图也跳过，前置检查据此判定剧情已就绪。
-        if (target === 'characters' && goal.mode !== 'review') add('expand', `images:${target}`, { queue: null }, [roots.get(target)], { branch: true, ...(steps.find(step => step.id === roots.get(target))?.status === 'skipped' ? { status: 'skipped' } : {}), input: { goal: { to: 'images', mode: 'generate', scope: { kinds: [target] } }, policy: { autoSaveImages: true }, required: [] } })
+        // 即使文字已通过，也检查图片是否完整，失败后可补齐图片。
+        if (target === 'characters' && goal.mode !== 'review') add('expand', `images:${target}`, { queue: null }, [roots.get(target)], { branch: true, input: { goal: { to: 'images', mode: 'generate', scope: { kinds: [target] } }, policy: { autoSaveImages: true }, required: [] } })
       }
       tails.push(...roots.values())
       if (chosen.includes('outline') && goal.mode !== 'review') {
         const parent = roots.get('outline'), skipped = steps.find(step => step.id === parent)?.status === 'skipped' && project.summary?.outlineRevision === project.plot.outline.revision
         add('generate', 'summary', textTargets.summary, [parent], { branch: true, optional: true, ...(skipped ? { status: 'skipped' } : {}) })
       }
+    } else if (stage === 'project-characters') {
+      if (!projectCharactersGate(project).allowed) blockers.push({ message: projectCharactersGate(project).reason })
+      const extracted = text('project-characters', textTargets['project-characters'], after, required)
+      tails.push(extracted)
+      if (goal.mode !== 'review') tails.push(add('expand', 'images:project-characters', { queue: null, scope: 'project' }, [extracted], { input: { goal: { to: 'images', mode: 'generate', scope: { kinds: ['characters'] } }, policy: { projectCharacters: true, autoSaveImages: true }, required: [] } }))
     } else if (['summary', 'project-summary', 'script-revise'].includes(stage)) {
       const target = stage === 'script-revise' ? 'script' : stage
       let last = stage === 'summary'
@@ -96,14 +103,27 @@ export function planRun(project, rawGoal, policy = {}) {
         tails.push(text(`shots:${track}`, { ...textTargets.shots, action: 'revise-shot' }, after, required, false, { track }))
       } else tails.push(text('shots', textTargets.shots, after, required, shotsReady(project)))
     } else if (stage === 'images') {
-      if (goal.scope.library) {
+      if (policy.projectCharacters && !goal.scope.library) {
+        const seen = new Set()
+        for (const card of project.projectCharacters?.items || []) {
+          if (card.presence === 'voice') continue
+          const found = characterLibraryTarget(project, card)
+          if (!found) { blockers.push({ message: `角色尚未入库：${card.name}` }); continue }
+          if (seen.has(found.entry.id)) continue
+          seen.add(found.entry.id)
+          const library = { kind: 'characters', id: found.entry.id, variantId: found.variant.id }
+          tails.push(add('expand', `images:${found.variant.id}`, { queue: null, scope: 'project' }, after, { input: { goal: { to: 'images', mode: 'generate', scope: { library } }, policy: { autoSaveImages: true }, required: [] } }))
+        }
+      } else if (goal.scope.library) {
         const library = goal.scope.library, found = libraryTarget(project, library.kind, { libraryId: library.id, variantId: library.variantId })
         if (!found) blockers.push({ message: '库图片变体不存在' })
         else {
-          const ready = Boolean(found.variant.image.content?.assetId || found.variant.image.content?.localPath || found.variant.image.content?.url), pending = Object.values(project.pendingImages || {}).some(item => item.variantId === library.variantId)
-          const operation = { action: 'library-image', libraryKind: library.kind, libraryId: library.id, variantId: library.variantId }, target = `image:${library.variantId}`
-          const image = add('image', target, { taskType: 'library-image', action: 'library-image', queue: 'image', scope: 'project', operation }, after, goal.mode === 'generate' && (ready || pending) ? { status: 'skipped' } : {})
-          tails.push(add('wait_confirm', target, { queue: null, scope: 'project' }, [image], { input: { library }, ...(ready && !pending && goal.mode === 'generate' ? { status: 'skipped' } : {}) }))
+          const ready = library.kind === 'characters' ? characterImagesReady(found.variant.fields.costumes, found.variant.image.content) : Boolean(found.variant.image.content?.assetId || found.variant.image.content?.localPath || found.variant.image.content?.url), pending = Object.values(project.pendingImages || {}).some(item => item.variantId === library.variantId)
+          const autoSave = policy.autoSaveImages && library.kind === 'characters'
+          const operation = { action: 'library-image', libraryKind: library.kind, libraryId: library.id, variantId: library.variantId, ...(autoSave ? { autoSave: true } : {}) }, target = `image:${library.variantId}`
+          const image = add('image', target, { taskType: 'library-image', action: 'library-image', queue: 'image', scope: 'project', operation }, after, goal.mode === 'generate' && (ready || !autoSave && pending) ? { status: 'skipped' } : {})
+          if (autoSave) tails.push(image)
+          else tails.push(add('wait_confirm', target, { queue: null, scope: 'project' }, [image], { input: { library }, ...(ready && !pending && goal.mode === 'generate' ? { status: 'skipped' } : {}) }))
         }
       } else if (unknownCards || !project.plot?.characters?.items.length && !project.plot?.scenes?.items.length && required.length) tails.push(add('expand', 'images', { queue: null }, after, { input: { goal: { ...goal, from: undefined, to: 'images', scope: {} }, required } }))
       else {

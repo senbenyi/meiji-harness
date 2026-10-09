@@ -10,7 +10,7 @@ export function characterExtractionProject(project, node) {
 }
 
 export function characterExtractionDirectory(project) {
-  return (project.library?.characters || []).map(entry => ({ libraryId: entry.id, name: entry.name, aliases: entry.aliases || [] }))
+  return (project.library?.characters || []).map(entry => ({ libraryId: entry.id, name: entry.name, aliases: entry.aliases || [], costumes: (entry.variants.find(item => item.id === entry.defaultVariantId) || entry.variants[0])?.fields.costumes || [] }))
 }
 
 export function characterExtractionFacts(project, content) {
@@ -50,7 +50,11 @@ export function characterExtractionContent(project, value) {
     let target
     try { target = characterExtractionTarget(view, input) }
     catch { return { ...content, ...(id ? { libraryId: id } : {}) } }
-    if (target) return { name: item.sourceName || item.name, presence: item.presence || 'visible', libraryId: target.entry.id }
+    if (target) {
+      const known = target.variant.fields.costumes || []
+      const added = (item.costumes || []).filter(row => !known.some(old => old.id === row.id))
+      return { name: item.sourceName || item.name, presence: item.presence || 'visible', libraryId: target.entry.id, ...(added.length ? { costumes: added } : {}) }
+    }
     if (newlyPublished) content.libraryId = ''
     return content
   }) }

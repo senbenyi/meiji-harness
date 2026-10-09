@@ -3,7 +3,6 @@ import assert from 'node:assert/strict'
 import { JSDOM } from './fixtures/jsdom.js'
 import { episodeFixture } from './fixtures/model.js'
 import { renderStage, renderSceneDetail } from '../client/generation-stage-views.js'
-import { renderCharacterDetail } from '../client/character-views.js'
 import { renderSession } from '../client/project-session-view.js'
 
 function setup(t) {
@@ -148,49 +147,11 @@ test('会话恢复人物候选，不恢复场景候选且不使用其他集的�
 test('image details expose image history and their own basic skill beside generation controls', t => {
   const project = setup(t), calls = []
   const actions = { openHistory: (...args) => calls.push(['history', args[1]]), openSkill: (...args) => calls.push(['skill', args[1]]) }
-  const character = renderCharacterDetail(project, 'C01', actions, {})
   const scene = renderSceneDetail(project, 'E01', actions, {})
-  character.querySelector('.studio-tools .task-history-entry').click()
-  character.querySelector('[aria-label="人物图片 skill"]').click()
   scene.querySelector('.task-history-entry').click()
   scene.querySelector('[aria-label="场景图片 skill"]').click()
-  assert.equal(character.querySelector('.studio-parts'), null)
-  assert.deepEqual(calls, [['history', 'image:C01'], ['skill', 'character-image'], ['history', 'scenes,image:E01'], ['skill', 'scene-image']])
-  assert.ok(character.querySelector('[aria-label="AI生成"]'))
+  assert.deepEqual(calls, [['history', 'scenes,image:E01'], ['skill', 'scene-image']])
   assert.ok(scene.querySelector('.scene-image-tools .primary'))
-})
-
-test('character detail orders portrait, reference and a single generation toolbar', t => {
-  const project = setup(t)
-  project.plot.characters.items[0].image.content = { localPath: '/portrait.png' }
-  project.plot.characters.items[0].reference = { localPath: '/reference.png' }
-  const page = renderCharacterDetail(project, 'C01', { beginImage() {}, openHistory() {}, openSkill() {} }, {})
-  const pair = page.querySelector('.studio-pair')
-  assert.deepEqual([...pair.children].map(child => child.classList.contains('is-main') ? 'portrait' : child.classList.contains('is-reference') ? 'reference' : child.classList.contains('studio-tools') ? 'tools' : 'other'), ['portrait', 'reference', 'tools'])
-  assert.equal(page.querySelectorAll('[aria-label="AI生成"]').length, 1)
-  for (const label of ['AI生成', '画幅', '更换图片：旅人', '删除图片：旅人', '更换参考图：旅人', '移除参考图：旅人', '从素材库选择人物图片', '人物图片 skill']) assert.ok(page.querySelector(`[aria-label="${label}"]`).closest('.studio-tools'), label)
-  assert.equal(pair.querySelector('.is-main img').getAttribute('src'), '/portrait.png')
-  assert.equal(pair.querySelector('.is-reference img').getAttribute('src'), '/reference.png')
-})
-
-test('character detail generation is disabled while busy or reviewing and recovers after request failure', async t => {
-  const project = setup(t)
-  project.executionLocks = [{ target: 'image:C01', scope: 'episode', episodeId: project.episodeId }]
-  let page = renderCharacterDetail(project, 'C01', { beginImage() { assert.fail('busy') } }, {})
-  assert.equal(page.querySelector('[aria-label="AI生成"]').disabled, true)
-  project.executionLocks = []
-  page = renderCharacterDetail(project, 'C01', {}, { detailGate: { itemId: 'C01', episodeId: project.episodeId, phase: 'ready', previewUrl: '/draft.png', draftId: 'draft' } })
-  assert.equal(page.querySelector('[aria-label="AI生成"]').disabled, true)
-  assert.deepEqual([...page.querySelectorAll('.studio-tools .detail-image-buttons button')].map(button => button.textContent), ['放弃', '确定'])
-  const calls = []
-  page = renderCharacterDetail(project, 'C01', { async beginImage(...args) { calls.push(args); throw new Error('生图失败') } }, {})
-  const generate = page.querySelector('[aria-label="AI生成"]')
-  generate.click();generate.click()
-  await new Promise(resolve => setImmediate(resolve))
-  assert.equal(calls.length, 1)
-  assert.equal(generate.disabled, false)
-  assert.equal(generate.textContent, 'AI生成')
-  assert.match(page.textContent, /生图失败/)
 })
 
 for (const [itemId, name, key, label] of [['C01', '旅人', 'onOpenCharacter', '查看人物详情'], ['E01', '庭院', 'onOpenScene', '查看场景详情']]) {

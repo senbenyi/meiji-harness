@@ -1,7 +1,6 @@
 // 操作：确认 / 放弃候选图片
-import { rm } from 'node:fs/promises'
 import { targetNode } from '../../../../shared/drama-model.js'
-import { applyImageDraft, readImageDraft } from '../../../data/image-storage.js'
+import { applyImageDraft, removeDraftPictures } from '../../../data/image-storage.js'
 import { feedbackKey } from '../../../../shared/review-feedback.js'
 import { markFailed } from '../../../../shared/content-state.js'
 
@@ -17,8 +16,7 @@ export async function opConfirmImage(c) {
   delete pendingImages[draft.draftId]
   if (operation.action === 'discard-image') {
     await projects.save(project.id, current => { const next = structuredClone(current); next.pendingImages = pendingImages; const target = targetNode(next, targetKey); if (target) markFailed(target, '已放弃候选图片'); return next })
-    const file = await readImageDraft(home, draft.draftId)
-    await rm(file.directory, { recursive: true, force: true })
+    await removeDraftPictures(home, draft)
     note('已放弃生成图片，原图保持不变')
     return trace
   }

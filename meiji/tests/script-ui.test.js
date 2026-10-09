@@ -27,7 +27,7 @@ test('导入剧本项目隐藏创作方向，摘要只读并保留剧本入口',
   assert.equal(view.querySelectorAll('.library-tab-panel')[0].hidden, false)
   assert.equal(view.querySelectorAll('.library-empty').length, 1)
   assert.equal([...view.querySelectorAll('button')].some(item => /查看与管理/.test(item.textContent)), false)
-  assert.match(view.querySelector('.library-empty').textContent, /根据剧集自动提取人物角色/)
+  assert.match(view.querySelector('.library-empty').textContent, /可手动添加角色或提取剧本重要角色/)
   assert.match(view.querySelector('.episode-placeholder').textContent, /还没有剧集/)
   assert.equal(button(view, '编辑创作方向'), undefined)
   assert.equal([...view.querySelectorAll('button')].some(item => /更新摘要|重新生成|摘要任务历史|查看 skill/.test(item.textContent)), false)

@@ -1,10 +1,9 @@
-import { renderImageReview, syncImageGate, detailOwnsImage } from './image-review.js'
-import { renderCharacterDetail } from './character-views.js'
+import { syncImageGate, detailOwnsImage } from './image-review.js'
 import { showPanelDialog, element } from './panel-dom.js'
 import { tabOf, tabs, runTabProgress } from './flow-view.js'
 import { renderShotPage, renderStage, renderSceneDetail } from './generation-stage-views.js'
 import { episodeWork, renderOverview } from './project-overview-view.js'
-import { outlineFields } from '../shared/story-outline.js'
+import { normalizeOutline } from '../shared/story-outline.js'
 import { request } from './panel-api.js'
 import { MAX_SCRIPT_BYTES } from '../shared/script-content.js'
 
@@ -117,19 +116,11 @@ export function renderSession(project, openCreate, actions, context = {}) {
       pending.append(open)
       view.append(pending)
       imageNotice = pending
-    } else {
-      const previews = renderImageReview(project, actions, context.imageGate)
-      if (previews) view.append(previews)
     }
   }
   const activeEpisode = context.character?.episodeId || context.scene?.episodeId || context.episodeId
   const activeWork = activeEpisode ? episodeWork(project, activeEpisode) : project
   const detailContext = onDetail ? { ...context, detailGate: imageGate } : context
-  if (context.character) {
-    const characterProject = episodeWork(project, context.character.episodeId)
-    view.append(renderCharacterDetail(characterProject, context.character.itemId, actions, detailContext))
-    return view
-  }
   if (context.scene) {
     const sceneProject = episodeWork(project, context.scene.episodeId)
     view.append(renderSceneDetail(sceneProject, context.scene.itemId, actions, detailContext))
@@ -316,33 +307,49 @@ export function sourceDialog(root, onSaved) {
 
 export function storyDialog(root, onSaved) {
   const template = document.createElement('template')
-  template.innerHTML = `<dialog id="edit-story" aria-labelledby="edit-story-title"><div class="modal-head"><h2 id="edit-story-title">编辑故事小段</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><p>按 1、2、3… 编号，每段直接写剧情和完整对白。保存后以编辑内容为拆镜依据，允许覆盖原始剧情来源；受影响的下游内容会清除并重新生成。</p><form class="edit"><div class="outline-fields"></div><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
+  template.innerHTML = `<dialog id="edit-story" aria-labelledby="edit-story-title"><div class="modal-head"><h2 id="edit-story-title">编辑故事小段</h2><button class="cancel" type="button" aria-label="关闭编辑弹窗">×</button></div><p>每段填写时长（秒）与完整剧情，编号自动连续排列；合计须在本集时长上下10秒内。保存后以编辑内容为拆镜依据，允许覆盖原始剧情来源；受影响的下游内容会清除并重新生成。</p><form class="edit"><div class="outline-fields"></div><div class="error" role="alert"></div><footer class="footer"><button type="button" class="cancel">取消</button><button class="primary" type="submit">保存</button></footer></form></dialog>`
   root.append(template.content)
   const dialog = root.querySelector('#edit-story'), form = dialog.querySelector('form')
-  const fields = form.querySelector('.outline-fields')
-  for (const [index, field] of outlineFields.entries()) {
-    const label = element('label', `【${field}】`), input = element('textarea')
-    input.id = `edit-outline-${index}`; input.name = field; input.required = true; input.rows = 16
-    input.placeholder = '1. 第一段故事，写清行动、对白和结果。\n\n2. 接着发生的故事。'
-    label.htmlFor = input.id
-    fields.append(label, input)
-  }
+  const fields = form.querySelector('.outline-fields'), total = element('p', '', 'meta')
+  const add = element('button', '＋ 添加故事小段'); add.type = 'button'
+  fields.after(add, total)
   const error = dialog.querySelector('.error')
   let current = null
+  const values = () => [...fields.children].map((row, index) => ({ 编号: index + 1, 时长秒: Number(row.querySelector('input').value), 正文: row.querySelector('textarea').value.trim() }))
+  const update = () => {
+    const parts = values(), seconds = parts.reduce((sum, part) => sum + part.时长秒, 0)
+    total.textContent = `总时长：${seconds}秒；本集目标 ${current.durationSeconds}秒，允许 ${Math.max(1, current.durationSeconds - 10)}–${current.durationSeconds + 10}秒`
+    ;[...fields.children].forEach((row, index) => {
+      row.querySelector('legend').textContent = `故事小段 ${index + 1}`
+      row.querySelector('input').setAttribute('aria-label', `第${index + 1}段时长（秒）`)
+      row.querySelector('textarea').setAttribute('aria-label', `第${index + 1}段正文`)
+    })
+  }
+  const append = (part = { 时长秒: 1, 正文: '' }) => {
+    const row = element('fieldset'), heading = element('legend'), timeLabel = element('label', '时长（秒）'), time = element('input'), textLabel = element('label', '正文'), text = element('textarea'), remove = element('button', '删除小段')
+    time.type = 'number'; time.min = '1'; time.step = '1'; time.required = true; time.value = part.时长秒
+    text.rows = 6; text.required = true; text.value = part.正文
+    timeLabel.append(time); textLabel.append(text); remove.type = 'button'
+    remove.onclick = () => { row.remove(); update() }
+    row.append(heading, timeLabel, textLabel, remove); fields.append(row); update()
+  }
+  fields.oninput = update; add.onclick = () => append()
   for (const button of dialog.querySelectorAll('.cancel')) button.onclick = () => dialog.close()
   form.onsubmit = async event => {
     event.preventDefault()
     const button = form.querySelector('[type=submit]'); button.disabled = true; error.textContent = ''
     try {
-      const data = new FormData(form)
-      await onSaved(current, { outline: Object.fromEntries(outlineFields.map(field => [field, data.get(field).trim()])) })
+      const outline = normalizeOutline(values(), 400, current.durationSeconds)
+      await onSaved(current, { outline })
       dialog.close()
     } catch (failure) { error.textContent = failure.message }
     finally { button.disabled = false }
   }
   return project => {
-    current = project
-    for (const field of outlineFields) form.elements.namedItem(field).value = project.plot.outline.content?.[field] || ''
+    current = project; fields.replaceChildren()
+    const parts = project.plot.outline.content || []
+    for (const part of parts) append(part)
+    if (!parts.length) append({ 时长秒: project.durationSeconds, 正文: '' })
     error.textContent = ''
     showPanelDialog(dialog)
   }

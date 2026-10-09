@@ -1,3 +1,4 @@
+import { publishProjectCharacters } from './text/task-project-characters.js'
 import { modelRoutes } from '../../../models/model-config.js'
 import { finish, modelPatch, setContent } from '../../../shared/drama-model.js'
 import { normalizeSecondsParticipants } from '../../../shared/seconds-content.js'
@@ -38,8 +39,9 @@ export async function runContentReview({ operation, deps, project, projects, mod
       settle(targetNode, result.check, operation.review)
       // 整集意见在全部镜头通过后清除。
       if (target.startsWith('seconds:') && result.check.passed) { const view = next.episodes ? next.episodes.find(item => item.id === operation.episodeId) : next; if (view.shots.items.every(shot => shot.seconds.check.passed === true)) consume(view.shots.seconds, operation.review || deps.run?.goal?.feedback) }
+      if (target === 'project-characters' && result.check.passed) publishProjectCharacters(next, targetNode)
       if (target === 'project-summary' && result.check.passed) targetNode.basis = { scriptRevision: current.scriptRevision }
-      if (['characters', 'scenes', 'props'].includes(target) && result.check.passed && targetNode.items.some(item => !item.ref)) {
+      if (['characters', 'scenes', 'props'].includes(target) && result.check.passed && (target === 'characters' || targetNode.items.some(item => !item.ref))) {
         const published = mergeLibraryGroup(next, target, targetNode)
         // 发布库关联不覆盖本次受审正文或现有图片。
         published.plot[target].items = targetNode.items.map((item, index) => operation.characterSource === 'seconds'

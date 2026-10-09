@@ -11,13 +11,13 @@ test('大纲失败审核与最新发布版本绑定，保留最新失败稿',asy
  const e=await setupModel(t)
  await assert.rejects(runOperation(e.op('story',{mode:'regenerate'}),{home:e.home,request:async message=>message.skill==='review'?reviewFail('因果错误'):outlineResponse('最新失败稿')}),/自审未通过/)
  const current=await e.read(),run=await latestRun(e.home,e.id,'outline'),store=runStore(e.home,e.id)
- assert.equal(current.plot.outline.check.passed,false);assert.match(current.plot.outline.content.故事小段,/最新失败稿/)
+ assert.equal(current.plot.outline.check.passed,false);assert.match(current.plot.outline.content[0].正文,/最新失败稿/)
  const artifacts=await store.listRecords('artifacts');assert.ok(artifacts.some(item=>item.target==='outline'&&item.published));assert.ok(run.steps.some(step=>step.kind==='re_review'))
 })
 test('审核断网保留已保存大纲，自动摘要尚未执行',async t=>{
  const e=await setupModel(t)
  await assert.rejects(runOperation(e.op('story',{mode:'regenerate'}),{home:e.home,request:async message=>{if(message.skill==='review')throw Error('审核断网');return outlineResponse('已经保存')}}),/审核断网/)
- const current=await e.read();assert.match(current.plot.outline.content.故事小段,/已经保存/);assert.notEqual(current.plot.outline.check.passed,true)
+ const current=await e.read();assert.match(current.plot.outline.content[0].正文,/已经保存/);assert.notEqual(current.plot.outline.check.passed,true)
 })
 test('人工编辑大纲保存并留下项目事件，独立审核不要求恢复展示摘要',async t=>{
  const e=await setupModel(t),outline=outlineFixture('人工换成渡口')

@@ -19,7 +19,7 @@ test('人物图 model 只包含指定输入属性，可 JSON 往返且不共享�
   assert.doesNotMatch(model.toPrompt(), /【语言】|本次生成语言|English|简体中文/)
   assert.doesNotMatch(model.toPrompt(), /视觉风格/)
   assert.equal(model.character.name, '甲')
-  assert.equal(model.character.nationality, '中国')
+  assert.equal(model.character.nationality, '未说明')
   assert.equal(model.generationRules, input.generationRules)
   assert.deepEqual(JSON.parse(JSON.stringify(model)), JSON.parse(JSON.stringify(createCharacterImageModel(input))))
   assert.equal(characterImageModelToPrompt(JSON.parse(JSON.stringify(model))), characterImageModelToPrompt(model))
@@ -31,7 +31,7 @@ test('人物图 model 只包含指定输入属性，可 JSON 往返且不共享�
 
 test('人物资料写成一段自然语言外貌描述：不带字段名、JSON 或姓名，纳入服装但不混入道具或面向', () => {
   const prompt = characterImageModelToPrompt(createCharacterImageModel(input))
-  assert.match(prompt, /【人物资料】\n一位现代中国男，年龄23；身份是旅人；身高180cm；体型健壮；外貌特征：短发方脸；身穿旧外套。\n/)
+  assert.match(prompt, /【人物资料】\n一位现代男，年龄23；身份是旅人；身高180cm；体型健壮；外貌特征：短发方脸；身穿旧外套。\n/)
   // 字段清单和姓名会被图片模型画成角色设定卡上的文字。
   assert.doesNotMatch(prompt, /甲|"name"|nationality|姓名：|国籍：|服装：|\{"/)
   assert.doesNotMatch(prompt, /木剑|背面|道具：|面向：/)
@@ -70,7 +70,7 @@ test('缺少人物资料或规则正文时明确报错，沿用 look 资料解�
   assert.throws(() => createCharacterImageModel({ character: input.character, canvas: input.canvas }), /规则必须是字符串/)
   const prompt = characterImageModelToPrompt(createCharacterImageModel({ ...input, character: { look: '姓名：乙 性别：女 年龄：二十岁 服装：大纲未说明 面相：圆脸' } }))
   // look 中的资料同样转为描述；占位说明不发送。
-  assert.match(prompt, /【人物资料】\n一位中国女，年龄二十岁；外貌特征：圆脸。\n/)
+  assert.match(prompt, /【人物资料】\n一位女，年龄二十岁；外貌特征：圆脸。\n/)
   assert.doesNotMatch(prompt, /乙|大纲未说明/)
 })
 

@@ -13,7 +13,7 @@ async function setup(t, request) {
   t.after(() => runs.dispose()); return { ...e, runs }
 }
 test('下一集预览不写项目，确认后直接生成大纲并提取展示摘要，不自动回写剧本', async t => {
- const e=await setup(t,async message=>message.skill==='review'?reviewPass:message.skill==='episode'?'{"summary":"展示摘要"}':JSON.stringify({故事小段:'1. 旅人回到庭院，找到山脚地图。'}))
+ const e=await setup(t,async message=>message.skill==='review'?reviewPass:message.skill==='episode'?'{"summary":"展示摘要"}':JSON.stringify([{编号:1,时长秒:10,正文:'旅人回到庭院，找到山脚地图。'}]))
  await e.store.save(e.id,root=>({...root,episodes:[],scriptPendingDeletes:[]}))
  await e.store.save(e.id,{scriptPendingDeletes:[]})
  const preview=await e.runs.plan({projectId:e.id,episodeNumber:1,goal:{to:'story',durationSeconds:10}},sessionId)

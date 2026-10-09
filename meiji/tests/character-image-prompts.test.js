@@ -107,11 +107,11 @@ test('其他图片接口预览保留原来的上下文占位和结构', () => {
 test('卡片资料逐行保留字段名与姓名；发给图片模型的描述不含姓名，空字段省略，最新资料覆盖 look 旧值', () => {
   const item = { type: 'role', name: '新姓名', age: '24', look: '姓名：旧姓名 性别：女 年龄：二十岁 面相：圆脸' }
   const text = characterStillPrompt(item)
-  assert.equal(text, '国籍：中国\n姓名：新姓名\n性别：女\n年龄：24\n面相：圆脸')
+  assert.equal(text, '国籍：未说明\n姓名：新姓名\n性别：女\n年龄：24\n面相：圆脸')
   assert.doesNotMatch(text, /旧姓名|二十岁|身份：|身高：/)
   const project = view(item), set = builtinSkillSet(project.skills)
   const actual = characterImagePrompt(item, project, set)
-  assert.match(actual, /【人物资料】\n一位中国女，年龄24；外貌特征：圆脸。\n/)
+  assert.match(actual, /【人物资料】\n一位女，年龄24；外貌特征：圆脸。\n/)
   assert.doesNotMatch(actual, /新姓名|旧姓名|二十岁/)
   assert.equal(render(preview(project, set).user), actual)
 })
