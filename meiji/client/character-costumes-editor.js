@@ -2,12 +2,12 @@ import { element } from './panel-dom.js'
 
 export function costumesEditor(initial = []) {
   const section = element('section', '', 'character-costumes-editor'), rows = []
-  section.append(element('h4', '全部服装'), element('p', '每套服装独立保存，可填写适用场景。保存后分配固定 ID。', 'meta'))
+  section.append(element('h4', '全部服装'), element('p', '每套服装保存名称和描述。保存后分配固定 ID。', 'meta'))
   const list = element('div'), add = element('button', '＋ 添加服装'); add.type = 'button'
   const append = (item = {}) => {
     const row = element('fieldset'), inputs = {}
     row.append(element('legend', item.id ? `服装 ${item.id}` : '新服装'))
-    for (const [key, title] of [['name', '服装名称'], ['description', '服装描述'], ['context', '适用场景']]) {
+    for (const [key, title] of [['name', '服装名称'], ['description', '服装描述']]) {
       const label = element('label'), input = element(key === 'description' ? 'textarea' : 'input')
       input.value = item[key] || ''; input.maxLength = 10000; input.setAttribute('aria-label', title)
       label.append(element('span', title), input); row.append(label); inputs[key] = input

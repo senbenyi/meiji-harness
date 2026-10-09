@@ -16,7 +16,7 @@ import { filmSubmit } from '../server/flow/steps/shared/video-submit.js'
 import { storyboardReady } from '../server/flow/steps/shared/film-freshness.js'
 import { planRun } from '../shared/run-planner.js'
 
-const costumes = [{ id: 'daily', name: '日常', description: '蓝色短衣', context: '日间' }, { id: 'night', name: '夜行', description: '黑色长袍', context: '夜间' }]
+const costumes = [{ id: 'daily', name: '日常', description: '蓝色短衣' }, { id: 'night', name: '夜行', description: '黑色长袍' }]
 function dressed() {
   const p = episodeFixture(), shot = p.shots.items[0], card = p.plot.characters.items[0]
   card.costumes = structuredClone(costumes)

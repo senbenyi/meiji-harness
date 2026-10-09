@@ -14,7 +14,7 @@ import { mergeLibraryGroup } from '../shared/library-rules.js'
 import { characterImagesReady } from '../shared/character-costumes.js'
 import { planRun } from '../shared/run-planner.js'
 import { runOperation } from './fixtures/operation.js'
-const costumes=[{id:'daily',name:'日常',description:'蓝色短衣配黑鞋',context:'日间'},{id:'night',name:'夜行',description:'黑色长袍配布靴',context:'夜间'}]
+const costumes=[{id:'daily',name:'日常',description:'蓝色短衣配黑鞋'},{id:'night',name:'夜行',description:'黑色长袍配布靴'}]
 const backend={baseUrl:'https://gateway.test/v1',apiKey:'test-key',model:'elysium-image'}
 async function fixture(t) {
  const e=await setupModel(t),store=scopeProjects(e.store,e.episodeId)
@@ -71,7 +71,7 @@ test('服装图缺失或描述改变时，生成模式不能因主图已有而�
 })
 test('库资料更新重建生图描述并同步全部剧集，不保留旧look',async t=>{
  const e=await fixture(t),root=await e.store.read(e.id),entry=root.library.characters[0]
- await runOperation({projectId:e.id,action:'entry-edit',libraryKind:'characters',libraryId:entry.id,variantId:entry.defaultVariantId,fields:{age:'四十岁',height:'一米九',features:'长脸',costumes:[...costumes,{id:'ceremony',name:'礼服',description:'白色礼服',context:'典礼'}]}},{home:e.home})
+ await runOperation({projectId:e.id,action:'entry-edit',libraryKind:'characters',libraryId:entry.id,variantId:entry.defaultVariantId,fields:{age:'四十岁',height:'一米九',features:'长脸',costumes:[...costumes,{id:'ceremony',name:'礼服',description:'白色礼服'}]}},{home:e.home})
  const after=await e.store.read(e.id)
  for(const episode of after.episodes){const c=episode.plot.characters.items[0];assert.equal(c.age,'四十岁');assert.match(c.look,/四十岁/);assert.match(c.look,/一米九/);assert.equal(c.costumes.length,3)}
 })
