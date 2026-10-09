@@ -27,7 +27,7 @@ function serverFiles(dir = 'server') {
 test('B4 服务端不直接修改内容节点状态，只经任务 model 与数据 model 转换', () => {
   // 任意 `.status =` 赋值（步骤状态 StepStatus 除外）或对象字面量 `status: GenerationStatus.` 都视为直接修改。
   // 数据 model 构造节点并维护基础状态；内容状态转换集中在任务 model。
-  const owners = new Set(['server/models/data/drama-model.js', 'server/models/tasks/content-state.js'])
+  const owners = new Set(['server/models/data/content-node.js', 'server/models/data/card-model.js', 'server/models/data/drama-model.js', 'server/models/tasks/content-state.js'])
   const offenders = serverFiles().filter(file => !owners.has(file)).flatMap(file => readFileSync(join(root, file), 'utf8').split('\n').map((line, index) => ({ file, line, index }))
     .filter(({ line }) => (/\.status\s*=(?!=)/.test(line) && !/StepStatus/.test(line)) || /\bstatus:\s*GenerationStatus\./.test(line))
     .map(({ file, index }) => `${relative('.', file)}:${index + 1}`))

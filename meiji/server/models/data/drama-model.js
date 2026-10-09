@@ -1,33 +1,15 @@
 // Shared business model. Persisted data and API responses use this schema only.
+// 剧情、镜头和卡片的构造在同目录的独立文件；这里汇总剧集并保持原导出。
+import { GenerationStatus, statusLabels, emptyCheck, emptyReview, node } from './content-node.js'
+import { plotModel } from './plot-model.js'
+import { shotModel, shotsModel } from './shot-model.js'
+import { cardModel } from './card-model.js'
+
+export { GenerationStatus, statusLabels, emptyCheck, emptyReview, node, plotModel, shotModel, shotsModel, cardModel }
 export const schemaVersion = 3
-// FAILED includes rejected checks and execution errors.
-export const GenerationStatus = Object.freeze({
-  NOT_GENERATED: 'not-generated',
-  GENERATING: 'generating',
-  PAUSED: 'paused',
-  FAILED: 'failed',
-  PASSED: 'passed',
-})
-export const statusLabels = Object.freeze({
-  [GenerationStatus.NOT_GENERATED]: '未生成',
-  [GenerationStatus.GENERATING]: '生成中',
-  [GenerationStatus.PAUSED]: '暂停',
-  [GenerationStatus.FAILED]: '未通过',
-  [GenerationStatus.PASSED]: '已通过',
-})
-export const emptyCheck = () => ({ passed: null, failures: [], revision: null })
-export const emptyReview = () => ({ text: '', revision: 0, history: [] })
-export function node(id, content = null) {
-  return { id, revision: 0, status: GenerationStatus.NOT_GENERATED, content, check: emptyCheck(), review: emptyReview(), draft: { text: null, revision: 0, baseRevision: null }, operation: null, error: null }
-}
-export function shotModel(fields) {
-  const { id, text = '', ...content } = fields
-  return { ...node(id, text), ...content, seconds: node(`seconds:${id}`), storyboard: node(`storyboard:${id}`), video: node(`film:${id}`), tailFrame: node(`tailFrame:${id}`) }
-}
 export function episodeModel(id, fields) {
   return { id, ...fields, supplementalSkills: {}, status: GenerationStatus.NOT_GENERATED, revision: 0, summary: node('summary', fields.summary),
-    plot: { ...node('plot'), outline: node('outline'), characters: { ...node('characters'), items: [] }, scenes: { ...node('scenes'), items: [] }, props: { ...node('props'), items: [] } },
-    shots: { ...node('shots'), seconds: node('seconds'), items: [] }, assembly: node('assembly'), pendingImages: {} }
+    plot: plotModel(), shots: shotsModel(), assembly: node('assembly'), pendingImages: {} }
 }
 export function targetNode(project, key) {
   const [kind, id, slot] = key.split(':')
@@ -154,12 +136,6 @@ export function assertDrama(project) {
 
 export function shotMap(project, kind) { return Object.fromEntries(shotResults(project, kind).map(({ id, ...content }) => [id, content])) }
 export function pictureOf(item) { return item?.type === 'role' || item?.type === 'scene' || item?.type === 'prop' ? item.image?.content || {} : item || {} }
-export function cardModel(fields) {
-  const { id, image, localPath, assetId, assetCategory, ...data } = fields
-  const media = image || node(`image:${id}`, localPath || assetId ? { localPath, assetId, assetCategory } : null)
-  if (media.content?.localPath || media.content?.assetId) { media.status = GenerationStatus.PASSED; media.check.passed = true }
-  return { ...node(id), ...data, image: media, parts: data.parts || Object.fromEntries(['clothes', 'props', 'hairstyles'].map(slot => [slot, node(`image:${id}:${slot}`)])) }
-}
 export function plotPatch(project, values) { return { plot: { ...project.plot, ...values } } }
 export function contentNode(previous, content, check = emptyCheck()) { return setContent(structuredClone(previous), content, check) }
 export function modelPatch(project, changes) {
