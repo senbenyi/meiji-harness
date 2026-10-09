@@ -1,0 +1,20 @@
+{
+  "mark": "AI输出结构入口；只定义模型返回内容，不包含任务状态、程序检查或非AI产物。",
+  "输出索引": "out_puts/index.json",
+  "输入索引": "in_puts/index.json",
+  "统一审核": "out_puts/review.json",
+  "节点输出": {
+    "character-image": "out_puts/character-image-generate.json",
+    "costume-image": "out_puts/costume-image-generate.json",
+    "episode-characters": "out_puts/episode-characters-generate.json",
+    "episode-summary": "out_puts/episode-summary-generate.json",
+    "outline": "out_puts/outline-generate.json",
+    "project-characters": "out_puts/project-characters-generate.json",
+    "project-summary": "out_puts/project-summary-generate.json",
+    "script": "out_puts/script-generate.json",
+    "seconds": "out_puts/seconds-generate.json",
+    "shots": "out_puts/shots-generate.json",
+    "storyboard": "out_puts/storyboard-generate.json",
+    "video": "out_puts/video-generate.json"
+  }
+}
