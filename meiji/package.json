@@ -10,7 +10,7 @@
     }
   },
   "scripts": {
-    "test": "MEIJI_MODELS_LOCAL=tests/fixtures/models.local.json node --test tests/*.test.js"
+    "test": "set -- tests/*.test.js; if [ ! -f \"$1\" ]; then echo \"尚无阶段测试，未验证\" >&2; exit 1; fi; node --test \"$@\""
   },
   "exports": {
     ".": "./index.js",

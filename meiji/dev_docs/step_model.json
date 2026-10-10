@@ -171,6 +171,16 @@
       "值": "override",
       "名称": "人工放行",
       "说明": "程序前置检查通过后执行；人工放行只绕过 AI 审核，不绕过结构校验"
+    },
+    {
+      "值": "impact",
+      "名称": "计算影响",
+      "说明": "资料删除任务：按引用关系算出需标为过期的节点，记录在步骤结果中，不修改项目"
+    },
+    {
+      "值": "apply",
+      "名称": "写入项目",
+      "说明": "资料删除任务：在项目 Model 中删除资料，并把计算出的受影响节点状态改为 expired、写入过期原因，一次提交"
     }
   ],
   "task_business_type": [
@@ -249,6 +259,18 @@
       "值": "assembly",
       "名称": "合片",
       "目标": "episode"
+    },
+    {
+      "值": "character-delete",
+      "名称": "删除角色",
+      "目标": "character",
+      "说明": "不是节点任务；步骤为 precheck → impact → apply。角色被项目内容引用（本集资产、镜头出镜角色、对白说话人）或素材库引用时 precheck 失败，不能删除；被引用的角色只能删除其服装或重新生成图片"
+    },
+    {
+      "值": "costume-delete",
+      "名称": "删除服装",
+      "目标": "costume",
+      "说明": "不是节点任务；步骤为 precheck → impact → apply。素材库仍有引用、或该服装是角色的默认服装时 precheck 失败（需先改默认服装）；apply 把镜头出镜角色中引用该服装的服装id 换成角色的默认服装id，并把这些镜头视频标为过期"
     }
   ],
   "id_rule": "所有 id 为带类型前缀的 uuid，格式 前缀_uuid，只用于引用和定位，不展示、不写进提示词。前缀按对象首字母，冲突时用两个字母。id 在创建对象时一次性带前缀生成并原样存储，之后不拼接、不截取、不按前缀判断类型；前缀只为让人一眼区分对象类型，类型以字段和 business_type 为准。展示与提示词使用 序号（数字，表示顺序）和 编号（文本，供人和 AI 引用，如 C01、S01）。",
@@ -284,6 +306,10 @@
     {
       "对象": "步骤",
       "前缀": "st_"
+    },
+    {
+      "对象": "规则",
+      "前缀": "r_"
     }
   ],
   "target_id_rule": "一个节点由 business_type + target_id 唯一确定。target_id 必填，存目标对象的 id：project 存项目 id（p_），episode 存剧集 id（e_），character 存角色 id（c_），costume 存服装 id（co_），shot 存镜头 id（s_）。",
@@ -341,6 +367,11 @@
       "值": "override",
       "名称": "人工放行",
       "说明": "创建 precheck → override 新任务；同步保存节点 generated 与空原因，旧任务保持原终态"
+    },
+    {
+      "值": "delete",
+      "名称": "删除资料",
+      "说明": "创建删除任务：未被引用的角色可删除；被引用的角色不能删除；服装可删除，引用该服装的镜头视频标为过期"
     }
   ],
   "step_status": [
@@ -428,7 +459,6 @@
     "group_seq": 1,
     "task_status": "queued",
     "source": "panel",
-    "requirements": "",
     "queue_order": 0,
     "end_reason": "",
     "created_at": "",
@@ -446,7 +476,6 @@
     "episode_id": "e_uuid",
     "group_type": "episode-film",
     "source": "panel",
-    "requirements": "",
     "shot_ids": [
       "s_uuid"
     ],
@@ -471,5 +500,6 @@
     "ended_at": ""
   },
   "precheck_rule": "每个任务第一步为程序 precheck：目标归属、原状态适用性、必需输入内容及 generated 状态、实际使用素材与参数；人工任务同样检查。失败时任务 failed，原内容保留，余下步骤作废，不调用 AI；具体业务条件在后续开发计划依据实际入口细化。",
-  "task_terminal_rule": "任务停止即终态；重新生成、继续、人工编辑保存、人工放行均创建新任务，继续组合创建新 group。"
+  "task_terminal_rule": "任务停止即终态；重新生成、继续、人工编辑保存、人工放行均创建新任务，继续组合创建新 group。",
+  "project_model_rule": "每个项目只有一个项目 Model，作为节点内容、状态与原因的唯一事实源：所有修改（任务提交、人工编辑、资料删除）都经 Model 写入，写入后保存到本地项目 JSON；启动时从 JSON 读取恢复 Model。面板与 Model 响应式同步，节点状态与原因直接读 Model；任务历史与步骤按 task_id 绑定在任务存储中，不放进项目 Model。"
 }
