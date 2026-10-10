@@ -193,7 +193,7 @@
       "值": "project-characters",
       "名称": "剧本重要角色",
       "目标": "project",
-      "说明": "通过后为新增角色、服装自动创建图片任务"
+      "说明": "通过后只为本次新增且图片仍为空的角色和服装自动创建图片任务"
     },
     {
       "值": "character-image",
@@ -235,7 +235,7 @@
       "值": "episode-characters",
       "名称": "本集资产",
       "目标": "episode",
-      "说明": "通过后为新增角色、服装自动创建图片任务"
+      "说明": "通过后只为本次出镜且图片仍为空的角色及其服装自动创建图片任务"
     },
     {
       "值": "shots",
@@ -272,13 +272,13 @@
       "值": "character-delete",
       "名称": "删除角色",
       "目标": "character",
-      "说明": "不是节点任务；步骤为 precheck → impact → apply。角色被项目内容引用（本集资产、镜头出镜角色、对白说话人）或素材库引用时 precheck 失败，不能删除；被引用的角色只能删除其服装或重新生成图片"
+      "说明": "不是节点任务；步骤为 precheck → impact → apply。角色被本集资产、镜头出镜、对白说话人、节点规则或素材库引用时 precheck 失败，不能删除"
     },
     {
       "值": "costume-delete",
       "名称": "删除服装",
       "目标": "costume",
-      "说明": "不是节点任务；步骤为 precheck → impact → apply。素材库仍有引用、或该服装是角色的默认服装时 precheck 失败（需先改默认服装）；apply 把镜头出镜角色中引用该服装的服装id 换成角色的默认服装id，并把这些镜头视频标为过期"
+      "说明": "不是节点任务；步骤为 precheck → impact → apply。素材库仍有引用、该服装是默认服装、或被节点规则引用时 precheck 失败。apply 把出镜引用换成默认服装id，相关视频标为 expired，原因写「引用服装已删除」，并按过期链继续传递"
     }
   ],
   "id_rule": "所有 id 为带类型前缀的 uuid，格式 前缀_uuid，只用于引用和定位，不展示、不写进提示词。前缀按对象首字母，冲突时用两个字母。id 在创建对象时一次性带前缀生成并原样存储，之后不拼接、不截取、不按前缀判断类型；前缀只为让人一眼区分对象类型，类型以字段和 business_type 为准。展示与提示词使用 序号（数字，表示顺序）和 编号（文本，供人和 AI 引用，如 C01、S01）。角色库、镜头表重生成时，同一对象保留 id，新对象创建新 id；不得无声删除已引用对象，匹配和实际移除规则在开发阶段 1 冻结。",
@@ -341,10 +341,20 @@
         "tail"
       ],
       "说明": "按镜头表顺序逐镜：每秒分镜生成与审核、文本提示词、视频、尾帧；可选shot_id限定当前剧集单镜，opinion保存到组和任务；视频记录镜头实际时长秒"
+    },
+    {
+      "值": "single",
+      "名称": "单任务",
+      "说明": "一次独立操作默认建组。可以没有 episode_id，shot_ids 为空"
+    },
+    {
+      "值": "workflow",
+      "名称": "派生流程",
+      "说明": "剧本生成、角色提取、本集资产创建此组；派生的摘要或图片任务按 group_seq 追加到同一组"
     }
   ],
   "task_group_rule": "继续创建新 group 和新任务，continued_from_group_id 关联旧组，group_seq 从1开始。按原范围当前节点状态及产出契约跳过有效 generated 节点，为其余节点按原业务顺序创建新任务。旧组、旧任务和旧步骤不追加、不恢复。全部有效时不创建空组。任一任务失败、未通过或取消，后续未执行任务作废，节点恢复 previous_node_state。创建或继续组时，幂等请求返回原组；其他请求先检查拟创建任务节点是否已有 queued/running 任务，有重叠则整组拒绝并返回冲突任务列表，不创建组或部分任务、不改节点状态、不挪用旧任务。检查与建组一致执行，用户处理后重新提交。",
-  "task_group_status_rule": "只看本组任务：有 running 则生成中，否则有 queued 则排队中，非空且全部 completed 则已通过；已停止时按 group_seq 取导致组停止的首个 rejected、failed 或 cancelled 任务及其 end_reason，忽略连带 superseded。后来新组、人工放行或编辑不改旧组结果。",
+  "task_group_status_rule": "只看本组任务，不存储。按 group_seq 排序后：先取首个 rejected、failed 或 cancelled 及其 end_reason；否则有 running 为生成中；否则有 queued 为排队中；非空且全部 completed 为已通过；其余若有 superseded 则显示已作废。后来新组、人工放行或编辑不改旧组结果。",
   "computed_fields": [
     {
       "位置": "task_group.status、task_group.reason",
@@ -444,7 +454,7 @@
     {
       "值": "superseded",
       "名称": "已作废",
-      "说明": "组合任务中前面的任务失败、未通过或取消后，尚未执行的任务"
+      "说明": "组合前序停止后尚未执行的任务；服务重启时所有尚未完成的排队与进行中任务"
     }
   ],
   "task_source": [
@@ -468,7 +478,8 @@
     "group_seq": 1,
     "task_status": "queued",
     "source": "panel",
-    "queue_order": 0,
+    "name": "第 1 集 · 生成剧情",
+    "queue_order": 1,
     "end_reason": "",
     "created_at": "",
     "started_at": "",
@@ -483,6 +494,7 @@
     "id": "tg_uuid",
     "project_id": "p_uuid",
     "episode_id": "e_uuid",
+    "name": "第 1 集成片",
     "group_type": "episode-film",
     "source": "panel",
     "shot_ids": [
@@ -498,6 +510,7 @@
   "step": {
     "id": "st_uuid",
     "task_id": "t_uuid",
+    "name": "生成剧情",
     "seq": 1,
     "kind": "generate",
     "round": 1,
@@ -508,7 +521,7 @@
     "started_at": "",
     "ended_at": ""
   },
-  "precheck_rule": "每个任务第一步为程序 precheck：目标归属、原状态适用性、必需输入内容及 generated 状态、实际使用素材与参数；人工任务同样检查。失败时任务 failed，原内容保留，余下步骤作废，不调用 AI；具体业务条件在后续开发计划依据实际入口细化。",
+  "precheck_rule": "每个任务第一步为程序 precheck：目标归属、原状态适用性、必需输入内容及 generated 状态、实际使用素材与参数。人工放行在此检查未通过稿。人工编辑的 precheck 直接通过，结构在随后的 manual_edit 步校验，不合法则该步和任务 failed，旧稿保留。删除在 precheck 检查引用。失败时不调用 AI，余下步骤作废。",
   "task_terminal_rule": "任务停止即终态；重新生成、继续、人工编辑保存、人工放行均创建新任务，继续组合创建新 group。",
   "project_model_rule": "每个项目只有一个项目 Model，作为节点内容、状态与原因的唯一事实源：所有修改（任务提交、人工编辑、资料删除）都经 Model 写入，写入后保存到本地项目 JSON；启动时从 JSON 读取恢复 Model。面板与 Model 响应式同步，节点状态与原因直接读 Model；任务历史与步骤按 task_id 绑定在任务存储中，不放进项目 Model。"
 }

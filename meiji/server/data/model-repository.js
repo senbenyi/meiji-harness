@@ -1,10 +1,8 @@
 import { EventEmitter } from "node:events";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
+import { SQLiteStore } from "./sqlite-store.js";
 import {
   mkdir,
-  open,
-  readFile,
-  rename,
   lstat,
   realpath,
   readdir,
@@ -27,7 +25,6 @@ import {
 
 const files = ["project", "tasks", "steps", "groups", "runtime"];
 const hash = (value) => createHash("sha256").update(value).digest("hex");
-const encode = (value) => JSON.stringify(value, null, 2) + "\n";
 const canonical = (value) =>
   JSON.stringify(value, (_, v) =>
     v && typeof v === "object" && !Array.isArray(v)
@@ -72,7 +69,7 @@ export function validateSnapshot(snapshot) {
     );
     if (t.project_id !== snapshot.project.id)
       invalid("task.project_id", "跨项目");
-    if (t.group_id && !groups.has(t.group_id))
+    if (!t.group_id || !groups.has(t.group_id))
       invalid("task.group_id", "组合不存在");
   }
   const sequences = new Set();
@@ -218,24 +215,6 @@ async function ordinary(path, directory = false) {
   )
     fail("INVALID_STORAGE", "存储路径不是普通文件或目录");
 }
-async function durableWrite(path, data) {
-  const handle = await open(path, "wx", 0o600);
-  try {
-    await handle.writeFile(data);
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
-}
-async function syncDirectory(path) {
-  const handle = await open(path, "r");
-  try {
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
-}
-
 export class ModelRepository extends EventEmitter {
   #root;
   #models = new Map();
@@ -243,7 +222,9 @@ export class ModelRepository extends EventEmitter {
   #locks = new Map();
   #hook;
   #ready;
-  constructor(root, { checkpoint = async () => {} } = {}) {
+  #store;
+  #closed = false;
+  constructor(root, { checkpoint = () => {}, databasePath = join(root, "meiji.sqlite") } = {}) {
     super();
     this.#root = resolve(root);
     this.#hook = checkpoint;
@@ -251,11 +232,23 @@ export class ModelRepository extends EventEmitter {
       await mkdir(this.#root, { recursive: true });
       await ordinary(this.#root, true);
       this.#root = await realpath(this.#root);
+      try { await lstat(databasePath); }
+      catch (error) {
+        if (error.code !== "ENOENT") throw error;
+        for (const name of await readdir(this.#root)) {
+          if (!/^p_[0-9a-f-]{36}$/.test(name)) continue;
+          try { await lstat(join(this.#root, name, "CURRENT")); }
+          catch (cause) { if (cause.code === "ENOENT") continue; throw cause; }
+          fail("UNSUPPORTED_STORAGE", "检测到旧分代数据，请先清理旧项目后启用 SQLite");
+        }
+      }
+      this.#store = new SQLiteStore(databasePath);
     })();
   }
   async #serial(id, work) {
     assertId(id, "project_id");
     await this.#ready;
+    if (this.#closed) fail("STORAGE_CLOSED", "数据库已关闭", 503);
     const previous = this.#locks.get(id) || Promise.resolve();
     const running = previous.catch(() => {}).then(work);
     this.#locks.set(id, running);
@@ -269,6 +262,7 @@ export class ModelRepository extends EventEmitter {
     validateProject(project);
     return this.#serial(project.id, async () => {
       const dir = join(this.#root, project.id);
+      if (this.#store.read(project.id)) fail("PROJECT_EXISTS", "项目已存在", 409);
       try {
         await mkdir(dir);
       } catch (error) {
@@ -288,7 +282,7 @@ export class ModelRepository extends EventEmitter {
         },
       };
       try {
-        await this.#write(dir, snapshot);
+        this.#store.write(validateSnapshot(snapshot), null, this.#hook);
         return this.#install(snapshot);
       } catch (error) {
         if (error.committed) {
@@ -318,36 +312,16 @@ export class ModelRepository extends EventEmitter {
   async list() {
     await this.#ready;
     const rows = [];
+    const ids = new Set(this.#store.list());
     for (const name of await readdir(this.#root)) {
-      if (name.endsWith(".json")) {
-        rows.push({
-          id: name.slice(0, -5),
-          名称: name.slice(0, -5),
-          unsupported: true,
-        });
-        continue;
-      }
-      if (!/^[a-z]+_[0-9a-f-]{36}$/.test(name)) continue;
-      try {
-        const model = await this.open(name);
-        const p = model.read().project;
-        rows.push({
-          id: model.id,
-          名称: p.名称,
-          画幅: p.画幅,
-          集数: p.剧集.length,
-          已完成:
-            p.剧集.length > 0 &&
-            p.剧集.every((e) => e.合片.状态 === "generated"),
-        });
-      } catch (error) {
-        rows.push({
-          id: name,
-          名称: name,
-          unsupported: true,
-          error: error.message,
-        });
-      }
+      if (name.endsWith(".json")) rows.push({ id: name.slice(0, -5), 名称: name.slice(0, -5), unsupported: true });
+      else if (/^[a-z]+_[0-9a-f-]{36}$/.test(name) && !ids.has(name))
+        rows.push({ id: name, 名称: name, unsupported: true, error: "项目未入库" });
+    }
+    for (const id of ids) {
+      const model = await this.open(id), p = model.read().project;
+      rows.push({ id, 名称: p.名称, 画幅: p.画幅, 集数: p.剧集.length,
+        已完成: p.剧集.length > 0 && p.剧集.every(e => e.合片.状态 === "generated") });
     }
     return rows;
   }
@@ -360,7 +334,8 @@ export class ModelRepository extends EventEmitter {
           .tasks.some((t) => ["queued", "running"].includes(t.task_status))
       )
         fail("TASK_CONFLICT", "项目仍有未结束任务", 409);
-      await rm(join(this.#root, id), { recursive: true });
+      this.#store.remove(id, model.read().runtime.revision);
+      await rm(join(this.#root, id), { recursive: true, force: true });
       this.#models.delete(id);
       this.#snapshots.delete(id);
       return { deleted: true };
@@ -396,90 +371,22 @@ export class ModelRepository extends EventEmitter {
     return model;
   }
   async #read(id) {
-    const dir = join(this.#root, id);
-    await ordinary(dir, true);
-    let pointer;
-    try {
-      await ordinary(join(dir, "CURRENT"));
-      pointer = JSON.parse(await readFile(join(dir, "CURRENT"), "utf8"));
-    } catch (error) {
-      if (error.code === "ENOENT")
-        fail("UNSUPPORTED_PROJECT", "缺少新版本 CURRENT，旧格式项目不受支持");
-      throw error;
-    }
-    assertFields(
-      pointer,
-      ["version", "generation", "revision", "hashes"],
-      "CURRENT",
-    );
-    if (pointer.version !== 1 || !/^g-[a-f0-9-]{36}$/.test(pointer.generation))
-      fail("INVALID_STORAGE", "存储版本或数据代无效");
-    assertNumber(pointer.revision, "CURRENT.revision", 1);
-    assertFields(pointer.hashes, files, "CURRENT.hashes");
-    const generation = join(dir, pointer.generation);
-    await ordinary(generation, true);
-    const snapshot = {};
-    for (const name of files) {
-      const path = join(generation, `${name}.json`);
-      await ordinary(path);
-      const bytes = await readFile(path);
-      if (hash(bytes) !== pointer.hashes[name])
-        fail("CORRUPT_STORAGE", `数据损坏：${name}`);
-      snapshot[name] = JSON.parse(bytes.toString());
-    }
-    validateSnapshot(snapshot);
-    if (
-      snapshot.project.id !== id ||
-      snapshot.runtime.revision !== pointer.revision
-    )
-      fail("CORRUPT_STORAGE", "项目身份或版本不匹配");
-    // 中断前未发布的数据代不会恢复；保留已发布的旧代供排查。
-    for (const name of await readdir(dir))
-      if (name.startsWith(".CURRENT-"))
-        await rm(join(dir, name), { force: true });
-    return snapshot;
-  }
-  async #write(dir, snapshot) {
-    validateSnapshot(snapshot);
-    const name = `g-${randomUUID()}`,
-      generation = join(dir, name),
-      pointerTemp = join(dir, `.CURRENT-${randomUUID()}`);
-    await ordinary(dir, true);
-    await mkdir(generation);
-    let committed = false;
-    try {
-      const hashes = {};
-      for (const key of files) {
-        const data = encode(snapshot[key]);
-        await durableWrite(join(generation, `${key}.json`), data);
-        hashes[key] = hash(data);
-        await this.#hook(`after-${key}`, snapshot);
+    const snapshot = this.#store.read(id);
+    if (!snapshot) {
+      try { await ordinary(join(this.#root, id), true); }
+      catch (error) {
+        if (error.code !== "ENOENT") throw error;
+        fail("PROJECT_NOT_FOUND", "项目不存在", 404);
       }
-      await syncDirectory(generation);
-      const pointer = {
-        version: 1,
-        generation: name,
-        revision: snapshot.runtime.revision,
-        hashes,
-      };
-      await durableWrite(pointerTemp, encode(pointer));
-      await this.#hook("before-current", snapshot);
-      await rename(pointerTemp, join(dir, "CURRENT"));
-      committed = true;
-      await syncDirectory(dir);
-      await this.#hook("after-current", snapshot);
-    } catch (error) {
-      if (!committed) {
-        await rm(generation, { recursive: true, force: true });
-        await rm(pointerTemp, { force: true });
-      } else
-        Object.assign(error, {
-          code: "COMMIT_ACCEPTED",
-          committed: true,
-          revision: snapshot.runtime.revision,
-        });
-      throw error;
+      fail("UNSUPPORTED_PROJECT", "项目未入库，旧存储格式不受支持");
     }
+    return validateSnapshot(snapshot);
+  }
+  async close() {
+    await this.#ready;
+    this.#closed = true;
+    await Promise.allSettled([...this.#locks.values()]);
+    this.#store.close();
   }
   async #commit(id, key, input, mutate) {
     if (typeof key !== "string" || !key || key.length > 128)
@@ -510,7 +417,7 @@ export class ModelRepository extends EventEmitter {
       validateSnapshot(next);
       checkHistory(before, next);
       try {
-        await this.#write(join(this.#root, id), next);
+        this.#store.write(next, before, this.#hook);
       } catch (error) {
         if (!error.committed) throw error;
         const saved = await this.#read(id);

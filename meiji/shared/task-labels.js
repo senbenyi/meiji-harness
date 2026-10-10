@@ -58,7 +58,6 @@ export function groupStatus(tasks) {
 }
 export function historyGroups(snapshot) {
   const rows = snapshot.groups.map(group => ({ group, tasks: snapshot.tasks.filter(t=>t.group_id === group.id).sort((a,b)=>a.group_seq-b.group_seq) }));
-  for (const t of snapshot.tasks.filter(t=>!t.group_id)) rows.push({group:{id:`single:${t.id}`,group_type:"single",created_at:t.created_at,source:t.source,virtual:true},tasks:[t]});
   return rows.map(row=>({...row,...groupStatus(row.tasks),name:groupName(row.group,row.tasks,snapshot.project)}))
     .sort((a,b)=>Math.max(0,...b.tasks.map(t=>t.queue_order))-Math.max(0,...a.tasks.map(t=>t.queue_order)));
 }

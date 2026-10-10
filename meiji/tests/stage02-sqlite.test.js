@@ -1,0 +1,67 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { DatabaseSync } from "node:sqlite";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { ModelRepository } from "../server/data/model-repository.js";
+import { TaskService } from "../server/flow/tasks/task-service.js";
+import { projectFixture } from "./fixtures/project.js";
+
+async function fixture(work) {
+  const home = await mkdtemp(join(tmpdir(), "meiji-sqlite-"));
+  try { await work(home); } finally { await rm(home, { recursive: true, force: true }); }
+}
+test("SQLite：七表、外键、组内顺序与项目运行唯一约束", () => fixture(async root => {
+  const repo = new ModelRepository(root), p = projectFixture(), q = projectFixture();
+  const model = await repo.create(p); await repo.create(q);
+  const service = new TaskService({ repository: repo, execute: async () => { throw new Error("不应执行"); } });
+  await model.update("pause", {}, s => { s.runtime.queue_stopped = true; });
+  const result = await service.command({ type: "submit-group", project_id: p.id, request_id: "group", group_type: "episode-film", episode_id: p.剧集[0].id });
+  const db = new DatabaseSync(join(root, "meiji.sqlite")); db.exec("PRAGMA foreign_keys=ON");
+  try {
+    assert.deepEqual(db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map(r => r.name), ["command_requests", "notification_outbox", "projects", "schema_migrations", "task_groups", "task_steps", "tasks"]);
+    const tasks = db.prepare("SELECT * FROM tasks ORDER BY group_seq").all(), a = tasks[0], b = tasks[1];
+    assert.equal(a.group_id, result.group_id);
+    assert.throws(() => db.prepare("UPDATE tasks SET group_id='missing' WHERE id=?").run(a.id), /FOREIGN KEY/);
+    assert.throws(() => db.prepare("UPDATE tasks SET project_id=? WHERE id=?").run(q.id, a.id), /FOREIGN KEY/);
+    assert.throws(() => db.prepare("UPDATE tasks SET group_id=NULL WHERE id=?").run(a.id), /NOT NULL/);
+    assert.throws(() => db.prepare("UPDATE tasks SET group_seq=? WHERE id=?").run(a.group_seq, b.id), /UNIQUE/);
+    db.prepare("UPDATE tasks SET task_status='running' WHERE id=?").run(a.id);
+    assert.throws(() => db.prepare("UPDATE tasks SET task_status='running' WHERE id=?").run(b.id), /UNIQUE/);
+    const steps = db.prepare("SELECT * FROM task_steps WHERE task_id=? ORDER BY seq").all(a.id);
+    assert.throws(() => db.prepare("UPDATE task_steps SET task_id='missing' WHERE id=?").run(steps[0].id), /FOREIGN KEY/);
+    assert.throws(() => db.prepare("UPDATE task_steps SET seq=? WHERE id=?").run(steps[0].seq, steps[1].id), /UNIQUE/);
+    assert.equal(db.prepare("PRAGMA integrity_check").get().integrity_check, "ok");
+    assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+  } finally { db.close(); await repo.close(); }
+}));
+
+test("SQLite：旧连接不能覆盖新版本，失败不发布缓存或事件", () => fixture(async root => {
+  const a = new ModelRepository(root), p = projectFixture(), first = await a.create(p), b = new ModelRepository(root), second = await b.open(p.id);
+  try {
+    let events = 0; b.on("change", () => events++);
+    await first.update("first", {}, s => { s.project.名称 = "新版本"; });
+    await assert.rejects(second.update("stale", {}, s => { s.project.名称 = "旧连接覆盖"; }), { code: "REVISION_CONFLICT" });
+    assert.equal(events, 0);
+    const c = new ModelRepository(root);
+    try { assert.equal((await c.open(p.id)).read().project.名称, "新版本"); } finally { await c.close(); }
+  } finally { await a.close(); await b.close(); }
+}));
+
+for (const point of ["after-tasks", "after-commit"]) test(`SQLite：真实进程在 ${point} 退出后事务完整`, () => fixture(async root => {
+  const repo = new ModelRepository(root), p = projectFixture(); await repo.create(p); await repo.close();
+  const moduleUrl = new URL("../server/data/model-repository.js", import.meta.url).href;
+  const script = `import {ModelRepository} from ${JSON.stringify(moduleUrl)}; const [root,id,point]=process.argv.slice(1); const repo=new ModelRepository(root,{checkpoint(name){if(name===point)process.exit(73)}});const model=await repo.open(id);await model.update('crash',{},s=>{s.project.名称='进程提交'; return {saved:true}});`;
+  const child = spawnSync(process.execPath, ["--input-type=module", "-e", script, root, p.id, point], { encoding: "utf8" });
+  assert.equal(child.status, 73, child.stderr);
+  const restored = new ModelRepository(root);
+  try {
+    const model = await restored.open(p.id), s = model.read();
+    assert.equal(s.project.名称, point === "after-commit" ? "进程提交" : p.名称);
+    assert.equal(s.runtime.requests.length, point === "after-commit" ? 1 : 0);
+    if (point === "after-commit") assert.equal((await model.update("crash", {}, () => { throw Error("重复执行"); })).saved, true);
+  } finally { await restored.close(); }
+}));
+

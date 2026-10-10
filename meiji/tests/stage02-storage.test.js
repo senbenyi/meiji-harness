@@ -1,6 +1,7 @@
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, readFile, mkdir, symlink } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
@@ -105,11 +106,10 @@ test("S2-01/02 项目、独立 task/step/group 重载一致，查询按顺序，
     assert.deepEqual(restored.read(), model.read());
     assert.ok(!("steps" in restored.read().tasks[0]));
     assert.ok(!("status" in restored.read().groups[0]));
-    const current = JSON.parse(
-      await readFile(join(root, p.id, "CURRENT"), "utf8"),
-    );
-    assert.ok(current.generation);
-    assert.equal(current.revision, 2);
+    const db = new DatabaseSync(join(root, "meiji.sqlite"));
+    assert.equal(db.prepare("SELECT revision FROM projects WHERE id=?").get(p.id).revision, 2);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM task_groups").get().n, 1);
+    db.close();
     const view = restored.read();
     view.project.名称 = "外部修改";
     assert.equal(restored.read().project.名称, "存储测试");
@@ -212,6 +212,8 @@ test("S2 历史终态 task/step/group 不可改写或删除", () =>
       }),
       st = { ...step(t), step_status: "done" };
     await model.update("history", {}, (s) => {
+      t.group_id = createId("group"); t.group_seq = 1;
+      s.groups = [{ id: t.group_id, project_id: p.id, episode_id: t.episode_id, group_type: "single", source: t.source, shot_ids: [], action: t.action, continued_from_group_id: null, opinion: "", created_at: t.created_at }];
       s.tasks = [t];
       s.steps = [st];
       return {};
@@ -227,6 +229,7 @@ test("S2 历史终态 task/step/group 不可改写或删除", () =>
       model.update("erase", {}, (s) => {
         s.tasks = [];
         s.steps = [];
+        s.groups = [];
         return {};
       }),
       /历史/,

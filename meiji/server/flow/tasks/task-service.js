@@ -91,14 +91,53 @@ export class TaskService {
           if (others.length) conflict(others);
           s.runtime.queue_stopped = false;
         }
+        const related = s.tasks
+            .filter(
+              (t) =>
+                t.business_type === command.business_type &&
+                t.target_id === command.target_id,
+            )
+            .sort((a, b) => b.queue_order - a.queue_order),
+          retryable = (t) =>
+            ["failed", "rejected", "cancelled", "superseded"].includes(
+              t?.task_status,
+            ),
+          latest = related[0],
+          retrying =
+            origin.source === "panel" &&
+            (retryable(latest) ||
+              (latest?.task_status === "queued" &&
+                related.slice(1).some(retryable)));
+        if (retrying) {
+          const others = s.tasks.filter(
+            (t) =>
+              unfinished(t) &&
+              (t.business_type !== command.business_type ||
+                t.target_id !== command.target_id),
+          );
+          if (others.length) conflict(others);
+          s.runtime.queue_stopped = false;
+        }
         const old = s.tasks.find(
           (t) =>
             unfinished(t) &&
             t.business_type === command.business_type &&
             t.target_id === command.target_id,
         );
-        if (old) return { task_id: old.id };
-        return { task_id: add(command.business_type, command.target_id).id };
+        if (old) {
+          if (retrying && old.task_status === "queued" && old.action === "generate")
+            old.action = "regenerate";
+          return { task_id: old.id };
+        }
+        return {
+          task_id: add(
+            command.business_type,
+            command.target_id,
+            retrying && command.action === "generate"
+              ? "regenerate"
+              : command.action,
+          ).id,
+        };
       }
       if (["manual-edit", "override", "delete"].includes(command.type)) {
         if (active) conflict([active]);
@@ -491,6 +530,37 @@ export class TaskService {
         model.read().tasks.find((t) => t.id === id).task_status !== "running"
       )
         return;
+      if (output.validation_error && task.business_type === "shots") {
+        draft = output.content;
+        await model.update(`duration-repair:${step.id}`, { step: step.id }, (s) => {
+          const t = s.tasks.find((x) => x.id === id),
+            st = s.steps.find((x) => x.id === step.id);
+          if (t.task_status !== "running") return {};
+          Object.assign(st, {
+            step_status: "failed",
+            error_reason: output.validation_error,
+            result: output.result,
+            prompt: output.prompt ?? st.prompt,
+            ended_at: now(),
+          });
+          if (round >= 2) {
+            this.#finish(s, t, "failed", output.validation_error);
+            return {};
+          }
+          round++;
+          const pendingReview = s.steps.find(
+            (x) => x.task_id === id && x.kind === "review" && x.step_status === "ready",
+          );
+          if (pendingReview) {
+            pendingReview.step_status = "superseded";
+            pendingReview.ended_at = now();
+          }
+          const seq = Math.max(...s.steps.filter((x) => x.task_id === id).map((x) => x.seq));
+          s.steps.push(newStep(t, seq + 1, "revise", round), newStep(t, seq + 2, "review", round));
+          return {};
+        });
+        continue;
+      }
       if (["generate", "revise"].includes(step.kind)) draft = output.content;
       await model.update(`step-end:${step.id}`, { step: step.id }, (s) => {
         const t = s.tasks.find((x) => x.id === id),

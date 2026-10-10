@@ -102,6 +102,8 @@ test("S7-07 实际 DOM 保留页面与六标签，状态/原因直读，运行�
       queue_order: 1,
       end_reason: "",
     };
+    t.group_id = "g-test"; t.group_seq = 1;
+    snapshot.groups = [{ id: t.group_id, group_type: "single" }];
     snapshot.tasks = [t];
     view.page = "episode";
     renderTaskPanel(root, snapshot, context);

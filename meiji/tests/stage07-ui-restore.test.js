@@ -241,12 +241,15 @@ test("UI-5 设置为语言表单/规则入口；历史筛选和步骤独立详�
     snap.tasks = [
       {
         id: "t",
+        group_id: "g",
+        group_seq: 1,
         target_id: snap.project.id,
         business_type: "project-summary",
         task_status: "completed",
         queue_order: 1,
       },
     ];
+    snap.groups = [{ id: "g", group_type: "single" }];
     snap.steps = [
       {
         id: "step",

@@ -11,6 +11,7 @@ import {
   projectNumberCatalog,
 } from "../../shared/task-contract.js";
 import { aiProjection, validateShape, prepareContent } from "./content.js";
+import { shotDurationRange } from "../../shared/node-state.js";
 import {
   numberedScript,
   scriptParagraphs,
@@ -35,7 +36,7 @@ function previousSplit(p) {
     });
 }
 
-export function promptValues(snapshot, task, draft, kind) {
+export function promptValues(snapshot, task, draft, kind, step = null) {
   const p = snapshot.project,
     { object, episode } = locateTarget(p, task.business_type, task.target_id),
     catalog = projectNumberCatalog(p, episode?.id),
@@ -51,6 +52,9 @@ export function promptValues(snapshot, task, draft, kind) {
         s.step_status === "done",
     )
     .sort((a, b) => b.seq - a.seq)[0]?.result;
+  const validationError = snapshot.steps
+    .filter((s) => s.task_id === task.id && s.seq < (step?.seq ?? Infinity) && s.step_status === "failed")
+    .sort((a, b) => b.seq - a.seq)[0]?.error_reason || "";
   return {
     输出语言: languageName(p.输出语言),
     ...ruleInputs(p.规则, task.business_type, task.target_id),
@@ -66,6 +70,7 @@ export function promptValues(snapshot, task, draft, kind) {
     创作方向: p.创作方向,
     本集要求: episode?.本集要求 || "",
     本集时长秒: episode?.时长秒 || 0,
+    镜头表允许总时长秒: episode ? shotDurationRange(episode.时长秒) : "",
     项目摘要: p.项目摘要.正文,
     剧情依据:
       p.创作方式 === "剧本"
@@ -111,8 +116,15 @@ export function promptValues(snapshot, task, draft, kind) {
     编号规则:
       "已有对象沿用原编号；新角色 C 加连续数字，新服装为角色编号加连字符及数字，新镜头 S 加连续数字，不复用已占用编号。",
     必出判定规则: "仅将完整剧本明确承担必要主线剧情的角色标为必出。",
-    修改意见:
-      kind === "revise" ? lastReview?.原因 || task.opinion : task.opinion,
+    修改意见: [
+      kind === "revise" ? lastReview?.原因 : "",
+      validationError ? `程序校验错误：${validationError}。仅修正单镜超限或整集总时长超出允许范围，保留未涉及内容；每镜不超过15秒，镜头总时长须落在给定范围内。` : "",
+      task.opinion,
+    ].filter(Boolean).join("\n"),
+    待修订镜头表:
+      task.business_type === "shots" && kind === "revise"
+        ? aiProjection(draft || {}, p)
+        : "",
     基稿: aiProjection(
       draft || nodeOf(p, task.business_type, task.target_id) || p.剧本,
       p,
@@ -130,7 +142,7 @@ export function createTextHandler({ chat }) {
           ? "regenerate"
           : "generate";
     const template = await loadTemplate(`${task.business_type}-${suffix}`),
-      values = promptValues(snapshot, task, draft, step.kind);
+      values = promptValues(snapshot, task, draft, step.kind, step);
     // 资料占位名来自当前唯一 YAML，不能缺失时静默填默认空串。
     const prompt = renderTemplate(template, values);
     await record({ prompt });
@@ -147,7 +159,18 @@ export function createTextHandler({ chat }) {
       typeof response === "string" ? parseJsonValue(response) : response;
     validateShape(raw, prompt.output.structure);
     if (step.kind === "review") return { result: raw, prompt };
-    const content = prepareContent(snapshot, task, raw);
+    let content;
+    try {
+      content = prepareContent(snapshot, task, raw);
+    } catch (error) {
+      if (
+        task.business_type === "shots" &&
+        (error.message === "镜头.时长秒：最多 15 秒" ||
+          error.message.startsWith("镜头表：镜头总时长超出允许范围"))
+      )
+        return { content: raw, result: raw, prompt, validation_error: error.message };
+      throw error;
+    }
     return { content, result: raw, prompt };
   };
 }

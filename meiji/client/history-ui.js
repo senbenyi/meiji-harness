@@ -184,7 +184,7 @@ export function renderHistory(root, env, snapshot) {
     header.remove();
     return renderStepRecord(view, env, selectedGroup.tasks.find(t=>t.id === recordStep.task_id), recordStep);
   }
-  const canContinue = entry => !entry.group.virtual &&
+  const canContinue = entry =>
     !groups.some(row=>row.group.continued_from_group_id === entry.group.id) &&
     ["failed","rejected","cancelled","superseded"].includes(entry.status) &&
     entry.tasks.every(t=>!["queued","running"].includes(t.task_status)) &&
@@ -202,7 +202,7 @@ export function renderHistory(root, env, snapshot) {
     for (const selected of selectedGroup.tasks) {
     const taskHead = element("div", "", "run-task-head run-list-heading");
     taskHead.dataset.taskId = selected.id;
-    taskHead.append(element("h3", `${selected.group_seq || 1}. ${taskName(selected, p)}`),element("span", statuses[selected.task_status], `task-history-status is-${selected.task_status}`));
+    taskHead.append(element("h3", `${selected.group_seq}. ${taskName(selected, p)}`),element("span", statuses[selected.task_status], `task-history-status is-${selected.task_status}`));
     view.append(taskHead);
     view.append(
       element(

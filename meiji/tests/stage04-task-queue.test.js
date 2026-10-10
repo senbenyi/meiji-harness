@@ -105,12 +105,134 @@ test("S4-03 rejected 停住队列，原任务终态不可复活，面板显式�
       });
       await service.idle(p.id);
       assert.equal(model.read().tasks[0].task_status, "rejected");
-      assert.equal(model.read().tasks[1].task_status, "completed");
+      assert.equal(
+        model.read().tasks[1].task_status,
+        "completed",
+        model.read().tasks[1].end_reason,
+      );
     },
     async ({ step }) =>
       step.kind === "review"
         ? { result: { 通过: !first, 原因: first ? "剧情未通过" : "" } }
         : { content: { 正文: "新摘要" } },
+  );
+});
+test("面板重试同一失败节点直接启动新任务并保留失败历史", async () => {
+  let failReview = true;
+  await withService(
+    async ({ p, model, service }) => {
+      const failed = await service.command(submit(p));
+      await service.idle(p.id);
+      assert.equal(model.read().tasks[0].task_status, "failed");
+      assert.equal(model.read().project.剧集[0].摘要.状态, "failed");
+      assert.equal(model.read().runtime.queue_stopped, true);
+
+      const retry = submit(p, "episode-summary", p.剧集[0].id, "retry");
+      retry.action = "generate";
+      const retried = await service.command(retry);
+      assert.notEqual(retried.task_id, failed.task_id);
+      assert.equal(model.read().runtime.queue_stopped, false);
+      await service.idle(p.id);
+
+      assert.equal(model.read().tasks[0].task_status, "failed");
+      assert.equal(model.read().tasks[1].task_status, "completed");
+      assert.equal(model.read().tasks[1].action, "regenerate");
+      assert.equal(model.read().project.剧集[0].摘要.状态, "generated");
+
+      await model.update("pause-after-retry", {}, (s) => {
+        s.runtime.queue_stopped = true;
+      });
+      const later = submit(p, "episode-summary", p.剧集[0].id, "ordinary-after-retry");
+      later.action = "generate";
+      const ordinary = await service.command(later);
+      assert.equal(model.read().tasks.find((task) => task.id === ordinary.task_id).action, "generate");
+      assert.equal(model.read().runtime.queue_stopped, true);
+    },
+    async ({ step }) => {
+      if (step.kind === "review") {
+        if (failReview) {
+          failReview = false;
+          throw new Error("JSON 解析失败");
+        }
+        return { result: { 通过: true, 原因: "" } };
+      }
+      return { content: { 正文: "重试后摘要" } };
+    },
+  );
+});
+test("失败节点重试遇到其他等待任务时冲突，会话重试仍保持暂停", async () => {
+  await withService(
+    async ({ p, model, service }) => {
+      await service.command(submit(p));
+      await service.idle(p.id);
+      await service.command(
+        submit(p, "project-summary", p.id, "session-next"),
+        { source: "session", session_id: "session-test" },
+      );
+      await service.idle(p.id);
+      assert.equal(model.read().tasks[1].task_status, "queued");
+      assert.equal(model.read().runtime.queue_stopped, true);
+
+      const retry = submit(
+        p,
+        "episode-summary",
+        p.剧集[0].id,
+        "retry-conflict",
+      );
+      retry.action = "generate";
+      await assert.rejects(
+        service.command(retry),
+        (error) =>
+          error.code === "TASK_CONFLICT" &&
+          error.conflicts.some((task) => task.task_id === model.read().tasks[1].id),
+      );
+      assert.equal(model.read().runtime.queue_stopped, true);
+      assert.equal(model.read().tasks.length, 2);
+    },
+    async ({ step }) => {
+      if (step.kind === "review") throw new Error("解析失败");
+      return { content: { 正文: "内容" } };
+    },
+  );
+});
+test("面板重试已排队的同节点请求时复用并校正为重新生成", async () => {
+  let failReview = true;
+  await withService(
+    async ({ p, model, service }) => {
+      await service.command(submit(p));
+      await service.idle(p.id);
+      const pending = submit(p, "episode-summary", p.剧集[0].id, "session-retry");
+      pending.action = "generate";
+      const queued = await service.command(pending, {
+        source: "session",
+        session_id: "session-test",
+      });
+      await service.idle(p.id);
+      assert.equal(model.read().tasks[1].task_status, "queued");
+      assert.equal(model.read().runtime.queue_stopped, true);
+
+      const retry = submit(p, "episode-summary", p.剧集[0].id, "panel-retry");
+      retry.action = "generate";
+      const started = await service.command(retry);
+      assert.equal(started.task_id, queued.task_id);
+      await service.idle(p.id);
+
+      assert.equal(model.read().tasks.length, 2);
+      assert.equal(model.read().tasks[0].task_status, "failed");
+      assert.equal(model.read().tasks[1].task_status, "completed");
+      assert.equal(model.read().tasks[1].action, "regenerate");
+      assert.equal(model.read().project.剧集[0].摘要.状态, "generated");
+    },
+    async ({ step }) => {
+      if (step.kind === "review") {
+        if (failReview) {
+          failReview = false;
+          throw new Error("JSON 解析失败");
+        }
+        return { result: { 通过: true, 原因: "" } };
+      }
+      return { content: { 正文: "重试后摘要" } };
+    },
   );
 });
 test("S4-07 运行取消后晚到模型不写内容，队列不自动继续", async () => {

@@ -71,10 +71,10 @@ test("启动恢复的通知等待宿主 Agent 时，runtime 仍能公布并读�
   let release, entered, runtime, timeout;
   const gate = new Promise(resolve => { release = resolve; }), noticeEntered = new Promise(resolve => { entered = resolve; });
   try {
-    const repository = new ModelRepository(join(home, "storages", "meiji", "projects")), p = projectFixture(), model = await repository.create(p);
+    const repository = new ModelRepository(join(home, "storages", "meiji", "projects"), { databasePath: join(home, "storages", "meiji", "meiji.sqlite") }), p = projectFixture(), model = await repository.create(p);
     const pending = taskFixture(p, "project-summary", p.id, { episode_id: null });
     await model.update("setup", {}, s => {
-      s.tasks = [pending]; s.project.项目摘要.状态 = "queued"; s.runtime.queue_stopped = true;
+      s.groups = [singleGroup(pending)]; s.tasks = [pending]; s.project.项目摘要.状态 = "queued"; s.runtime.queue_stopped = true;
       s.runtime.outbox.push({ id: "restart-notice", project_id: p.id, task_id: pending.id, group_id: null, session_id: "session-test", event: "submitted", status: "queued", reason: "", delivery_status: "pending", error: "" });
     });
     const creating = createAppRuntime({ home, sessionController: { resolveAgent: async () => { entered(); await gate; return { agent: { session: { append: async () => {} } } }; } } });
@@ -127,6 +127,7 @@ test("S8-05 重启作废运行和排队任务，恢复快照、保留旧稿与�
       done = { ...newStep(task, 1, "precheck"), step_status: "done", result: { ok: true }, started_at: task.started_at, ended_at: task.started_at },
       running = { ...newStep(task, 2, "generate"), step_status: "running", started_at: task.started_at };
     await model.update("crash-setup", {}, (s) => {
+      s.groups = [task, queued, terminal].map(singleGroup);
       s.tasks = [task, queued, terminal];
       s.steps = [done, running, newStep(queued, 1, "precheck")];
       s.project.项目摘要.状态 = "running";
@@ -168,3 +169,8 @@ test("S8-05 重启作废运行和排队任务，恢复快照、保留旧稿与�
     await rm(root, { recursive: true, force: true });
   }
 });
+
+function singleGroup(task) {
+  task.group_id = `tg_${randomUUID()}`; task.group_seq = 1;
+  return { id: task.group_id, project_id: task.project_id, episode_id: task.episode_id, group_type: "single", source: task.source, shot_ids: [], action: task.action, continued_from_group_id: null, opinion: task.opinion, created_at: task.created_at };
+}

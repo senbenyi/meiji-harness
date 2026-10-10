@@ -31,7 +31,7 @@ export async function createAppRuntime({
   libraryReferences = async () => [],
 }) {
   const root = join(home, "storages", "meiji"),
-    repository = new ModelRepository(join(root, "projects")),
+    repository = new ModelRepository(join(root, "projects"), { databasePath: join(root, "meiji.sqlite") }),
     bindings = new SessionBindings(root),
     media = new MediaStore(join(root, "media")),
     models = modelStore(home),
@@ -371,6 +371,7 @@ export async function createAppRuntime({
       repository.off("change", changed);
       await tasks.dispose();
       await notices.dispose();
+      await repository.close();
     },
   };
   return runtime;

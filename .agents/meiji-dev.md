@@ -1,6 +1,6 @@
 # meiji 开发指引
 
-Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGENTS.md)，当前业务契约见 [数据结构说明](../meiji/dev_docs/数据结构说明.md)、[项目样例](../meiji/dev_docs/project_detail.json) 和 [步骤样例](../meiji/dev_docs/step_model.json)。本次完整重构的依据和证据见 [计划](../docs/plans/1010-计划-分阶段开发总纲.md) 与 [实施记录](../docs/implement/1010-实施-分阶段开发总纲.md)。历史计划和实施记录仅用于追溯。
+Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGENTS.md)。每次修改 `meiji/` 代码前，必须先完整阅读这三份开发契约：[项目数据结构](../meiji/dev_docs/项目数据结构.md)、[任务步骤](../meiji/dev_docs/任务步骤.md)、[提示词编排](../meiji/dev_docs/提示词编排.md)，并以它们作为当前业务规格；未读完不得开始改代码。修改配置、skill 或测试也遵循同一要求。样例见 [project_detail.json](../meiji/dev_docs/project_detail.json) 和 [step_model.json](../meiji/dev_docs/step_model.json)。普通咨询和只读调研不要求通读。本次完整重构的依据和证据见 [计划](../docs/plans/1010-计划-分阶段开发总纲.md) 与 [实施记录](../docs/implement/1010-实施-分阶段开发总纲.md)。历史计划和实施记录仅用于追溯。
 
 ## 项目配置
 
@@ -24,7 +24,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 | `shared/node-state.js`、`node-dependencies.js` | 显式节点状态、有效输出校验、保留正文的过期传播 |
 | `shared/task-plan.js` | 固定步骤；不自动安排上游任务 |
 | `server/model/project-model.js` | 深拷贝读取与唯一事务提交入口 |
-| `server/data/model-repository.js` | 分代存储、幂等受理、事务、不可变终态、变化事件 |
+| `server/data/model-repository.js` | SQLite 存储、幂等受理、事务、不可变终态、变化事件 |
 | `server/data/task-store.js` | 任务与组合任务只读视图 |
 | `server/flow/tasks/task-service.js`、`precheck.js` | 项目串行、组合顺序、两轮修订、取消/中断/继续及执行时前置核验 |
 | `server/handlers/` | 文本、媒体、人工、删除业务；返回内容，不自行结算任务 |
@@ -38,11 +38,13 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 | `client/task-client.js`、`task-panel.js`、`workbench.js`、`*-ui.js`、`*-forms.js` | 单一上下文、版本守卫、事件刷新、节点与历史、库/设置；保留面板 shell、DOM 与 CSS |
 | `server/data/library-store.js` | 独立素材文件、元数据和引用保护 |
 
-浏览器仅加载 `client/`、`shared/`，服务端不引用 client。共享领域模块不读写磁盘，不调用模型。旧 Run、即时操作、隐式上下文、jobs/goals 控制、生产 skill 与迁移脚本已经删除，不重新引入包装入口。
+浏览器仅加载 `client/`、`shared/`，服务端不引用 client。共享领域模块不读写磁盘，不调用模型。旧 Run、即时操作、隐式上下文、jobs/goals 控制、生产 skill 与旧格式迁移脚本已经删除，不重新引入包装入口。
 
 ## 数据与提交
 
-项目目录为 `projects/<p_UUID>/`，`CURRENT` 指向已发布 generation。每代保存 `project.json`、`tasks.json`、`steps.json`、`groups.json`、`runtime.json`，带校验清单。写入新代并完成持久化后原子切换 CURRENT；失败不发布部分内容。ProjectModel 的写接口只允许 repository 提供的事务闭包。事件发生在持久化后。
+唯一数据库为 `$DSH_HOME/storages/meiji/meiji.sqlite`，使用 Node 内置 `node:sqlite`（^22.19.0 或 >=24）。`schema.sql` 定义 projects、task_groups、tasks、task_steps、command_requests、notification_outbox、schema_migrations 七表；任务必须归组，步骤必须归任务，顺序唯一且同项目最多一个 running 任务。`sqlite-store.js` 使用 WAL/foreign_keys/FULL、短同步事务及 revision 条件校验，变化记录增量写入；不在持锁期间调用模型或等待异步工作。ProjectModel 的写接口只允许 repository 提供的事务闭包，项目内容/任务/步骤/幂等/通知一起提交，事件发生在持久化后。卸载时等待任务和通知结束，再关闭连接。
+
+`projects/<p_UUID>/` 仅作为宿主工作区目录。此次切换按用户要求删除旧项目及任务历史，不迁移、不提供迁移脚本或双写。首次启动自动创建数据库；发现未清理的 CURRENT 分代数据时明确拒绝启用。独立素材库和模型配置保留。
 
 项目、剧集、角色、服装、镜头、规则、任务、组和步骤使用创建时生成的带前缀 UUID。AI 输入输出及资料界面使用编号，引用转换由程序核对唯一性和归属。重生成保留同一对象 ID，不按列表位置重建身份、不无声删除引用对象。独立素材继续使用原 `assets/<category>/<UUID>/metadata.json` 和 `original.<ext>` 文件格式；场景、道具及指导素材入口退出，但磁盘数据不会在启动时被删除。
 
@@ -50,21 +52,21 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 ## 状态、前置和任务
 
-- 13 种节点状态为 empty、queued、running、generated、rejected、failed、cancelled、expired，原因和状态一同提交；剧本没有节点状态。
+- 8 种节点状态为 empty、queued、running、generated、rejected、failed、cancelled、expired，原因和状态一同提交；剧本没有节点状态。
 - 入队保存原状态/原因；排队取消或作废恢复快照。上游变化同步更新排队快照中的 generated→expired。正文和媒体地址保留。
 - 仅 generated 且结构有效的节点可作为前置。执行时重读当前 Model；不足记录 failed/precheck，不调用 AI，不自动补上游。
 - 剧情生成/重新生成：剧本模式只要求非空剧本，自由创作模式只要求非空 AI 创作方向；项目摘要不作为前置，也不注入剧情生成、修订或审核提示词。
 - 单任务针对一个节点操作；文本 precheck→generate→review，最多两轮 revise→review；协议/结构/网络错误 failed，合法草稿审核耗尽 rejected，保留草稿与旧历史。自由创作剧本只在审核通过后发布版本。
 - 图片/视频 precheck→generate；尾帧/合片也是独立媒体任务。人工编辑与 override 均为两步，不调用 AI；override 只允许结构有效的 rejected 文本。
 - 删除任务 precheck→impact→apply。被本集资产、出镜/对白、规则或素材库引用的角色不能删除；默认/素材库引用服装不能删除；其他服装删除同次重绑为默认并使相关视频过期。
-- 项目内执行串行；完成后自动下一项；failed/rejected/cancelled 停止队列。开始/移除排队项、人工操作与删除只能从面板发起。
+- 项目内执行串行；完成后自动下一项；failed/rejected/cancelled 停止队列。面板再次生成最新任务为失败、未通过、取消或作废的同一节点时，创建新任务并保留旧终态；`generate` 自动按 `regenerate` 通过前置检查。若该重试已排队则复用；无其他未结束任务时直接启动；有其他等待/运行任务时明确冲突，不误启动其他任务。开始/移除排队项、人工操作与删除只能从面板发起。
 - 服务重启把所有 queued/running 旧任务统一结算为 superseded（已作废），未完成步骤同样作废，已完成步骤与历史终态保留；排队节点恢复快照，运行节点结算 cancelled 并保留内容。重启清除 queue_stopped，旧任务不重放，新任务可直接执行；晚到结果不得覆盖作废任务。
-- 面板提交拆分剧集会直接恢复并执行该拆分（已有排队拆分复用）；存在其他未结束任务时明确拒绝，不带起其他暂停任务。会话提交及其他业务仍遵循暂停队列规则。
+- 面板提交拆分剧集会直接恢复并执行该拆分（已有排队拆分复用）；存在其他未结束任务时明确拒绝，不带起其他暂停任务。面板同节点重试遵循相同直启规则；会话提交和其他普通提交仍遵循暂停队列规则。
 - 成片使用 episode-film，按镜头表顺序逐镜 seconds（生成/审核/修订）→storyboard→video→tail；可选 shot_id 限定单镜，镜头必须属于指定剧集，opinion 保存到组内任务。episode-seconds 保留单项及历史契约，不再有独立标签入口。组合整组受理，冲突整组拒绝；停止后后序 superseded，继续新建组并保留旧终态。跳过有效节点时也计算上游重生成将造成的下游过期。
 - 每镜视频完成后记录 FFprobe 实测的实际时长秒（保留一位小数），人工导入视频同样测量；镜头表时长秒作为参考预算不变。现有未测量的镜头暂不展示实际时长，不追溯重写已有媒体。
-- 每次独立操作创建 single 组；角色提取、剧本生成创建 workflow 组，派生图片/摘要按 group_seq 追加到同组。父任务已完成不因子任务失败被改写。task/group/step 创建时保存 name，后续资料改名不改历史；已有记录缺名称或未归组时只读补显，不迁移落盘。
+- 每次独立操作创建 single 组；角色提取、剧本生成创建 workflow 组，派生图片/摘要按 group_seq 追加到同组。父任务已完成不因子任务失败被改写。task/group/step 创建时保存 name，后续资料改名不改历史；已有记录缺名称时只读补显；持久化任务必须有父组，运行时不创建虚拟组。
 - 任务历史以组为列表入口，组内直接排列各任务全部步骤。组状态只读聚合，部分完成加其余作废显示已作废；继续创建新组并链接原组，旧历史保留。人工/删除任务从原入口重新操作，不提供通用组继续。
-- 按数据结构过期表传播。输出语言、画幅、规则、声音、默认服装配置只影响后续步骤，不使已有资源过期。
+- 按项目数据结构的过期表传播。拆分剧集整表替换剧集，不把旧节点标为过期。输出语言、画幅、规则、声音、默认服装配置只影响后续步骤，不使已有资源过期。面板修改必出会使角色图片过期；角色提取写回时必出变化不使图片过期。
 - 每秒分镜的对白保存 `说话人id` 和 `说话人名称`；未建卡人物/独立旁白保留原称谓和空 id，不自动建卡。
 
 ## 提示词与网关

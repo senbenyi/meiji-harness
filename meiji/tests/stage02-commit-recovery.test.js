@@ -1,6 +1,7 @@
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
@@ -13,15 +14,15 @@ for (const point of [
   "after-steps",
   "after-groups",
   "after-runtime",
-  "before-current",
-  "after-current",
+  "before-commit",
+  "after-commit",
 ]) {
-  test(`S2-03 ${point} 中断后重载为完整旧代或完整新代`, async () => {
+  test(`S2-03 ${point} 中断后重载为完整旧事务或完整新事务`, async () => {
     const root = await mkdtemp(join(tmpdir(), "meiji-commit-"));
     let armed = false;
     try {
       const repo = new ModelRepository(root, {
-          checkpoint: async (name) => {
+          checkpoint: (name) => {
             if (armed && name === point) throw new Error(`注入：${name}`);
           },
         }),
@@ -57,10 +58,12 @@ for (const point of [
             正文: "新摘要",
             剧本版本: 1,
           };
+          t.group_id = createId("group"); t.group_seq = 1;
+          s.groups = [{ id: t.group_id, project_id: p.id, episode_id: null, group_type: "single", source: t.source, shot_ids: [], action: t.action, continued_from_group_id: null, opinion: "", created_at: t.created_at }];
           s.tasks = [t];
           return { task_id: t.id };
         });
-      if (point === "after-current") {
+      if (point === "after-commit") {
         const result = await update();
         assert.equal(result.accepted, true);
         assert.ok(result.storage_warning);
@@ -69,7 +72,7 @@ for (const point of [
       } else await assert.rejects(update(), /注入/);
       const fresh = await new ModelRepository(root).open(p.id),
         snapshot = fresh.read(),
-        published = point === "after-current";
+        published = point === "after-commit";
       assert.equal(
         snapshot.project.项目摘要.状态,
         published ? "generated" : "empty",
@@ -83,30 +86,24 @@ for (const point of [
   });
 }
 
-test("S2-05 损坏当前代 JSON 的哈希时拒绝，不能回退成旧格式", async () => {
+test("S2-05 SQLite 约束拒绝非法项目 JSON，保留原数据", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-corrupt-"));
   try {
-    const repo = new ModelRepository(root),
-      p = emptyProject();
+    const repo = new ModelRepository(root), p = emptyProject();
     await repo.create(p);
-    const pointer = JSON.parse(
-      await readFile(join(root, p.id, "CURRENT"), "utf8"),
-    );
-    await writeFile(join(root, p.id, pointer.generation, "project.json"), "{}");
-    await assert.rejects(new ModelRepository(root).open(p.id), {
-      code: "CORRUPT_STORAGE",
-    });
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
+    const db = new DatabaseSync(join(root, "meiji.sqlite"));
+    assert.throws(() => db.prepare("UPDATE projects SET data_json=? WHERE id=?").run("invalid JSON", p.id));
+    db.close();
+    assert.deepEqual((await new ModelRepository(root).open(p.id)).read().project, p);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("S2-03 创建项目发布后出错仍返回已创建 Model，不反馈未受理", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-create-commit-"));
   try {
     const repo = new ModelRepository(root, {
-        checkpoint: async (point) => {
-          if (point === "after-current") throw new Error("发布后异常");
+        checkpoint: (point) => {
+          if (point === "after-commit") throw new Error("发布后异常");
         },
       }),
       p = emptyProject();

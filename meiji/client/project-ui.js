@@ -313,7 +313,7 @@ export function backHeader(root, title, label, back) {
   root.append(bar);
 }
 export function renderEpisode(root, env, entries) {
-  const { p, state, button, act, nodeCard, go } = env,
+  const { p, state, button, act, nodeCard, go, media } = env,
     e = p.剧集.find((e) => e.id === state.episode_id);
   if (!e) return go("overview");
   const shot = e.镜头表.镜头.find((s) => s.id === state.shot_id);
@@ -372,17 +372,35 @@ export function renderEpisode(root, env, entries) {
   }
   if (state.tab === "assets") {
     body.append(nodeCard("episode-characters", e.id, e.本集资产));
+    const characters = element("div", "", "episode-assets-characters");
     for (const ref of e.本集资产.角色) {
       const c = p.角色库.角色.find((c) => c.id === ref.角色id);
-      if (c)
-        body.append(
-          button(
-            `${c.编号} ${c.名称} · ${ref.出镜}`,
-            () => go("character", { character_id: c.id }),
-            false,
-          ),
-        );
+      if (!c) continue;
+      const card = button(
+          "",
+          () => go("character", { character_id: c.id }),
+          false,
+        ),
+        image = element(
+          c.图片?.地址 ? "img" : "div",
+          c.图片?.地址 ? "" : c.名称.slice(0, 1),
+          "library-card-avatar character-image",
+        ),
+        info = element("div", "", "library-card-info");
+      card.className = "library-card library-card-characters";
+      if (c.图片?.地址) {
+        image.src = media(c.图片.地址);
+        image.alt = c.名称;
+      }
+      info.append(
+        element("strong", c.名称),
+        element("p", `${c.编号} · ${c.身份}`, "meta"),
+        element("span", ref.出镜, "episode-character-presence"),
+      );
+      card.append(image, info);
+      characters.append(card);
     }
+    if (characters.childElementCount) body.append(characters);
   }
   if (state.tab === "shots") body.append(nodeCard("shots", e.id, e.镜头表));
   if (state.tab === "assembly") body.append(nodeCard("assembly", e.id, e.合片));

@@ -9,7 +9,7 @@ function fixture(work) {
  globalThis.document=dom.window.document;
  try {
   const s=snapshotFixture(), root=document.querySelector('main'), state={page:'history'}, commands=[];
-  s.tasks=[{id:'t',business_type:'outline',task_status:'queued',queue_order:1,source:'panel'}];s.steps=[];s.groups=[];
+  s.tasks=[{id:'t',group_id:'g',group_seq:1,business_type:'outline',task_status:'queued',queue_order:1,source:'panel'}];s.steps=[];s.groups=[{id:'g',group_type:'single',source:'panel'}];
   const env={p:s.project,state,names:{outline:'故事大纲'},go:(page,v)=>Object.assign(state,{page},v),act:c=>commands.push(c),button:(label,fn)=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>fn();return b;}};
   const paint=()=>{root.replaceChildren();renderHistory(root,env,s);};
   work({dom,s,root,state,commands,paint});

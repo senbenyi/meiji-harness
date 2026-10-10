@@ -10,6 +10,6 @@ for(const suffix of ['generate','regenerate','review'])test(`镜头表${suffix}�
  e.本集资产.角色=[{角色id:p.角色库.角色[0].id,出镜:'出镜'}];
  const t=taskFixture(p,'shots',e.id,{opinion:''}),values=promptValues(s,t,{},suffix==='review'?'review':'generate');
  const rendered=renderTemplate(await loadTemplate(`shots-${suffix}`),values);
- assert.match(rendered.user,/C01-01/);assert.match(rendered.user,/唯一服装/);assert.match(rendered.user,/本集总时长秒[\s\S]*10/);
+ assert.match(rendered.user,/C01-01/);assert.match(rendered.user,/唯一服装/);assert.match(rendered.user,/本集参考时长秒[\s\S]*10/);assert.match(rendered.user,/镜头表允许总时长秒[\s\S]*1[\s\S]*40/);
  assert.match(rendered.system,/不创建服装/);
 });

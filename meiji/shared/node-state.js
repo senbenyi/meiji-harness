@@ -1,6 +1,15 @@
 import { nodeOf, invalid, locateTarget } from "./task-contract.js";
 import { validateProject } from "./project-contract.js";
 
+export const SHOT_DURATION_TOLERANCE_SECONDS = 30;
+
+export function shotDurationRange(referenceSeconds) {
+  return {
+    min: Math.max(1, referenceSeconds - SHOT_DURATION_TOLERANCE_SECONDS),
+    max: referenceSeconds + SHOT_DURATION_TOLERANCE_SECONDS,
+  };
+}
+
 export const TEXT_BUSINESSES = Object.freeze([
   "project-summary",
   "project-characters",
@@ -95,11 +104,17 @@ export function assertOutput(project, business, targetId) {
     for (const part of node.小段) nonempty(part.正文, "故事大纲");
   }
   if (business === "shots") {
+    const { min, max } = shotDurationRange(object.时长秒),
+      total = node.镜头.reduce((n, x) => n + x.时长秒, 0);
     if (
       !node.镜头.length ||
-      node.镜头.reduce((n, x) => n + x.时长秒, 0) !== object.时长秒
+      total < min ||
+      total > max
     )
-      invalid("镜头表", "镜头时长之和必须等于本集时长");
+      invalid(
+        "镜头表",
+        `镜头总时长超出允许范围（本集参考时长±${SHOT_DURATION_TOLERANCE_SECONDS}秒，允许 ${min}–${max} 秒）`,
+      );
   }
   const coverage = (rows, duration) => {
     let end = 0;
