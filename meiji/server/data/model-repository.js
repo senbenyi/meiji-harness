@@ -98,21 +98,24 @@ export function validateSnapshot(snapshot) {
         "action",
         "continued_from_group_id",
         "opinion",
+        ...(Object.hasOwn(group, "name") ? ["name"] : []),
       ],
       "group",
     );
     if (group.project_id !== snapshot.project.id)
       invalid("group.project_id", "跨项目");
-    assertId(group.episode_id, "group.episode_id");
+    if (Object.hasOwn(group, "name")) { assertText(group.name, "group.name"); if (!group.name.trim()) invalid("group.name", "不可为空"); }
+    const generic = ["single", "workflow"].includes(group.group_type);
+    if (!generic || group.episode_id !== null) assertId(group.episode_id, "group.episode_id");
     assertEnum(
       group.group_type,
-      ["episode-seconds", "episode-film"],
+      ["episode-seconds", "episode-film", "single", "workflow"],
       "group.group_type",
     );
     assertEnum(group.source, ["panel", "session"], "group.source");
     assertEnum(
       group.action,
-      ["generate", "regenerate", "continue"],
+      ["generate", "regenerate", "continue", "manual_edit", "override", "delete"],
       "group.action",
     );
     assertText(group.opinion, "group.opinion");
@@ -135,7 +138,7 @@ export function validateSnapshot(snapshot) {
       invalid("group.created_at", "时间无效");
     if (
       !Array.isArray(group.shot_ids) ||
-      !group.shot_ids.length ||
+      (!generic && !group.shot_ids.length) ||
       new Set(group.shot_ids).size !== group.shot_ids.length
     )
       invalid("group.shot_ids", "需非空不重复数组");
@@ -147,8 +150,8 @@ export function validateSnapshot(snapshot) {
     members.forEach((task, index) => {
       if (
         task.group_seq !== index + 1 ||
-        task.episode_id !== group.episode_id ||
-        !group.shot_ids.includes(task.target_id)
+        (!generic && (task.episode_id !== group.episode_id ||
+        !group.shot_ids.includes(task.target_id)))
       )
         invalid("group", "任务归属、范围或顺序错误");
     });

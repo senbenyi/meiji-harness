@@ -136,3 +136,37 @@ test("S6-01/02/03/04 真实媒体文件经过图片、视频、尾帧与合片�
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("图片提示词的人物资料组装为一句话，省略编号、必出与缺失值", async () => {
+  const { personSentence } = await import("../server/handlers/media-handler.js");
+  const { loadTemplate, renderTemplate } = await import("../server/prompts/yaml-prompts.js");
+  const sentence = personSentence({
+    编号: "C6",
+    名称: "郓哥",
+    国籍: "中国",
+    身份: "水果贩",
+    身份特征: "受过武大郎照顾，愿意冒险相助",
+    性别: "男",
+    年代: "古代（架空）",
+    年龄: "18岁",
+    身高: "资料未提供",
+    体型: "瘦削",
+    面相: "机灵",
+    必出: true,
+  });
+  assert.equal(
+    sentence,
+    "郓哥，男，18岁，中国人，古代（架空），水果贩；受过武大郎照顾，愿意冒险相助；体型瘦削，面相机灵。",
+  );
+  const prompt = renderTemplate(await loadTemplate("character-image-generate"), {
+    输出语言: "zh-CN",
+    人物资料: sentence,
+    参考图片说明: "",
+    补充规则: "",
+  });
+  assert.match(prompt.user, /## 人物资料\n郓哥，男，18岁/);
+  assert.doesNotMatch(prompt.user, /### |编号|必出|有图|资料未提供/);
+  const { languageName } = await import("../server/prompts/yaml-prompts.js");
+  assert.equal(languageName("zh-CN"), "简体中文");
+  assert.equal(languageName("en"), "English（英文）");
+});

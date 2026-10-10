@@ -33,7 +33,6 @@ test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完�
     ...connection,
     system: "系统",
     prompt: "用户",
-    json: true,
     fetchImpl: async (url, options) => {
       assert.equal(url.pathname, "/v1/chat/completions");
       assert.equal(options.headers.Authorization, "Bearer test-only-key");
@@ -42,7 +41,9 @@ test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完�
         { role: "system", content: "系统" },
         { role: "user", content: "用户" },
       ]);
-      assert.equal(body.response_format.type, "json_object");
+      assert.deepEqual(Object.keys(body).sort(), ["messages", "model", "stream"]);
+      assert.equal(body.model, "mock-model");
+      assert.equal(body.stream, false);
       return json({
         choices: [
           { finish_reason: "stop", message: { content: ' {"正文":"完成"} ' } },
@@ -64,6 +65,17 @@ test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完�
     }),
     /未正常完成/,
   );
+});
+
+test("文本网关普通协议：400 不重试，非法 JSON 不因 HTTP200 变成有效结果", async () => {
+  let calls = 0;
+  await assert.rejects(completeChat({ ...connection, prompt: "返回 JSON", fetchImpl: async () => {
+    calls++;
+    return new Response(JSON.stringify({ error: { message: "字段无效", code: "invalid_request" } }), { status: 400 });
+  } }), /字段无效/);
+  assert.equal(calls, 1);
+  const text = await completeChat({ ...connection, prompt: "返回 JSON", fetchImpl: async () => json({ choices: [{ finish_reason: "stop", message: { content: "这不是JSON" } }] }) });
+  assert.throws(() => parseJsonValue(text));
 });
 
 test("S1-06 图片生成 JSON 与参考图编辑 multipart 保持协议和字节", async () => {

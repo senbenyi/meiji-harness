@@ -1,3 +1,4 @@
+import { stepName } from "./task-labels.js";
 import { createId } from "./task-contract.js";
 import { TEXT_BUSINESSES } from "./node-state.js";
 export function stepKinds(task) {
@@ -18,6 +19,7 @@ export function newStep(task, seq, kind, round = 0) {
   return {
     id: createId("step"),
     task_id: task.id,
+    name: stepName({ kind, round }, task),
     seq,
     kind,
     round,

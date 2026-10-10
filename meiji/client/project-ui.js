@@ -163,6 +163,41 @@ export function renderOverview(root, env) {
   add.setAttribute("aria-label", addLabel);
   episodeHead.append(add);
   const list = element("div", "", "episode-card-list");
+  let drag = null, dragged = false;
+  list.onpointerdown = (event) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    dragged = false;
+    if (list.scrollWidth <= list.clientWidth) return;
+    drag = { id: event.pointerId, x: event.clientX, left: list.scrollLeft };
+  };
+  list.onpointermove = (event) => {
+    if (!drag || event.pointerId !== drag.id) return;
+    const dx = event.clientX - drag.x;
+    if (!dragged && Math.abs(dx) < 5) return;
+    if (!dragged) {
+      dragged = true;
+      list.setPointerCapture(event.pointerId);
+      list.classList.add("is-dragging");
+    }
+    event.preventDefault();
+    list.scrollLeft = drag.left - dx;
+  };
+  const finishDrag = () => {
+    if (!drag) return;
+    const id = drag.id;
+    drag = null;
+    list.classList.remove("is-dragging");
+    if (list.hasPointerCapture(id)) list.releasePointerCapture(id);
+  };
+  list.onpointerup = list.onlostpointercapture = finishDrag;
+  list.onpointercancel = () => { finishDrag(); dragged = false; };
+  list.ondragstart = (event) => event.preventDefault();
+  list.addEventListener("click", (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    dragged = false;
+  }, true);
   episodes.append(list);
   for (const e of [...p.剧集].sort((a, b) => a.序号 - b.序号)) {
     const c = element("article", "", "episode-card");

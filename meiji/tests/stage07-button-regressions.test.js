@@ -15,16 +15,16 @@ test('从其他节点或项目重新进入历史清空旧详情', () => {
  globalThis.document=dom.window.document;
  try {
   const s=snapshotFixture(), root=document.querySelector('main');
-  const view={page:'overview',task_id:'old-task'};
+  const view={page:'overview',task_id:'old-task',group_id:'old-group'};
   const context={session_id:'session-test',view,refresh:async()=>{},paint:()=>{},onError:()=>{}};
   const click=(label)=>{const b=[...root.querySelectorAll('button')].find(b=>b.textContent===label);assert.ok(b,label);b.click();};
   renderTaskPanel(root,s,context);
   click('查看任务历史 →');
-  assert.equal(view.page,'history');assert.equal(view.task_id,null);
+  assert.equal(view.page,'history');assert.equal(view.task_id,null);assert.equal(view.group_id,null);
   view.page='episode';view.episode_id=s.project.剧集[0].id;view.tab='script';view.task_id='old-task';
   renderTaskPanel(root,s,context);
   click('任务历史');
-  assert.equal(view.page,'history');assert.equal(view.task_id,null);
+  assert.equal(view.page,'history');assert.equal(view.task_id,null);assert.equal(view.group_id,null);
   assert.equal(view.target_id,s.project.剧集[0].id);
  } finally {globalThis.document=previous;dom.window.close();}
 });

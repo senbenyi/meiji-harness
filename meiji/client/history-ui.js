@@ -1,19 +1,17 @@
+import { historyGroups, taskName, stepName } from "../shared/task-labels.js";
 import { element } from "./panel-dom.js";
 const text = (value) =>
   typeof value === "string" ? value : JSON.stringify(value ?? null, null, 2);
 // 记录卡片：标题与复制按钮同一行，正文完整展示不截断。
-function recordCard(title, value) {
-  const card = element("section", "", "run-record-card"),
-    head = element("div", "", "run-record-head"),
-    copy = element("button", "复制", "meiji-log-copy"),
-    body = element("pre", text(value));
+function copyButton(label, read) {
+  const copy = element("button", "复制", "meiji-log-copy");
   copy.type = "button";
-  copy.setAttribute("aria-label", `复制${title}`);
+  copy.setAttribute("aria-label", label);
   copy.onclick = async (event) => {
     event.stopPropagation();
     copy.disabled = true;
     try {
-      await navigator.clipboard.writeText(body.textContent);
+      await navigator.clipboard.writeText(read());
       copy.textContent = "已复制";
     } catch {
       copy.textContent = "复制失败，重试";
@@ -21,7 +19,14 @@ function recordCard(title, value) {
       copy.disabled = false;
     }
   };
-  head.append(element("h4", title), copy);
+  return copy;
+}
+function recordCard(title, value, { copy = true } = {}) {
+  const card = element("section", "", "run-record-card"),
+    head = element("div", "", "run-record-head"),
+    body = element("pre", text(value));
+  head.append(element("h4", title));
+  if (copy) head.append(copyButton(`复制${title}`, () => body.textContent));
   card.append(head, body);
   return card;
 }
@@ -52,7 +57,7 @@ function renderStepRecord(view, env, task, step) {
     ),
     element(
       "h2",
-      `${names[task.business_type] || task.business_type} · 第 ${step.seq} 步 ${step.kind} · ${kind === "http" ? "HTTP" : "提示词"}`,
+      `${taskName(task, env.p)} · 第 ${step.seq} 步 ${stepName(step, task)} · ${kind === "http" ? "HTTP" : "提示词"}`,
     ),
   );
   const page = element("div", "", "run-record-page");
@@ -70,8 +75,17 @@ function renderStepRecord(view, env, task, step) {
       entries.push(["提示词", prompt.body]);
     if (!entries.length)
       return page.append(element("p", "此步骤没有提示词", "meta"));
+    // 提示词页只有一个复制按钮，一次复制 system 与 user。
+    const bar = element("div", "", "run-record-head run-record-actions");
+    bar.append(
+      element("h3", "提示词"),
+      copyButton("复制 system 和 user", () =>
+        entries.map(([key, value]) => `${key}:\n${text(value)}`).join("\n\n"),
+      ),
+    );
+    page.append(bar);
     for (const [key, value] of entries)
-      page.append(recordCard(key, value));
+      page.append(recordCard(key, value, { copy: false }));
     return;
   }
   const transfers = prompt?.transfers || [];
@@ -121,7 +135,9 @@ const statuses = {
 };
 export function renderHistory(root, env, snapshot) {
   const { p, state, button, go, act, names } = env,
-    selected = snapshot.tasks.find((t) => t.id === state.task_id),
+    groups = historyGroups(snapshot),
+    selectedGroup = groups.find(row => state.task_id ? row.tasks.some(t=>t.id === state.task_id) : row.group.id === state.group_id),
+    selected = selectedGroup?.tasks.find(t=>t.id === state.task_id) || selectedGroup?.tasks[0],
     view = element(
       "section",
       "",
@@ -131,13 +147,13 @@ export function renderHistory(root, env, snapshot) {
   header.append(
     button(
       "← 返回",
-      () => (selected ? go("history", { task_id: null }) : go("overview")),
+      () => (selected ? go("history", { task_id: null, group_id: null, step_id: null, step_view: null }) : go("overview")),
       false,
     ),
     element(
       "h2",
       selected
-        ? names[selected.business_type] || selected.business_type
+        ? "任务组详情"
         : `${p.名称} · 任务历史`,
     ),
   );
@@ -161,18 +177,37 @@ export function renderHistory(root, env, snapshot) {
   const recordStep =
     selected && state.step_view
       ? snapshot.steps.find(
-          (st) => st.id === state.step_id && st.task_id === selected.id,
+          (st) => st.id === state.step_id && selectedGroup.tasks.some(t=>t.id === st.task_id),
         )
       : null;
   if (recordStep) {
     header.remove();
-    return renderStepRecord(view, env, selected, recordStep);
+    return renderStepRecord(view, env, selectedGroup.tasks.find(t=>t.id === recordStep.task_id), recordStep);
   }
+  const canContinue = entry => !entry.group.virtual &&
+    !groups.some(row=>row.group.continued_from_group_id === entry.group.id) &&
+    ["failed","rejected","cancelled","superseded"].includes(entry.status) &&
+    entry.tasks.every(t=>!["queued","running"].includes(t.task_status)) &&
+    entry.tasks.every(t=>!["manual_edit","override","delete"].includes(t.action));
   if (selected) {
+    const groupHead = element("div", "", "run-group-head run-list-heading");
+    groupHead.append(element("strong", selectedGroup.name), element("span", statuses[selectedGroup.status], `task-history-status is-${selectedGroup.status}`));
+    view.append(groupHead, element("p", `任务完成 ${selectedGroup.tasks.filter(t=>t.task_status === "completed").length}/${selectedGroup.tasks.length}`, "meta"));
+    if (selectedGroup.group.continued_from_group_id)
+      view.append(button("查看原组", () => go("history", {group_id:selectedGroup.group.continued_from_group_id,task_id:null,step_id:null,step_view:null}), false));
+    const continuation = groups.find(row=>row.group.continued_from_group_id === selectedGroup.group.id);
+    if (continuation) view.append(button("查看续作组", () => go("history", {group_id:continuation.group.id,task_id:null,step_id:null,step_view:null}), false));
+    if (canContinue(selectedGroup))
+      view.append(button("继续", () => act({type:"continue-group",group_id:selectedGroup.group.id})));
+    for (const selected of selectedGroup.tasks) {
+    const taskHead = element("div", "", "run-task-head run-list-heading");
+    taskHead.dataset.taskId = selected.id;
+    taskHead.append(element("h3", `${selected.group_seq || 1}. ${taskName(selected, p)}`),element("span", statuses[selected.task_status], `task-history-status is-${selected.task_status}`));
+    view.append(taskHead);
     view.append(
       element(
         "p",
-        `${statuses[selected.task_status] || selected.task_status} · ${selected.source === "session" ? "会话发起" : "面板发起"} · ${selected.created_at || ""}`,
+        `${selected.source === "session" ? "会话发起" : "面板发起"} · ${selected.created_at || ""}`,
         "meta",
       ),
       element("p", selected.end_reason || "", "error"),
@@ -208,10 +243,10 @@ export function renderHistory(root, env, snapshot) {
         toggle.setAttribute("aria-expanded", String(item.open));
       };
       heading.append(
-        element("strong", `${step.seq}. ${step.kind}`),
+        element("strong", `${step.seq}. ${stepName(step, selected)}`),
         element(
           "span",
-          rejected ? "未通过" : step.step_status === "superseded" ? "已作废" : step.step_status,
+          rejected ? "未通过" : ({ready:"待执行",running:"执行中",done:"已完成",failed:"失败",skipped:"已跳过",cancelled:"已取消",superseded:"已作废"}[step.step_status] || step.step_status),
           `task-history-status is-${step.step_status}`,
         ),
       );
@@ -225,7 +260,7 @@ export function renderHistory(root, env, snapshot) {
       const links = element("div", "", "workflow-generation-row run-record-links");
       for (const [view, title] of [["prompt", "查看提示词"], ["http", "查看 HTTP"]]) {
         const link = button(title, () =>
-          go("history", { step_id: step.id, step_view: view, http_index: 0, http_tab: "request" }),
+          go("history", { task_id: selected.id, group_id:selectedGroup.group.id, step_id: step.id, step_view: view, http_index: 0, http_tab: "request" }),
         false);
         link.classList.add("run-record-link");
         links.append(link);
@@ -235,6 +270,7 @@ export function renderHistory(root, env, snapshot) {
       list.append(item);
     }
     view.append(list);
+    }
     return;
   }
   const filters = element("div", "", "run-filters"),
@@ -250,7 +286,7 @@ export function renderHistory(root, env, snapshot) {
     }
     select.value = value || "";
     select.onchange = () =>
-      go("history", { [key]: select.value, task_id: null });
+      go("history", { [key]: select.value, task_id: null, group_id:null, step_id:null, step_view:null });
   };
   options(
     status,
@@ -286,87 +322,40 @@ export function renderHistory(root, env, snapshot) {
   );
   filters.append(status, target, episode);
   view.append(filters);
-  for (const group of snapshot.groups) {
-    if (
-      snapshot.groups.some((g) => g.continued_from_group_id === group.id) ||
-      (state.history_episode && group.episode_id !== state.history_episode) ||
-      (state.target_id && state.target_id !== group.episode_id &&
-        !group.shot_ids.includes(state.target_id))
-    ) continue;
-    const tasks = snapshot.tasks.filter((t) => t.group_id === group.id),
-      stopped = tasks.find((t) =>
-        ["failed", "rejected", "cancelled"].includes(t.task_status),
-      );
-    if (stopped) {
-      const row = element("div", "", "notice workflow-generation-row");
-      row.append(
-        element(
-          "span",
-          `${group.group_type === "episode-film" ? "本集成片" : "本集每秒分镜"}：${stopped.end_reason || statuses[stopped.task_status]}`,
-        ),
-        button("继续", () =>
-          act({ type: "continue-group", group_id: group.id }),
-        ),
-      );
-      view.append(row);
-    }
-  }
-  const tasks = snapshot.tasks
-    .filter(
-      (t) =>
-        (!state.target_id || t.target_id === state.target_id) &&
-        (!state.history_status || t.task_status === state.history_status) &&
-        (!state.history_episode || t.episode_id === state.history_episode),
-    )
-    .sort((a, b) => b.queue_order - a.queue_order);
-  view.append(element("p", `${tasks.length} 条任务`, "meta"));
+  const filtered = groups.filter(row =>
+    (!state.history_status || row.status === state.history_status) &&
+    (!state.target_id || row.tasks.some(t=>t.target_id === state.target_id)) &&
+    (!state.history_episode || row.tasks.some(t=>t.episode_id === state.history_episode)));
+  view.append(element("p", `${filtered.length} 个任务组`, "meta"));
   const list = element("div", "", "task-history-list");
   view.append(list);
-  for (const t of tasks) {
+  for (const entry of filtered) {
+    const t = entry.tasks[0];
+    if (!t) continue;
+    const openGroup = () => go("history", {group_id:entry.group.id,task_id:t.id,step_id:null,step_view:null});
     const row = element("article", "", "task-history-item run-list-row"),
-      h = element("div", "", "run-list-heading"),
-      open = button(
-        names[t.business_type] || t.business_type,
-        () => go("history", { task_id: t.id, step_id: null, step_view: null }),
-        false,
-      );
+      heading = element("div", "", "run-list-heading");
     row.tabIndex = 0;
     row.setAttribute("role", "button");
-    row.setAttribute("aria-label", `查看${names[t.business_type] || t.business_type}任务步骤详情`);
-    row.onclick = (event) => {
-      if (!event.target.closest("button"))
-        go("history", { task_id: t.id, step_id: null, step_view: null });
-    };
-    row.onkeydown = (event) => {
-      if (event.target === row && ["Enter", " "].includes(event.key)) {
-        event.preventDefault();
-        go("history", { task_id: t.id, step_id: null, step_view: null });
-      }
-    };
-    h.append(
-      open,
-      element(
-        "span",
-        statuses[t.task_status] || t.task_status,
-        `task-history-status is-${t.task_status}`,
-      ),
-    );
-    const steps = snapshot.steps.filter((s) => s.task_id === t.id),
-      progress = element("progress");
-    progress.max = steps.length || 1;
-    progress.value = steps.filter((s) => s.step_status === "done").length;
-    progress.setAttribute("aria-label", "任务步骤进度");
-    row.append(
-      h,
-      element(
-        "p",
-        `${t.source === "session" ? "会话发起" : "面板发起"} · ${t.created_at || ""}`,
-        "meta",
-      ),
-      element("p", t.end_reason || ""),
-      progress,
-    );
-    controls(row, t);
+    row.setAttribute("aria-label", `查看${entry.name}组内任务步骤详情`);
+    row.onclick = event => {if (!event.target.closest("button")) openGroup();};
+    row.onkeydown = event => {if (event.target === row && ["Enter"," "].includes(event.key)) {event.preventDefault();openGroup();}};
+    heading.append(button(entry.name,openGroup,false),element("span",statuses[entry.status],`task-history-status is-${entry.status}`));
+    const current = entry.tasks.find(t=>t.task_status === "running") || entry.tasks.find(t=>t.task_status === "queued");
+    const progress = element("progress");
+    progress.max = entry.tasks.length;
+    progress.value = entry.tasks.filter(t=>t.task_status === "completed").length;
+    progress.setAttribute("aria-label","组内任务进度");
+    row.append(heading,element("p",`${entry.group.source === "session" ? "会话发起" : "面板发起"} · ${entry.group.created_at || ""}`,"meta"),
+      element("p",`任务完成 ${progress.value}/${progress.max}${current ? ` · 当前：${taskName(current,p)}` : ""}`,"meta"),element("p",entry.reason || "", "error"),progress);
+    if (canContinue(entry)) {
+      const notice = element("div", "", "notice workflow-generation-row");
+      // 原因仍放在此卡片内，继续只作用于没有续作组的最新组。
+      notice.append(element("span", entry.reason || statuses[entry.status]),button("继续",()=>act({type:"continue-group",group_id:entry.group.id})));
+      row.querySelector(".error").remove();
+      row.append(notice);
+    }
+    if (entry.tasks.length === 1) controls(row,t);
     list.append(row);
   }
 }

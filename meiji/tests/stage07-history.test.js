@@ -17,8 +17,8 @@ function fixture(work) {
 }
 
 test('任务整行正文/空白及键盘进入详情，操作按钮不会进入',()=>fixture(({dom,root,state,commands,paint})=>{
- for(const target of ['.run-list-row','.run-list-row p','progress']) {paint();root.querySelector(target).click();assert.equal(state.task_id,'t');state.task_id=null;}
- for(const key of ['Enter',' ']) {paint();root.querySelector('.run-list-row').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}));assert.equal(state.task_id,'t');state.task_id=null;}
+ for(const target of ['.run-list-row','.run-list-row p','progress']) {paint();root.querySelector(target).click();assert.equal(state.task_id,'t');state.task_id=null;state.group_id=null;}
+ for(const key of ['Enter',' ']) {paint();root.querySelector('.run-list-row').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}));assert.equal(state.task_id,'t');state.task_id=null;state.group_id=null;}
  paint();[...root.querySelectorAll('button')].find(b=>b.textContent==='取消').click();assert.equal(state.task_id,null);assert.equal(commands[0].type,'cancel');
 }));
 
@@ -48,7 +48,9 @@ test('提示词和HTTP跳转详情页：提示词完整分段，HTTP按次数和
  assert.equal(cards[0].querySelector('pre').textContent,long);
  assert.equal(cards[1].querySelector('pre').textContent,long);
  assert.doesNotMatch(root.querySelector('.run-record-page').textContent,/重复正文|output|reference_count|transfers/);
- assert.ok(cards.every(c=>c.querySelector('.run-record-head .meiji-log-copy')));
+ assert.equal(root.querySelectorAll('.run-record-page .meiji-log-copy').length,1);
+ assert.ok(root.querySelector('.run-record-actions .meiji-log-copy'));
+ assert.ok(cards.every(c=>!c.querySelector('.meiji-log-copy')));
  [...root.querySelectorAll('button')].find(b=>b.textContent==='← 返回任务').click();paint();
  assert.ok(root.querySelector('.run-step-card'));
  link('查看 HTTP').click();paint();
@@ -83,4 +85,30 @@ test('作废任务列表、筛选与步骤标签显示已作废，旧任务没�
  assert.match(root.querySelector('.run-detail-page').textContent,/已作废.*服务重启/s);
  assert.equal(root.querySelector('.run-step-heading .task-history-status').textContent,'已作废');
  assert.ok(![...root.querySelectorAll('button')].some(b=>['开始','取消'].includes(b.textContent)));
+}));
+
+test('组列表只显示一张卡片，详情排列全部任务步骤，二级任务HTTP能返回整组',()=>fixture(({s,root,state,paint})=>{
+ s.groups=[{id:'g',name:'重要角色及图片',group_type:'workflow',source:'panel',created_at:'时间'}];
+ s.tasks=[{id:'t',name:'提取角色',group_id:'g',group_seq:1,business_type:'outline',task_status:'completed',queue_order:1,source:'panel'},
+ {id:'t2',name:'生成武大郎角色图',group_id:'g',group_seq:2,business_type:'character-image',task_status:'failed',queue_order:2,source:'panel',target_id:'c2',end_reason:'生成失败'}];
+ s.steps=[{id:'s1',name:'提取角色资料',task_id:'t',seq:1,kind:'generate',step_status:'done'},
+ {id:'s2',name:'生成角色图',task_id:'t2',seq:1,kind:'generate',step_status:'failed',error_reason:'生成失败',prompt:{user:'角色图正文',transfers:[{request:{body:'请求全文'},body:'返回全文'}]}}];
+ paint();assert.equal(root.querySelectorAll('.run-list-row').length,1);assert.match(root.textContent,/重要角色及图片/);
+ state.target_id='c2';paint();assert.equal(root.querySelectorAll('.run-list-row').length,1);
+ root.querySelector('.run-list-row').click();paint();
+ assert.equal(root.querySelectorAll('.run-task-head').length,2);assert.equal(root.querySelectorAll('.run-step-card').length,2);
+ assert.deepEqual([...root.querySelectorAll('.run-step-card')].map(c=>c.open),[false,true]);
+ assert.match(root.querySelector('.run-group-head').textContent,/重要角色及图片.*失败/);
+ root.querySelector('[data-step-id=s2] .run-record-link').click();paint();assert.equal(root.querySelector('pre').textContent,'角色图正文');
+ [...root.querySelectorAll('button')].find(b=>b.textContent==='← 返回任务').click();paint();assert.equal(root.querySelectorAll('.run-task-head').length,2);
+}));
+
+test('组筛选按聚合状态，部分完成加作废显示作废，原组与续作组均保留',()=>fixture(({s,root,state,paint})=>{
+ s.groups=[{id:'g',name:'原组',group_type:'workflow'},{id:'g2',name:'续作组',group_type:'workflow',continued_from_group_id:'g'}];
+ s.tasks=[{id:'t',group_id:'g',group_seq:1,business_type:'outline',task_status:'completed',queue_order:1},
+ {id:'t2',group_id:'g',group_seq:2,business_type:'outline',task_status:'superseded',queue_order:2,end_reason:'重启作废'},
+ {id:'t3',group_id:'g2',group_seq:1,business_type:'outline',task_status:'queued',queue_order:3}];
+ paint();assert.equal(root.querySelectorAll('.run-list-row').length,2);
+ state.history_status='superseded';paint();assert.equal(root.querySelectorAll('.run-list-row').length,1);assert.match(root.textContent,/原组.*已作废/s);
+ root.querySelector('.run-list-row').click();paint();assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent==='查看续作组'));
 }));

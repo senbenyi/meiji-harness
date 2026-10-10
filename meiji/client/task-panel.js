@@ -311,6 +311,7 @@ export function renderTaskPanel(root, snapshot, context) {
   const go = (page, values = {}) => {
     if (page !== "history" || state.page !== "history") {
       state.task_id = null;
+      state.group_id = null;
       state.step_id = null;
       state.step_view = null;
     }

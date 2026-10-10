@@ -291,9 +291,12 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 
 /* 项目详情卡片：宽剧集卡、头像式角色/道具卡、图文场景卡。 */
 .overview-card-title{display:flex;align-items:center;gap:6px;min-width:0}.overview-card-title h3{margin:0}.overview-card-title .icon-edit{flex:none;width:26px;height:26px;padding:5px}
-.overview-page .episode-card-list{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px 0 10px;scroll-snap-type:x proximity}
+.overview-page .episode-card-list{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px 0 10px;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none;cursor:grab;user-select:none}
+.overview-page .episode-card-list::-webkit-scrollbar{display:none}
+.overview-page .episode-card-list.is-dragging{cursor:grabbing;scroll-snap-type:none}
+.overview-page .episode-card-list .episode-card{cursor:inherit}
 .overview-page .episode-card{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:8px;flex:0 0 calc((100% - 24px) / 3.5);width:auto;min-width:0;min-height:0;margin:0;padding:8px;scroll-snap-align:start}
-.overview-page .episode-card .episode-cover{width:100%;height:auto;aspect-ratio:16/9;min-height:0;border-radius:8px;object-fit:cover}
+.overview-page .episode-card .episode-cover{width:100%;height:auto;aspect-ratio:auto;align-self:stretch;contain:size;min-height:0;border-radius:8px;object-fit:cover}
 .overview-page .episode-card .episode-copy{min-width:0;padding:4px 0}
 .overview-page .episode-card .episode-copy p{display:-webkit-box;-webkit-line-clamp:4;line-height:1.55;overflow:hidden;overflow-wrap:anywhere}
 .overview-page .episode-card-heading{flex-wrap:wrap}
@@ -353,3 +356,6 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 
 .character-primary-picture>img{max-height:280px;width:auto;object-fit:contain}
 .run-record-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.run-record-head .meiji-log-copy{margin:0;padding:3px 8px;font-size:12px}.run-record-links{margin-top:8px}
+/* 组详情在原步骤卡片上增加组头和任务分段。 */
+.run-group-head{margin-top:12px;padding:10px 0;border-bottom:1px solid #383a41}.run-group-head strong{white-space:normal;overflow:visible}
+.run-task-head{margin-top:20px;padding-top:12px;border-top:1px solid #383a41}.run-task-head h3{margin:0;min-width:0;overflow-wrap:anywhere}.run-task-head .task-history-status{flex:none}

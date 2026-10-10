@@ -1,3 +1,4 @@
+import { taskName, groupName } from "../../../shared/task-labels.js";
 import {
   createId,
   validateCommand,
@@ -127,6 +128,21 @@ export class TaskService {
             : null;
         if (command.type === "continue-group" && !original)
           invalid("group_id", "组合不存在");
+        if (original && ["single", "workflow"].includes(original.group_type)) {
+          const members = s.tasks.filter(t => t.group_id === original.id).sort((a,b)=>a.group_seq-b.group_seq);
+          if (members.some(unfinished)) conflict(members.filter(unfinished));
+          const remaining = members.filter(t => t.task_status !== "completed");
+          if (remaining.some(t=>["manual_edit", "override", "delete"].includes(t.action))) invalid("group", "人工与删除任务请从原入口重新操作");
+          if (!remaining.length) return { group_id: null, task_ids: [], message: "当前范围无需继续" };
+          const conflicts = s.tasks.filter(t => unfinished(t) && remaining.some(x => x.business_type === t.business_type && x.target_id === t.target_id));
+          if (conflicts.length) conflict(conflicts);
+          const group = { ...original, id: createId("group"), name: `${original.name || groupName(original, members, s.project)} · 继续`, created_at: now(), source: origin.source, action: "continue", continued_from_group_id: original.id };
+          s.groups.push(group);
+          const tasks = remaining.map((t,i) => add(t.business_type, t.target_id,
+            ["manual_edit", "override", "delete"].includes(t.action) ? t.action : nodeOf(s.project,t.business_type,t.target_id)?.状态 === "empty" ? "generate" : "regenerate",
+            group.id, i+1, t.opinion));
+          return { group_id: group.id, task_ids: tasks.map(t=>t.id) };
+        }
         const episodeId = original?.episode_id || command.episode_id,
           episode = s.project.剧集.find((e) => e.id === episodeId);
         if (!episode) invalid("episode_id", "剧集不存在");
@@ -177,6 +193,7 @@ export class TaskService {
           continued_from_group_id: original?.id || null,
           opinion: original?.opinion || command.opinion || "",
         };
+        group.name = groupName(group, [], s.project);
         s.groups.push(group);
         const tasks = planned.map((x, i) =>
           add(
@@ -284,6 +301,20 @@ export class TaskService {
         opinion,
         previous_node_state: null,
       };
+    task.name = taskName(task, s.project);
+    if (!task.group_id) {
+      const group = {
+        id: createId("group"), project_id: s.project.id,
+        episode_id: task.episode_id,
+        group_type: ["project-characters", "episode-characters", "script"].includes(business) ? "workflow" : "single",
+        source: origin.source, shot_ids: [], created_at: task.created_at,
+        action, continued_from_group_id: null, opinion,
+      };
+      group.name = groupName(group, [task], s.project);
+      task.group_id = group.id;
+      task.group_seq = 1;
+      s.groups.push(group);
+    }
     enqueueNode(s.project, task);
     s.tasks.push(task);
     s.steps.push(
@@ -524,13 +555,16 @@ export class TaskService {
         (n) => n.task_id === t.id && n.event === "submitted",
       ),
       source = { source: t.source, session_id: origin?.session_id || null };
+    const parentGroup = s.groups.find(g => g.id === t.group_id);
+    const group = parentGroup && ["workflow", "single"].includes(parentGroup.group_type) ? parentGroup.id : null;
+    const next = () => group ? Math.max(0, ...s.tasks.filter(x => x.group_id === group).map(x => x.group_seq)) + 1 : null;
     if (t.business_type === "script")
       this.#add(
         s,
         "project-summary",
         s.project.id,
         s.project.项目摘要.状态 === "empty" ? "generate" : "regenerate",
-        source,
+        source, group, next(),
       );
     for (const item of output.derived || []) {
       if (
@@ -541,7 +575,7 @@ export class TaskService {
             t.target_id === item.target_id,
         )
       )
-        this.#add(s, item.business_type, item.target_id, "generate", source);
+        this.#add(s, item.business_type, item.target_id, "generate", source, group, next());
     }
   }
   async idle(projectId) {

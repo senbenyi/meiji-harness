@@ -6,6 +6,7 @@ import {
   loadTemplate,
   renderTemplate,
   ruleInputs,
+  languageName,
 } from "../prompts/yaml-prompts.js";
 import { nodeOf, locateTarget, invalid } from "../../shared/task-contract.js";
 import { aiProjection } from "./content.js";
@@ -15,6 +16,29 @@ import { decodeImageData } from "../media/decode-image-data.js";
 import { normalizeVideo } from "../media/normalize-video.js";
 // 实际时长按成片文件测得，保留一位小数。
 const seconds = (value) => Math.round((Number(value) || 0) * 10) / 10;
+// 图片提示词的人物资料组装为一句话，省略编号、必出等非画面字段及缺失值。
+const missing = (v) =>
+  typeof v !== "string" || !v.trim() || /^(资料)?未提供$|^未知$|^无$/.test(v.trim());
+export function personSentence(person) {
+  const pick = (v, format = (x) => x) => (missing(v) ? "" : format(v.trim()));
+  const basics = [
+      pick(person.名称),
+      pick(person.性别),
+      pick(person.年龄),
+      pick(person.国籍, (x) => (/[人族]$/.test(x) ? x : `${x}人`)),
+      pick(person.年代),
+      pick(person.身份),
+    ].filter(Boolean),
+    looks = [
+      pick(person.身高, (x) => `身高${x}`),
+      pick(person.体型, (x) => `体型${x}`),
+      pick(person.面相, (x) => `面相${x}`),
+    ].filter(Boolean),
+    parts = [basics.join("，"), pick(person.身份特征), looks.join("，")].filter(
+      Boolean,
+    );
+  return parts.length ? `${parts.join("；")}。` : "";
+}
 export function createMediaHandler({ media, gateway }) {
   return async ({ snapshot, task, step, signal, record }) => {
     const p = snapshot.project,
@@ -83,17 +107,14 @@ export function createMediaHandler({ media, gateway }) {
           `${business}-${modify ? "regenerate" : "generate"}`,
         );
       const person = business === "character-image" ? object : character,
-        identity = aiProjection(person, p);
-      delete identity.声音;
-      delete identity.服装;
-      delete identity.默认服装编号;
+        identity = personSentence(person);
       const reference = modify
         ? node.地址
         : business === "character-image"
           ? object.参考图.地址
           : character.图片.地址;
       prompt = renderTemplate(template, {
-        输出语言: p.输出语言,
+        输出语言: languageName(p.输出语言),
         人物资料: identity,
         本套服装描述: business === "costume-image" ? object.描述 : "",
         参考图片说明: reference
@@ -158,7 +179,7 @@ export function createMediaHandler({ media, gateway }) {
         `video-${task.opinion.trim() ? "regenerate" : "generate"}`,
       );
       prompt = renderTemplate(template, {
-        输出语言: p.输出语言,
+        输出语言: languageName(p.输出语言),
         文本提示词: aiProjection(object.文本提示词, p),
         参考图片用途说明: referenceIds.map(
           (id, i) =>

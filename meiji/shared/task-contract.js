@@ -211,7 +211,8 @@ const taskFields = [
   "previous_node_state",
 ];
 export function validateTask(t, p) {
-  assertFields(t, taskFields, "task");
+  assertFields(t, [...taskFields, ...(Object.hasOwn(t, "name") ? ["name"] : [])], "task");
+  if (Object.hasOwn(t, "name")) { assertText(t.name, "task.name"); if (!t.name.trim()) invalid("task.name", "不可为空"); }
   for (const k of ["id", "project_id", "target_id"])
     assertId(t[k], `task.${k}`);
   assertEnum(
@@ -293,9 +294,11 @@ export function validateStep(s, t) {
       "result",
       "started_at",
       "ended_at",
+      ...(Object.hasOwn(s, "name") ? ["name"] : []),
     ],
     "step",
   );
+  if (Object.hasOwn(s, "name")) { assertText(s.name, "step.name"); if (!s.name.trim()) invalid("step.name", "不可为空"); }
   assertId(s.id, "step.id");
   assertId(s.task_id, "step.task_id");
   if (t && t.id !== s.task_id) invalid("step.task_id", "任务归属不符");

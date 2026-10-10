@@ -220,7 +220,6 @@ export async function completeChat({
   model,
   system,
   prompt,
-  json = false,
   fetchImpl = fetch,
   signal,
 }) {
@@ -230,7 +229,7 @@ export async function completeChat({
   const payload = {
     model,
     messages,
-    ...(json ? { response_format: { type: "json_object" } } : {}),
+    stream: false,
   };
   // 文本请求可重复提交：网关上游偶发 502/503/504 时自动再试，每次请求各自留痕；图片与视频不在此重试。
   let result;

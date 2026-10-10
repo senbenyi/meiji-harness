@@ -5,6 +5,41 @@ import { renderTaskPanel, episodeTabs } from "../client/task-panel.js";
 import { PanelContext } from "../client/task-client.js";
 import { snapshotFixture } from "./fixtures/project.js";
 
+test("剧集横向鼠标拖动、松开与取消，拖动不打开剧集，点击/键盘与触摸保持可用", () => {
+  const dom = new JSDOM('<main></main>'), previous = globalThis.document;
+  globalThis.document = dom.window.document;
+  try {
+    const snapshot = snapshotFixture(), root = document.querySelector('main'), view = { page: 'overview' };
+    renderTaskPanel(root, snapshot, { session_id: 'session-test', view, refresh: async () => {}, paint: () => {}, onError: () => {} });
+    const list = root.querySelector('.episode-card-list'), card = list.querySelector('.episode-card');
+    Object.defineProperties(list, { scrollWidth: { value: 900 }, clientWidth: { value: 300 } });
+    let captured = null;
+    list.setPointerCapture = id => { captured = id; };
+    list.hasPointerCapture = id => captured === id;
+    list.releasePointerCapture = () => { captured = null; };
+    const pointer = (type, x, pointerType = 'mouse') => {
+      const event = new dom.window.MouseEvent(type, { clientX: x, button: 0, bubbles: true, cancelable: true });
+      Object.defineProperties(event, { pointerId: { value: 1 }, pointerType: { value: pointerType } });
+      card.dispatchEvent(event); return event;
+    };
+    pointer('pointerdown', 200); pointer('pointermove', 120);
+    assert.equal(list.scrollLeft, 80); assert.equal(captured, 1); assert.ok(list.classList.contains('is-dragging'));
+    pointer('pointerup', 120); card.click();
+    assert.equal(view.page, 'overview'); assert.equal(captured, null); assert.ok(!list.classList.contains('is-dragging'));
+    pointer('pointermove', 80); assert.equal(list.scrollLeft, 80);
+    pointer('pointerdown', 120); pointer('pointermove', 160); pointer('pointercancel', 160);
+    assert.equal(list.scrollLeft, 40); assert.equal(captured, null);
+    pointer('pointerdown', 100); pointer('pointermove', 103); pointer('pointerup', 103); card.click();
+    assert.equal(view.page, 'episode'); assert.equal(list.scrollLeft, 40);
+    view.page = 'overview';
+    card.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    assert.equal(view.page, 'episode');
+    view.page = 'overview';
+    pointer('pointerdown', 200, 'touch'); const touchMove = pointer('pointermove', 100, 'touch');
+    assert.equal(list.scrollLeft, 40); assert.equal(touchMove.defaultPrevented, false);
+  } finally { globalThis.document = previous; dom.window.close(); }
+});
+
 test("S7-03/06 会话、项目与版本守卫拒绝晚到/乱序响应", () => {
   const context = new PanelContext(),
     a = snapshotFixture(),

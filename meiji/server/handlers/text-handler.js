@@ -3,6 +3,7 @@ import {
   loadTemplate,
   renderTemplate,
   ruleInputs,
+  languageName,
 } from "../prompts/yaml-prompts.js";
 import {
   nodeOf,
@@ -51,7 +52,7 @@ export function promptValues(snapshot, task, draft, kind) {
     )
     .sort((a, b) => b.seq - a.seq)[0]?.result;
   return {
-    输出语言: p.输出语言,
+    输出语言: languageName(p.输出语言),
     ...ruleInputs(p.规则, task.business_type, task.target_id),
     完整剧本: p.剧本.正文,
     当前剧本: {
@@ -136,7 +137,6 @@ export function createTextHandler({ chat }) {
     const response = await chat({
       system: prompt.system,
       prompt: prompt.user,
-      json: true,
       signal,
       task,
       step,

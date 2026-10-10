@@ -131,3 +131,7 @@ export function ruleInputs(rules, business, targetId) {
       : "",
   };
 }
+// 提示词中的输出语言用自然语言名称，不直接写语言代码。
+export function languageName(code) {
+  return { "zh-CN": "简体中文", en: "English（英文）" }[code] || code;
+}
