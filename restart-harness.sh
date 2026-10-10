@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 已完成 configure-harness.sh 配置后的日常重启：直接使用当前源码和 skill。
-# 启动命令 bash /Users/tom/Documents/jileshijie/llm-dsh-plugins/restart-harness.sh
+# 已完成 configure-harness.sh 配置后的日常重启：直接使用当前源码和 YAML。
+# 在仓库根目录运行：bash restart-harness.sh
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd -P)"
@@ -62,10 +62,7 @@ for pid in $pids; do
 done
 [[ -z "$(listeners)" ]] || fail "3080 仍被占用，未启动新实例。"
 
-node "$REPO/meiji/scripts/migrate-story-outline.js" "$DSH_HOME"
-node "$REPO/meiji/scripts/migrate-character-costumes.js" "$DSH_HOME"
-
 export PATH="$HARNESS/node_modules/.bin:$PATH"
-echo "使用当前 meiji 代码与 skill 启动 Harness：http://127.0.0.1:3080"
+echo "使用当前 meiji 代码与 YAML 启动 Harness：http://127.0.0.1:3080"
 echo "前台运行，按 Ctrl+C 停止；页面打开后刷新以加载新前端。"
 exec node --import tsx/esm apps/cli/src/bin.ts web

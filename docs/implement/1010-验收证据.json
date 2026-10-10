@@ -1,0 +1,147 @@
+{
+  "自动测试": {
+    "命令": "npm --prefix meiji test",
+    "通过": 131,
+    "失败": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "真实网关完整链": {
+    "project_id": "p_80c9b59c-f144-497c-b0d0-85ed326edb9d",
+    "stages": [
+      {
+        "business": "project-summary",
+        "task_id": "t_8506f975-4aa3-47fc-95e6-9ac245009e7a",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "project-characters",
+        "task_id": "t_df557813-6a23-4211-ae1b-7e1db4d206dd",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "outline",
+        "task_id": "t_f2e8dd6e-8cbc-4547-accb-90358c8ba03a",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "episode-characters",
+        "task_id": "t_e02a7d97-4d8c-4568-b5e5-a500f8a2f6fe",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "shots",
+        "task_id": "t_d7f0f839-ae6f-4364-9e9f-ade84ebc36ef",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "seconds",
+        "task_id": "t_8a859195-8124-4da4-8aee-6b4181bdc268",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "storyboard",
+        "task_id": "t_9bab5766-7f29-4941-89c4-bd5356e42938",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "video",
+        "task_id": "t_93dc901f-2294-4924-91a2-3d0c75b0593f",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "tail",
+        "task_id": "t_abf684eb-f685-4182-8815-186d604c9c90",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "assembly",
+        "task_id": "t_170f88fc-454f-498c-8109-5a08f0adb56c",
+        "status": "completed",
+        "reason": ""
+      }
+    ],
+    "gateway": true,
+    "completed": true
+  },
+  "真实网关失败后继续": {
+    "gateway": true,
+    "failed_group": [
+      {
+        "status": "failed",
+        "reason": "precheck：seconds尚未有效生成"
+      },
+      {
+        "status": "superseded",
+        "reason": "组合前序任务已停止"
+      },
+      {
+        "status": "superseded",
+        "reason": "组合前序任务已停止"
+      }
+    ],
+    "continued_group": [
+      {
+        "business": "storyboard",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "video",
+        "status": "completed",
+        "reason": ""
+      },
+      {
+        "business": "tail",
+        "status": "completed",
+        "reason": ""
+      }
+    ],
+    "different_group": true,
+    "completed": true
+  },
+  "真实Harness面板": {
+    "隔离端口": 3081,
+    "创建项目": true,
+    "会话绑定": true,
+    "Chrome页面错误": 0,
+    "通知": [
+      "submitted:delivered",
+      "failed:delivered"
+    ],
+    "现有3080实例": "隔离测试后按计划正常重启，加载新入口",
+    "当前服务验证": {
+      "panel.js": 200,
+      "鉴权后的新API": "未登录401",
+      "正常重启": "旧进程40735退出后新实例启动"
+    }
+  },
+  "删除清单": {
+    "已删除文件": 295,
+    "其中JS": 270,
+    "其中旧skill": 25,
+    "第三方依赖保留": 2
+  },
+  "图谱": {
+    "force重建成功": true,
+    "节点": 9704,
+    "边": 38893,
+    "clusters": 301,
+    "flows": 823,
+    "差异文件": 374,
+    "差异符号": 4614,
+    "risk": "critical",
+    "partial": false,
+    "truncated": false,
+    "嵌套副本后缀误匹配符号": 3442
+  }
+}

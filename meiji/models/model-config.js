@@ -28,19 +28,6 @@ export async function defaults(local = localConfig) {
   catch (error) { if (error.code !== 'ENOENT') throw error }
   return { ...base, ...override }
 }
-export function catalog(settings) {
-  const providers = settings.describe({ redactSecrets: true }).find(item => item.ns === 'llm-pi-ai')?.value?.providers ?? {}
-  return Object.entries(providers).flatMap(([provider, profile]) => (profile.models ?? []).map(model => ({
-    provider, model: model.id, label: `${profile.displayName || provider} / ${model.name || model.id}`,
-    purposes: ['chat', 'story'],
-  })))
-}
-// 读取路由不校验：生成先组装提示词，仅当前请求在网关入口校验。
-export function modelRoutes(raw) {
-  const { baseUrl, apiKey } = raw || {}
-  return { baseUrl, apiKey, ...Object.fromEntries(purposeIds.map(id => [id, { baseUrl, apiKey, model: raw?.[id]?.model }])) }
-}
-
 export function normalizeModels(raw) {
   const baseUrl = gatewayBaseUrl(raw?.baseUrl)
   const apiKey = String(raw?.apiKey || '').replace(/^Bearer\s+/i, '').trim()

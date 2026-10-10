@@ -64,5 +64,5 @@ export function createShell() {
     applyWidth()
   }
   root.querySelector('.toggle').onclick = () => setOpen(root.querySelector('.sidebar').classList.contains('collapsed'))
-  return { root, content: root.querySelector('.content'), setOpen, status: message => { root.querySelector('.status').textContent = message } }
+  return { dispose() { window.removeEventListener('resize', applyWidth); layout.remove(); host.remove(); document.documentElement.style.removeProperty('--meiji-panel-width'); delete document.documentElement.dataset.meijiMobile }, root, content: root.querySelector('.content'), setOpen, status: message => { root.querySelector('.status').textContent = message } }
 }

@@ -1,17 +1,26 @@
-// 仅由短剧制作预设加载；主机插件提供共享运行时，不向全局注册会话工具。
-import { contextQueryTool } from './tools/operation-context-query.js'
-import { projectManageTool } from './tools/operation-project-manage.js'
-import { runTools } from './tools/run-tools.js'
-import { sessionSkills, validateSkills } from './skills/load-skills.js'
-export const name = 'meiji-session'
-export const inject = ['meiji', 'tools', 'skills']
-export function apply(ctx) {
-  const runtime = ctx.meiji
-  for (const tool of [contextQueryTool(runtime), projectManageTool(runtime), ...runTools(runtime)]) {
-    const execute = tool.execute
-    tool.execute = async (...args) => { await runtime.ready; return execute(...args) }
-    ctx.effect(() => ctx.tools.register(tool), `meiji session: ${tool.name}`)
-  }
-  validateSkills()
-  for (const skill of sessionSkills()) ctx.effect(() => ctx.skills.register(skill), `meiji session skill: ${skill.name}`)
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { taskTools } from "./tools/task-tools.js";
+export const name = "meiji-session";
+export const inject = ["meiji", "tools", "skills"];
+export async function apply(ctx) {
+  const runtime = ctx.meiji;
+  await runtime.ready;
+  for (const tool of taskTools(runtime))
+    ctx.effect(() => ctx.tools.register(tool), `meiji session: ${tool.name}`);
+  const path = new URL("./skills/session/panel.md", import.meta.url),
+    content = await readFile(path, "utf8");
+  const skill = {
+    name: "meiji-workflow",
+    description: "项目、节点任务、组合任务及程序通知的使用边界",
+    category: "gongyong",
+    pane: null,
+    feature: "panel",
+    mode: "generate",
+    source: "runtime",
+    content,
+    path: fileURLToPath(path),
+    resourceBase: { kind: "opaque", description: "正文已注入会话" },
+  };
+  ctx.effect(() => ctx.skills.register(skill), "meiji session: workflow");
 }
