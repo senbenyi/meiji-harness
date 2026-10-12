@@ -2,8 +2,8 @@ import {
   emptyProject,
   emptyEpisode,
   emptyShot,
-} from "../../shared/project-contract.js";
-import { createId } from "../../shared/task-contract.js";
+} from "../../shared/project_contract.js";
+import { createId } from "../../shared/task_contract.js";
 export function projectFixture() {
   const p = emptyProject({ 名称: "新契约测试", 创作方向: "方向" });
   p.剧本.正文 = "完整剧本";

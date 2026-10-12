@@ -1,4 +1,4 @@
-import { locateTarget, nodeOf } from "../../shared/task-contract.js";
+import { locateTarget, nodeOf } from "../../shared/task_contract.js";
 import { expireDownstream } from "../../shared/node-dependencies.js";
 export function applyDelete(snapshot, task) {
   const p = snapshot.project,

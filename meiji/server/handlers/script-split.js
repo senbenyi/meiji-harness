@@ -1,4 +1,4 @@
-import { invalid } from "../../shared/task-contract.js";
+import { invalid } from "../../shared/task_contract.js";
 
 // 剧本按行切成段落：空行并入上一段，保证所有段落按顺序拼接后与原文逐字一致。
 export function scriptParagraphs(text) {

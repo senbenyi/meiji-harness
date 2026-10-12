@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { nodeOf, locateTarget } from "./task-contract.js";
+import { nodeOf, locateTarget } from "./task_contract.js";
 
 const recordedHash = /^[a-f0-9]{64}$/;
 const canonical = (value) =>

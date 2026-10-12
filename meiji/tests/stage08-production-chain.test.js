@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { createAppRuntime } from "../server/runtime/app-runtime.js";
-import { emptyProject, emptyEpisode } from "../shared/project-contract.js";
+import { emptyProject, emptyEpisode } from "../shared/project_contract.js";
 const beat = {
   开始秒: 0,
   结束秒: 5,

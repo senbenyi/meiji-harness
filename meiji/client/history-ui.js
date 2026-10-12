@@ -1,5 +1,5 @@
 import { historyGroups, taskName, stepName } from "../shared/task-labels.js";
-import { NODE_TYPES } from "../shared/task-contract.js";
+import { NODE_TYPES } from "../shared/task_contract.js";
 import { element } from "./panel-dom.js";
 const nodeTypeNames = {
   "project-summary": "项目摘要",

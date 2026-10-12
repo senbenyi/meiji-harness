@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NODE_DEFINITIONS, OPERATION_DEFINITIONS, TEXT_BUSINESSES } from "../shared/node-definitions.js";
-import { createId, nodeOf } from "../shared/task-contract.js";
+import { createId, nodeOf } from "../shared/task_contract.js";
 import { stepKinds } from "../shared/task-plan.js";
 import { projectFixture, taskFixture } from "./fixtures/project.js";
 

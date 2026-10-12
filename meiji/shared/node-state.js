@@ -1,5 +1,5 @@
-import { nodeOf, invalid, locateTarget } from "./task-contract.js";
-import { validateProject } from "./project-contract.js";
+import { nodeOf, invalid, locateTarget } from "./task_contract.js";
+import { validateProject } from "./project_contract.js";
 import { TEXT_BUSINESSES } from "./node-definitions.js";
 
 export const SHOT_DURATION_TOLERANCE_SECONDS = 30;

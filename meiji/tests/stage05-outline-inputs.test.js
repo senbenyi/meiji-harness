@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { emptyProject, emptyEpisode } from "../shared/project-contract.js";
+import { emptyProject, emptyEpisode } from "../shared/project_contract.js";
 import { precheck } from "../server/flow/tasks/precheck.js";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";

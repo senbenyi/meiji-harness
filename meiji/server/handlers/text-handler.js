@@ -9,7 +9,7 @@ import {
   nodeOf,
   locateTarget,
   projectNumberCatalog,
-} from "../../shared/task-contract.js";
+} from "../../shared/task_contract.js";
 import { aiProjection, validateShape, prepareContent } from "./content.js";
 import { shotDurationRange } from "../../shared/node-state.js";
 import {

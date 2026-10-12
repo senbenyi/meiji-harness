@@ -12,13 +12,13 @@ import {
   validateCommand,
   projectNumberCatalog,
   translateNumbers,
-} from "../shared/task-contract.js";
+} from "../shared/task_contract.js";
 import {
   emptyProject,
   emptyEpisode,
   emptyShot,
   validateProject,
-} from "../shared/project-contract.js";
+} from "../shared/project_contract.js";
 import {
   loadTemplate,
   renderTemplate,

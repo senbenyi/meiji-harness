@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { parseDocument } from "yaml";
-import { invalid, assertRecord } from "../../shared/task-contract.js";
+import { invalid, assertRecord } from "../../shared/task_contract.js";
 const root = new URL("../../dev_docs/in_puts/", import.meta.url);
 export async function loadTemplate(name) {
   if (typeof name !== "string" || !/^[a-z]+(?:-[a-z]+)*$/.test(name))

@@ -4,8 +4,8 @@ import {
   mergeCharacters,
   replaceShots,
 } from "../shared/collection-identity.js";
-import { emptyProject, emptyEpisode } from "../shared/project-contract.js";
-import { createId } from "../shared/task-contract.js";
+import { emptyProject, emptyEpisode } from "../shared/project_contract.js";
+import { createId } from "../shared/task_contract.js";
 
 const character = (编号 = "C01", 服装编号 = "C01-01") => ({
   编号,

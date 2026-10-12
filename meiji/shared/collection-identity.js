@@ -3,8 +3,8 @@ import {
   assertFields,
   assertText,
   invalid,
-} from "./task-contract.js";
-import { emptyShot, validateProject } from "./project-contract.js";
+} from "./task_contract.js";
+import { emptyShot, validateProject } from "./project_contract.js";
 
 const characterFields = [
   "编号",

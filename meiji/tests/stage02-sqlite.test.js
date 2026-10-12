@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
-import { createId } from "../shared/task-contract.js";
+import { createId } from "../shared/task_contract.js";
 import { projectFixture } from "./fixtures/project.js";
 
 async function fixture(work) {

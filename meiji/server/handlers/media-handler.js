@@ -8,7 +8,7 @@ import {
   ruleInputs,
   languageName,
 } from "../prompts/yaml-prompts.js";
-import { nodeOf, locateTarget, invalid } from "../../shared/task-contract.js";
+import { nodeOf, locateTarget, invalid } from "../../shared/task_contract.js";
 import { aiProjection } from "./content.js";
 import { saveLastFrame } from "../media/extract-video-tail.js";
 import { concatFilms } from "../media/concat-videos.js";

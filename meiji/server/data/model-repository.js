@@ -9,8 +9,8 @@ import {
   rm,
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { ProjectModel } from "../model/project-model.js";
-import { validateProject } from "../../shared/project-contract.js";
+import { ProjectModel } from "../model/project_transaction_model.js";
+import { validateProject } from "../../shared/project_contract.js";
 import {
   assertFields,
   assertId,
@@ -21,7 +21,7 @@ import {
   validateStep,
   TERMINAL_TASKS,
   invalid,
-} from "../../shared/task-contract.js";
+} from "../../shared/task_contract.js";
 
 const files = ["project", "tasks", "steps", "groups", "runtime"];
 const hash = (value) => createHash("sha256").update(value).digest("hex");

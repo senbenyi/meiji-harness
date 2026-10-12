@@ -7,7 +7,7 @@ import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
 import { commitContent } from "../server/handlers/content.js";
 import { projectFixture } from "./fixtures/project.js";
-import { nodeOf } from "../shared/task-contract.js";
+import { nodeOf } from "../shared/task_contract.js";
 const group = (p) => ({
   type: "submit-group",
   project_id: p.id,

@@ -1,4 +1,4 @@
-import { validateProject } from "../../shared/project-contract.js";
+import { validateProject } from "../../shared/project_contract.js";
 
 // 读取闭包只由 Repository 持有。没有可绕过持久化的公开 publish/set 方法。
 export class ProjectModel {

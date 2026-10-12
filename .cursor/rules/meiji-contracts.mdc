@@ -1,17 +1,13 @@
 ---
-description: 修改 meiji 代码前必须先读三份开发契约
+description: 修改 meiji 代码前必须先读制作工作流
 globs: meiji/**
 alwaysApply: false
 ---
 
-# 修改 meiji 前先读契约
+# 修改 meiji 前先读制作工作流
 
-修改 `meiji/` 下的代码、配置、skill 或测试之前，先读完这三份，再改：
+修改 `meiji/` 下的代码、配置、skill 或测试之前，先读完 `meiji/dev_docs/制作工作流.md`，再改。
 
-- `meiji/dev_docs/项目数据结构.md`
-- `meiji/dev_docs/任务步骤.md`
-- `meiji/dev_docs/提示词编排.md`
+项目数据和任务步骤结构以该文档标明的源头为准。节点规则按该文档指向的 `dots/` 查阅。
 
-三份分别约束项目节点与过期、任务步骤与组合、YAML 提示词。与样例 `project_detail.json`、`step_model.md` 冲突时，以这三份和当前源码核对后的结果为准，不沿用已拆掉的旧版数据结构说明正文。
-
-只读问答不必通读。改代码时契约与实现不一致，先停下来对齐，不在未读契约的情况下加字段或改状态。
+只读问答不必通读。改代码时源头与实现不一致，先停下来对齐，不在未读的情况下加字段或改状态。

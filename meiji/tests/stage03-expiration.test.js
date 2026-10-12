@@ -6,7 +6,7 @@ import {
   stampDependencyHash,
 } from "../shared/node-dependencies.js";
 import { enqueueNode, restoreQueued } from "../shared/node-state.js";
-import { nodeOf, createId } from "../shared/task-contract.js";
+import { nodeOf, createId } from "../shared/task_contract.js";
 import { snapshotFixture, taskFixture } from "./fixtures/project.js";
 for (const [business, expected] of [
   [

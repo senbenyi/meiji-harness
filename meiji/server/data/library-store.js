@@ -9,7 +9,7 @@ import {
 } from "node:fs/promises";
 import { join, extname } from "node:path";
 import { randomUUID } from "node:crypto";
-import { invalid, assertId } from "../../shared/task-contract.js";
+import { invalid, assertId } from "../../shared/task_contract.js";
 const assetId = (id) => {
   if (
     !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(

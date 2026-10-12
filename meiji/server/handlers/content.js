@@ -8,13 +8,13 @@ import {
   locateTarget,
   translateNumbers,
   invalid,
-} from "../../shared/task-contract.js";
+} from "../../shared/task_contract.js";
 import {
   mergeCharacters,
   replaceShots,
 } from "../../shared/collection-identity.js";
 import { assertOutput } from "../../shared/node-state.js";
-import { emptyEpisode } from "../../shared/project-contract.js";
+import { emptyEpisode } from "../../shared/project_contract.js";
 import { buildSplit } from "./script-split.js";
 
 export function validateShape(value, shape, path = "响应") {

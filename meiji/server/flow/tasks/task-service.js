@@ -6,7 +6,7 @@ import {
   nodeOf,
   TERMINAL_TASKS,
   invalid,
-} from "../../../shared/task-contract.js";
+} from "../../../shared/task_contract.js";
 import {
   enqueueNode,
   restoreQueued,
@@ -17,6 +17,8 @@ import {
 import { expireDownstream } from "../../../shared/node-dependencies.js";
 import { stepKinds, newStep } from "../../../shared/task-plan.js";
 import { taskDetail, groupDetail } from "../../data/task-store.js";
+import { createTaskGroupModel } from "../../../shared/models/task_group_model.js";
+import { createTaskModel } from "../../../shared/models/task_model.js";
 import { precheck } from "./precheck.js";
 const now = () => new Date().toISOString();
 const unfinished = (t) => ["queued", "running"].includes(t.task_status);
@@ -175,7 +177,7 @@ export class TaskService {
           if (!remaining.length) return { group_id: null, task_ids: [], message: "当前范围无需继续" };
           const conflicts = s.tasks.filter(t => unfinished(t) && remaining.some(x => x.business_type === t.business_type && x.target_id === t.target_id));
           if (conflicts.length) conflict(conflicts);
-          const group = { ...original, id: createId("group"), name: `${original.name || groupName(original, members, s.project)} · 继续`, created_at: now(), source: origin.source, action: "continue", continued_from_group_id: original.id };
+          const group = createTaskGroupModel({ ...original, id: createId("group"), name: `${original.name || groupName(original, members, s.project)} · 继续`, created_at: now(), source: origin.source, action: "continue", continued_from_group_id: original.id });
           s.groups.push(group);
           const tasks = remaining.map((t,i) => add(t.business_type, t.target_id,
             ["manual_edit", "override", "delete"].includes(t.action) ? t.action : nodeOf(s.project,t.business_type,t.target_id)?.状态 === "empty" ? "generate" : "regenerate",
@@ -222,8 +224,7 @@ export class TaskService {
             ),
         );
         if (conflicts.length) conflict(conflicts);
-        const group = {
-          id: createId("group"),
+        const group = createTaskGroupModel({
           project_id: s.project.id,
           episode_id: episodeId,
           group_type: type,
@@ -233,7 +234,7 @@ export class TaskService {
           action: original ? "continue" : "generate",
           continued_from_group_id: original?.id || null,
           opinion: original?.opinion || command.opinion || "",
-        };
+        });
         group.name = groupName(group, [], s.project);
         s.groups.push(group);
         const tasks = planned.map((x, i) =>
@@ -323,8 +324,7 @@ export class TaskService {
     content = null,
   ) {
     const target = locateTarget(s.project, business, id),
-      task = {
-        id: createId("task"),
+      task = createTaskModel({
         project_id: s.project.id,
         episode_id: target.episode?.id || null,
         business_type: business,
@@ -341,16 +341,16 @@ export class TaskService {
         ended_at: null,
         opinion,
         previous_node_state: null,
-      };
+      });
     task.name = taskName(task, s.project);
     if (!task.group_id) {
-      const group = {
-        id: createId("group"), project_id: s.project.id,
+      const group = createTaskGroupModel({
+        project_id: s.project.id,
         episode_id: task.episode_id,
         group_type: ["project-characters", "script"].includes(business) ? "workflow" : "single",
         source: origin.source, shot_ids: [], created_at: task.created_at,
         action, continued_from_group_id: null, opinion,
-      };
+      });
       group.name = groupName(group, [task], s.project);
       task.group_id = group.id;
       task.group_seq = 1;

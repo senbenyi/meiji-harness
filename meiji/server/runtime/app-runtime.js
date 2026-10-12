@@ -1,5 +1,5 @@
 import { LibraryStore } from "../data/library-store.js";
-import { locateTarget } from "../../shared/task-contract.js";
+import { locateTarget } from "../../shared/task_contract.js";
 import { expireDownstream } from "../../shared/node-dependencies.js";
 import { decodeImageData } from "../media/decode-image-data.js";
 import { join } from "node:path";
@@ -20,8 +20,8 @@ import {
 import { withGatewayTrace } from "../gateway/gateway-trace.js";
 import { modelStore } from "../data/model-settings.js";
 import { NotificationOutbox } from "../host/notification-outbox.js";
-import { emptyProject, emptyEpisode } from "../../shared/project-contract.js";
-import { invalid, createId } from "../../shared/task-contract.js";
+import { emptyProject, emptyEpisode } from "../../shared/project_contract.js";
+import { invalid, createId } from "../../shared/task_contract.js";
 
 export async function createAppRuntime({
   home,

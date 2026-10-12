@@ -1,6 +1,6 @@
 import { stepName } from "./task-labels.js";
-import { createId } from "./task-contract.js";
 import { BUSINESS_DEFINITIONS } from "./node-definitions.js";
+import { createStepModel } from "./models/step_model.js";
 export function stepKinds(task) {
   if (task.action === "delete") return ["precheck", "impact", "apply"];
   if (["manual_edit", "override"].includes(task.action))
@@ -13,18 +13,11 @@ export function stepKinds(task) {
   ];
 }
 export function newStep(task, seq, kind, round = 0) {
-  return {
-    id: createId("step"),
+  return createStepModel({
     task_id: task.id,
     name: stepName({ kind, round }, task),
     seq,
     kind,
     round,
-    step_status: "ready",
-    error_reason: "",
-    prompt: null,
-    result: null,
-    started_at: null,
-    ended_at: null,
-  };
+  });
 }

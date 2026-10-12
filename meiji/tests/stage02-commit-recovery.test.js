@@ -5,8 +5,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { emptyProject } from "../shared/project-contract.js";
-import { createId } from "../shared/task-contract.js";
+import { emptyProject } from "../shared/project_contract.js";
+import { createId } from "../shared/task_contract.js";
 
 for (const point of [
   "after-project",

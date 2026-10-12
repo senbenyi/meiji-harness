@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
-import { assertId, invalid } from "../../shared/task-contract.js";
+import { assertId, invalid } from "../../shared/task_contract.js";
 const execute = promisify(execFile);
 export async function inspectMedia(path, kind) {
   const { stdout } = await execute(

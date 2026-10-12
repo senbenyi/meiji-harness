@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { assertId, invalid } from "../../shared/task-contract.js";
+import { assertId, invalid } from "../../shared/task_contract.js";
 const session = /^session-[a-f0-9-]{36}$/i;
 export class SessionBindings {
   #root;

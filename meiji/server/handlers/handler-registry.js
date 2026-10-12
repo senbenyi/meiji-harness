@@ -1,5 +1,5 @@
 import { TEXT_BUSINESSES, assertOutput } from "../../shared/node-state.js";
-import { locateTarget, nodeOf } from "../../shared/task-contract.js";
+import { locateTarget, nodeOf } from "../../shared/task_contract.js";
 import { loadTemplate } from "../prompts/yaml-prompts.js";
 import { validateShape, prepareContent } from "./content.js";
 

@@ -6,12 +6,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { taskDetail, groupDetail } from "../server/data/task-store.js";
-import { createId } from "../shared/task-contract.js";
+import { createId } from "../shared/task_contract.js";
 import {
   emptyProject,
   emptyEpisode,
   emptyShot,
-} from "../shared/project-contract.js";
+} from "../shared/project_contract.js";
 
 export function fixture() {
   const p = emptyProject({ 名称: "存储测试" }),

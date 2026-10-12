@@ -2,7 +2,7 @@ import {
   nodeOf,
   locateTarget,
   invalid,
-} from "../../../shared/task-contract.js";
+} from "../../../shared/task_contract.js";
 import { assertOutput, TEXT_BUSINESSES } from "../../../shared/node-state.js";
 import { NODE_DEFINITIONS } from "../../../shared/node-definitions.js";
 
