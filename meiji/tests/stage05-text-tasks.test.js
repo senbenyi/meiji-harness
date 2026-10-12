@@ -23,7 +23,6 @@ const cases = [
   "script",
   "episode-summary",
   "outline",
-  "episode-characters",
   "shots",
   "seconds",
   "storyboard",
@@ -41,15 +40,12 @@ function output(p, b) {
     },
     "episode-summary": { 正文: "新展示摘要" },
     outline: { 小段: e.故事大纲.小段 },
-    "episode-characters": { 角色: [] },
     shots: {
       镜头: e.镜头表.镜头.map((s) => ({
-        序号: s.序号,
         编号: s.编号,
-        时长秒: s.时长秒,
+        参考时长: s.时长秒,
         标题: s.标题,
         正文: s.正文,
-        出镜角色: [],
       })),
     },
     seconds: {
@@ -152,25 +148,4 @@ test("S5-01 所有文本模板占位符均从真实项目资料构建，不暴�
       assert.ok(!prompt.user.includes(p.id));
     }
   }
-});
-
-test("本集角色审核区分项目级必出标记与本集出场，并要求判定和理由一致", async () => {
-  const snapshot = snapshotFixture(),
-    p = snapshot.project,
-    task = taskFixture(p, "episode-characters", p.剧集[0].id);
-  for (const suffix of ["generate", "regenerate"]) {
-    const prompt = renderTemplate(
-      await loadTemplate(`episode-characters-${suffix}`),
-      promptValues(snapshot, task, null, "generate"),
-    );
-    assert.match(prompt.system, /“必出”仅表示项目级重要角色/);
-    assert.match(prompt.system, /不能单独作为该角色本集出场/);
-  }
-  const prompt = renderTemplate(
-    await loadTemplate("episode-characters-review"),
-    promptValues(snapshot, task, null, "review"),
-  );
-  assert.match(prompt.system, /“必出”仅表示项目级重要角色/);
-  assert.match(prompt.system, /实际出镜或发声证据/);
-  assert.match(prompt.system, /结论必须与原因一致/);
 });

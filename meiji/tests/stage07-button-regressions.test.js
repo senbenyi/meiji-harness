@@ -25,7 +25,7 @@ test('从其他节点或项目重新进入历史清空旧详情', () => {
   renderTaskPanel(root,s,context);
   click('任务历史');
   assert.equal(view.page,'history');assert.equal(view.task_id,null);assert.equal(view.group_id,null);
-  assert.equal(view.target_id,s.project.剧集[0].id);
+  assert.equal(view.history_business,'outline');assert.equal(view.target_id,null);
  } finally {globalThis.document=previous;dom.window.close();}
 });
 
@@ -42,7 +42,7 @@ for (const latestStatus of ['running', 'completed', 'failed']) test(`恢复组�
     assert.equal(notices.length, latestStatus==='failed'?1:0);
     if (notices.length) assert.match(notices[0].textContent,/新错误/);
     assert.match(root.textContent,/旧错误/); // 不抹除历史失败
-    view.target_id=s.project.id;
+    view.history_business='project-summary';
     renderTaskPanel(root,s,{session_id:'session-test',view,refresh:async()=>{},paint:()=>{},onError:()=>{}});
     assert.equal(root.querySelector('.notice'),null);
   } finally {globalThis.document=previous;dom.window.close();}

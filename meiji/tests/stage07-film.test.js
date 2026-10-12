@@ -10,12 +10,12 @@ test('成片展示四节点且视频按钮提交单镜完整组，剧集无每�
   globalThis.fetch=async(_url,opts)=>{requests.push(JSON.parse(opts.body));return {ok:true,json:async()=>({group_id:'group'})};};
   const root=document.querySelector('main'),view={page:'episode',episode_id:e.id,tab:'film'};
   const context={session_id:'session-test',view,refresh:async()=>{},paint:()=>renderTaskPanel(root,s,context),onError:()=>{}};
-  context.paint();assert.equal(root.querySelectorAll('.stage-overview .stage').length,5);assert.doesNotMatch(root.textContent,/每秒指令/);assert.match(root.textContent,/每秒分镜：已生成/);
+  context.paint();assert.equal(root.querySelectorAll('.stage-overview .stage').length,4);assert.doesNotMatch(root.textContent,/每秒指令/);assert.match(root.textContent,/每秒分镜：已生成/);
   view.shot_id=shot.id;shot.实际时长秒=5.2;context.paint();
   assert.equal(root.querySelectorAll('.stage-overview .stage').length,0);
   for(const b of ['seconds','storyboard','video','tail'])assert.ok(root.querySelector(`[data-business=${b}]`));
   assert.match(root.textContent,/参考 5 秒 · 实际 5.2 秒/);
-  [...root.querySelector('[data-business=video]').querySelectorAll('button')].find(b=>b.textContent==='AI生成').click();await new Promise(r=>setTimeout(r,0));
+  [...root.querySelector('[data-business=video]').querySelectorAll('button')].find(b=>b.textContent==='重新生成').click();await new Promise(r=>setTimeout(r,0));
   assert.equal(requests[0].command.type,'submit-group');assert.equal(requests[0].command.group_type,'episode-film');assert.equal(requests[0].command.shot_id,shot.id);assert.equal(requests[0].command.episode_id,e.id);
  } finally {globalThis.document=prev.document;globalThis.fetch=prev.fetch;dom.window.close();}
 });

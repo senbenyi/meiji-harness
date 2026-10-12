@@ -6,91 +6,156 @@
       "名称": "项目摘要",
       "粒度": "每个项目一个",
       "位置": "项目摘要",
-      "任务业务": "project-summary"
+      "任务业务": "project-summary",
+      "目标类型": "project",
+      "字段": "项目摘要",
+      "产物": "text",
+      "需要AI审核": true,
+      "前置检查规则": "project-text",
+      "处理器": "text"
     },
     {
       "值": "project-characters",
       "名称": "剧本重要角色",
       "粒度": "每个项目一个",
       "位置": "角色库",
-      "任务业务": "project-characters"
+      "任务业务": "project-characters",
+      "目标类型": "project",
+      "字段": "角色库",
+      "产物": "text",
+      "需要AI审核": true,
+      "前置检查规则": "project-text",
+      "处理器": "text"
     },
     {
       "值": "character-image",
       "名称": "角色图片",
       "粒度": "每个角色一个",
       "位置": "角色库.角色[]",
-      "任务业务": "character-image"
+      "任务业务": "character-image",
+      "目标类型": "character",
+      "字段": "图片",
+      "产物": "image",
+      "需要AI审核": false,
+      "前置检查规则": null,
+      "处理器": "media"
     },
     {
       "值": "costume-image",
       "名称": "服装图片",
       "粒度": "每套服装一个",
       "位置": "角色库.角色[].服装[]",
-      "任务业务": "costume-image"
+      "任务业务": "costume-image",
+      "目标类型": "costume",
+      "字段": "图片",
+      "产物": "image",
+      "需要AI审核": false,
+      "前置检查规则": "costume-image",
+      "处理器": "media"
     },
     {
       "值": "episode-summary",
       "名称": "展示摘要",
       "粒度": "每集一个",
       "位置": "剧集[].摘要",
-      "任务业务": "episode-summary"
+      "任务业务": "episode-summary",
+      "目标类型": "episode",
+      "字段": "摘要",
+      "产物": "text",
+      "需要AI审核": true,
+      "前置检查规则": "episode-summary",
+      "处理器": "text"
     },
     {
       "值": "outline",
       "名称": "故事大纲",
       "粒度": "每集一个",
       "位置": "剧集[].故事大纲",
-      "任务业务": "outline"
-    },
-    {
-      "值": "episode-characters",
-      "名称": "本集资产",
-      "粒度": "每集一个",
-      "位置": "剧集[].本集资产",
-      "任务业务": "episode-characters"
+      "任务业务": "outline",
+      "目标类型": "episode",
+      "字段": "故事大纲",
+      "产物": "text",
+      "需要AI审核": true,
+      "前置检查规则": "outline",
+      "处理器": "text"
     },
     {
       "值": "shots",
       "名称": "镜头表",
       "粒度": "每集一个",
       "位置": "剧集[].镜头表",
-      "任务业务": "shots"
+      "任务业务": "shots",
+      "目标类型": "episode",
+      "字段": "镜头表",
+      "产物": "text",
+      "需要AI审核": true,
+      "前置检查规则": "shots",
+      "处理器": "text"
     },
     {
       "值": "seconds",
       "名称": "每秒分镜",
       "粒度": "每镜一个",
       "位置": "剧集[].镜头表.镜头[].每秒分镜",
-      "任务业务": "seconds"
+      "任务业务": "seconds",
+      "目标类型": "shot",
+      "字段": "每秒分镜",
+      "产物": "text",
+      "需要AI审核": true,
+      "前置检查规则": "shots-input",
+      "处理器": "text"
     },
     {
       "值": "storyboard",
       "名称": "文本提示词",
       "粒度": "每镜一个",
       "位置": "剧集[].镜头表.镜头[].文本提示词",
-      "任务业务": "storyboard"
+      "任务业务": "storyboard",
+      "目标类型": "shot",
+      "字段": "文本提示词",
+      "产物": "text",
+      "需要AI审核": true,
+      "前置检查规则": "storyboard",
+      "处理器": "text"
     },
     {
       "值": "video",
       "名称": "视频",
       "粒度": "每镜一个",
       "位置": "剧集[].镜头表.镜头[].视频",
-      "任务业务": "video"
+      "任务业务": "video",
+      "目标类型": "shot",
+      "字段": "视频",
+      "产物": "video",
+      "需要AI审核": false,
+      "前置检查规则": "video",
+      "处理器": "media"
     },
     {
       "值": "tail",
       "名称": "尾帧",
       "粒度": "每镜一个",
       "位置": "剧集[].镜头表.镜头[].尾帧",
-      "任务业务": "tail"
+      "任务业务": "tail",
+      "目标类型": "shot",
+      "字段": "尾帧",
+      "产物": "image",
+      "需要AI审核": false,
+      "前置检查规则": "tail",
+      "处理器": "media"
     },
     {
       "值": "assembly",
       "名称": "合片",
       "粒度": "每集一个",
       "位置": "剧集[].合片",
-      "任务业务": "assembly"
+      "任务业务": "assembly",
+      "目标类型": "episode",
+      "字段": "合片",
+      "产物": "video",
+      "需要AI审核": false,
+      "前置检查规则": "assembly",
+      "处理器": "media"
     }
   ],
   "node_status": [
@@ -232,12 +297,6 @@
       "说明": "依据本集剧情生成故事小段"
     },
     {
-      "值": "episode-characters",
-      "名称": "本集资产",
-      "目标": "episode",
-      "说明": "通过后只为本次出镜且图片仍为空的角色及其服装自动创建图片任务"
-    },
-    {
       "值": "shots",
       "名称": "镜头表",
       "目标": "episode"
@@ -272,7 +331,7 @@
       "值": "character-delete",
       "名称": "删除角色",
       "目标": "character",
-      "说明": "不是节点任务；步骤为 precheck → impact → apply。角色被本集资产、镜头出镜、对白说话人、节点规则或素材库引用时 precheck 失败，不能删除"
+      "说明": "不是节点任务；步骤为 precheck → impact → apply。角色被镜头出镜、对白说话人、节点规则或素材库引用时 precheck 失败，不能删除"
     },
     {
       "值": "costume-delete",
@@ -350,7 +409,7 @@
     {
       "值": "workflow",
       "名称": "派生流程",
-      "说明": "剧本生成、角色提取、本集资产创建此组；派生的摘要或图片任务按 group_seq 追加到同一组"
+      "说明": "剧本生成、角色提取创建此组；派生的摘要或图片任务按 group_seq 追加到同一组"
     }
   ],
   "task_group_rule": "继续创建新 group 和新任务，continued_from_group_id 关联旧组，group_seq 从1开始。按原范围当前节点状态及产出契约跳过有效 generated 节点，为其余节点按原业务顺序创建新任务。旧组、旧任务和旧步骤不追加、不恢复。全部有效时不创建空组。任一任务失败、未通过或取消，后续未执行任务作废，节点恢复 previous_node_state。创建或继续组时，幂等请求返回原组；其他请求先检查拟创建任务节点是否已有 queued/running 任务，有重叠则整组拒绝并返回冲突任务列表，不创建组或部分任务、不改节点状态、不挪用旧任务。检查与建组一致执行，用户处理后重新提交。",
@@ -523,5 +582,6 @@
   },
   "precheck_rule": "每个任务第一步为程序 precheck：目标归属、原状态适用性、必需输入内容及 generated 状态、实际使用素材与参数。人工放行在此检查未通过稿。人工编辑的 precheck 直接通过，结构在随后的 manual_edit 步校验，不合法则该步和任务 failed，旧稿保留。删除在 precheck 检查引用。失败时不调用 AI，余下步骤作废。",
   "task_terminal_rule": "任务停止即终态；重新生成、继续、人工编辑保存、人工放行均创建新任务，继续组合创建新 group。",
-  "project_model_rule": "每个项目只有一个项目 Model，作为节点内容、状态与原因的唯一事实源：所有修改（任务提交、人工编辑、资料删除）都经 Model 写入，写入后保存到本地项目 JSON；启动时从 JSON 读取恢复 Model。面板与 Model 响应式同步，节点状态与原因直接读 Model；任务历史与步骤按 task_id 绑定在任务存储中，不放进项目 Model。"
+  "project_model_rule": "每个项目只有一个项目 Model，作为节点内容、状态与原因的唯一事实源：所有修改（任务提交、人工编辑、资料删除）都经 Model 写入，写入后序列化至 SQLite 的 projects.data_json；启动时从该列读取恢复 Model。面板与 Model 响应式同步，节点状态与原因直接读 Model；任务历史与步骤按 task_id 绑定在任务存储中，不放进项目 Model。",
+  "node_definition_source": "shared/node-definitions.js 是运行时节点静态定义的唯一来源；本文件 node_type 为面向开发查阅的同步说明。"
 }

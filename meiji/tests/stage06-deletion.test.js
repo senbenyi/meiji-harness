@@ -40,7 +40,6 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
       e = p.剧集[0],
       shot = e.镜头表.镜头[0];
     shot.出镜角色 = [{ 角色id: c.id, 服装id: co.id }];
-    e.本集资产.角色 = [{ 角色id: c.id, 出镜: "出镜" }];
     const repo = new ModelRepository(root),
       model = await repo.create(p);
     let refs = [];

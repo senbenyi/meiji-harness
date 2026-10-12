@@ -1,5 +1,6 @@
 import { nodeOf, invalid, locateTarget } from "./task-contract.js";
 import { validateProject } from "./project-contract.js";
+import { TEXT_BUSINESSES } from "./node-definitions.js";
 
 export const SHOT_DURATION_TOLERANCE_SECONDS = 30;
 
@@ -10,18 +11,7 @@ export function shotDurationRange(referenceSeconds) {
   };
 }
 
-export const TEXT_BUSINESSES = Object.freeze([
-  "project-summary",
-  "project-characters",
-  "script",
-  "script-split",
-  "episode-summary",
-  "outline",
-  "episode-characters",
-  "shots",
-  "seconds",
-  "storyboard",
-]);
+export { TEXT_BUSINESSES };
 export function setNodeState(node, status, reason = "") {
   const allowed = {
     empty: ["queued"],

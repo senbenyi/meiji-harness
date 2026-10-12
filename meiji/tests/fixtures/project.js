@@ -17,7 +17,6 @@ export function projectFixture() {
     原因: "",
     小段: [{ 序号: 1, 时长秒: 10, 正文: "故事" }],
   };
-  e.本集资产.状态 = "generated";
   e.镜头表.状态 = "generated";
   e.合片 = { 状态: "generated", 原因: "", 地址: "film.mp4" };
   for (let n = 1; n <= 2; n++) {

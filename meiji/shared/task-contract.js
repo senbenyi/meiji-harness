@@ -1,3 +1,9 @@
+import {
+  BUSINESS_TARGET,
+  NODE_TYPES,
+  NODE_DEFINITIONS,
+} from "./node-definitions.js";
+
 // 新任务协议的纯模块；不读取旧 Run、任务历史或文件。
 export const NODE_STATUS = Object.freeze([
   "empty",
@@ -45,30 +51,7 @@ export const ACTIONS = Object.freeze([
   "override",
   "delete",
 ]);
-export const BUSINESS_TARGET = Object.freeze({
-  "project-summary": "project",
-  "project-characters": "project",
-  script: "project",
-  "script-split": "project",
-  "character-image": "character",
-  "costume-image": "costume",
-  "episode-summary": "episode",
-  outline: "episode",
-  "episode-characters": "episode",
-  shots: "episode",
-  seconds: "shot",
-  storyboard: "shot",
-  video: "shot",
-  tail: "shot",
-  assembly: "episode",
-  "character-delete": "character",
-  "costume-delete": "costume",
-});
-export const NODE_TYPES = Object.freeze(
-  Object.keys(BUSINESS_TARGET).filter(
-    (k) => !["script", "script-split"].includes(k) && !k.endsWith("-delete"),
-  ),
-);
+export { BUSINESS_TARGET, NODE_TYPES };
 export const ID_PREFIX = Object.freeze({
   project: "p",
   episode: "e",
@@ -168,28 +151,9 @@ export function locateTarget(project, business, targetId) {
   invalid("target_id", "目标不存在或与业务归属不符");
 }
 export function nodeOf(project, business, targetId) {
-  if (
-    ["script", "script-split"].includes(business) ||
-    business.endsWith("-delete")
-  )
-    return null;
-  const t = locateTarget(project, business, targetId),
-    fields = {
-      "project-summary": "项目摘要",
-      "project-characters": "角色库",
-      "character-image": "图片",
-      "costume-image": "图片",
-      "episode-summary": "摘要",
-      outline: "故事大纲",
-      "episode-characters": "本集资产",
-      shots: "镜头表",
-      seconds: "每秒分镜",
-      storyboard: "文本提示词",
-      video: "视频",
-      tail: "尾帧",
-      assembly: "合片",
-    };
-  return fields[business] ? t.object[fields[business]] : null;
+  const definition = NODE_DEFINITIONS[business];
+  if (!definition) return null;
+  return locateTarget(project, business, targetId).object[definition.field];
 }
 const taskFields = [
   "id",
@@ -215,13 +179,15 @@ export function validateTask(t, p) {
   if (Object.hasOwn(t, "name")) { assertText(t.name, "task.name"); if (!t.name.trim()) invalid("task.name", "不可为空"); }
   for (const k of ["id", "project_id", "target_id"])
     assertId(t[k], `task.${k}`);
-  assertEnum(
-    t.business_type,
-    Object.keys(BUSINESS_TARGET),
-    "task.business_type",
-  );
+  const removedBusiness = t.business_type === "episode-characters";
+  if (removedBusiness && !TERMINAL_TASKS.includes(t.task_status))
+    invalid("task.business_type", "已移除的任务只能保留为历史终态");
+  assertEnum(t.business_type, [
+    ...Object.keys(BUSINESS_TARGET),
+    ...(removedBusiness ? ["episode-characters"] : []),
+  ], "task.business_type");
   if (t.episode_id !== null) assertId(t.episode_id, "task.episode_id");
-  if (NODE_TYPES.includes(t.business_type)) {
+  if (NODE_TYPES.includes(t.business_type) || removedBusiness) {
     assertFields(
       t.previous_node_state,
       ["状态", "原因"],

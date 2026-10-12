@@ -1,6 +1,6 @@
 # meiji 开发指引
 
-Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGENTS.md)。每次修改 `meiji/` 代码前，必须先完整阅读这三份开发契约：[项目数据结构](../meiji/dev_docs/项目数据结构.md)、[任务步骤](../meiji/dev_docs/任务步骤.md)、[提示词编排](../meiji/dev_docs/提示词编排.md)，并以它们作为当前业务规格；未读完不得开始改代码。修改配置、skill 或测试也遵循同一要求。样例见 [project_detail.json](../meiji/dev_docs/project_detail.json) 和 [step_model.json](../meiji/dev_docs/step_model.json)。普通咨询和只读调研不要求通读。本次完整重构的依据和证据见 [计划](../docs/plans/1010-计划-分阶段开发总纲.md) 与 [实施记录](../docs/implement/1010-实施-分阶段开发总纲.md)。历史计划和实施记录仅用于追溯。
+Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGENTS.md)。每次修改 `meiji/` 代码前，必须先完整阅读这三份开发契约：[项目数据结构](../meiji/dev_docs/项目数据结构.md)、[任务步骤](../meiji/dev_docs/任务步骤.md)、[提示词编排](../meiji/dev_docs/提示词编排.md)，并以它们作为当前业务规格；未读完不得开始改代码。修改配置、skill 或测试也遵循同一要求。制作顺序见[制作工作流](../meiji/dev_docs/制作工作流.md)。节点级前置条件、生成和审核规则按节点查阅[制作节点规则](../meiji/dev_docs/制作节点规则.md)。样例见 [project_detail.json](../meiji/dev_docs/project_detail.json) 和 [step_model.json](../meiji/dev_docs/step_model.json)。普通咨询和只读调研不要求通读。本次完整重构的依据和证据见 [计划](../docs/plans/1010-计划-分阶段开发总纲.md) 与 [实施记录](../docs/implement/1010-实施-分阶段开发总纲.md)。历史计划和实施记录仅用于追溯。
 
 ## 项目配置
 
@@ -44,11 +44,11 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 唯一数据库为 `$DSH_HOME/storages/meiji/meiji.sqlite`，使用 Node 内置 `node:sqlite`（^22.19.0 或 >=24）。`schema.sql` 定义 projects、task_groups、tasks、task_steps、command_requests、notification_outbox、schema_migrations 七表；任务必须归组，步骤必须归任务，顺序唯一且同项目最多一个 running 任务。`sqlite-store.js` 使用 WAL/foreign_keys/FULL、短同步事务及 revision 条件校验，变化记录增量写入；不在持锁期间调用模型或等待异步工作。ProjectModel 的写接口只允许 repository 提供的事务闭包，项目内容/任务/步骤/幂等/通知一起提交，事件发生在持久化后。卸载时等待任务和通知结束，再关闭连接。
 
-`projects/<p_UUID>/` 仅作为宿主工作区目录。此次切换按用户要求删除旧项目及任务历史，不迁移、不提供迁移脚本或双写。首次启动自动创建数据库；发现未清理的 CURRENT 分代数据时明确拒绝启用。独立素材库和模型配置保留。
+`projects/<p_UUID>/` 仅作为宿主工作区目录。项目 Model 存在 SQLite 的 `projects.data_json`；字段变更通过明确的 schema migration 同步删除字段与配置引用，不重建项目或改写已结束任务历史。首次启动自动创建数据库；发现未清理的 CURRENT 分代数据时明确拒绝启用。独立素材库和模型配置保留。
 
 项目、剧集、角色、服装、镜头、规则、任务、组和步骤使用创建时生成的带前缀 UUID。AI 输入输出及资料界面使用编号，引用转换由程序核对唯一性和归属。重生成保留同一对象 ID，不按列表位置重建身份、不无声删除引用对象。独立素材继续使用原 `assets/<category>/<UUID>/metadata.json` 和 `original.<ext>` 文件格式；场景、道具及指导素材入口退出，但磁盘数据不会在启动时被删除。
 
-旧项目/旧会话不迁移、不适配。旧项目目录名称可以出现在片库拒绝提示中，不读取旧正文；只允许用户显式删除。历史任务保留原 ID 和执行时资料，不能按当前项目资料重建历史请求。
+旧格式项目/旧会话不迁移、不适配。旧项目目录名称可以出现在片库拒绝提示中，不读取旧正文；只允许用户显式删除。受支持 SQLite schema 的项目仅执行明确版本迁移；历史任务保留原 ID 和执行时资料，不能按当前项目资料重建历史请求。
 
 ## 状态、前置和任务
 
@@ -58,7 +58,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - 剧情生成/重新生成：剧本模式只要求非空剧本，自由创作模式只要求非空 AI 创作方向；项目摘要不作为前置，也不注入剧情生成、修订或审核提示词。
 - 单任务针对一个节点操作；文本 precheck→generate→review，最多两轮 revise→review；协议/结构/网络错误 failed，合法草稿审核耗尽 rejected，保留草稿与旧历史。自由创作剧本只在审核通过后发布版本。
 - 图片/视频 precheck→generate；尾帧/合片也是独立媒体任务。人工编辑与 override 均为两步，不调用 AI；override 只允许结构有效的 rejected 文本。
-- 删除任务 precheck→impact→apply。被本集资产、出镜/对白、规则或素材库引用的角色不能删除；默认/素材库引用服装不能删除；其他服装删除同次重绑为默认并使相关视频过期。
+- 删除任务 precheck→impact→apply。被镜头出镜/对白、规则或素材库引用的角色不能删除；默认/素材库引用服装不能删除；其他服装删除同次重绑为默认并使相关视频过期。
 - 项目内执行串行；完成后自动下一项；failed/rejected/cancelled 停止队列。面板再次生成最新任务为失败、未通过、取消或作废的同一节点时，创建新任务并保留旧终态；`generate` 自动按 `regenerate` 通过前置检查。若该重试已排队则复用；无其他未结束任务时直接启动；有其他等待/运行任务时明确冲突，不误启动其他任务。开始/移除排队项、人工操作与删除只能从面板发起。
 - 服务重启把所有 queued/running 旧任务统一结算为 superseded（已作废），未完成步骤同样作废，已完成步骤与历史终态保留；排队节点恢复快照，运行节点结算 cancelled 并保留内容。重启清除 queue_stopped，旧任务不重放，新任务可直接执行；晚到结果不得覆盖作废任务。
 - 面板提交拆分剧集会直接恢复并执行该拆分（已有排队拆分复用）；存在其他未结束任务时明确拒绝，不带起其他暂停任务。面板同节点重试遵循相同直启规则；会话提交和其他普通提交仍遵循暂停队列规则。
@@ -87,11 +87,11 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 通知以稳定消息 ID 保存 outbox，并使用公开 `sessionController.resolveAgent` 和 `session.append(command/run、command/done)` 显示提示卡；不进入模型上下文、不唤醒 AI。会话断开/通知失败不撤销业务受理，返回 task/group ID 与独立通知错误，之后恢复时重试同一消息。投递期间新增通知继续在同次 drain 中处理。
 
-面板上下文按 epoch、session、project、revision 拒绝晚到和乱序响应。切换不取消后台任务，卸载关闭订阅与计时器。状态直接读取 Model；运行中冻结编辑与生成，查看及取消仍可用。保留项目概要、角色与服装、设置、历史、素材库；剧集五个标签为剧情、本集资产、镜头表、成片、合成。成片镜头详情顺序展示每秒分镜、文本提示词、视频、尾帧，视频生成/重新生成按钮提交单镜完整成片组。删除场景、道具、技能、预览授权及续旧任务入口。
+面板上下文按 epoch、session、project、revision 拒绝晚到和乱序响应。切换不取消后台任务，卸载关闭订阅与计时器。状态直接读取 Model；运行中冻结编辑与生成，查看及取消仍可用。保留项目概要、角色与服装、设置、历史、素材库；剧集四个标签为剧情、镜头表、成片、合成。镜头表直接读取项目角色库，不设本集人物资产节点。成片镜头详情顺序展示每秒分镜、文本提示词、视频、尾帧，视频生成/重新生成按钮提交单镜完整成片组。删除场景、道具、技能、预览授权及续旧任务入口。
 
 ## 验证与运行
 
 - 根目录：`cd meiji && npm test`；单阶段：`node --test tests/stage0N-*.test.js`。
 - 测试从本次八阶段设计重新创建。HTTP/DOM/生命周期使用隔离 home；网关协议使用 mock，FFmpeg 使用真实临时文件。生产网关和真实 Harness 走查证据单独记录，不能混称自动测试全部覆盖生产模型质量。
 - 收尾执行 `git diff --check`、入口依赖/旧文件检查、必要 shell 语法检查，再更新图谱。
-- `configure-harness.sh` 链接插件并启动；`restart-harness.sh` 验证进程归属、停止旧实例并确认端口释放后启动；不自动执行迁移。端口被非预期进程占用或旧进程不退出则拒绝启动新实例。
+- `configure-harness.sh` 链接插件并启动；`restart-harness.sh` 验证进程归属、停止旧实例并确认端口释放后启动。SQLite schema 升级由数据库启动事务自动执行；端口被非预期进程占用或旧进程不退出则拒绝启动新实例。

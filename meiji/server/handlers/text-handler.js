@@ -36,6 +36,17 @@ function previousSplit(p) {
     });
 }
 
+function shotTableForPrompt(value) {
+  return {
+    镜头: (value?.镜头 || []).map((shot) => ({
+      标题: shot.标题,
+      编号: shot.编号,
+      参考时长: shot.参考时长 ?? shot.时长秒,
+      正文: shot.正文,
+    })),
+  };
+}
+
 export function promptValues(snapshot, task, draft, kind, step = null) {
   const p = snapshot.project,
     { object, episode } = locateTarget(p, task.business_type, task.target_id),
@@ -43,6 +54,12 @@ export function promptValues(snapshot, task, draft, kind, step = null) {
     shots = episode
       ? [...episode.镜头表.镜头].sort((a, b) => a.序号 - b.序号)
       : [],
+    shotRange = episode ? shotDurationRange(episode.时长秒) : null,
+    draftShotTable = shotTableForPrompt(draft),
+    draftShotTotal = draftShotTable.镜头.reduce(
+      (total, shot) => total + (shot.参考时长 || 0),
+      0,
+    ),
     prev = shots[shots.findIndex((s) => s.id === object.id) - 1];
   const lastReview = snapshot.steps
     .filter(
@@ -70,7 +87,7 @@ export function promptValues(snapshot, task, draft, kind, step = null) {
     创作方向: p.创作方向,
     本集要求: episode?.本集要求 || "",
     本集时长秒: episode?.时长秒 || 0,
-    镜头表允许总时长秒: episode ? shotDurationRange(episode.时长秒) : "",
+    镜头表允许总时长秒: shotRange || "",
     项目摘要: p.项目摘要.正文,
     剧情依据:
       p.创作方式 === "剧本"
@@ -93,13 +110,8 @@ export function promptValues(snapshot, task, draft, kind, step = null) {
     参考单集时长秒: p.参考单集时长秒,
     上一版切分: previousSplit(p),
     项目角色库目录: catalog.角色,
-    本集资产: aiProjection(episode?.本集资产 || {}, p),
     本镜镜头表: aiProjection(object, p),
-    本集角色资料: catalog.角色.filter((c) =>
-      episode?.本集资产.角色.some(
-        (r) => p.角色库.角色.find((ch) => ch.id === r.角色id)?.编号 === c.编号,
-      ),
-    ),
+    本集角色资料: catalog.角色,
     本镜角色资料: catalog.角色.filter((c) =>
       object.出镜角色?.some(
         (r) => p.角色库.角色.find((ch) => ch.id === r.角色id)?.编号 === c.编号,
@@ -118,18 +130,29 @@ export function promptValues(snapshot, task, draft, kind, step = null) {
     必出判定规则: "仅将完整剧本明确承担必要主线剧情的角色标为必出。",
     修改意见: [
       kind === "revise" ? lastReview?.原因 : "",
-      validationError ? `程序校验错误：${validationError}。仅修正单镜超限或整集总时长超出允许范围，保留未涉及内容；每镜不超过15秒，镜头总时长须落在给定范围内。` : "",
+      validationError
+        ? `程序校验错误：${validationError}。当前${draftShotTable.镜头.length}镜合计${draftShotTotal}秒；本集目标${episode?.时长秒}秒，允许${shotRange?.min}–${shotRange?.max}秒。按故事大纲小段调整拆分和参考时长，每镜为1至15秒；不新增、重复或省略剧情。`
+        : "",
       task.opinion,
     ].filter(Boolean).join("\n"),
     待修订镜头表:
-      task.business_type === "shots" && kind === "revise"
-        ? aiProjection(draft || {}, p)
+      task.business_type === "shots"
+        ? shotTableForPrompt(
+            kind === "revise"
+              ? draft || {}
+              : task.action === "regenerate"
+                ? object || {}
+                : {},
+          )
         : "",
     基稿: aiProjection(
       draft || nodeOf(p, task.business_type, task.target_id) || p.剧本,
       p,
     ),
-    待审核内容: aiProjection(draft || {}, p),
+    待审核内容:
+      task.business_type === "shots"
+        ? shotTableForPrompt(draft || {})
+        : aiProjection(draft || {}, p),
     当前内容: aiProjection(draft || {}, p),
   };
 }
@@ -168,7 +191,13 @@ export function createTextHandler({ chat }) {
         (error.message === "镜头.时长秒：最多 15 秒" ||
           error.message.startsWith("镜头表：镜头总时长超出允许范围"))
       )
-        return { content: raw, result: raw, prompt, validation_error: error.message };
+        return {
+          content: raw,
+          prepared_content: error.preparedContent,
+          result: raw,
+          prompt,
+          validation_error: error.message,
+        };
       throw error;
     }
     return { content, result: raw, prompt };

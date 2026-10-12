@@ -69,6 +69,18 @@ export function aiProjection(value, p) {
         : v;
   return walk(value);
 }
+
+function shotsForProject(rows) {
+  return rows.map((row, index) => ({
+    序号: index + 1,
+    编号: row.编号,
+    时长秒: row.参考时长,
+    标题: row.标题,
+    正文: row.正文,
+    出镜角色: [],
+  }));
+}
+
 export function prepareContent(snapshot, task, raw) {
   const p = snapshot.project,
     b = task.business_type,
@@ -86,7 +98,13 @@ export function prepareContent(snapshot, task, raw) {
     return { 正文: raw.正文, 剧情: sections, 后续剧情: raw.后续剧情 };
   }
   if (b === "script-split") return buildSplit(p.剧本.正文, raw);
-  const spoken = structuredClone(raw);
+  const spoken =
+    b === "shots"
+      ? {
+          ...raw,
+          镜头: shotsForProject(raw.镜头),
+        }
+      : structuredClone(raw);
   if (b === "seconds")
     for (const beat of spoken.内容.节拍)
       for (const d of beat.对白) {
@@ -106,7 +124,16 @@ export function prepareContent(snapshot, task, raw) {
     content.removed_ids = result.removed_ids;
   }
   const probe = structuredClone(snapshot);
-  commitContent(probe, task, content);
+  try {
+    commitContent(probe, task, content);
+  } catch (error) {
+    if (
+      b === "shots" &&
+      error.message.startsWith("镜头表：镜头总时长超出允许范围")
+    )
+      error.preparedContent = content;
+    throw error;
+  }
   return content;
 }
 export function commitContent(snapshot, task, content) {
@@ -199,13 +226,8 @@ export function commitContent(snapshot, task, content) {
   if (b === "project-summary") node.剧本版本 = p.剧本.版本;
   assertOutput(p, b, task.target_id);
   const derived = [];
-  if (["project-characters", "episode-characters"].includes(b)) {
-    const eligible =
-      b === "project-characters"
-        ? new Set(content.new_ids || [])
-        : new Set(
-            content.角色.filter((r) => r.出镜 === "出镜").map((r) => r.角色id),
-          );
+  if (b === "project-characters") {
+    const eligible = new Set(content.new_ids || []);
     for (const c of p.角色库.角色) {
       if (eligible.has(c.id) && c.图片.状态 === "empty")
         derived.push({ business_type: "character-image", target_id: c.id });

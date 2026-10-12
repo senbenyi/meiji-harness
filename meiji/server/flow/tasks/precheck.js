@@ -4,6 +4,7 @@ import {
   invalid,
 } from "../../../shared/task-contract.js";
 import { assertOutput, TEXT_BUSINESSES } from "../../../shared/node-state.js";
+import { NODE_DEFINITIONS } from "../../../shared/node-definitions.js";
 
 export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
   const p = snapshot.project,
@@ -35,7 +36,6 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     if (task.business_type === "character-delete") {
       for (const e of p.剧集) {
         if (
-          e.本集资产.角色.some((r) => r.角色id === object.id) ||
           e.镜头表.镜头.some(
             (s) =>
               s.出镜角色.some((r) => r.角色id === object.id) ||
@@ -57,12 +57,8 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
   if (task.action === "regenerate" && node && original === "empty")
     invalid("precheck", "未生成节点请使用生成");
   const business = task.business_type;
-  if (["script", "project-summary", "project-characters"].includes(business)) {
-    if (business === "script" && p.创作方式 !== "自由创作")
-      invalid("precheck", "剧本模式不提供剧本修改任务");
-    if (business !== "script" && !p.剧本.正文.trim())
-      invalid("precheck", "完整剧本为空");
-  }
+  if (business === "script" && p.创作方式 !== "自由创作")
+    invalid("precheck", "剧本模式不提供剧本修改任务");
   if (business === "script-split") {
     if (!p.剧本.正文.trim()) invalid("precheck", "剧本为空");
     if (!Number.isInteger(p.参考单集时长秒) || p.参考单集时长秒 < 1)
@@ -78,40 +74,55 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     )
       invalid("precheck", "剧集仍有未结束任务");
   }
-  if (business === "outline") {
-    if (p.创作方式 === "自由创作" && !p.创作方向.trim())
-      invalid("precheck", "创作方向为空");
-    if (p.创作方式 === "剧本" && !episode.剧情.trim())
-      invalid("precheck", "本集剧情为空，请先拆分剧集");
+  const runNodePrecheck = {
+    "project-text": () => {
+      if (business !== "script" && !p.剧本.正文.trim())
+        invalid("precheck", "完整剧本为空");
+    },
+    "episode-summary": () => {
+      if (!episode.剧情.trim()) invalid("precheck", "本集剧情为空");
+    },
+    outline: () => {
+      if (p.创作方式 === "自由创作" && !p.创作方向.trim())
+        invalid("precheck", "创作方向为空");
+      if (p.创作方式 === "剧本" && !episode.剧情.trim())
+        invalid("precheck", "本集剧情为空，请先拆分剧集");
+    },
+    shots: () => requireNode("outline", episode.id),
+    "shots-input": () => requireNode("shots", episode.id),
+    storyboard: () => {
+      requireNode("shots", episode.id);
+      requireNode("seconds", object.id);
+    },
+    video: () => {
+      requireNode("shots", episode.id);
+      requireNode("storyboard", object.id);
+      for (const row of object.出镜角色) {
+        const c = p.角色库.角色.find((c) => c.id === row.角色id);
+        requireNode(
+          row.服装id ? "costume-image" : "character-image",
+          row.服装id || c.id,
+        );
+      }
+      const list = [...episode.镜头表.镜头].sort((a, b) => a.序号 - b.序号),
+        index = list.findIndex((s) => s.id === object.id);
+      if (index > 0) requireNode("tail", list[index - 1].id);
+    },
+    tail: () => {
+      requireNode("shots", episode.id);
+      requireNode("video", object.id);
+    },
+    assembly: () => {
+      if (!episode.镜头表.镜头.length) invalid("precheck", "没有镜头");
+      for (const shot of episode.镜头表.镜头) requireNode("video", shot.id);
+    },
+    "costume-image": () => requireNode("character-image", character.id),
+  };
+  const precheckKey = NODE_DEFINITIONS[business]?.precheck;
+  if (precheckKey) {
+    const check = runNodePrecheck[precheckKey];
+    if (!check) invalid("precheck", `未定义节点前置检查：${precheckKey}`);
+    check();
   }
-  if (business === "episode-summary" && !episode.剧情.trim())
-    invalid("precheck", "本集剧情为空");
-  if (["episode-characters", "shots"].includes(business))
-    requireNode("outline", episode.id);
-  if (business === "shots") requireNode("episode-characters", episode.id);
-  if (["seconds", "storyboard", "video", "tail"].includes(business))
-    requireNode("shots", episode.id);
-  if (business === "seconds") requireNode("episode-characters", episode.id);
-  if (business === "storyboard") requireNode("seconds", object.id);
-  if (business === "video") {
-    requireNode("storyboard", object.id);
-    for (const row of object.出镜角色) {
-      const c = p.角色库.角色.find((c) => c.id === row.角色id);
-      requireNode(
-        row.服装id ? "costume-image" : "character-image",
-        row.服装id || c.id,
-      );
-    }
-    const list = [...episode.镜头表.镜头].sort((a, b) => a.序号 - b.序号),
-      index = list.findIndex((s) => s.id === object.id);
-    if (index > 0) requireNode("tail", list[index - 1].id);
-  }
-  if (business === "tail") requireNode("video", object.id);
-  if (business === "assembly") {
-    if (!episode.镜头表.镜头.length) invalid("precheck", "没有镜头");
-    for (const shot of episode.镜头表.镜头) requireNode("video", shot.id);
-  }
-  if (business === "costume-image")
-    requireNode("character-image", character.id);
   return { passed: true, business_type: business, target_id: task.target_id };
 }

@@ -170,7 +170,7 @@ export class TaskService {
         if (original && ["single", "workflow"].includes(original.group_type)) {
           const members = s.tasks.filter(t => t.group_id === original.id).sort((a,b)=>a.group_seq-b.group_seq);
           if (members.some(unfinished)) conflict(members.filter(unfinished));
-          const remaining = members.filter(t => t.task_status !== "completed");
+          const remaining = members.filter(t => t.task_status !== "completed" && t.business_type !== "episode-characters");
           if (remaining.some(t=>["manual_edit", "override", "delete"].includes(t.action))) invalid("group", "人工与删除任务请从原入口重新操作");
           if (!remaining.length) return { group_id: null, task_ids: [], message: "当前范围无需继续" };
           const conflicts = s.tasks.filter(t => unfinished(t) && remaining.some(x => x.business_type === t.business_type && x.target_id === t.target_id));
@@ -345,7 +345,7 @@ export class TaskService {
       const group = {
         id: createId("group"), project_id: s.project.id,
         episode_id: task.episode_id,
-        group_type: ["project-characters", "episode-characters", "script"].includes(business) ? "workflow" : "single",
+        group_type: ["project-characters", "script"].includes(business) ? "workflow" : "single",
         source: origin.source, shot_ids: [], created_at: task.created_at,
         action, continued_from_group_id: null, opinion,
       };
@@ -544,6 +544,14 @@ export class TaskService {
             ended_at: now(),
           });
           if (round >= 2) {
+            if (
+              output.validation_error.startsWith(
+                "镜头表：镜头总时长超出允许范围",
+              ) &&
+              output.prepared_content
+            )
+              s.project.剧集.find((e) => e.id === t.target_id).镜头表.镜头 =
+                output.prepared_content.镜头;
             this.#finish(s, t, "failed", output.validation_error);
             return {};
           }

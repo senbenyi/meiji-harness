@@ -116,6 +116,19 @@ test("S1-01 新项目结构、八种状态及原因约束", () => {
   p.项目摘要.状态 = "passed";
   assert.throws(() => validateProject(p), /状态/);
 });
+test("本集资产不再属于项目结构或可提交任务业务", () => {
+  const p = projectFixture(),
+    e = p.剧集[0];
+  assert.equal(Object.hasOwn(e, "本集资产"), false);
+  assert.equal(Object.hasOwn(BUSINESS_TARGET, "episode-characters"), false);
+  const invalid = structuredClone(p);
+  invalid.剧集[0].本集资产 = { 状态: "empty", 原因: "", 角色: [] };
+  assert.throws(() => validateProject(invalid), /本集资产/);
+  assert.throws(() => validateCommand({
+    type: "submit", project_id: p.id, request_id: "removed",
+    business_type: "episode-characters", target_id: e.id, action: "generate",
+  }), /business_type/);
+});
 test("S1-02 ID 一次生成，编号排序与 ID 独立", () => {
   const p = projectFixture();
   const before = p.剧集[0].镜头表.镜头[0].id;

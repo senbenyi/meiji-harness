@@ -1,6 +1,6 @@
 import { editor, readable } from "./content-forms.js";
 import { renderOverview, renderEpisode, backHeader } from "./project-ui.js";
-import { renderResource, addCharacter, blankCharacter } from "./resource-ui.js";
+import { renderResource, blankCharacter } from "./resource-ui.js";
 import { renderHistory } from "./history-ui.js";
 import { element, showPanelDialog, appendJsonCopy } from "./panel-dom.js";
 import { sendCommand } from "./task-client.js";
@@ -16,18 +16,32 @@ const labels = {
 };
 export const episodeTabs = [
   ["script", "剧情"],
-  ["assets", "本集资产"],
   ["shots", "镜头表"],
   ["film", "成片"],
   ["assembly", "合成"],
 ];
+function blockingDialog(root, message) {
+  const dialog = element("dialog", "", "blocking-reason"),
+    title = element("h3", "操作暂时无法执行"),
+    body = element("p", message),
+    footer = element("div", "", "footer"),
+    close = element("button", "知道了", "primary");
+  dialog.setAttribute("aria-label", title.textContent);
+  close.type = "button";
+  close.onclick = () => dialog.close();
+  footer.append(close);
+  dialog.append(title, body, footer);
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  root.append(dialog);
+  showPanelDialog(dialog);
+  close.focus();
+}
 const names = {
   "project-summary": "项目摘要",
   "project-characters": "角色库",
   "episode-summary": "展示摘要",
   outline: "故事大纲",
   "script-split": "拆分剧集",
-  "episode-characters": "本集资产",
   shots: "镜头表",
   seconds: "每秒分镜",
   storyboard: "文本提示词",
@@ -81,9 +95,21 @@ function payload(node, project) {
         : v;
   return walk(node);
 }
+function hasContent(value) {
+  if (typeof value === "string") return Boolean(value.trim());
+  if (Array.isArray(value)) return value.some(hasContent);
+  if (!value || typeof value !== "object") return false;
+  return Object.entries(value).some(
+    ([key, child]) =>
+      !["id", "状态", "原因", "剧本版本", "编号", "序号", "时长秒", "实际时长秒"].includes(key) &&
+      !key.endsWith("id") &&
+      hasContent(child),
+  );
+}
 export function renderTaskPanel(root, snapshot, context) {
   const p = snapshot.project,
-    busy = snapshot.tasks.some((t) => t.task_status === "running"),
+    runningTask = snapshot.tasks.find((t) => t.task_status === "running"),
+    busy = Boolean(runningTask),
     { session_id, refresh, onError } = context,
     state =
       context.view ||
@@ -108,13 +134,24 @@ export function renderTaskPanel(root, snapshot, context) {
         return result;
       } catch (error) {
         onError(error.message);
+        blockingDialog(root, error.message);
         throw error;
       }
     },
     button = (title, fn, freeze = busy) => {
       const b = element("button", title);
-      b.disabled = freeze;
-      b.onclick = () => Promise.resolve(fn()).catch(() => {});
+      if (freeze) {
+        const name = runningTask.name || names[runningTask.business_type] || "任务";
+        b.setAttribute("aria-disabled", "true");
+        b.style.opacity = ".5";
+        b.style.cursor = "not-allowed";
+        b.title = `“${name}”正在运行`;
+        b.onclick = () =>
+          blockingDialog(
+            root,
+            `任务“${name}”正在运行。项目内同一时间只能执行一个任务，请等待它结束后再试。`,
+          );
+      } else b.onclick = () => Promise.resolve(fn()).catch(() => {});
       return b;
     };
   const nodeCard = (business, id, node) => {
@@ -150,6 +187,13 @@ export function renderTaskPanel(root, snapshot, context) {
         };
       }
       card.append(asset);
+    } else if (business === "outline") {
+      const segments = element("div", "", "outline-segments");
+      for (const part of [...(node.小段 || [])].sort((a, b) => a.序号 - b.序号))
+        segments.append(
+          element("p", `${part.序号}. ${part.时长秒}秒 ${part.正文}`, "prompt full"),
+        );
+      card.append(segments);
     } else
       card.append(
         element(
@@ -161,40 +205,37 @@ export function renderTaskPanel(root, snapshot, context) {
         ),
       );
     if (typeof node.正文 === "string") appendJsonCopy(card, node.正文);
-    card.append(
-      button("AI生成", () =>
+    const hasOutput = hasContent(node),
+      generate = (opinion = "") =>
         act(business === "video" ? {
           type: "submit-group", group_type: "episode-film",
           episode_id: p.剧集.find(e => e.镜头表.镜头.some(s => s.id === id)).id,
-          shot_id: id,
+          shot_id: id, ...(opinion ? { opinion } : {}),
         } : {
           type: "submit",
           business_type: business,
           target_id: id,
-          action: "generate",
-        }),
-      ),
-      button("重新生成", () =>
-        editor(
-          root,
-          "修改意见",
-          "",
-          (opinion) =>
-            act(business === "video" ? {
-              type: "submit-group", group_type: "episode-film",
-              episode_id: p.剧集.find(e => e.镜头表.镜头.some(s => s.id === id)).id,
-              shot_id: id, opinion,
-            } : {
-              type: "submit",
-              business_type: business,
-              target_id: id,
-              action: "regenerate",
-              opinion,
-            }),
-          { json: false },
-        ),
-      ),
+          action: hasOutput ? "regenerate" : "generate",
+          ...(opinion ? { opinion } : {}),
+        });
+    card.append(
+      button(hasOutput ? "重新生成" : "AI生成", () => generate()),
     );
+    if (hasOutput && node.状态 === "rejected")
+      card.append(
+        button("按意见修改", () =>
+          editor(
+            root,
+            "按意见修改",
+            "",
+            (opinion) => {
+              if (!opinion.trim()) throw new Error("请输入修改意见");
+              return generate(opinion.trim());
+            },
+            { json: false },
+          ),
+        ),
+      );
     const isMedia = [
       "character-image",
       "costume-image",
@@ -286,7 +327,8 @@ export function renderTaskPanel(root, snapshot, context) {
         () => {
           state.task_id = null;
           state.page = "history";
-          state.target_id = id;
+          state.history_business = business;
+          state.target_id = null;
           context.paint();
         },
         false,
@@ -303,7 +345,7 @@ export function renderTaskPanel(root, snapshot, context) {
     card.prepend(head);
     for (const b of [...card.children].filter((n) => n.tagName === "BUTTON"))
       actions.append(b);
-    card.append(actions);
+    card.insertBefore(actions, head.nextSibling);
     return card;
   };
   root.replaceChildren();
@@ -338,7 +380,6 @@ export function renderTaskPanel(root, snapshot, context) {
     labels,
     names,
     onError,
-    addCharacter: () => addCharacter(root, env),
   };
   if (state.page === "overview") {
     const body = element("div", "", "session-body");

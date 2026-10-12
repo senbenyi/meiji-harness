@@ -94,7 +94,15 @@ test('组列表只显示一张卡片，详情排列全部任务步骤，二级�
  s.steps=[{id:'s1',name:'提取角色资料',task_id:'t',seq:1,kind:'generate',step_status:'done'},
  {id:'s2',name:'生成角色图',task_id:'t2',seq:1,kind:'generate',step_status:'failed',error_reason:'生成失败',prompt:{user:'角色图正文',transfers:[{request:{body:'请求全文'},body:'返回全文'}]}}];
  paint();assert.equal(root.querySelectorAll('.run-list-row').length,1);assert.match(root.textContent,/重要角色及图片/);
- state.target_id='c2';paint();assert.equal(root.querySelectorAll('.run-list-row').length,1);
+ const typeSelect=root.querySelector('[aria-label=按节点类型筛选]');
+ assert.deepEqual([...typeSelect.options].map(o=>[o.value,o.textContent]),[
+  ['','全部对象'],['project-summary','项目摘要'],['project-characters','剧本重要角色'],
+  ['character-image','角色图片'],['costume-image','服装图片'],['episode-summary','展示摘要'],
+  ['outline','故事大纲'],['shots','镜头表'],
+  ['seconds','每秒分镜'],['storyboard','文本提示词'],['video','视频'],['tail','尾帧'],['assembly','合片']]);
+ state.history_business='character-image';paint();assert.equal(root.querySelectorAll('.run-list-row').length,1);
+ state.history_business='shots';paint();assert.equal(root.querySelectorAll('.run-list-row').length,0);
+ state.history_business='';paint();
  root.querySelector('.run-list-row').click();paint();
  assert.equal(root.querySelectorAll('.run-task-head').length,2);assert.equal(root.querySelectorAll('.run-step-card').length,2);
  assert.deepEqual([...root.querySelectorAll('.run-step-card')].map(c=>c.open),[false,true]);

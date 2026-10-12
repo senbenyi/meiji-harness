@@ -105,10 +105,13 @@ for (const mode of ["剧本", "自由创作"]) {
   });
 }
 
-test("B-8 下游仍需有效剧情，不因有剧本而跳过", () => {
-  const { p, e } = fixture("剧本");
-  assert.throws(() => precheck({ project: p }, {
-    business_type: "episode-characters", target_id: e.id, action: "generate",
-    previous_node_state: { 状态: "empty" },
-  }), /outline尚未有效生成/);
+test("B-8 镜头表以有效故事大纲为唯一剧集前置", () => {
+  const { p, e } = fixture("剧本"),
+    s = { business_type: "shots", target_id: e.id, action: "generate",
+      previous_node_state: { 状态: "empty", 原因: "" } };
+  e.故事大纲.状态 = "empty";
+  assert.throws(() => precheck({ project: p }, s), /outline尚未有效生成/);
+  e.故事大纲.状态 = "generated";
+  e.故事大纲.小段 = [{ 序号: 1, 时长秒: 10, 正文: "完整故事" }];
+  assert.equal(precheck({ project: p }, s).passed, true);
 });

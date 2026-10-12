@@ -275,6 +275,10 @@ test("面板：剧本创作方式显示拆分剧集弹窗并依次提交时长�
       root.querySelector("dialog form").dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
       assert.equal(root.querySelector("dialog"), null);
       for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+      const blocked = root.querySelector("dialog.blocking-reason");
+      assert.match(blocked.textContent, /提交失败测试/);
+      blocked.querySelector("button").click();
+      assert.equal(root.querySelector("dialog"), null);
       assert.equal(calls.length - before, path.endsWith("project-command") ? 1 : 2);
     }
     assert.deepEqual(errors, ["提交失败测试", "提交失败测试"]);

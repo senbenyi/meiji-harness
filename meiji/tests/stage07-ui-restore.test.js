@@ -109,7 +109,7 @@ test("UI-1 素材库选择剧本按正文提交，未选择不得创建", () =>
     await tick();
     assert.equal(value.剧本.正文, "库中剧本");
   }));
-test("UI-2/3 概要原卡片、剧本入口；剧集六标签和镜头两标签保持返回层级", () =>
+test("UI-2/3 概要原卡片、剧本入口；剧集四标签和镜头两标签保持返回层级", () =>
   domTest((root) => {
     const snap = snapshotFixture(),
       view = { page: "overview", tab: "script" },
@@ -128,7 +128,14 @@ test("UI-2/3 概要原卡片、剧本入口；剧集六标签和镜头两标签�
     assert.equal(root.querySelector("pre"), null);
     root.querySelector(".episode-card").click();
     assert.equal(view.page, "episode");
-    assert.equal(root.querySelectorAll(".stage-overview .stage").length, 5);
+    assert.equal(root.querySelectorAll(".stage-overview .stage").length, 4);
+    snap.project.剧集[0].镜头表.镜头[0].标题 = "开门";
+    view.tab = "shots";
+    context.paint();
+    const firstShot = root.querySelector(".shot-card");
+    assert.equal(firstShot.querySelector("h3").textContent, "S01 开门 · 5s");
+    assert.equal(firstShot.querySelector("details"), null);
+    assert.equal(firstShot.querySelector(".prompt").textContent, "剧情");
     view.tab = "film";
     context.paint();
     assert.equal(root.querySelectorAll(".shot-card").length, 2);

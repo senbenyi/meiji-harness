@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
+import { createId } from "../shared/task-contract.js";
 import { projectFixture } from "./fixtures/project.js";
 
 async function fixture(work) {
@@ -38,6 +39,58 @@ test("SQLite：七表、外键、组内顺序与项目运行唯一约束", () =>
   } finally { db.close(); await repo.close(); }
 }));
 
+test("SQLite v1→v2：清理资产字段与规则，保留历史并作废旧活动资产任务", () => fixture(async root => {
+  const repo = new ModelRepository(root), p = projectFixture();
+  await repo.create(p);
+  await repo.close();
+  const db = new DatabaseSync(join(root, "meiji.sqlite"));
+  let groupId;
+  try {
+    const row = db.prepare("SELECT data_json FROM projects WHERE id=?").get(p.id),
+      data = JSON.parse(row.data_json);
+    data.剧集[0].本集资产 = { 状态: "generated", 原因: "", 角色: [] };
+    data.规则 = [{ id: "r_00000000-0000-4000-8000-000000000001", 范围: "project",
+      适用业务: ["outline", "episode-characters"], 节点id: "", 类别: "其他",
+      约束: "参考", 内容: "保留" }];
+    db.prepare("UPDATE projects SET data_json=? WHERE id=?").run(JSON.stringify(data), p.id);
+    const created = new Date().toISOString(),
+      taskId = createId("task"), stepId = createId("step");
+    groupId = createId("group");
+    db.prepare(`INSERT INTO task_groups
+      (id,project_id,episode_id,name,group_type,action,source,shot_ids_json,opinion,continued_from_group_id,created_at,position)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(groupId,p.id,p.剧集[0].id,"旧本集资产任务","workflow","generate","panel","[]","",null,created,0);
+    db.prepare(`INSERT INTO tasks
+      (id,project_id,group_id,group_seq,name,business_type,target_id,episode_id,action,source,task_status,queue_order,opinion,previous_node_state_json,end_reason,created_at,started_at,ended_at,position)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(taskId,p.id,groupId,1,"旧本集资产任务","episode-characters",p.剧集[0].id,p.剧集[0].id,"generate","panel","queued",1,"",JSON.stringify({状态:"empty",原因:""}),"",created,null,null,0);
+    db.prepare(`INSERT INTO task_steps
+      (id,project_id,task_id,seq,name,kind,round,step_status,prompt_json,result_json,error_reason,started_at,ended_at,position)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(stepId,p.id,taskId,1,"前置检查","precheck",0,"ready","null","null","",null,null,0);
+    db.prepare("DELETE FROM schema_migrations WHERE version=2").run();
+    db.exec("PRAGMA user_version=1");
+  } finally { db.close(); }
+  const upgraded = new ModelRepository(root);
+  try {
+    const model = await upgraded.open(p.id),
+      restored = model.read();
+    assert.equal(Object.hasOwn(restored.project.剧集[0], "本集资产"), false);
+    assert.deepEqual(restored.project.规则[0].适用业务, ["outline"]);
+    assert.equal(restored.project.规则[0].内容, "保留");
+    assert.equal(restored.runtime.revision, 2);
+    assert.equal(restored.tasks[0].task_status, "superseded");
+    assert.equal(restored.steps[0].step_status, "superseded");
+    assert.match(restored.tasks[0].end_reason, /功能已移除/);
+    const service = new TaskService({ repository: upgraded, execute: async () => { throw Error("不应恢复旧业务"); } }),
+      continued = await service.command({ type: "continue-group", project_id: p.id,
+        request_id: "continue-removed", group_id: groupId });
+    assert.deepEqual(continued.task_ids, []);
+    assert.equal(model.read().tasks.length, 1);
+    await service.dispose();
+    const check = new DatabaseSync(join(root, "meiji.sqlite"));
+    try { assert.equal(check.prepare("PRAGMA user_version").get().user_version, 2); }
+    finally { check.close(); }
+  } finally { await upgraded.close(); }
+}));
+
 test("SQLite：旧连接不能覆盖新版本，失败不发布缓存或事件", () => fixture(async root => {
   const a = new ModelRepository(root), p = projectFixture(), first = await a.create(p), b = new ModelRepository(root), second = await b.open(p.id);
   try {
@@ -64,4 +117,3 @@ for (const point of ["after-tasks", "after-commit"]) test(`SQLite：真实进程
     if (point === "after-commit") assert.equal((await model.update("crash", {}, () => { throw Error("重复执行"); })).saved, true);
   } finally { await restored.close(); }
 }));
-

@@ -1,12 +1,15 @@
+import { BUSINESS_DEFINITIONS } from "./node-definitions.js";
+
 // 名称在新记录创建时保存；旧历史只读补显，不改写原记录。
-export const businessNames = {
-  "project-summary": "项目摘要", "project-characters": "剧本重要角色",
-  script: "剧本", "script-split": "拆分剧集", "episode-summary": "展示摘要",
-  outline: "剧情", "episode-characters": "本集资产", shots: "镜头表",
-  seconds: "每秒分镜", storyboard: "分镜提示词", video: "视频",
-  tail: "尾帧与实际时长", assembly: "合片", "character-image": "角色图",
-  "costume-image": "服装图", "character-delete": "角色", "costume-delete": "服装",
-};
+export const businessNames = Object.freeze({
+  ...Object.fromEntries(
+    Object.entries(BUSINESS_DEFINITIONS).map(([business, definition]) => [
+      business,
+      definition.label,
+    ]),
+  ),
+  "episode-characters": "已移除的历史任务",
+});
 export function taskName(task, project) {
   if (task.name) return task.name;
   const business = businessNames[task.business_type] || task.business_type;
@@ -40,7 +43,6 @@ export function groupName(group, tasks, project) {
   if (group.group_type === "single") return tasks[0] ? taskName(tasks[0], project) : "任务";
   if (group.group_type === "workflow") {
     if (tasks[0]?.business_type === "project-characters") return "提取剧本重要角色及图片";
-    if (tasks[0]?.business_type === "episode-characters") return `${taskName(tasks[0],project)}及图片`;
     return tasks[0] ? taskName(tasks[0], project) : "制作任务";
   }
   const e = project.剧集.find(e => e.id === group.episode_id);

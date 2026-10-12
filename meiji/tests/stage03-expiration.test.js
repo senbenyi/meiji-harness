@@ -10,7 +10,6 @@ for (const [business, expected] of [
     [
       "episode-summary",
       "outline",
-      "episode-characters",
       "shots",
       "seconds",
       "storyboard",
@@ -22,7 +21,6 @@ for (const [business, expected] of [
   [
     "outline",
     [
-      "episode-characters",
       "shots",
       "seconds",
       "storyboard",
@@ -31,7 +29,6 @@ for (const [business, expected] of [
       "assembly",
     ],
   ],
-  ["episode-characters", ["shots", "seconds", "storyboard", "video"]],
   ["shots", ["seconds", "storyboard", "video"]],
   ["seconds", ["storyboard", "video", "tail", "assembly"]],
   ["storyboard", ["video", "tail", "assembly"]],
@@ -43,7 +40,7 @@ for (const [business, expected] of [
       p = snapshot.project,
       e = p.剧集[0],
       s = e.镜头表.镜头[0],
-      id = ["episode-plot", "outline", "episode-characters", "shots"].includes(
+      id = ["episode-plot", "outline", "shots"].includes(
         business,
       )
         ? e.id

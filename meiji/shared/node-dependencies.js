@@ -23,9 +23,7 @@ export function downstream(snapshot, business, id) {
     return [one("episode-summary", id), one("outline", id)];
   if (business === "episode-plot-sync") return [one("episode-summary", id)];
   if (business === "script-split") return [];
-  if (business === "outline")
-    return ["episode-characters", "shots"].map((b) => one(b, id));
-  if (business === "episode-characters") return [one("shots", id)];
+  if (business === "outline") return [one("shots", id)];
   if (business === "shots")
     return e.镜头表.镜头.map((x) => one("seconds", x.id));
   if (business === "seconds") return [one("storyboard", id)];

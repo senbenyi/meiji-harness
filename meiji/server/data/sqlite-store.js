@@ -21,14 +21,45 @@ export class SQLiteStore {
     try {
       chmodSync(path, 0o600);
       this.#db.exec("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");
-      const version = this.#db.prepare("PRAGMA user_version").get().user_version;
+      let version = this.#db.prepare("PRAGMA user_version").get().user_version;
       if (version === 0) {
         this.#db.exec("BEGIN IMMEDIATE");
         try {
           this.#db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
           this.#db.exec("COMMIT");
+          version = 2;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
-      } else if (version !== 1) throw new Error(`不支持的数据库版本：${version}`);
+      } else if (version === 1) {
+        this.#db.exec("BEGIN IMMEDIATE");
+        try {
+          const projects = this.#db.prepare("SELECT id,data_json FROM projects").all(),
+            saveProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
+          for (const row of projects) {
+            const project = JSON.parse(row.data_json);
+            let changed = false;
+            for (const episode of project.剧集 || [])
+              if (Object.hasOwn(episode, "本集资产")) {
+                delete episode.本集资产;
+                changed = true;
+              }
+            for (const rule of project.规则 || [])
+              if (rule.适用业务?.includes("episode-characters")) {
+                rule.适用业务 = rule.适用业务.filter((business) => business !== "episode-characters");
+                changed = true;
+              }
+            if (changed) saveProject.run(JSON.stringify(project), row.id);
+          }
+          const now = new Date().toISOString();
+          this.#db.prepare(`UPDATE task_steps SET step_status='superseded',error_reason='本集资产功能已移除',ended_at=?
+            WHERE task_id IN (SELECT id FROM tasks WHERE business_type='episode-characters' AND task_status IN ('queued','running'))
+              AND step_status IN ('ready','running')`).run(now);
+          this.#db.prepare(`UPDATE tasks SET task_status='superseded',end_reason='本集资产功能已移除',ended_at=?
+            WHERE business_type='episode-characters' AND task_status IN ('queued','running')`).run(now);
+          this.#db.prepare("INSERT INTO schema_migrations VALUES (2,?)").run(now);
+          this.#db.exec("PRAGMA user_version=2; COMMIT");
+          version = 2;
+        } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
+      } else if (version !== 2) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => f !== "id").map(f => `${f}=excluded.${f}`).join(",")}`));
       }

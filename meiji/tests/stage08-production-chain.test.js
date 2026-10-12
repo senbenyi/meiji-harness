@@ -53,16 +53,13 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
             "project-summary": { 正文: "钟表静物" },
             "project-characters": { 角色: [] },
             outline: { 小段: [{ 序号: 1, 时长秒: 5, 正文: "秒针向前走动" }] },
-            "episode-characters": { 角色: [] },
             shots: {
               镜头: [
                 {
-                  序号: 1,
                   编号: "S01",
-                  时长秒: 5,
                   标题: "钟表",
+                  参考时长: 5,
                   正文: "秒针向前走动",
-                  出镜角色: [],
                 },
               ],
             },
@@ -117,7 +114,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
     const e = model.read().project.剧集[0];
     assert.equal(e.剧情, "五秒钟表静物");
     assert.equal(e.时长秒, 5);
-    for (const b of ["outline", "episode-characters", "shots"])
+    for (const b of ["outline", "shots"])
       await submit(b, e.id);
     const s = model.read().project.剧集[0].镜头表.镜头[0];
     const first = await runtime.tasks.command({

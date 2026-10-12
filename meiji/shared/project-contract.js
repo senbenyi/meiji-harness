@@ -46,7 +46,6 @@ export function emptyEpisode(fields = {}) {
     剧情: "",
     摘要: text(),
     故事大纲: { 状态: "empty", 原因: "", 小段: [] },
-    本集资产: { 状态: "empty", 原因: "", 角色: [] },
     镜头表: { 状态: "empty", 原因: "", 镜头: [] },
     合片: media(),
     ...fields,
@@ -171,6 +170,11 @@ export function validateProject(p) {
   };
   const episodes = new Set();
   for (const e of list(p.剧集, "剧集")) {
+    assertFields(
+      e,
+      ["id", "序号", "时长秒", "实际时长秒", "本集要求", "封面", "剧情", "摘要", "故事大纲", "镜头表", "合片"],
+      "剧集",
+    );
     register(e, "剧集");
     episodes.add(e.id);
     assertNumber(e.序号, "剧集.序号", 1);
@@ -184,7 +188,7 @@ export function validateProject(p) {
     assertText(e.本集要求, "剧集.本集要求");
     assertText(e.封面, "剧集.封面");
     assertText(e.剧情, "剧集.剧情");
-    for (const key of ["摘要", "故事大纲", "本集资产", "镜头表", "合片"])
+    for (const key of ["摘要", "故事大纲", "镜头表", "合片"])
       validateNode(e[key], `剧集.${key}`);
     assertText(e.摘要.正文, "摘要.正文");
     assertText(e.合片.地址, "合片.地址");
@@ -192,10 +196,6 @@ export function validateProject(p) {
       assertNumber(part.序号, "小段.序号", 1);
       assertNumber(part.时长秒, "小段.时长秒", 1);
       assertText(part.正文, "小段.正文");
-    }
-    for (const r of list(e.本集资产.角色, "本集资产.角色")) {
-      character(r.角色id, "本集资产.角色id");
-      assertEnum(r.出镜, ["出镜", "仅声音"], "本集资产.出镜");
     }
     const shots = new Set();
     for (const s of list(e.镜头表.镜头, "镜头表.镜头")) {

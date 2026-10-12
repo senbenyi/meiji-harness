@@ -1,5 +1,21 @@
 import { historyGroups, taskName, stepName } from "../shared/task-labels.js";
+import { NODE_TYPES } from "../shared/task-contract.js";
 import { element } from "./panel-dom.js";
+const nodeTypeNames = {
+  "project-summary": "项目摘要",
+  "project-characters": "剧本重要角色",
+  "character-image": "角色图片",
+  "costume-image": "服装图片",
+  "episode-summary": "展示摘要",
+  outline: "故事大纲",
+  "episode-characters": "已移除的历史任务",
+  shots: "镜头表",
+  seconds: "每秒分镜",
+  storyboard: "文本提示词",
+  video: "视频",
+  tail: "尾帧",
+  assembly: "合片",
+};
 const text = (value) =>
   typeof value === "string" ? value : JSON.stringify(value ?? null, null, 2);
 // 记录卡片：标题与复制按钮同一行，正文完整展示不截断。
@@ -297,21 +313,13 @@ export function renderHistory(root, env, snapshot) {
   );
   options(
     target,
-    "按对象筛选",
+    "按节点类型筛选",
     [
       ["", "全部对象"],
-      [p.id, "项目"],
-      ...p.角色库.角色.flatMap((c) => [
-        [c.id, `${c.编号} ${c.名称}`],
-        ...c.服装.map((co) => [co.id, `${co.编号} ${co.名称}`]),
-      ]),
-      ...p.剧集.flatMap((e) => [
-        [e.id, `第 ${e.序号} 集`],
-        ...e.镜头表.镜头.map((s) => [s.id, `第 ${e.序号} 集 ${s.编号}`]),
-      ]),
+      ...NODE_TYPES.map((type) => [type, nodeTypeNames[type]]),
     ],
-    state.target_id,
-    "target_id",
+    state.history_business,
+    "history_business",
   );
   options(
     episode,
@@ -324,7 +332,7 @@ export function renderHistory(root, env, snapshot) {
   view.append(filters);
   const filtered = groups.filter(row =>
     (!state.history_status || row.status === state.history_status) &&
-    (!state.target_id || row.tasks.some(t=>t.target_id === state.target_id)) &&
+    (!state.history_business || row.tasks.some(t=>t.business_type === state.history_business)) &&
     (!state.history_episode || row.tasks.some(t=>t.episode_id === state.history_episode)));
   view.append(element("p", `${filtered.length} 个任务组`, "meta"));
   const list = element("div", "", "task-history-list");
