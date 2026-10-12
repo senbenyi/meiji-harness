@@ -118,8 +118,10 @@ export function createMediaHandler({ media, gateway }) {
         人物资料: identity,
         本套服装描述: business === "costume-image" ? object.描述 : "",
         参考图片说明: reference
-          ? "仅用于固定身份与外貌；不改变本次资料指定的服装。"
-          : "本次无参考图。",
+          ? business === "character-image"
+            ? "参考图是用户提供的人物参考，只用于确定面相，不沿用其中的衣着、姿势、背景或表情。身材和肌肉以人物资料为准。"
+            : "参考图是该角色的角色图，是本次生成的固定且唯一参考。用于保持角色身份、脸、体型和不可改特征。生成结果必须穿着这一套服装。"
+          : "",
         修改意见: task.opinion,
         ...ruleInputs(p.规则, business, task.target_id),
       });

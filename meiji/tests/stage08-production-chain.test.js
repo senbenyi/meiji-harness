@@ -43,7 +43,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
       home,
       gateway: {
         chat: async ({ task, step }) => {
-          if (step.kind === "review") return { 通过: true, 原因: "" };
+          if (step.kind === "review") return { 是否通过: true, 原因: "" };
           return {
             "script-split": {
               剧集: [
@@ -52,7 +52,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
             },
             "project-summary": { 正文: "钟表静物" },
             "project-characters": { 角色: [] },
-            outline: { 小段: [{ 序号: 1, 时长秒: 5, 正文: "秒针向前走动" }] },
+            outline: { 小段: [{ 序号: 1, 时长秒: 5, 正文: "秒针向前走动", 因果: "" }] },
             shots: {
               镜头: [
                 {

@@ -237,7 +237,8 @@ export function renderHistory(root, env, snapshot) {
         summary = element("summary", "", "run-step-summary");
       item.dataset.stepId = step.id;
       item.dataset.stepNumber = step.seq;
-      const rejected = step.kind === "review" && step.result?.通过 === false;
+      const passed = step.result?.是否通过 ?? step.result?.通过;
+      const rejected = step.kind === "review" && passed === false;
       const failed = step.step_status === "failed" || rejected;
       item.classList.toggle("is-failed", failed);
       const expanded = state.history_step_open ||= {};

@@ -53,8 +53,8 @@ for (const mode of ["剧本", "自由创作"]) {
             seen.push(step.kind);
             assert.ok(!prompt.includes("项目摘要"));
             assert.ok(prompt.includes(mode === "剧本" ? p.剧本.正文 : p.创作方向));
-            return step.kind === "review" ? { 通过: true, 原因: "" }
-              : { 小段: [{ 序号: 1, 时长秒: 10, 正文: "新的剧情" }] };
+            return step.kind === "review" ? { 是否通过: true, 原因: "" }
+              : { 小段: [{ 序号: 1, 时长秒: 10, 正文: "新的剧情", 因果: "" }] };
           } }),
         });
         const result = await service.command({ type: "submit", project_id: p.id,

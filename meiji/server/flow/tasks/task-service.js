@@ -584,13 +584,15 @@ export class TaskService {
         });
         if (step.kind === "review") {
           const review = output.result;
+          const passed =
+            typeof review?.是否通过 === "boolean" ? review.是否通过 : review?.通过;
           if (
-            typeof review?.通过 !== "boolean" ||
-            typeof review.原因 !== "string" ||
-            (review.通过 ? Boolean(review.原因.trim()) : !review.原因.trim())
+            typeof passed !== "boolean" ||
+            typeof review?.原因 !== "string" ||
+            (passed ? Boolean(review.原因.trim()) : !review.原因.trim())
           )
             invalid("review", "审核协议错误");
-          if (!review.通过 && round < 2) {
+          if (!passed && round < 2) {
             round++;
             s.steps.push(
               newStep(t, st.seq + 1, "revise", round),
@@ -599,17 +601,17 @@ export class TaskService {
             return {};
           }
           const derived =
-            t.business_type === "script" && !review.通过
+            t.business_type === "script" && !passed
               ? []
               : this.#commitOutput(s, t, draft);
-          if (review.通过) expireDownstream(s, t.business_type, t.target_id);
+          if (passed) expireDownstream(s, t.business_type, t.target_id);
           this.#finish(
             s,
             t,
-            review.通过 ? "completed" : "rejected",
+            passed ? "completed" : "rejected",
             review.原因,
           );
-          if (review.通过) this.#derived(s, t, { ...output, derived });
+          if (passed) this.#derived(s, t, { ...output, derived });
           return {};
         }
         const last = !s.steps.some(

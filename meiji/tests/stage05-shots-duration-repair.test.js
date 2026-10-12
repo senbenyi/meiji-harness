@@ -23,7 +23,7 @@ async function runScenario({ repairDurations, invalidShape = false, episodeDurat
   let generationCount = 0;
   const handler = createTextHandler({
     chat: async ({ task, step, prompt }) => {
-      if (step.kind === "review") return { 通过: true, 原因: "" };
+      if (step.kind === "review") return { 是否通过: true, 原因: "" };
       prompts.push({ step, prompt });
       generationCount++;
       if (invalidShape && generationCount === 1) return { 镜头: [], 错误字段: true };

@@ -1,6 +1,6 @@
 # 任务与步骤
 
-任务、步骤和任务组的字段与状态。节点内容以 [project_detail.json](project_detail.json) 为准。带状态的节点共用同一组字段，写在文末「节点字段」。
+任务、步骤和任务组的字段与状态。项目数据结构与逐字段注释见 [project_detail.json](project_detail.json)。节点的状态、原因和依赖 hash 统一收纳在 `node_state` JSON 对象中。
 
 ## 状态枚举
 
@@ -105,7 +105,7 @@
 | `started_at` | | 开始时间 |
 | `ended_at` | | 结束时间 |
 | `opinion` | | 修改意见。只记在任务上，任务组不记 |
-| `previous_node_state` | `{ 状态, 原因 }` | 入队前的节点状态和原因 |
+| `previous_node_state` | `{ status, reason }` | 入队前的节点状态和原因 |
 
 动作：
 
@@ -152,31 +152,39 @@
 
 ## 节点字段
 
-[project_detail.json](project_detail.json) 里每个带状态的节点都有下面三个字段。各节点自己的内容字段以该 JSON 为准，这里不另写一套。
+[project_detail.json](project_detail.json) 里每个节点都有一个 `node_state` JSON 对象，统一保存状态、原因和依赖 hash。各节点自己的内容字段以该 JSON 为准，这里不另写一套。
+
+```json
+"node_state": {
+  "status": "empty",
+  "reason": "",
+  "dependency_hash": ""
+}
+```
 
 | 字段 | 说明 |
 |---|---|
-| `状态` | 节点状态枚举 |
-| `原因` | 与状态一起保存。`empty`、`queued`、`running`、`generated` 为空；`rejected`、`failed`、`cancelled`、`expired` 非空 |
-| `依赖hash` | 本节点保存时，按其依赖资料算出的 hash |
+| `node_state.status` | 节点状态枚举 |
+| `node_state.reason` | 与状态一起保存。`empty`、`queued`、`running`、`generated` 为空；`rejected`、`failed`、`cancelled`、`expired` 非空 |
+| `node_state.dependency_hash` | 本节点保存时，按其依赖资料算出的 hash |
 
 对应位置：
 
 | 项目 JSON 位置 | 节点 |
 |---|---|
-| `项目摘要` | 项目摘要。另有 `正文`、`剧本版本` |
-| `角色库` | 角色库。另有 `角色[]` |
-| `角色库.角色[].角色图` | 角色图。另有 `地址` |
-| `角色库.角色[].定妆照[]` | 定妆照。另有 `服装id`、`地址` |
-| `剧集[].摘要` | 剧集摘要。另有 `正文` |
-| `剧集[].故事大纲` | 故事大纲。另有 `小段[]` |
-| `剧集[].镜头表` | 镜头表。另有 `镜头[]` |
-| `剧集[].镜头表.镜头[].每秒分镜` | 每秒分镜 |
-| `剧集[].镜头表.镜头[].文生视频提示词` | 文生视频提示词 |
-| `剧集[].镜头表.镜头[].首尾帧提示词` | 首尾帧提示词 |
-| `剧集[].镜头表.镜头[].多模态提示词` | 多模态提示词 |
-| `剧集[].镜头表.镜头[].视频` | 视频。另有 `地址` |
-| `剧集[].镜头表.镜头[].尾帧` | 尾帧。另有 `地址`。不是独立任务，由视频任务写入 |
-| `剧集[].合片` | 合片。另有 `地址` |
+| `project_summary.node_state` | 项目摘要状态。节点内容另有 `body`、`script_version` |
+| `character_library.node_state` | 角色库状态。节点内容另有 `characters[]` |
+| `character_library.characters[].character_image.node_state` | 角色图状态。节点内容另有 `address` |
+| `character_library.characters[].costume_images[].node_state` | 定妆照状态。节点内容另有 `costume_id`、`address` |
+| `episodes[].summary.node_state` | 剧集摘要状态。节点内容另有 `body` |
+| `episodes[].story_outline.node_state` | 故事大纲状态。节点内容另有 `segments[]` |
+| `episodes[].shot_list.node_state` | 镜头表状态。节点内容另有 `shots[]` |
+| `episodes[].shot_list.shots[].seconds_storyboard.node_state` | 每秒分镜状态 |
+| `episodes[].shot_list.shots[].text_to_video_prompt.node_state` | 文生视频提示词状态 |
+| `episodes[].shot_list.shots[].first_last_frame_prompt.node_state` | 首尾帧提示词状态 |
+| `episodes[].shot_list.shots[].multimodal_prompt.node_state` | 多模态提示词状态 |
+| `episodes[].shot_list.shots[].video.node_state` | 视频状态。节点内容另有 `address` |
+| `episodes[].shot_list.shots[].last_frame.node_state` | 尾帧状态。节点内容另有 `address`。不是独立任务，由视频任务写入 |
+| `episodes[].assembly.node_state` | 合片状态。节点内容另有 `address` |
 
-`镜头[].生成视频类型` 没有状态，不是节点。剧本、剧情、服装资料也没有节点状态。
+`episodes[].shot_list.shots[].video_generation_type` 没有节点状态，不是节点。`script`、`plot`、服装资料也没有节点状态。

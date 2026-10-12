@@ -39,7 +39,9 @@ function output(p, b) {
       后续剧情: "",
     },
     "episode-summary": { 正文: "新展示摘要" },
-    outline: { 小段: e.故事大纲.小段 },
+    outline: {
+      小段: e.故事大纲.小段.map((part) => ({ 因果: "", ...part })),
+    },
     shots: {
       镜头: e.镜头表.镜头.map((s) => ({
         编号: s.编号,
@@ -75,7 +77,7 @@ for (const business of cases)
           chat: async ({ task, step }) => {
             if (step.kind === "review")
               return {
-                通过: ending !== "rejected",
+                是否通过: ending !== "rejected",
                 原因: ending === "rejected" ? "未落实剧情" : "",
               };
             if (task.business_type === business) generated++;
