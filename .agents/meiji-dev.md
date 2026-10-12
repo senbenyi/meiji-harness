@@ -56,7 +56,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - 入队保存原状态/原因；排队取消或作废恢复快照。上游变化同步更新排队快照中的 generated→expired。正文和媒体地址保留。
 - 仅 generated 且结构有效的节点可作为前置。执行时重读当前 Model；不足记录 failed/precheck，不调用 AI，不自动补上游。
 - 剧情生成/重新生成：剧本模式只要求非空剧本，自由创作模式只要求非空 AI 创作方向；项目摘要不作为前置，也不注入剧情生成、修订或审核提示词。
-- 单任务针对一个节点操作；文本 precheck→generate→review，最多两轮 revise→review；协议/结构/网络错误 failed，合法草稿审核耗尽 rejected，保留草稿与旧历史。自由创作剧本只在审核通过后发布版本。
+- 单任务针对一个节点操作；文本 precheck→generate→程序审核→AI 审核，AI 审核未通过时最多两轮 revise→再审核；协议/结构/网络错误 failed，程序审核或 AI 审核未通过为 rejected，保留草稿与旧历史。自由创作剧本只在审核通过后发布版本。
 - 图片/视频 precheck→generate；尾帧/合片也是独立媒体任务。人工编辑与 override 均为两步，不调用 AI；override 只允许结构有效的 rejected 文本。
 - 删除任务 precheck→impact→apply。被镜头出镜/对白、规则或素材库引用的角色不能删除；默认/素材库引用服装不能删除；其他服装删除同次重绑为默认并使相关视频过期。
 - 项目内执行串行；完成后自动下一项；failed/rejected/cancelled 停止队列。面板再次生成最新任务为失败、未通过、取消或作废的同一节点时，创建新任务并保留旧终态；`generate` 自动按 `regenerate` 通过前置检查。若该重试已排队则复用；无其他未结束任务时直接启动；有其他等待/运行任务时明确冲突，不误启动其他任务。开始/移除排队项、人工操作与删除只能从面板发起。
