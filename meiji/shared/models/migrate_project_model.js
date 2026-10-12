@@ -9,7 +9,6 @@ import { emptyStorySegmentModel } from "./story_segment_model.js";
 import { emptyOnScreenCharacterModel } from "./on_screen_character_model.js";
 import { emptyStoryboardBeatModel } from "./storyboard_beat_model.js";
 import { emptyDialogueModel } from "./dialogue_model.js";
-import { emptySoundSegmentModel } from "./sound_segment_model.js";
 import { emptyRuleModel } from "./rule_model.js";
 import { emptyCostumeImageModel } from "./costume_image_model.js";
 
@@ -77,15 +76,17 @@ export function migrateProjectModelV3(old) {
         number: pick(oldCharacter, "number", "编号", ""),
         name: pick(oldCharacter, "name", "名称", ""),
         nationality: pick(oldCharacter, "nationality", "国籍", ""),
-        identity: pick(oldCharacter, "identity", "身份", ""),
-        identity_traits: pick(oldCharacter, "identity_traits", "身份特征", ""),
         gender: pick(oldCharacter, "gender", "性别", ""),
         era: pick(oldCharacter, "era", "年代", ""),
-        age: pick(oldCharacter, "age", "年龄", ""),
+        age_range: pick(oldCharacter, "age_range", "年龄段", "") || pick(oldCharacter, "age", "年龄", ""),
         height: pick(oldCharacter, "height", "身高", ""),
-        body_type: pick(oldCharacter, "body_type", "体型", ""),
+        body_type: pick(oldCharacter, "body_type", "体型", "") || oldCharacter.身材 || "",
         facial_features: pick(oldCharacter, "facial_features", "面相", ""),
         voice: pick(oldCharacter, "voice", "声音", ""),
+        hairstyle: pick(oldCharacter, "hairstyle", "发型", ""),
+        signature_props: pick(oldCharacter, "signature_props", "签名道具", ""),
+        position: pick(oldCharacter, "position", "定位", "") || pick(oldCharacter, "identity", "身份", ""),
+        immutable_traits: pick(oldCharacter, "immutable_traits", "不可改特征", "") || pick(oldCharacter, "identity_traits", "身份特征", ""),
         required_appearance: pick(oldCharacter, "required_appearance", "必出", false),
         default_costume_id: pick(oldCharacter, "default_costume_id", "默认服装id", ""),
         character_image: media(oldCharacter.character_image ?? oldCharacter.图片 ?? {}),
@@ -141,6 +142,7 @@ export function migrateProjectModelV3(old) {
           ...emptyStorySegmentModel(pick(segment, "sequence", "序号", 1)),
           duration_seconds: pick(segment, "duration_seconds", "时长秒", 1),
           body: pick(segment, "body", "正文", ""),
+          causal: pick(segment, "causal", "因果", ""),
         })),
       },
       assembly: media(oldEpisode.assembly ?? oldEpisode.合片 ?? {}),
@@ -154,7 +156,7 @@ export function migrateProjectModelV3(old) {
           id: oldShot.id,
           sequence: pick(oldShot, "sequence", "序号", index + 1),
           number: pick(oldShot, "number", "编号", ""),
-          duration_seconds: pick(oldShot, "duration_seconds", "时长秒", 1),
+          duration_seconds: pick(oldShot, "duration_seconds", "时长秒", 12),
           actual_duration_seconds: pick(oldShot, "actual_duration_seconds", "实际时长秒", 0),
           title: pick(oldShot, "title", "标题", ""),
           body: pick(oldShot, "body", "正文", ""),
@@ -167,48 +169,57 @@ export function migrateProjectModelV3(old) {
           video: media(oldShot.video ?? oldShot.视频 ?? {}),
           last_frame: media(oldShot.last_frame ?? oldShot.尾帧 ?? {}),
         });
+        const oldAnchor = oldShot.reference_anchor ?? oldShot.参考锚点 ?? {};
+        const oldAudio = oldShot.audio_arrangement ?? oldShot.音频安排 ?? {};
         const oldStoryboard = oldShot.seconds_storyboard ?? oldShot.每秒分镜 ?? {};
         const oldContent = oldStoryboard.content ?? oldStoryboard.内容 ?? {};
-        shot.seconds_storyboard = {
-          node_state: state(oldStoryboard),
-          transition_from_previous_shot: pick(oldStoryboard, "transition_from_previous_shot", "衔接上一镜方式", ""),
-          content: {
-            event: pick(oldContent, "event", "事件", ""),
-            beats: (pick(oldContent, "beats", "节拍", [])).map((oldBeat) => {
-              const beat = emptyStoryboardBeatModel();
-              Object.assign(beat, {
-                start_seconds: pick(oldBeat, "start_seconds", "开始秒", 0),
-                end_seconds: pick(oldBeat, "end_seconds", "结束秒", 0),
-                action: pick(oldBeat, "action", "动作", ""),
-                camera: pick(oldBeat, "camera", "镜头", ""),
-                space: pick(oldBeat, "space", "空间", ""),
-                voice: pick(oldBeat, "voice", "声音", ""),
-                handoff: pick(oldBeat, "handoff", "交接", ""),
-                dialogue: (pick(oldBeat, "dialogue", "对白", [])).map((oldLine) => ({
-                  ...emptyDialogueModel(),
-                  speaker_id: pick(oldLine, "speaker_id", "说话人id", ""),
-                  speaker_name: pick(oldLine, "speaker_name", "说话人名称", ""),
-                  mode: pick(oldLine, "mode", "方式", "画内"),
-                  performance: pick(oldLine, "performance", "表演", ""),
-                  dialogue_text: pick(oldLine, "dialogue_text", "台词", ""),
-                })),
-              });
-              return beat;
-            }),
-            ambient_sound: (pick(oldContent, "ambient_sound", "环境声", [])).map((value) => ({
-              ...emptySoundSegmentModel(),
-              start_seconds: pick(value, "start_seconds", "开始秒", 0),
-              end_seconds: pick(value, "end_seconds", "结束秒", 0),
-              body: pick(value, "body", "正文", ""),
+        const oldRows = oldStoryboard.storyboard ?? oldStoryboard.分镜
+          ?? oldContent.beats ?? oldContent.节拍 ?? [];
+        const storyboard = oldRows.map((oldBeat) => {
+          const beat = emptyStoryboardBeatModel();
+          const start = oldBeat.start_seconds ?? oldBeat.开始秒;
+          const end = oldBeat.end_seconds ?? oldBeat.结束秒;
+          const ranged = start != null && end != null ? `${start}–${end}s` : "";
+          Object.assign(beat, {
+            time_range: pick(oldBeat, "time_range", "时段", "") || ranged,
+            action: pick(oldBeat, "action", "动作", ""),
+            camera: pick(oldBeat, "camera", "镜头", ""),
+            space: pick(oldBeat, "space", "空间", ""),
+            audio: pick(oldBeat, "audio", "音频", "") || pick(oldBeat, "voice", "声音", ""),
+            handoff: pick(oldBeat, "handoff", "交接", ""),
+            dialogue: (pick(oldBeat, "dialogue", "对白", [])).map((oldLine) => ({
+              ...emptyDialogueModel(),
+              speaker_id: pick(oldLine, "speaker_id", "说话人id", ""),
+              speaker_name: pick(oldLine, "speaker_name", "说话人名称", ""),
+              mode: pick(oldLine, "mode", "方式", "画内"),
+              dialogue_text: pick(oldLine, "dialogue_text", "台词", ""),
             })),
-            music: (pick(oldContent, "music", "配乐", [])).map((value) => ({
-              ...emptySoundSegmentModel(),
-              start_seconds: pick(value, "start_seconds", "开始秒", 0),
-              end_seconds: pick(value, "end_seconds", "结束秒", 0),
-              body: pick(value, "body", "正文", ""),
-            })),
+          });
+          return beat;
+        });
+        const carried = [...(oldContent.ambient_sound ?? oldContent.环境声 ?? []), ...(oldContent.music ?? oldContent.配乐 ?? [])]
+          .map((value) => pick(value, "body", "正文", ""))
+          .filter(Boolean)
+          .join("\n");
+        if (carried && storyboard.length) storyboard.at(-1).audio = [storyboard.at(-1).audio, carried].filter(Boolean).join("\n");
+        Object.assign(shot, {
+          shot_scale: pick(oldShot, "shot_scale", "景别", ""),
+          hook: pick(oldShot, "hook", "钩子", ""),
+          continuity_transition: pick(oldShot, "continuity_transition", "连续性衔接", "")
+            || pick(oldStoryboard, "transition_from_previous_shot", "衔接上一镜方式", ""),
+          reference_anchor: {
+            fixed_landmark: pick(oldAnchor, "fixed_landmark", "固定地标", ""),
+            character_positions: pick(oldAnchor, "character_positions", "人物位置", ""),
+            departed_characters: pick(oldAnchor, "departed_characters", "离场角色", ""),
+            lighting: pick(oldAnchor, "lighting", "光位", ""),
           },
-        };
+          audio_arrangement: {
+            narration: pick(oldAudio, "narration", "旁白", ""),
+            dialogue: pick(oldAudio, "dialogue", "对白", ""),
+            sound_effects: pick(oldAudio, "sound_effects", "音效", ""),
+          },
+        });
+        shot.seconds_storyboard = { node_state: state(oldStoryboard), storyboard };
         const oldTextPrompt = oldShot.text_to_video_prompt ?? oldShot.文本提示词 ?? {};
         const oldPromptBody = pick(oldTextPrompt, "integrated_multimodal_description", "正文", "");
         shot.text_to_video_prompt = {

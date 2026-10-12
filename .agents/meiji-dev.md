@@ -26,7 +26,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 | `server/model/project-model.js` | 深拷贝读取与唯一事务提交入口 |
 | `server/data/model-repository.js` | SQLite 存储、幂等受理、事务、不可变终态、变化事件 |
 | `server/data/task-store.js` | 任务与组合任务只读视图 |
-| `server/flow/tasks/task-service.js`、`precheck.js` | 项目串行、组合顺序、两轮修订、取消/中断/继续及执行时前置核验 |
+| `server/flow/tasks/task-service.js`、`precheck.js` | 项目串行、组合顺序、按节点重试轮次修订、取消/中断/继续及执行时前置核验 |
 | `server/handlers/` | 文本、媒体、人工、删除业务；返回内容，不自行结算任务 |
 | `server/prompts/yaml-prompts.js` | 唯一 YAML 加载、结构校验、占位资料替换和自然语言渲染 |
 | `server/gateway/` | HTTP 协议、下载/轮询、纯请求记录及脱敏；不操作项目状态 |
@@ -56,8 +56,8 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - 入队保存原状态/原因；排队取消或作废恢复快照。上游变化同步更新排队快照中的 generated→expired。正文和媒体地址保留。
 - 仅 generated 且结构有效的节点可作为前置。执行时重读当前 Model；不足记录 failed/precheck，不调用 AI，不自动补上游。
 - 剧本是制作工作流的输入资料；工作流包含提取剧集，不包含剧本生成或修改。
-- 单任务针对一个节点操作；文本 precheck→generate→程序审核→AI 审核。程序审核或 AI 审核未通过时，按该节点重试轮次 revise→再审核；修订次数用尽后才是 rejected。协议/结构/网络错误 failed，保留旧内容与历史。
-- 图片/视频 precheck→generate；尾帧/合片也是独立媒体任务。人工编辑与 override 均为两步，不调用 AI；override 只允许结构有效的 rejected 文本。
+- 单任务针对一个节点操作；文本 precheck→generate→程序审核→AI 审核，节点没有的审核跳过。程序审核或 AI 审核未通过时，按该节点重试轮次 revise→再审核；修订次数用尽后才是 rejected。协议/结构/网络错误 failed，保留旧内容与历史。
+- 图片 precheck→generate，无审核。视频 precheck→generate→程序审核，尾帧在该任务内截取，不是独立任务。合片是独立媒体任务。人工编辑与 override 均为两步，不调用 AI；override 只允许结构有效的 rejected 节点。
 - 删除任务 precheck→impact→apply。被镜头出镜/对白、规则或素材库引用的角色不能删除；默认/素材库引用服装不能删除；其他服装删除同次重绑为默认并使相关视频过期。
 - 项目内执行串行；完成后自动下一项；failed/rejected/cancelled 停止队列。面板再次生成最新任务为失败、未通过、取消或作废的同一节点时，创建新任务并保留旧终态；`generate` 自动按 `regenerate` 通过前置检查。若该重试已排队则复用；无其他未结束任务时直接启动；有其他等待/运行任务时明确冲突，不误启动其他任务。开始/移除排队项、人工操作与删除只能从面板发起。
 - 服务重启把所有 queued/running 旧任务统一结算为 superseded（已作废），未完成步骤同样作废，已完成步骤与历史终态保留；排队节点恢复快照，运行节点结算 cancelled 并保留内容。重启清除 queue_stopped，旧任务不重放，新任务可直接执行；晚到结果不得覆盖作废任务。
@@ -67,7 +67,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - 每次独立操作创建 single 组；角色提取创建 workflow 组，派生图片/摘要按 group_seq 追加到同组。父任务已完成不因子任务失败被改写。task/group/step 创建时保存 name，后续资料改名不改历史；已有记录缺名称时只读补显；持久化任务必须有父组，运行时不创建虚拟组。
 - 任务历史以组为列表入口，组内直接排列各任务全部步骤。组状态只读聚合，部分完成加其余作废显示已作废；继续创建新组并链接原组，旧历史保留。人工/删除任务从原入口重新操作，不提供通用组继续。
 - 按项目数据结构的过期表传播。拆分剧集整表替换剧集，不把旧节点标为过期。输出语言、画幅、规则、声音、默认服装配置只影响后续步骤，不使已有资源过期。面板修改必出会使角色图片过期；角色提取写回时必出变化不使图片过期。
-- 每秒分镜的对白保存 `说话人id` 和 `说话人名称`；未建卡人物/独立旁白保留原称谓和空 id，不自动建卡。
+- 每秒分镜的对白保存在 `dialogue[]` 的 `speaker_id` 和 `speaker_name`；未建卡人物/独立旁白保留原称谓和空 `speaker_id`，不自动建卡。
 
 ## 提示词与网关
 

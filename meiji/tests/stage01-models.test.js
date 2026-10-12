@@ -11,7 +11,6 @@ import { emptyStorySegmentModel } from "../shared/models/story_segment_model.js"
 import { emptyOnScreenCharacterModel } from "../shared/models/on_screen_character_model.js";
 import { emptyStoryboardBeatModel } from "../shared/models/storyboard_beat_model.js";
 import { emptyDialogueModel } from "../shared/models/dialogue_model.js";
-import { emptySoundSegmentModel } from "../shared/models/sound_segment_model.js";
 import { emptyReferenceImageModel } from "../shared/models/reference_image_model.js";
 import { validateProject } from "../shared/project_contract.js";
 import { createTaskGroupModel } from "../shared/models/task_group_model.js";
@@ -33,13 +32,9 @@ test("项目模型的每个嵌套数组项都由独立模型构造并通过完�
   const shot = emptyShotModel();
   shot.on_screen_characters.push(emptyOnScreenCharacterModel({ character_id: character.id, costume_id: costume.id }));
   const beat = emptyStoryboardBeatModel();
-  beat.end_seconds = 1;
+  beat.time_range = "0–1s";
   beat.dialogue.push(emptyDialogueModel());
-  shot.seconds_storyboard.content.beats.push(beat);
-  const sound = emptySoundSegmentModel();
-  sound.end_seconds = 1;
-  shot.seconds_storyboard.content.ambient_sound.push(sound);
-  shot.seconds_storyboard.content.music.push({ ...sound });
+  shot.seconds_storyboard.storyboard.push(beat);
   shot.multimodal_prompt.reference_images.push(emptyReferenceImageModel());
   episode.shot_list.shots.push(shot);
   project.episodes.push(episode);

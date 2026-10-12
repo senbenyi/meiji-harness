@@ -17,7 +17,6 @@ import { emptyShotModel } from "./models/shot_model.js";
 import { emptyOnScreenCharacterModel } from "./models/on_screen_character_model.js";
 import { emptyStoryboardBeatModel } from "./models/storyboard_beat_model.js";
 import { emptyDialogueModel } from "./models/dialogue_model.js";
-import { emptySoundSegmentModel } from "./models/sound_segment_model.js";
 import { emptyReferenceImageModel } from "./models/reference_image_model.js";
 
 export const emptyProject = emptyProjectModel;
@@ -36,10 +35,8 @@ const arrayModels = {
   "project.episodes[].story_outline.segments": () => emptyStorySegmentModel(),
   "project.episodes[].shot_list.shots": () => emptyShotModel(),
   "project.episodes[].shot_list.shots[].on_screen_characters": emptyOnScreenCharacterModel,
-  "project.episodes[].shot_list.shots[].seconds_storyboard.content.beats": emptyStoryboardBeatModel,
-  "project.episodes[].shot_list.shots[].seconds_storyboard.content.beats[].dialogue": emptyDialogueModel,
-  "project.episodes[].shot_list.shots[].seconds_storyboard.content.ambient_sound": emptySoundSegmentModel,
-  "project.episodes[].shot_list.shots[].seconds_storyboard.content.music": emptySoundSegmentModel,
+  "project.episodes[].shot_list.shots[].seconds_storyboard.storyboard": emptyStoryboardBeatModel,
+  "project.episodes[].shot_list.shots[].seconds_storyboard.storyboard[].dialogue": emptyDialogueModel,
   "project.episodes[].shot_list.shots[].multimodal_prompt.reference_images": emptyReferenceImageModel,
 };
 const stringArrays = new Set([
@@ -143,10 +140,11 @@ export function validateProject(project) {
         invalid("character_library.characters.costume_images.costume_id", "服装不属于该角色");
   }
   const checkTimeRange = (value, path, duration) => {
-    for (const key of ["start_seconds", "end_seconds"])
-      if (!Number.isFinite(value[key]) || value[key] < 0) invalid(`${path}.${key}`, "需为非负秒数");
-    if (value.start_seconds >= value.end_seconds || value.end_seconds > duration)
-      invalid(path, "时段需非空且不超出本镜");
+    const matched = String(value.time_range).match(/^(\d+(?:\.\d+)?)[–-](\d+(?:\.\d+)?)s$/);
+    if (!matched) invalid(`${path}.time_range`, "需为起止秒，如 0–1s");
+    const start = Number(matched[1]);
+    const end = Number(matched[2]);
+    if (start < 0 || start >= end || end > duration) invalid(path, "时段需非空且不超出本镜");
   };
   for (const episode of project.episodes) {
     register(episode.id, "episodes.id");
@@ -163,8 +161,8 @@ export function validateProject(project) {
       if (!Number.isInteger(shot.sequence) || shot.sequence < 1) invalid("shots.sequence", "需为正整数");
       if (!shot.number || shotNumbers.has(shot.number)) invalid("shots.number", "重复或空编号");
       shotNumbers.add(shot.number);
-      if (!Number.isInteger(shot.duration_seconds) || shot.duration_seconds < 1 || shot.duration_seconds > 15)
-        invalid("shots.duration_seconds", "镜头时长需为 1–15 秒");
+      if (!Number.isInteger(shot.duration_seconds) || shot.duration_seconds < 4 || shot.duration_seconds > 15)
+        invalid("shots.duration_seconds", "镜头时长需为 4–15 秒");
       if (!Number.isFinite(shot.actual_duration_seconds) || shot.actual_duration_seconds < 0)
         invalid("shots.actual_duration_seconds", "需为非负秒数");
       for (const appearing of shot.on_screen_characters) {
@@ -173,16 +171,13 @@ export function validateProject(project) {
         if (appearing.costume_id && costumes.get(appearing.costume_id) !== character.id)
           invalid("shots.on_screen_characters.costume_id", "服装不属于该角色");
       }
-      const content = shot.seconds_storyboard.content;
-      for (const beat of content.beats) {
-        checkTimeRange(beat, "seconds_storyboard.beats", shot.duration_seconds);
+      for (const beat of shot.seconds_storyboard.storyboard) {
+        checkTimeRange(beat, "seconds_storyboard.storyboard", shot.duration_seconds);
         for (const line of beat.dialogue) {
           if (line.speaker_id && !characters.has(line.speaker_id)) invalid("dialogue.speaker_id", "角色引用不存在");
           assertEnum(line.mode, ["画内", "画外", "心声"], "dialogue.mode");
         }
       }
-      for (const sound of [...content.ambient_sound, ...content.music])
-        checkTimeRange(sound, "seconds_storyboard.sound", shot.duration_seconds);
     }
   }
   return project;

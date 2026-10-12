@@ -2,4 +2,4 @@
 import { createId } from "../task_contract.js";
 import { emptyCharacterImageModel } from "./character_image_model.js";
 import { emptyReferenceImageModel } from "./reference_image_model.js";
-export const emptyCharacterModel = (fields = {}) => ({ id: createId("character"), number: "", name: "", nationality: "", identity: "", identity_traits: "", gender: "", era: "", age: "", height: "", body_type: "", facial_features: "", voice: "", required_appearance: false, default_costume_id: "", character_image: emptyCharacterImageModel(), costume_images: [], reference_image: emptyReferenceImageModel(), costumes: [], ...fields });
+export const emptyCharacterModel = (fields = {}) => ({ id: createId("character"), number: "", name: "", age_range: "", nationality: "", gender: "", era: "", height: "", body_type: "", facial_features: "", voice: "", required_appearance: false, default_costume_id: "", character_image: emptyCharacterImageModel(), costume_images: [], reference_image: emptyReferenceImageModel(), costumes: [], hairstyle: "", signature_props: "", position: "", immutable_traits: "", ...fields });

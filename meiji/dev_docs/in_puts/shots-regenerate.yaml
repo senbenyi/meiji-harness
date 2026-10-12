@@ -30,27 +30,27 @@ input:
     输出格式:
       类型: JSON
       结构:
-        镜头:
-          - 标题: 镜头标题
-            编号: S01
-            参考时长: 12
-            景别: 景别
-            钩子: 视觉笑点
-            正文: 镜头事件正文
-            连续性衔接: 连续性衔接内容
-            参考锚点:
-              固定地标: 固定地标
-              人物位置: 人物位置
-              离场角色: 离场角色
-              光位: 光位
-            音频安排:
-              旁白: 旁白安排
-              对白: 对白安排
-              音效: 音效安排
+        shots:
+          - title: 镜头标题
+            number: S01
+            duration_seconds: 12
+            shot_scale: 景别
+            hook: 视觉笑点
+            body: 镜头事件正文
+            continuity_transition: 连续性衔接内容
+            reference_anchor:
+              fixed_landmark: 固定地标
+              character_positions: 人物位置
+              departed_characters: 离场角色
+              lighting: 光位
+            audio_arrangement:
+              narration: 旁白安排
+              dialogue: 对白安排
+              sound_effects: 音效安排
       要求: |-
-        1. 只返回上述JSON结构；字段只能为标题、编号、参考时长、景别、钩子、正文、连续性衔接、参考锚点、音频安排及其规定子字段。
+        1. 只返回上述JSON结构；字段只能为 title、number、duration_seconds、shot_scale、hook、body、continuity_transition、reference_anchor、audio_arrangement 及其规定子字段。
         2. 镜头顺序对应故事小段顺序；沿用已有镜头编号，新增镜头按S前缀连续编号。
-        3. 参考时长为4至15秒整数；镜头总时长尽量接近本集参考时长。
+        3. duration_seconds 为4至15秒整数；镜头总时长尽量接近本集参考时长。
         4. 钩子使用规则规定的枚举；无旁白、对白或音效时对应值为空字符串。
         5. 只返回完整镜头表，不附解释或Markdown代码围栏。
   user:
