@@ -5,11 +5,11 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 ## 项目配置
 
 - 代码、配置、skill 和测试范围为 `meiji/`；计划使用 `docs/plans/MMDD-计划-*.md`，完整实施记录使用对应的 `docs/implement/MMDD-实施-*.md`。
-- `meiji/docs/`、`meiji/reports/` 和其他纯文档修改按文档流程处理。
+- `meiji/docs/`、`meiji/reports/`、`meiji/dev_docs/` 和其他纯文档修改按文档流程处理，不要求开发计划。
 - 不修改上游 Harness 源码。数据根为 `$DSH_HOME/storages/meiji/`，未设置 DSH_HOME 时为 `~/.dsh/storages/meiji/`。
 - 同一个 DSH_HOME 只运行一个写入服务实例。项目级事务与制作任务串行；不同项目可独立运行。
 - GitNexus 仓库名为 `llm-dsh-plugins`，索引放在 `$HOME/.gitnexus/indexes`。根目录执行 `node ../../.gitnexus/indexes/llm-dsh-plugins-995853d2d454/run.cjs status`；更新执行同一 runner 的 `analyze --index-only`。索引符号身份异常时使用 `--force` 全量重建。MCP 可用时优先使用，UNKNOWN 必须补查实际源码与动态注册。
-- 根 `CLAUDE.md`、`.claude/AGENTS.md`、`.cursor/AGENTS.md` 引用通用规范；`.claude/meiji-dev.md`、`.cursor/meiji-dev.md` 链接本文。`.claude/guard.mjs` 的代码编辑提醒/计划检查不适用于普通咨询、只读调研和纯文档修改。
+- 根 `CLAUDE.md`、`.claude/AGENTS.md`、`.cursor/AGENTS.md` 引用通用规范；`.claude/meiji-dev.md`、`.cursor/meiji-dev.md` 链接本文。`.claude/guard.mjs` 的计划检查不拦截 `meiji/dev_docs/`、`meiji/docs/`、`meiji/reports/`，也不适用于普通咨询、只读调研和纯文档修改。
 
 ## 模块与唯一执行链
 
@@ -55,16 +55,16 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - 8 种节点状态为 empty、queued、running、generated、rejected、failed、cancelled、expired，原因和状态一同提交；剧本没有节点状态。
 - 入队保存原状态/原因；排队取消或作废恢复快照。上游变化同步更新排队快照中的 generated→expired。正文和媒体地址保留。
 - 仅 generated 且结构有效的节点可作为前置。执行时重读当前 Model；不足记录 failed/precheck，不调用 AI，不自动补上游。
-- 剧情生成/重新生成：剧本模式只要求非空剧本，自由创作模式只要求非空 AI 创作方向；项目摘要不作为前置，也不注入剧情生成、修订或审核提示词。
-- 单任务针对一个节点操作；文本 precheck→generate→程序审核→AI 审核，AI 审核未通过时最多两轮 revise→再审核；协议/结构/网络错误 failed，程序审核或 AI 审核未通过为 rejected，保留草稿与旧历史。自由创作剧本只在审核通过后发布版本。
+- 剧本是制作工作流的输入资料；工作流包含提取剧集，不包含剧本生成或修改。
+- 单任务针对一个节点操作；文本 precheck→generate→程序审核→AI 审核。程序审核或 AI 审核未通过时，按该节点重试轮次 revise→再审核；修订次数用尽后才是 rejected。协议/结构/网络错误 failed，保留旧内容与历史。
 - 图片/视频 precheck→generate；尾帧/合片也是独立媒体任务。人工编辑与 override 均为两步，不调用 AI；override 只允许结构有效的 rejected 文本。
 - 删除任务 precheck→impact→apply。被镜头出镜/对白、规则或素材库引用的角色不能删除；默认/素材库引用服装不能删除；其他服装删除同次重绑为默认并使相关视频过期。
 - 项目内执行串行；完成后自动下一项；failed/rejected/cancelled 停止队列。面板再次生成最新任务为失败、未通过、取消或作废的同一节点时，创建新任务并保留旧终态；`generate` 自动按 `regenerate` 通过前置检查。若该重试已排队则复用；无其他未结束任务时直接启动；有其他等待/运行任务时明确冲突，不误启动其他任务。开始/移除排队项、人工操作与删除只能从面板发起。
 - 服务重启把所有 queued/running 旧任务统一结算为 superseded（已作废），未完成步骤同样作废，已完成步骤与历史终态保留；排队节点恢复快照，运行节点结算 cancelled 并保留内容。重启清除 queue_stopped，旧任务不重放，新任务可直接执行；晚到结果不得覆盖作废任务。
 - 面板提交拆分剧集会直接恢复并执行该拆分（已有排队拆分复用）；存在其他未结束任务时明确拒绝，不带起其他暂停任务。面板同节点重试遵循相同直启规则；会话提交和其他普通提交仍遵循暂停队列规则。
-- 成片使用 episode-film，按镜头表顺序逐镜 seconds（生成/审核/修订）→storyboard→video→tail；可选 shot_id 限定单镜，镜头必须属于指定剧集，opinion 保存到组内任务。episode-seconds 保留单项及历史契约，不再有独立标签入口。组合整组受理，冲突整组拒绝；停止后后序 superseded，继续新建组并保留旧终态。跳过有效节点时也计算上游重生成将造成的下游过期。
+- 成片使用 episode-film，按镜头表顺序逐镜执行每秒分镜→文生视频提示词→（按视频类型可选）首尾帧/多模态提示词→视频；尾帧在视频任务内截取。可选 shot_id 限定单镜，镜头必须属于指定剧集，opinion 保存到组内任务。episode-seconds 保留单项及历史契约，不再有独立标签入口。组合整组受理，冲突整组拒绝；停止后后序 superseded，继续新建组并保留旧终态。跳过有效节点时也计算上游重生成将造成的下游过期。
 - 每镜视频完成后记录 FFprobe 实测的实际时长秒（保留一位小数），人工导入视频同样测量；镜头表时长秒作为参考预算不变。现有未测量的镜头暂不展示实际时长，不追溯重写已有媒体。
-- 每次独立操作创建 single 组；角色提取、剧本生成创建 workflow 组，派生图片/摘要按 group_seq 追加到同组。父任务已完成不因子任务失败被改写。task/group/step 创建时保存 name，后续资料改名不改历史；已有记录缺名称时只读补显；持久化任务必须有父组，运行时不创建虚拟组。
+- 每次独立操作创建 single 组；角色提取创建 workflow 组，派生图片/摘要按 group_seq 追加到同组。父任务已完成不因子任务失败被改写。task/group/step 创建时保存 name，后续资料改名不改历史；已有记录缺名称时只读补显；持久化任务必须有父组，运行时不创建虚拟组。
 - 任务历史以组为列表入口，组内直接排列各任务全部步骤。组状态只读聚合，部分完成加其余作废显示已作废；继续创建新组并链接原组，旧历史保留。人工/删除任务从原入口重新操作，不提供通用组继续。
 - 按项目数据结构的过期表传播。拆分剧集整表替换剧集，不把旧节点标为过期。输出语言、画幅、规则、声音、默认服装配置只影响后续步骤，不使已有资源过期。面板修改必出会使角色图片过期；角色提取写回时必出变化不使图片过期。
 - 每秒分镜的对白保存 `说话人id` 和 `说话人名称`；未建卡人物/独立旁白保留原称谓和空 id，不自动建卡。
@@ -73,7 +73,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 全部生产、审核、修订正文和输出结构来自 `dev_docs/in_puts/*.yaml`。`mark` 不进入请求，输出格式只在 system，user 的任务是模板固定正文。占位符缺失直接失败；注入资料不二次展开。规则以范围、适用业务、类别、必须/参考组织，配置变更不追溯改写历史。
 
-文本返回按 JSON 解析并严格校验 YAML 键与类型，然后核对时长、覆盖和编号引用；不通过结构校验的结果不会覆盖节点。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图，后续镜头使用前镜尾帧及交接资料；远端 ID 在提交后记录。
+文本返回按 JSON 解析，并按对应提示词 YAML 中声明的 JSON 输出结构校验字段与类型，然后核对时长、覆盖和编号引用；不通过结构校验的结果不会覆盖节点。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图，后续镜头使用前镜尾帧及交接资料；远端 ID 在提交后记录。
 
 文本协议以[下游接入接口文档](../下游接入接口文档.md)第 4 节为准：`POST /v1/chat/completions` 使用 model/messages/stream=false，不发送未声明的 response_format；JSON 输出由 YAML 提示词要求和本地校验保证，不使用网关 JSON 模式替代校验。
 

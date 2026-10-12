@@ -11,7 +11,10 @@ let input = {}
 try { input = JSON.parse(readFileSync(0, 'utf8') || '{}') } catch {}
 
 const mtime = file => { try { return statSync(file).mtimeMs } catch { return 0 } }
-const guarded = rel => rel.startsWith('meiji/') && !rel.startsWith('meiji/docs/') && !rel.startsWith('meiji/reports/')
+const guarded = rel => rel.startsWith('meiji/')
+  && !rel.startsWith('meiji/docs/')
+  && !rel.startsWith('meiji/reports/')
+  && !rel.startsWith('meiji/dev_docs/')
 
 function latestPlan() {
   const dir = join(root, 'docs', 'plans')
@@ -27,7 +30,7 @@ if (mode === 'prompt') {
     '3) 两步流程：调研与计划 → 实施与验证（AGENTS.md 第 1–2 节）；调研合入计划，小改动写简短计划；',
     '4) 改代码前必须已有 docs/plans/MMDD-计划-*.md（钩子会拦截）；',
     '5) 完成后 cd meiji && npm test，不得新增失败。',
-    '普通咨询、只读调研和纯文档修改不执行开发流程。',
+    '普通咨询、只读调研和纯文档修改不执行开发流程。meiji/dev_docs/ 下的文档修改不检查开发计划。',
   ].join('\n') + '\n')
   process.exit(0)
 }
