@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import {
   createId,
   NODE_STATUS,
@@ -26,13 +26,6 @@ import {
   validateTemplate,
 } from "../server/prompts/yaml-prompts.js";
 import { deliverTaskNotice } from "../server/host/task-notices.js";
-
-const stepSpec = JSON.parse(
-  await readFile(
-    new URL("../dev_docs/step_model.json", import.meta.url),
-    "utf8",
-  ),
-);
 
 const projectFixture = () => {
   const p = emptyProject({
@@ -218,19 +211,34 @@ test("S1-04 任务目标归属和字段协议严格校验，剧本无状态", ()
     ended_at: null,
   };
   validateStep(st, t);
-  const spec = stepSpec;
-  assert.deepEqual(
-    NODE_STATUS,
-    spec.node_status.map((x) => x.值),
-  );
-  assert.deepEqual(
-    TASK_STATUS,
-    spec.task_status.map((x) => x.值),
-  );
-  assert.deepEqual(
-    STEP_STATUS,
-    spec.step_status.map((x) => x.值),
-  );
+  assert.deepEqual(NODE_STATUS, [
+    "empty",
+    "queued",
+    "running",
+    "generated",
+    "rejected",
+    "failed",
+    "cancelled",
+    "expired",
+  ]);
+  assert.deepEqual(TASK_STATUS, [
+    "queued",
+    "running",
+    "completed",
+    "rejected",
+    "failed",
+    "cancelled",
+    "superseded",
+  ]);
+  assert.deepEqual(STEP_STATUS, [
+    "ready",
+    "running",
+    "done",
+    "failed",
+    "skipped",
+    "cancelled",
+    "superseded",
+  ]);
   assert.equal(BUSINESS_TARGET["costume-delete"], "costume");
 });
 for (const file of await readdir(

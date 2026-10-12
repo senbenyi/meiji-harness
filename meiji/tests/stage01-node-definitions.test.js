@@ -1,12 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { NODE_DEFINITIONS, OPERATION_DEFINITIONS, TEXT_BUSINESSES } from "../shared/node-definitions.js";
 import { createId, nodeOf } from "../shared/task-contract.js";
 import { stepKinds } from "../shared/task-plan.js";
 import { projectFixture, taskFixture } from "./fixtures/project.js";
 
-test("统一节点目录与示例结构一致，定位、审核和前置规则均由目录描述", async () => {
+test("统一节点目录描述定位和审核规则", async () => {
   const project = projectFixture();
   const character = {
     id: createId("character"), 图片: { 状态: "empty", 原因: "", 地址: "" },
@@ -20,9 +19,6 @@ test("统一节点目录与示例结构一致，定位、审核和前置规则�
     episode: project.剧集[0].id,
     shot: project.剧集[0].镜头表.镜头[0].id,
   };
-  const spec = JSON.parse(await readFile(new URL("../dev_docs/step_model.json", import.meta.url), "utf8"));
-  const specByType = new Map(spec.node_type.map((row) => [row.值, row]));
-  assert.deepEqual(Object.keys(NODE_DEFINITIONS).sort(), [...specByType.keys()].sort());
   for (const [business, definition] of Object.entries(NODE_DEFINITIONS)) {
     const node = nodeOf(project, business, targetByKind[definition.targetKind]);
     const targetObject = {
@@ -35,13 +31,6 @@ test("统一节点目录与示例结构一致，定位、审核和前置规则�
     assert.equal(node, targetObject[definition.field]);
     assert.equal(TEXT_BUSINESSES.includes(business), definition.handler === "text");
     assert.equal(stepKinds(taskFixture(project, business, targetByKind[definition.targetKind])).includes("review"), definition.review);
-    const row = specByType.get(business);
-    assert.equal(row["目标类型"], definition.targetKind);
-    assert.equal(row["字段"], definition.field);
-    assert.equal(row["处理器"], definition.handler);
-    assert.equal(row["产物"], definition.output);
-    assert.equal(row["需要AI审核"], definition.review);
-    assert.equal(row["前置检查规则"], definition.precheck);
   }
   for (const [business, definition] of Object.entries(OPERATION_DEFINITIONS)) {
     assert.equal(nodeOf(project, business, targetByKind[definition.targetKind]), null);

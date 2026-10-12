@@ -12,6 +12,6 @@ alwaysApply: false
 - `meiji/dev_docs/任务步骤.md`
 - `meiji/dev_docs/提示词编排.md`
 
-三份分别约束项目节点与过期、任务步骤与组合、YAML 提示词。与样例 `project_detail.json`、`step_model.json` 冲突时，以这三份和当前源码核对后的结果为准，不沿用已拆掉的旧版数据结构说明正文。
+三份分别约束项目节点与过期、任务步骤与组合、YAML 提示词。与样例 `project_detail.json`、`step_model.md` 冲突时，以这三份和当前源码核对后的结果为准，不沿用已拆掉的旧版数据结构说明正文。
 
 只读问答不必通读。改代码时契约与实现不一致，先停下来对齐，不在未读契约的情况下加字段或改状态。
