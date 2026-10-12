@@ -55,6 +55,7 @@ for (const point of [
           s.project.项目摘要 = {
             状态: "generated",
             原因: "",
+            依赖hash: "",
             正文: "新摘要",
             剧本版本: 1,
           };

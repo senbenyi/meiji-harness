@@ -37,7 +37,7 @@ test("S2-07 角色合并保留 ID、资源和未返回对象，新对象新 ID�
   const p = emptyProject();
   p.角色库.角色 = mergeCharacters(p, [character()]).characters;
   const first = p.角色库.角色[0];
-  first.图片 = { 状态: "generated", 原因: "", 地址: "keep.png" };
+  first.图片 = { 状态: "generated", 原因: "", 依赖hash: "", 地址: "keep.png" };
   const merged = mergeCharacters(p, [
     { ...character(), 名称: "改名" },
     character("C02", "C02-01"),
@@ -62,7 +62,7 @@ test("S2-07 镜头重生成保留身份与资源，新增分配 ID，移除受�
   p.剧集 = [e];
   e.镜头表.镜头 = replaceShots(p, e.id, [shot()]).shots;
   const id = e.镜头表.镜头[0].id;
-  e.镜头表.镜头[0].视频 = { 状态: "generated", 原因: "", 地址: "keep.mp4" };
+  e.镜头表.镜头[0].视频 = { 状态: "generated", 原因: "", 依赖hash: "", 地址: "keep.mp4" };
   const replaced = replaceShots(p, e.id, [{ ...shot(), 序号: 2 }, shot("S02")]);
   assert.equal(replaced.shots[0].id, id);
   assert.equal(replaced.shots[0].视频.地址, "keep.mp4");

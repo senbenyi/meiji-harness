@@ -201,8 +201,8 @@ test("剧本创作方式不能逐集新增；编辑剧情使展示摘要与故�
     runtime = await createAppRuntime({ home });
     const p = scriptProject(),
       e = emptyEpisode({ 剧情: script });
-    e.摘要 = { 状态: "generated", 原因: "", 正文: "摘要" };
-    e.故事大纲 = { 状态: "generated", 原因: "", 小段: [{ 序号: 1, 时长秒: 150, 正文: "故事" }] };
+    e.摘要 = { 状态: "generated", 原因: "", 依赖hash: "", 正文: "摘要" };
+    e.故事大纲 = { 状态: "generated", 原因: "", 依赖hash: "", 小段: [{ 序号: 1, 时长秒: 150, 正文: "故事" }] };
     p.剧集 = [e];
     const model = await runtime.repository.create(p),
       sid = `session-${randomUUID()}`;

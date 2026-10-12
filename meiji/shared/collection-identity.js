@@ -25,7 +25,7 @@ const characterFields = [
 ];
 const costumeFields = ["编号", "名称", "描述"];
 const shotFields = ["序号", "编号", "时长秒", "标题", "正文", "出镜角色"];
-const media = () => ({ 状态: "empty", 原因: "", 地址: "" });
+const media = () => ({ 状态: "empty", 原因: "", 依赖hash: "", 地址: "" });
 
 // 在事务草稿中执行；整次合并通过验证后才替换，失败不修改调用方。
 export function mergeCharacters(project, rows) {

@@ -117,10 +117,15 @@ export function assertFields(value, keys, path) {
     if (!Object.hasOwn(value, k)) invalid(`${path}.${k}`, "缺少字段");
   return value;
 }
-export function validateNode(node, path) {
+export function validateNode(node, path, checkHash = true) {
   assertRecord(node, path);
   assertEnum(node.状态, NODE_STATUS, `${path}.状态`);
   assertText(node.原因, `${path}.原因`);
+  if (checkHash) {
+    assertText(node.依赖hash, `${path}.依赖hash`);
+    if (node.依赖hash && !/^[a-f0-9]{64}$/.test(node.依赖hash))
+      invalid(`${path}.依赖hash`, "需为空或依赖指纹");
+  }
   const needs = ["rejected", "failed", "cancelled", "expired"].includes(
     node.状态,
   );
@@ -193,7 +198,7 @@ export function validateTask(t, p) {
       ["状态", "原因"],
       "task.previous_node_state",
     );
-    validateNode(t.previous_node_state, "task.previous_node_state");
+    validateNode(t.previous_node_state, "task.previous_node_state", false);
   } else if (t.previous_node_state !== null)
     invalid("task.previous_node_state", "非节点任务为空");
   assertEnum(t.action, ACTIONS, "task.action");
@@ -227,7 +232,7 @@ export function validateTask(t, p) {
     if ((target.episode?.id ?? null) !== t.episode_id)
       invalid("task.episode_id", "剧集归属不符");
     const node = nodeOf(p, t.business_type, t.target_id);
-    if (node) validateNode(t.previous_node_state, "task.previous_node_state");
+    if (node) validateNode(t.previous_node_state, "task.previous_node_state", false);
     else if (t.previous_node_state !== null)
       invalid("task.previous_node_state", "非节点任务为空");
   }

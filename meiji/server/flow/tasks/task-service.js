@@ -208,7 +208,9 @@ export class TaskService {
             if (command.type === "continue-group" && valid) continue;
             planned.push({ business, id });
             if (command.type === "continue-group")
-              expireDownstream(prospective, business, id);
+              expireDownstream(prospective, business, id, undefined, {
+                compareHash: false,
+              });
           }
         if (!planned.length)
           return { group_id: null, task_ids: [], message: "当前范围无需继续" };

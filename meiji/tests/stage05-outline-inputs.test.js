@@ -19,7 +19,7 @@ function fixture(mode, action = "generate") {
   if (mode === "剧本") p.剧本.正文 = e.剧情 = "林峥醒来，发现自己成为武松。";
   else p.创作方向 = "少年在未来都市寻找失踪的兄长。";
   if (action === "regenerate") e.故事大纲 = {
-    状态: "generated", 原因: "", 小段: [{ 序号: 1, 时长秒: 10, 正文: "已有剧情" }],
+    状态: "generated", 原因: "", 依赖hash: "", 小段: [{ 序号: 1, 时长秒: 10, 正文: "已有剧情" }],
   };
   const task = { business_type: "outline", target_id: e.id, action,
     previous_node_state: { 状态: e.故事大纲.状态 } };
@@ -30,12 +30,12 @@ for (const mode of ["剧本", "自由创作"]) {
   test(`B-8 ${mode} 摘要的空/失败/过期/无效生成状态均不阻断剧情`, () => {
     const { p, task } = fixture(mode);
     for (const state of ["empty", "failed", "expired", "generated"]) {
-      p.项目摘要 = { 状态: state, 原因: state === "failed" || state === "expired" ? "旧原因" : "", 正文: "", 剧本版本: 1 };
+      p.项目摘要 = { 状态: state, 原因: state === "failed" || state === "expired" ? "旧原因" : "", 依赖hash: "", 正文: "", 剧本版本: 1 };
       assert.equal(precheck({ project: p }, task).passed, true);
     }
     if (mode === "剧本") p.剧集[0].剧情 = " \n ";
     else p.创作方向 = " \n ";
-    p.项目摘要 = { 状态: "generated", 原因: "", 正文: "有效摘要不能替代必需输入", 剧本版本: 1 };
+    p.项目摘要 = { 状态: "generated", 原因: "", 依赖hash: "", 正文: "有效摘要不能替代必需输入", 剧本版本: 1 };
     if (mode === "剧本") p.创作方向 = "不能替代剧本";
     else p.剧本.正文 = "不能替代创作方向";
     assert.throws(() => precheck({ project: p }, task), mode === "剧本" ? /本集剧情为空/ : /创作方向为空/);
@@ -87,7 +87,7 @@ for (const mode of ["剧本", "自由创作"]) {
       const { p, e } = fixture(mode);
       if (mode === "剧本") { p.剧集[0].剧情 = " "; p.创作方向 = "其他资料"; }
       else { p.创作方向 = " "; p.剧本.正文 = "其他资料"; }
-      p.项目摘要 = { 状态: "generated", 原因: "", 正文: "已有摘要", 剧本版本: 1 };
+      p.项目摘要 = { 状态: "generated", 原因: "", 依赖hash: "", 正文: "已有摘要", 剧本版本: 1 };
       const repository = new ModelRepository(root), model = await repository.create(p);
       let calls = 0;
       const service = new TaskService({ repository, commitOutput: commitContent,

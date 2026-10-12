@@ -86,8 +86,34 @@ test("SQLite v1→v2：清理资产字段与规则，保留历史并作废旧活
     assert.equal(model.read().tasks.length, 1);
     await service.dispose();
     const check = new DatabaseSync(join(root, "meiji.sqlite"));
-    try { assert.equal(check.prepare("PRAGMA user_version").get().user_version, 2); }
+    try { assert.equal(check.prepare("PRAGMA user_version").get().user_version, 3); }
     finally { check.close(); }
+  } finally { await upgraded.close(); }
+}));
+
+test("SQLite v2→v3：旧节点补上空依赖指纹并保留正文", () => fixture(async root => {
+  const repo = new ModelRepository(root), p = projectFixture();
+  await repo.create(p);
+  await repo.close();
+  const db = new DatabaseSync(join(root, "meiji.sqlite"));
+  try {
+    const row = db.prepare("SELECT data_json FROM projects WHERE id=?").get(p.id),
+      data = JSON.parse(row.data_json);
+    const strip = (node) => { delete node.依赖hash; };
+    strip(data.项目摘要);
+    strip(data.剧集[0].摘要);
+    strip(data.剧集[0].镜头表.镜头[0].视频);
+    db.prepare("UPDATE projects SET data_json=? WHERE id=?").run(JSON.stringify(data), p.id);
+    db.prepare("DELETE FROM schema_migrations WHERE version=3").run();
+    db.exec("PRAGMA user_version=2");
+  } finally { db.close(); }
+  const upgraded = new ModelRepository(root);
+  try {
+    const restored = (await upgraded.open(p.id)).read().project;
+    assert.equal(restored.项目摘要.依赖hash, "");
+    assert.equal(restored.项目摘要.正文, "摘要");
+    assert.equal(restored.剧集[0].镜头表.镜头[0].视频.依赖hash, "");
+    assert.equal(restored.剧集[0].镜头表.镜头[0].视频.地址, "1.mp4");
   } finally { await upgraded.close(); }
 }));
 

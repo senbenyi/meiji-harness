@@ -1,6 +1,6 @@
 # meiji 开发指引
 
-Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGENTS.md)。每次修改 `meiji/` 代码前，必须先完整阅读这三份开发契约：[项目数据结构](../meiji/dev_docs/项目数据结构.md)、[任务步骤](../meiji/dev_docs/任务步骤.md)、[提示词编排](../meiji/dev_docs/提示词编排.md)，并以它们作为当前业务规格；未读完不得开始改代码。修改配置、skill 或测试也遵循同一要求。制作顺序见[制作工作流](../meiji/dev_docs/制作工作流.md)。节点级前置条件、生成和审核规则按节点查阅[制作节点规则](../meiji/dev_docs/制作节点规则.md)。样例见 [project_detail.json](../meiji/dev_docs/project_detail.json) 和 [step_model.json](../meiji/dev_docs/step_model.json)。普通咨询和只读调研不要求通读。本次完整重构的依据和证据见 [计划](../docs/plans/1010-计划-分阶段开发总纲.md) 与 [实施记录](../docs/implement/1010-实施-分阶段开发总纲.md)。历史计划和实施记录仅用于追溯。
+Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGENTS.md)。每次修改 `meiji/` 代码前，必须先完整阅读这三份开发契约：[项目数据结构](../meiji/dev_docs/项目数据结构.md)、[任务步骤](../meiji/dev_docs/任务步骤.md)、[提示词编排](../meiji/dev_docs/提示词编排.md)，并以它们作为当前业务规格；未读完不得开始改代码。修改配置、skill 或测试也遵循同一要求。制作顺序见[制作工作流](../meiji/dev_docs/制作工作流.md)。节点级前置条件、生成、返回结构和审核规则按节点查阅[制作节点规则](../meiji/dev_docs/制作节点规则.md)。样例见 [project_detail.json](../meiji/dev_docs/project_detail.json) 和 [step_model.json](../meiji/dev_docs/step_model.json)。普通咨询和只读调研不要求通读。本次完整重构的依据和证据见 [计划](../docs/plans/1010-计划-分阶段开发总纲.md) 与 [实施记录](../docs/implement/1010-实施-分阶段开发总纲.md)。历史计划和实施记录仅用于追溯。
 
 ## 项目配置
 

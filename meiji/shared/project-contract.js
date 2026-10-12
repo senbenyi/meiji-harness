@@ -10,8 +10,9 @@ import {
   invalid,
   BUSINESS_TARGET,
 } from "./task-contract.js";
-const media = () => ({ 状态: "empty", 原因: "", 地址: "" });
-const text = () => ({ 状态: "empty", 原因: "", 正文: "" });
+const base = () => ({ 状态: "empty", 原因: "", 依赖hash: "" });
+const media = () => ({ ...base(), 地址: "" });
+const text = () => ({ ...base(), 正文: "" });
 export function emptyProject(fields = {}) {
   return {
     id: createId("project"),
@@ -30,7 +31,7 @@ export function emptyProject(fields = {}) {
       后续剧情: "",
       修改记录: [],
     },
-    角色库: { 状态: "empty", 原因: "", 角色: [] },
+    角色库: { ...base(), 角色: [] },
     剧集: [],
     ...fields,
   };
@@ -45,8 +46,8 @@ export function emptyEpisode(fields = {}) {
     封面: "",
     剧情: "",
     摘要: text(),
-    故事大纲: { 状态: "empty", 原因: "", 小段: [] },
-    镜头表: { 状态: "empty", 原因: "", 镜头: [] },
+    故事大纲: { ...base(), 小段: [] },
+    镜头表: { ...base(), 镜头: [] },
     合片: media(),
     ...fields,
   };
@@ -62,12 +63,11 @@ export function emptyShot(fields = {}) {
     正文: "",
     出镜角色: [],
     每秒分镜: {
-      状态: "empty",
-      原因: "",
+      ...base(),
       衔接上一镜方式: "",
       内容: { 事件: "", 节拍: [], 环境声: [], 配乐: [] },
     },
-    文本提示词: { 状态: "empty", 原因: "", 正文: [], 环境声: "", 配乐: "" },
+    文本提示词: { ...base(), 正文: [], 环境声: "", 配乐: "" },
     视频: media(),
     尾帧: media(),
     ...fields,

@@ -307,11 +307,13 @@ export async function createAppRuntime({
           for (const [key, value] of Object.entries(command.fields || {})) {
             if (!["本集要求", "时长秒", "剧情"].includes(key))
               invalid(key, "未定义剧集资料");
-            if (key === "剧情" && value !== e.剧情) {
+            if (key === "剧情") {
               if (typeof value !== "string") invalid("剧情", "需为文本");
-              expireDownstream(s, "episode-plot", e.id, "剧情已修改");
-            }
-            e[key] = value;
+              const changed = value !== e.剧情;
+              e.剧情 = value;
+              if (changed)
+                expireDownstream(s, "episode-plot", e.id, "剧情已修改");
+            } else e[key] = value;
           }
           return {};
         });

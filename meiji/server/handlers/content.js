@@ -1,4 +1,7 @@
-import { expireDownstream } from "../../shared/node-dependencies.js";
+import {
+  expireDownstream,
+  stampDependencyHash,
+} from "../../shared/node-dependencies.js";
 import { applyDelete } from "./deletion-handler.js";
 import {
   nodeOf,
@@ -146,6 +149,7 @@ export function commitContent(snapshot, task, content) {
   }
   if (task.action === "override") {
     assertOutput(p, b, task.target_id);
+    stampDependencyHash(snapshot, b, task.target_id);
     return [];
   }
   if (b === "script-split") {
@@ -225,6 +229,7 @@ export function commitContent(snapshot, task, content) {
   else Object.assign(node, structuredClone(content));
   if (b === "project-summary") node.剧本版本 = p.剧本.版本;
   assertOutput(p, b, task.target_id);
+  stampDependencyHash(snapshot, b, task.target_id);
   const derived = [];
   if (b === "project-characters") {
     const eligible = new Set(content.new_ids || []);

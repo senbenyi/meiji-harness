@@ -231,9 +231,9 @@ test("S7-13 规则 ID 程序创建与编号定位；语言/画幅/规则/声音/
       },
     ]).characters;
     const c = p.角色库.角色[0];
-    c.图片 = { 状态: "generated", 原因: "", 地址: "original.png" };
+    c.图片 = { 状态: "generated", 原因: "", 依赖hash: "", 地址: "original.png" };
     for (const co of c.服装)
-      co.图片 = { 状态: "generated", 原因: "", 地址: "costume.png" };
+      co.图片 = { 状态: "generated", 原因: "", 依赖hash: "", 地址: "costume.png" };
     const model = await runtime.repository.create(p);
     await runtime.bindings.bind(sid, p.id);
     await runtime.projectCommand(

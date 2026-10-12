@@ -7,6 +7,27 @@ const columns = {
   task_steps: "id project_id task_id seq name kind round step_status prompt_json result_json error_reason started_at ended_at position".split(" "),
 };
 const conflict = () => Object.assign(new Error("项目版本已变化，请刷新后重试"), { code: "REVISION_CONFLICT", status: 409 });
+const addDependencyHash = (project) => {
+  const touch = (node) => {
+    if (!node || typeof node !== "object" || Object.hasOwn(node, "依赖hash")) return false;
+    node.依赖hash = "";
+    return true;
+  };
+  let changed = false;
+  for (const node of [project.项目摘要, project.角色库]) changed = touch(node) || changed;
+  for (const character of project.角色库?.角色 || []) {
+    changed = touch(character.图片) || changed;
+    for (const costume of character.服装 || []) changed = touch(costume.图片) || changed;
+  }
+  for (const episode of project.剧集 || []) {
+    for (const node of [episode.摘要, episode.故事大纲, episode.镜头表, episode.合片])
+      changed = touch(node) || changed;
+    for (const shot of episode.镜头表?.镜头 || [])
+      for (const node of [shot.每秒分镜, shot.文本提示词, shot.视频, shot.尾帧])
+        changed = touch(node) || changed;
+  }
+  return changed;
+};
 
 // 事务内全部同步执行，禁止在持有 SQLite 写锁时等待网络或其他异步工作。
 export class SQLiteStore {
@@ -27,7 +48,7 @@ export class SQLiteStore {
         try {
           this.#db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
           this.#db.exec("COMMIT");
-          version = 2;
+          version = 3;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
       } else if (version === 1) {
         this.#db.exec("BEGIN IMMEDIATE");
@@ -59,7 +80,22 @@ export class SQLiteStore {
           this.#db.exec("PRAGMA user_version=2; COMMIT");
           version = 2;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
-      } else if (version !== 2) throw new Error(`不支持的数据库版本：${version}`);
+      }
+      if (version === 2) {
+        this.#db.exec("BEGIN IMMEDIATE");
+        try {
+          const projects = this.#db.prepare("SELECT id,data_json FROM projects").all(),
+            saveProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
+          for (const row of projects) {
+            const project = JSON.parse(row.data_json);
+            if (addDependencyHash(project)) saveProject.run(JSON.stringify(project), row.id);
+          }
+          this.#db.prepare("INSERT OR IGNORE INTO schema_migrations VALUES (3,?)").run(new Date().toISOString());
+          this.#db.exec("PRAGMA user_version=3; COMMIT");
+          version = 3;
+        } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
+      }
+      if (version !== 3) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => f !== "id").map(f => `${f}=excluded.${f}`).join(",")}`));
       }
