@@ -170,11 +170,11 @@ export function projectDialog(root, save) {
     submit.disabled = true;
     try {
       await save({
-        名称: name.value.trim(),
-        创作方式: mode.value === "script" ? "剧本" : "自由创作",
-        画幅: aspect.value,
-        创作方向: mode.value === "free" ? premise.value.trim() : "",
-        ...(mode.value === "script" ? { 剧本: { 正文: text } } : {}),
+        name: name.value.trim(),
+        creation_mode: mode.value === "script" ? "剧本" : "自由创作",
+        aspect_ratio: aspect.value,
+        creative_direction: mode.value === "free" ? premise.value.trim() : "",
+        ...(mode.value === "script" ? { script: { body: text } } : {}),
       });
       dialog.close();
     } catch (e) {
@@ -218,36 +218,36 @@ export function detailsDialog(
     const label = element(
         "label",
         {
-          名称: "短剧标题",
-          时长秒: "本集时长（秒）",
-          本集要求: "本集要求（选填）",
-          参考单集时长秒: "参考单集时长（秒）",
-          剧情: "本集剧情（剧本原文）",
+          name: "短剧标题",
+          duration_seconds: "本集时长（秒）",
+          episode_requirements: "本集要求（选填）",
+          reference_episode_duration_seconds: "参考单集时长（秒）",
+          plot: "本集剧情（剧本原文）",
         }[key] || key,
       ),
       input = element(
-        key === "画幅"
+        key === "aspect_ratio"
           ? "select"
-          : ["本集要求", "剧情"].includes(key)
+          : ["episode_requirements", "plot"].includes(key)
             ? "textarea"
             : "input",
       );
     input.name = key;
     input.setAttribute("aria-label", label.textContent);
-    if (key === "画幅")
+    if (key === "aspect_ratio")
       for (const v of ["1344x768", "768x1344"]) {
         const o = element("option", v);
         o.value = v;
         input.append(o);
       }
-    if (key === "时长秒" || key === "参考单集时长秒") {
+    if (key === "duration_seconds" || key === "reference_episode_duration_seconds") {
       input.type = "number";
       input.min = 1;
       input.max = 86400;
       input.step = 1;
       input.required = true;
     }
-    if (key === "名称") {
+    if (key === "name") {
       input.required = true;
       input.maxLength = 100;
     }
@@ -268,7 +268,7 @@ export function detailsDialog(
         Object.fromEntries(
           Object.entries(inputs).map(([k, input]) => [
             k,
-            ["时长秒", "参考单集时长秒"].includes(k)
+            ["duration_seconds", "reference_episode_duration_seconds"].includes(k)
               ? Number(input.value)
               : input.value,
           ]),

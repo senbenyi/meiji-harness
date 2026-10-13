@@ -1,6 +1,6 @@
 import { detailsDialog } from "./project-forms.js";
 import { element, tabs } from "./panel-dom.js";
-import { editor } from "./content-forms.js";
+import { editor, readable } from "./content-forms.js";
 const editIcon =
   '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.7 2.3 13.7 6.3 5.4 14.6H1.4v-4L9.7 2.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
 export function renderOverview(root, env) {
@@ -11,7 +11,7 @@ export function renderOverview(root, env) {
       detailsDialog(
         root,
         "编辑项目",
-        { 名称: p.名称, 画幅: p.画幅 },
+        { name: p.name, aspect_ratio: p.aspect_ratio },
         (fields) => act({ type: "edit", fields }, true),
       ),
     );
@@ -35,11 +35,11 @@ export function renderOverview(root, env) {
   remove.setAttribute("aria-label", "删除整个项目");
   remove.title = "删除项目";
   actions.append(history, remove);
-  heading.append(element("h2", p.名称), edit, actions);
+  heading.append(element("h2", p.name), edit, actions);
   view.append(
-    element("p", p.创作方式 === "剧本" ? "剧本模式" : "自由模式", "meta"),
+    element("p", p.creation_mode === "剧本" ? "剧本模式" : "自由模式", "meta"),
     heading,
-    element("p", `${p.画幅} · ${p.剧集.length} 集`, "meta"),
+    element("p", `${p.aspect_ratio} · ${p.episodes.length} 集`, "meta"),
   );
   const taskLabels = {
       queued: "排队中",
@@ -54,12 +54,12 @@ export function renderOverview(root, env) {
       [...(env.snapshot?.tasks || [])]
         .filter((t) => t.business_type === business && t.target_id === p.id)
         .sort((a, b) => b.queue_order - a.queue_order)[0],
-    opinionButton = (submit) =>
+    opinionButton = (submit, reason = "") =>
       button("按意见修改", () =>
         editor(
           root,
           "按意见修改",
-          "",
+          reason,
           (opinion) => {
             if (!opinion.trim()) throw new Error("请输入修改意见");
             return submit(opinion.trim());
@@ -75,19 +75,20 @@ export function renderOverview(root, env) {
       titles.append(element("h3", title));
       if (statusText)
         titles.append(element("span", statusText, "status-label"));
-      h.append(titles, actions);
-      c.append(h);
+      h.append(titles);
+      actions.className = "workflow-generation-row";
+      c.append(h, actions);
       view.append(c);
       return { c, h, actions };
     };
-  if (p.创作方式 === "自由创作") {
+  if (p.creation_mode === "自由创作") {
     const { c, actions } = card("AI 创作方向");
     const b = button("✎", () =>
       editor(
         root,
         "AI 创作方向",
-        p.创作方向,
-        (创作方向) => act({ type: "edit", fields: { 创作方向 } }, true),
+        p.creative_direction,
+        (creative_direction) => act({ type: "edit", fields: { creative_direction } }, true),
         { json: false },
       ),
     );
@@ -95,11 +96,11 @@ export function renderOverview(root, env) {
     b.innerHTML = editIcon;
     b.setAttribute("aria-label", "编辑创作方向");
     actions.append(b);
-    c.append(element("p", p.创作方向, "summary summary-preview"));
+    c.append(element("p", p.creative_direction, "summary summary-preview"));
   }
-  const summary = nodeCard("project-summary", p.id, p.项目摘要);
+  const summary = nodeCard("project-summary", p.id, p.project_summary);
   summary.className = "overview-card";
-  summary.querySelector("h3").textContent = "项目大纲";
+  summary.querySelector("h3").textContent = "项目摘要";
   summary.querySelector(".prompt")?.classList.add("summary", "summary-preview");
   const summaryActions = summary.querySelector(".workflow-generation-row"),
     manual = [...summaryActions.querySelectorAll("button")].find(
@@ -124,30 +125,14 @@ export function renderOverview(root, env) {
         : "",
     ),
     scriptRow = element("div", "", "script-title-row"),
-    open = button(p.名称, () => go("script"), false);
+    open = button(p.name, () => go("script"), false);
   open.className = "script-file-name";
   const arrow = button("→", () => go("script"), false);
   arrow.className = "script-title-arrow";
   arrow.setAttribute("aria-label", "打开剧本详情");
   scriptRow.append(open, arrow);
-  script.append(scriptRow, element("p", `版本 ${p.剧本.版本}`, "meta"));
-  if (p.创作方式 === "自由创作") {
-    const hasScript = Boolean(p.剧本.正文?.trim()),
-      submitScript = (opinion = "") =>
-        act({
-          type: "submit",
-          business_type: "script",
-          target_id: p.id,
-          action: hasScript ? "regenerate" : "generate",
-          ...(opinion ? { opinion } : {}),
-        });
-    scriptActions.append(
-      button(hasScript ? "重新生成" : "AI生成", () => submitScript()),
-    );
-    if (hasScript && scriptTask?.task_status === "rejected")
-      scriptActions.append(opinionButton(submitScript));
-  }
-  const splitting = p.创作方式 === "剧本",
+  script.append(scriptRow, element("p", `版本 ${p.script.version}`, "meta"));
+  const splitting = p.creation_mode === "剧本",
     splitTask = splitting ? latestTask("script-split") : null,
     { c: episodes, h: episodeHead, actions: episodeActions } = card(
       "剧集",
@@ -158,7 +143,7 @@ export function renderOverview(root, env) {
   episodeHead.classList.add("episode-head");
   // 剧本创作方式由剧本拆分生成剧集；自由创作仍逐集新增。
   const addLabel = splitting
-    ? p.剧集.length
+    ? p.episodes.length
       ? "重新拆分剧集"
       : "拆分剧集"
     : "新增剧集";
@@ -167,7 +152,7 @@ export function renderOverview(root, env) {
       const dialog = detailsDialog(
           root,
           addLabel,
-          { 参考单集时长秒: p.参考单集时长秒 },
+          { reference_episode_duration_seconds: p.reference_episode_duration_seconds },
           async (fields) => {
             dialog.close();
             await act({ type: "edit", fields }, true);
@@ -175,7 +160,7 @@ export function renderOverview(root, env) {
               type: "submit",
               business_type: "script-split",
               target_id: p.id,
-              action: p.剧集.length ? "regenerate" : "generate",
+              action: p.episodes.length ? "regenerate" : "generate",
             });
           },
           { episode: true },
@@ -185,7 +170,7 @@ export function renderOverview(root, env) {
     return detailsDialog(
           root,
           "新增剧集",
-          { 时长秒: 150, 本集要求: "" },
+          { duration_seconds: 150, episode_requirements: "" },
           (fields) => act({ type: "add-episode", fields }, true),
           { episode: true },
         );
@@ -205,12 +190,11 @@ export function renderOverview(root, env) {
     }
   }
   add.setAttribute("aria-label", addLabel);
-  episodeActions.append(add);
-  if (latestSplitTask)
-    episodeActions.append(
+  if (!["queued", "running"].includes(latestSplitTask?.task_status)) episodeActions.append(add);
+  episodeActions.append(
       button(
         "查看拆分任务",
-        () => go("history", { task_id: latestSplitTask.id, target_id: null, history_business: null }),
+        () => go("history", { task_id: latestSplitTask?.id || null, target_id: null, history_business: null }),
         false,
       ),
     );
@@ -251,7 +235,7 @@ export function renderOverview(root, env) {
     dragged = false;
   }, true);
   episodes.append(list);
-  for (const e of [...p.剧集].sort((a, b) => a.序号 - b.序号)) {
+  for (const e of [...p.episodes].sort((a, b) => a.sequence - b.sequence)) {
     const c = element("article", "", "episode-card");
     c.setAttribute("role", "link");
     c.tabIndex = 0;
@@ -264,31 +248,31 @@ export function renderOverview(root, env) {
       }
     };
     const cover = element(
-      e.封面?.地址 ? "img" : "div",
-      e.封面?.地址 ? "" : "封面",
-      "episode-cover" + (e.封面?.地址 ? "" : " placeholder"),
+      e.cover ? "img" : "div",
+      e.cover ? "" : "封面",
+      "episode-cover" + (e.cover ? "" : " placeholder"),
     );
-    if (e.封面?.地址) {
-      cover.src = media(e.封面.地址);
-      cover.alt = `第 ${e.序号} 集封面`;
+    if (e.cover) {
+      cover.src = media(e.cover);
+      cover.alt = `第 ${e.sequence} 集封面`;
     }
     const copy = element("div", "", "episode-copy"),
       h = element("div", "", "workflow-generation-row episode-card-heading");
     h.append(
-      element("strong", `第 ${e.序号} 集`),
+      element("strong", `第 ${e.sequence} 集`),
       element(
         "span",
-        e.实际时长秒 > 0
-          ? `参考 ${e.时长秒} 秒 · 实际 ${e.实际时长秒} 秒`
-          : `参考 ${e.时长秒} 秒`,
+        e.actual_duration_seconds > 0
+          ? `参考 ${e.duration_seconds} 秒 · 实际 ${e.actual_duration_seconds} 秒`
+          : `参考 ${e.duration_seconds} 秒`,
         "meta",
       ),
     );
-    copy.append(h, element("p", e.摘要.正文 || "尚未生成摘要"));
+    copy.append(h, element("p", e.summary.body || "尚未生成摘要"));
     c.append(cover, copy);
     list.append(c);
   }
-  if (!p.剧集.length) {
+  if (!p.episodes.length) {
     const empty = element("div", "", "episode-placeholder");
     empty.append(
       element("strong", "还没有剧集"),
@@ -297,7 +281,7 @@ export function renderOverview(root, env) {
     );
     list.append(empty);
   }
-  const hasRoles = p.角色库.角色.length > 0,
+  const hasRoles = p.character_library.characters.length > 0,
     extract = (opinion = "") =>
       act({
         type: "submit",
@@ -308,35 +292,37 @@ export function renderOverview(root, env) {
       }),
     { c: library, actions: libraryActions } = card(
       "角色卡",
-      labels[p.角色库.状态] || p.角色库.状态,
+      labels[p.character_library.node_state.status] || p.character_library.node_state.status,
     ),
     strip = element(
       "div",
       "",
       "characters-strip library-card-strip library-card-strip-characters",
     );
-  libraryActions.append(
-    button(hasRoles ? "重新生成" : "提取角色", () => extract()),
+  if (!["queued", "running"].includes(p.character_library.node_state.status)) libraryActions.append(
+    button(hasRoles ? "重新生成" : "AI生成", () => extract()),
   );
-  if (hasRoles && p.角色库.状态 === "rejected")
-    libraryActions.append(opinionButton(extract));
+  libraryActions.append(button("查看任务历史", () => go("history", { target_id: p.id, history_business: "project-characters" }), false));
+  if (p.character_library.node_state.reason) library.append(element("p", p.character_library.node_state.reason, "error"));
+  if (hasRoles && p.character_library.node_state.status === "rejected")
+    libraryActions.append(opinionButton(extract, p.character_library.node_state.reason));
   library.append(strip);
-  for (const c of p.角色库.角色) {
+  for (const c of p.character_library.characters) {
     const b = button("", () => go("character", { character_id: c.id }), false);
     b.className = "character-item library-card library-card-characters";
     const image = element(
-      c.图片.地址 ? "img" : "div",
-      c.图片.地址 ? "" : c.名称.slice(0, 1),
+      c.character_image.address ? "img" : "div",
+      c.character_image.address ? "" : c.name.slice(0, 1),
       "library-card-avatar character-image",
     );
-    if (c.图片.地址) {
-      image.src = media(c.图片.地址);
-      image.alt = c.名称;
+    if (c.character_image.address) {
+      image.src = media(c.character_image.address);
+      image.alt = c.name;
     }
     const info = element("div", "", "library-card-info");
     info.append(
-      element("strong", c.名称),
-      element("p", `${c.编号} · ${c.身份}`, "meta"),
+      element("strong", c.name),
+      element("p", `${c.number} · ${c.position}`, "meta"),
     );
     b.append(image, info);
     strip.append(b);
@@ -363,24 +349,24 @@ export function backHeader(root, title, label, back) {
 }
 export function renderEpisode(root, env, entries) {
   const { p, state, button, act, nodeCard, go, media } = env,
-    e = p.剧集.find((e) => e.id === state.episode_id);
+    e = p.episodes.find((e) => e.id === state.episode_id);
   if (!e) return go("overview");
   if (!entries.some(([id]) => id === state.tab)) state.tab = "script";
-  const shot = e.镜头表.镜头.find((s) => s.id === state.shot_id);
+  const shot = e.shot_list.shots.find((s) => s.id === state.shot_id);
   backHeader(
     root,
-    shot ? `${shot.编号} ${shot.标题}` : `${p.名称} 第 ${e.序号} 集`,
+    shot ? `${shot.number} ${shot.title}` : `${p.name} 第 ${e.sequence} 集`,
     shot ? "返回镜头" : "返回项目概要",
     () => (shot ? go("episode", { shot_id: null }) : go("overview")),
   );
   const body = element("div", "", "session-body");
   if (shot) {
     body.append(
-        element("p", `参考 ${shot.时长秒} 秒${shot.实际时长秒 > 0 ? ` · 实际 ${shot.实际时长秒} 秒` : ""}`, "meta"),
-        nodeCard("seconds", shot.id, shot.每秒分镜),
-        nodeCard("storyboard", shot.id, shot.文本提示词),
-        nodeCard("video", shot.id, shot.视频),
-        nodeCard("tail", shot.id, shot.尾帧),
+        element("p", `参考 ${shot.duration_seconds} 秒${shot.actual_duration_seconds > 0 ? ` · 实际 ${shot.actual_duration_seconds} 秒` : ""}`, "meta"),
+        nodeCard("seconds", shot.id, shot.seconds_storyboard),
+        nodeCard("storyboard", shot.id, shot.text_to_video_prompt),
+        nodeCard("video", shot.id, shot.video),
+        nodeCard("tail", shot.id, shot.last_frame),
       );
     root.append(body);
     return;
@@ -395,7 +381,7 @@ export function renderEpisode(root, env, entries) {
       detailsDialog(
         root,
         "编辑剧集",
-        { 时长秒: e.时长秒, 本集要求: e.本集要求 },
+        { duration_seconds: e.duration_seconds, episode_requirements: e.episode_requirements },
         (fields) =>
           act({ type: "edit-episode", episode_id: e.id, fields }, true),
         { episode: true },
@@ -403,7 +389,7 @@ export function renderEpisode(root, env, entries) {
     ),
   );
   if (state.tab === "script") {
-    const summary = nodeCard("episode-summary", e.id, e.摘要),
+    const summary = nodeCard("episode-summary", e.id, e.summary),
       plot = element("section", "", "session-project episode-plot"),
       plotHead = element("div", "", "section-head"),
       plotTitles = element("div", "", "section-titles"),
@@ -413,44 +399,45 @@ export function renderEpisode(root, env, entries) {
     plotHead.append(plotTitles);
     plotActions.append(
       button("编辑剧情", () =>
-        detailsDialog(root, "编辑剧情", { 剧情: e.剧情 }, (fields) =>
+        detailsDialog(root, "编辑剧情", { plot: e.plot }, (fields) =>
           act({ type: "edit-episode", episode_id: e.id, fields }, true),
         ),
       ),
     );
     plot.append(
       plotHead,
-      element("p", e.剧情 || "尚无剧情", "prompt full"),
+      element("p", e.plot || "尚无剧情", "prompt full"),
       plotActions,
     );
     body.append(
-      nodeCard("outline", e.id, e.故事大纲),
+      nodeCard("outline", e.id, e.story_outline),
       summary,
       plot,
     );
   }
   if (state.tab === "shots") {
-    body.append(nodeCard("shots", e.id, e.镜头表));
+    body.append(nodeCard("shots", e.id, e.shot_list));
   }
-  if (state.tab === "assembly") body.append(nodeCard("assembly", e.id, e.合片));
+  if (state.tab === "assembly") body.append(nodeCard("assembly", e.id, e.assembly));
   if (["film", "shots"].includes(state.tab)) {
     if (state.tab !== "shots")
       body.append(
         button(
-          "生成本集成片",
+          e.shot_list.shots.some(shot => shot.video.address) ? "重新生成本集成片" : "生成本集成片",
           () =>
             act({
               type: "submit-group",
               group_type: "episode-film",
+              action: e.shot_list.shots.some(shot => shot.video.address) ? "regenerate" : "generate",
               episode_id: e.id,
             }),
         ),
       );
-    for (const s of e.镜头表.镜头) {
+    for (const s of [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence)) {
       const card = element("article", "", "shot-card"),
         h = element("div", "", "outline-head");
       h.append(
-        element("h3", `${s.编号} ${s.标题} · ${s.时长秒}s`),
+        element("h3", `${s.number} ${s.title} · ${s.duration_seconds}s`),
         button(
           "打开镜头",
           () =>
@@ -463,16 +450,21 @@ export function renderEpisode(root, env, entries) {
       );
       card.append(
         h,
-        ...(state.tab === "film" && s.实际时长秒 > 0
-          ? [element("p", `实际 ${s.实际时长秒} 秒`, "meta")]
+        ...(state.tab === "film" && s.actual_duration_seconds > 0
+          ? [element("p", `实际 ${s.actual_duration_seconds} 秒`, "meta")]
           : []),
-        element("p", s.正文, "prompt full"),
+        element("p", s.body, "prompt full"),
       );
+      if (state.tab === "shots")
+        card.append(element("p", readable({
+          shot_scale: s.shot_scale, hook: s.hook, continuity_transition: s.continuity_transition,
+          reference_anchor: s.reference_anchor, audio_arrangement: s.audio_arrangement,
+        }), "prompt full"));
       if (state.tab === "film")
         card.append(
           element(
             "p",
-            `每秒分镜：${env.labels[s.每秒分镜.状态]} · 文本提示词：${env.labels[s.文本提示词.状态]} · 视频：${env.labels[s.视频.状态]} · 尾帧：${env.labels[s.尾帧.状态]}`,
+            `每秒分镜：${env.labels[s.seconds_storyboard.node_state.status]} · 文本提示词：${env.labels[s.text_to_video_prompt.node_state.status]} · 视频：${env.labels[s.video.node_state.status]} · 尾帧：${env.labels[s.last_frame.node_state.status]}`,
             "meta",
           ),
         );

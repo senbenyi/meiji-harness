@@ -45,22 +45,20 @@ for (const point of [
         started_at: new Date().toISOString(),
         ended_at: new Date().toISOString(),
         opinion: "",
-        previous_node_state: { 状态: "empty", 原因: "" },
+        previous_node_state: { status: "empty", reason: "" },
       };
       let mutations = 0;
       armed = true;
       const update = () =>
         model.update("atomic", { operation: "complete" }, (s) => {
           mutations++;
-          s.project.项目摘要 = {
-            状态: "generated",
-            原因: "",
-            依赖hash: "",
-            正文: "新摘要",
-            剧本版本: 1,
+          s.project.project_summary = {
+            node_state: { status: "generated", reason: "", dependency_hash: "" },
+            body: "新摘要",
+            script_version: 1,
           };
           t.group_id = createId("group"); t.group_seq = 1;
-          s.groups = [{ id: t.group_id, project_id: p.id, episode_id: null, group_type: "single", source: t.source, shot_ids: [], action: t.action, continued_from_group_id: null, opinion: "", created_at: t.created_at }];
+          s.groups = [{ id: t.group_id, project_id: p.id, episode_id: null, group_type: "single", source: t.source, shot_ids: [], action: t.action, created_at: t.created_at }];
           s.tasks = [t];
           return { task_id: t.id };
         });
@@ -75,7 +73,7 @@ for (const point of [
         snapshot = fresh.read(),
         published = point === "after-commit";
       assert.equal(
-        snapshot.project.项目摘要.状态,
+        snapshot.project.project_summary.node_state.status,
         published ? "generated" : "empty",
       );
       assert.equal(snapshot.tasks.length, published ? 1 : 0);

@@ -15,31 +15,19 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
   try {
     const p = projectFixture(),
       raw = {
-        编号: "C01",
-        名称: "甲",
-        国籍: "",
-        身份: "",
-        身份特征: "",
-        性别: "",
-        年代: "",
-        年龄: "",
-        身高: "",
-        体型: "",
-        面相: "",
-        声音: "",
-        必出: true,
-        默认服装编号: "C01-01",
-        服装: [
-          { 编号: "C01-01", 名称: "默认", 描述: "白衣" },
-          { 编号: "C01-02", 名称: "外套", 描述: "黑衣" },
+        name: "甲", position: "主角", age_range: "青年", body_type: "", hairstyle: "", signature_props: "", immutable_traits: "",
+        costumes: [
+          { name: "默认", color: "白", material: "", props: "" },
+          { name: "外套", color: "黑", material: "", props: "" },
         ],
       };
-    p.角色库.角色 = mergeCharacters(p, [raw]).characters;
-    const c = p.角色库.角色[0],
-      co = c.服装[1],
-      e = p.剧集[0],
-      shot = e.镜头表.镜头[0];
-    shot.出镜角色 = [{ 角色id: c.id, 服装id: co.id }];
+    p.character_library.characters = mergeCharacters(p, [raw]).characters;
+    const c = p.character_library.characters[0],
+      co = c.costumes[1],
+      e = p.episodes[0],
+      shot = e.shot_list.shots[0];
+    c.default_costume_id = c.costumes[0].id;
+    shot.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
     const repo = new ModelRepository(root),
       model = await repo.create(p);
     let refs = [];
@@ -80,7 +68,7 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
     };
     assert.equal((await del("character-delete", c.id)).task_status, "failed");
     assert.equal(
-      (await del("costume-delete", c.默认服装id)).task_status,
+      (await del("costume-delete", c.default_costume_id)).task_status,
       "failed",
     );
     refs = [co.id];
@@ -88,13 +76,13 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
     refs = [];
     assert.equal((await del("costume-delete", co.id)).task_status, "completed");
     const next = model.read();
-    assert.equal(next.project.角色库.角色[0].服装.length, 1);
+    assert.equal(next.project.character_library.characters[0].costumes.length, 1);
     assert.equal(
-      next.project.剧集[0].镜头表.镜头[0].出镜角色[0].服装id,
-      c.默认服装id,
+      next.project.episodes[0].shot_list.shots[0].on_screen_characters[0].costume_id,
+      c.default_costume_id,
     );
-    assert.equal(next.project.剧集[0].镜头表.镜头[0].视频.状态, "expired");
-    assert.equal(next.project.剧集[0].镜头表.镜头[0].视频.地址, shot.视频.地址);
+    assert.equal(next.project.episodes[0].shot_list.shots[0].video.node_state.status, "expired");
+    assert.equal(next.project.episodes[0].shot_list.shots[0].video.address, shot.video.address);
     assert.ok(next.tasks.slice(0, 3).every((t) => t.task_status === "failed"));
   } finally {
     await service?.dispose();

@@ -1,8 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, chmodSync, lstatSync } from "node:fs";
+import { migrateProjectModelV3, migrateEpisodeNodesV4 } from "../../shared/models/migrate_project_model.js";
+import { validateProject } from "../../shared/project_contract.js";
 
 const columns = {
-  task_groups: "id project_id episode_id name group_type action source shot_ids_json opinion continued_from_group_id created_at position".split(" "),
+  task_groups: "id project_id episode_id name group_type action source shot_ids_json created_at position".split(" "),
   tasks: "id project_id group_id group_seq name business_type target_id episode_id action source task_status queue_order opinion previous_node_state_json end_reason created_at started_at ended_at position".split(" "),
   task_steps: "id project_id task_id seq name kind round step_status prompt_json result_json error_reason started_at ended_at position".split(" "),
 };
@@ -43,59 +45,120 @@ export class SQLiteStore {
       chmodSync(path, 0o600);
       this.#db.exec("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");
       let version = this.#db.prepare("PRAGMA user_version").get().user_version;
+      if (version > 0 && version < 5) {
+        // VACUUM INTO 包含 WAL 中已提交的数据；升级失败时保留可恢复副本。
+        const backupPath = `${path}.before-v5-${Date.now()}-${globalThis.crypto.randomUUID()}.sqlite`;
+        this.#db.prepare("VACUUM INTO ?").run(backupPath);
+        chmodSync(backupPath, 0o600);
+      }
       if (version === 0) {
         this.#db.exec("BEGIN IMMEDIATE");
         try {
           this.#db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
           this.#db.exec("COMMIT");
-          version = 3;
+          version = 5;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
-      } else if (version === 1) {
-        this.#db.exec("BEGIN IMMEDIATE");
+      } else if (version > 0 && version < 5) {
+        // 所有版本过渡和数据校验在同一事务内；失败时连同版本号一起回滚。
+        this.#db.exec("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE");
         try {
-          const projects = this.#db.prepare("SELECT id,data_json FROM projects").all(),
-            saveProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
-          for (const row of projects) {
-            const project = JSON.parse(row.data_json);
-            let changed = false;
-            for (const episode of project.剧集 || [])
-              if (Object.hasOwn(episode, "本集资产")) {
-                delete episode.本集资产;
-                changed = true;
-              }
-            for (const rule of project.规则 || [])
-              if (rule.适用业务?.includes("episode-characters")) {
-                rule.适用业务 = rule.适用业务.filter((business) => business !== "episode-characters");
-                changed = true;
-              }
-            if (changed) saveProject.run(JSON.stringify(project), row.id);
+          if (version === 1) {
+            const projects = this.#db.prepare("SELECT id,data_json FROM projects").all(),
+              saveProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
+            for (const row of projects) {
+              const project = JSON.parse(row.data_json);
+              let changed = false;
+              for (const episode of project.剧集 || [])
+                if (Object.hasOwn(episode, "本集资产")) {
+                  delete episode.本集资产;
+                  changed = true;
+                }
+              for (const rule of project.规则 || [])
+                if (rule.适用业务?.includes("episode-characters")) {
+                  rule.适用业务 = rule.适用业务.filter((business) => business !== "episode-characters");
+                  changed = true;
+                }
+              if (changed) saveProject.run(JSON.stringify(project), row.id);
+            }
+            const now = new Date().toISOString();
+            this.#db.prepare(`UPDATE task_steps SET step_status='superseded',error_reason='本集资产功能已移除',ended_at=?
+              WHERE task_id IN (SELECT id FROM tasks WHERE business_type='episode-characters' AND task_status IN ('queued','running'))
+                AND step_status IN ('ready','running')`).run(now);
+            this.#db.prepare(`UPDATE tasks SET task_status='superseded',end_reason='本集资产功能已移除',ended_at=?
+              WHERE business_type='episode-characters' AND task_status IN ('queued','running')`).run(now);
+            this.#db.prepare("INSERT INTO schema_migrations VALUES (2,?)").run(now);
+            this.#db.exec("PRAGMA user_version=2");
+            version = 2;
           }
-          const now = new Date().toISOString();
-          this.#db.prepare(`UPDATE task_steps SET step_status='superseded',error_reason='本集资产功能已移除',ended_at=?
-            WHERE task_id IN (SELECT id FROM tasks WHERE business_type='episode-characters' AND task_status IN ('queued','running'))
-              AND step_status IN ('ready','running')`).run(now);
-          this.#db.prepare(`UPDATE tasks SET task_status='superseded',end_reason='本集资产功能已移除',ended_at=?
-            WHERE business_type='episode-characters' AND task_status IN ('queued','running')`).run(now);
-          this.#db.prepare("INSERT INTO schema_migrations VALUES (2,?)").run(now);
-          this.#db.exec("PRAGMA user_version=2; COMMIT");
-          version = 2;
-        } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
-      }
-      if (version === 2) {
-        this.#db.exec("BEGIN IMMEDIATE");
-        try {
-          const projects = this.#db.prepare("SELECT id,data_json FROM projects").all(),
-            saveProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
-          for (const row of projects) {
-            const project = JSON.parse(row.data_json);
-            if (addDependencyHash(project)) saveProject.run(JSON.stringify(project), row.id);
+          if (version === 2) {
+            const projects = this.#db.prepare("SELECT id,data_json FROM projects").all(),
+              saveProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
+            for (const row of projects) {
+              const project = JSON.parse(row.data_json);
+              if (addDependencyHash(project)) saveProject.run(JSON.stringify(project), row.id);
+            }
+            this.#db.prepare("INSERT OR IGNORE INTO schema_migrations VALUES (3,?)").run(new Date().toISOString());
+            this.#db.exec("PRAGMA user_version=3");
+            version = 3;
           }
-          this.#db.prepare("INSERT OR IGNORE INTO schema_migrations VALUES (3,?)").run(new Date().toISOString());
-          this.#db.exec("PRAGMA user_version=3; COMMIT");
-          version = 3;
+          if (version === 3) {
+            const schema = readFileSync(new URL("./schema.sql", import.meta.url), "utf8");
+            for (const table of ["task_groups", "task_steps"]) {
+              const start = schema.indexOf(`CREATE TABLE ${table} (`);
+              const definition = start < 0 ? null : schema.slice(start, schema.indexOf(") STRICT;", start) + ") STRICT;".length);
+              if (!definition) throw new Error(`缺少表结构：${table}`);
+              this.#db.exec(definition.replace(`CREATE TABLE ${table}`, `CREATE TABLE ${table}_v4`));
+              const fields = columns[table].join(",");
+              this.#db.exec(`INSERT INTO ${table}_v4 (${fields}) SELECT ${fields} FROM ${table}; DROP TABLE ${table}; ALTER TABLE ${table}_v4 RENAME TO ${table};`);
+            }
+            this.#db.exec("CREATE INDEX group_history ON task_groups(project_id,created_at DESC,id); CREATE INDEX steps_project ON task_steps(project_id);");
+            const updateProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
+            for (const row of this.#db.prepare("SELECT id,data_json FROM projects").all()) {
+              const project = migrateProjectModelV3(JSON.parse(row.data_json));
+              validateProject(project);
+              updateProject.run(JSON.stringify(project), row.id);
+            }
+            const updateState = this.#db.prepare("UPDATE tasks SET previous_node_state_json=? WHERE id=?");
+            for (const row of this.#db.prepare("SELECT id,previous_node_state_json FROM tasks").all()) {
+              const previous = JSON.parse(row.previous_node_state_json);
+              if (previous && Object.hasOwn(previous, "状态"))
+                updateState.run(JSON.stringify({ status: previous.状态, reason: previous.原因 }), row.id);
+            }
+            const now = new Date().toISOString();
+            this.#db.prepare(`UPDATE task_steps SET step_status='superseded',error_reason='剧本生成任务已移除',ended_at=?
+              WHERE task_id IN (SELECT id FROM tasks WHERE business_type='script' AND task_status IN ('queued','running')) AND step_status IN ('ready','running')`).run(now);
+            this.#db.prepare("UPDATE tasks SET task_status='superseded',end_reason='剧本生成任务已移除',ended_at=? WHERE business_type='script' AND task_status IN ('queued','running')").run(now);
+            if (this.#db.prepare("PRAGMA foreign_key_check").all().length) throw new Error("迁移后的任务归属无效");
+            this.#db.prepare("INSERT INTO schema_migrations VALUES (4,?)").run(now);
+            this.#db.exec("PRAGMA user_version=4");
+            version = 4;
+          }
+          if (version === 4) {
+            const updateProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
+            const updateState = this.#db.prepare("UPDATE tasks SET previous_node_state_json=? WHERE id=?");
+            for (const row of this.#db.prepare("SELECT id,data_json FROM projects").all()) {
+              const project = JSON.parse(row.data_json);
+              validateProject(project);
+              const tasks = this.#db.prepare("SELECT * FROM tasks WHERE project_id=?").all(row.id)
+                .map(task => ({ ...task, previous_node_state: JSON.parse(task.previous_node_state_json) }));
+              const steps = this.#db.prepare("SELECT * FROM task_steps WHERE project_id=?").all(row.id)
+                .map(step => ({ ...step, result: JSON.parse(step.result_json) }));
+              migrateEpisodeNodesV4({ project, tasks, steps });
+              validateProject(project);
+              updateProject.run(JSON.stringify(project), row.id);
+              for (const task of tasks)
+                if (task.task_status === "queued" && JSON.stringify(task.previous_node_state) !== task.previous_node_state_json)
+                  updateState.run(JSON.stringify(task.previous_node_state), task.id);
+            }
+            this.#db.prepare("INSERT INTO schema_migrations VALUES (5,?)").run(new Date().toISOString());
+            this.#db.exec("PRAGMA user_version=5");
+            version = 5;
+          }
+          this.#db.exec("COMMIT");
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
+        finally { this.#db.exec("PRAGMA foreign_keys=ON"); }
       }
-      if (version !== 3) throw new Error(`不支持的数据库版本：${version}`);
+      if (version !== 5) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => f !== "id").map(f => `${f}=excluded.${f}`).join(",")}`));
       }

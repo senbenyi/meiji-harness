@@ -135,16 +135,21 @@ export function validateProject(project) {
     }
     if (character.default_costume_id && !characterCostumes.has(character.default_costume_id))
       invalid("character_library.characters.default_costume_id", "服装不属于该角色");
-    for (const image of character.costume_images)
+    const imageKeys = new Set();
+    for (const image of character.costume_images) {
+      if (imageKeys.has(image.costume_id))
+        invalid("character_library.characters.costume_images.costume_id", "同一服装只能有一个定妆照节点");
+      imageKeys.add(image.costume_id);
       if (image.costume_id && !characterCostumes.has(image.costume_id))
         invalid("character_library.characters.costume_images.costume_id", "服装不属于该角色");
+    }
   }
-  const checkTimeRange = (value, path, duration) => {
+  const checkTimeRange = (value, path) => {
     const matched = String(value.time_range).match(/^(\d+(?:\.\d+)?)[–-](\d+(?:\.\d+)?)s$/);
     if (!matched) invalid(`${path}.time_range`, "需为起止秒，如 0–1s");
     const start = Number(matched[1]);
     const end = Number(matched[2]);
-    if (start < 0 || start >= end || end > duration) invalid(path, "时段需非空且不超出本镜");
+    if (start < 0 || start >= end) invalid(path, "时段需为非空正向范围");
   };
   for (const episode of project.episodes) {
     register(episode.id, "episodes.id");
@@ -153,7 +158,7 @@ export function validateProject(project) {
     if (!Number.isFinite(episode.actual_duration_seconds) || episode.actual_duration_seconds < 0) invalid("episodes.actual_duration_seconds", "需为非负秒数");
     for (const segment of episode.story_outline.segments) {
       if (!Number.isInteger(segment.sequence) || segment.sequence < 1) invalid("story_outline.segments.sequence", "需为正整数");
-      if (!Number.isInteger(segment.duration_seconds) || segment.duration_seconds < 1) invalid("story_outline.segments.duration_seconds", "需为正整数");
+      if (!Number.isFinite(segment.duration_seconds) || segment.duration_seconds <= 0) invalid("story_outline.segments.duration_seconds", "需为有限正数");
     }
     const shotNumbers = new Set();
     for (const shot of episode.shot_list.shots) {
@@ -161,8 +166,8 @@ export function validateProject(project) {
       if (!Number.isInteger(shot.sequence) || shot.sequence < 1) invalid("shots.sequence", "需为正整数");
       if (!shot.number || shotNumbers.has(shot.number)) invalid("shots.number", "重复或空编号");
       shotNumbers.add(shot.number);
-      if (!Number.isInteger(shot.duration_seconds) || shot.duration_seconds < 4 || shot.duration_seconds > 15)
-        invalid("shots.duration_seconds", "镜头时长需为 4–15 秒");
+      if (!Number.isInteger(shot.duration_seconds) || shot.duration_seconds < 1)
+        invalid("shots.duration_seconds", "镜头时长需为正整数");
       if (!Number.isFinite(shot.actual_duration_seconds) || shot.actual_duration_seconds < 0)
         invalid("shots.actual_duration_seconds", "需为非负秒数");
       for (const appearing of shot.on_screen_characters) {
@@ -172,7 +177,7 @@ export function validateProject(project) {
           invalid("shots.on_screen_characters.costume_id", "服装不属于该角色");
       }
       for (const beat of shot.seconds_storyboard.storyboard) {
-        checkTimeRange(beat, "seconds_storyboard.storyboard", shot.duration_seconds);
+        checkTimeRange(beat, "seconds_storyboard.storyboard");
         for (const line of beat.dialogue) {
           if (line.speaker_id && !characters.has(line.speaker_id)) invalid("dialogue.speaker_id", "角色引用不存在");
           assertEnum(line.mode, ["画内", "画外", "心声"], "dialogue.mode");

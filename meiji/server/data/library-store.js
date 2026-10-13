@@ -134,10 +134,10 @@ export class LibraryStore {
           if (
             !model
               .read()
-              .project.角色库.角色.some(
+              .project.character_library.characters.some(
                 (c) =>
                   c.id === command.object_id ||
-                  c.服装.some((co) => co.id === command.object_id),
+                  c.costumes.some((co) => co.id === command.object_id),
               )
           )
             invalid("object_id", "角色或服装不存在");

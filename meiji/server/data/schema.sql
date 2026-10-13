@@ -18,12 +18,9 @@ CREATE TABLE task_groups (
   action TEXT NOT NULL,
   source TEXT NOT NULL CHECK(source IN ('panel','session')),
   shot_ids_json TEXT NOT NULL CHECK(json_valid(shot_ids_json)),
-  opinion TEXT NOT NULL,
-  continued_from_group_id TEXT,
   created_at TEXT NOT NULL,
   position INTEGER NOT NULL,
-  UNIQUE(project_id,id),
-  FOREIGN KEY(project_id,continued_from_group_id) REFERENCES task_groups(project_id,id) DEFERRABLE INITIALLY DEFERRED
+  UNIQUE(project_id,id)
 ) STRICT;
 CREATE TABLE tasks (
   id TEXT PRIMARY KEY NOT NULL,
@@ -57,7 +54,7 @@ CREATE TABLE task_steps (
   name TEXT,
   kind TEXT NOT NULL CHECK(kind IN ('precheck','generate','review','revise','manual_edit','override','impact','apply')),
   round INTEGER NOT NULL CHECK(round BETWEEN 0 AND 2),
-  step_status TEXT NOT NULL CHECK(step_status IN ('ready','running','done','failed','skipped','cancelled','superseded')),
+  step_status TEXT NOT NULL CHECK(step_status IN ('ready','running','done','rejected','failed','skipped','cancelled','superseded')),
   prompt_json TEXT NOT NULL CHECK(json_valid(prompt_json)),
   result_json TEXT NOT NULL CHECK(json_valid(result_json)),
   error_reason TEXT NOT NULL,
@@ -89,4 +86,6 @@ CREATE INDEX steps_project ON task_steps(project_id);
 INSERT INTO schema_migrations VALUES (1,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (2,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (3,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
-PRAGMA user_version=3;
+INSERT INTO schema_migrations VALUES (4,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+INSERT INTO schema_migrations VALUES (5,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+PRAGMA user_version=5;

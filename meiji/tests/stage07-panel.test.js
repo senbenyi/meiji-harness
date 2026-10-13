@@ -63,7 +63,7 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
       snapshot = snapshotFixture(),
       view = {
         page: "episode",
-        episode_id: snapshot.project.剧集[0].id,
+        episode_id: snapshot.project.episodes[0].id,
         tab: "film",
       },
       context = {
@@ -91,16 +91,16 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
     assert.ok(!root.textContent.includes("场景"));
     assert.ok(!root.textContent.includes("道具"));
     assert.ok(!root.textContent.includes("生成要求"));
-    const episode = snapshot.project.剧集[0];
-    episode.镜头表.状态 = "failed";
-    episode.镜头表.原因 = "镜头表：镜头总时长超出允许范围（本集参考时长±30秒，允许 1–40 秒）";
-    episode.镜头表.镜头[0].正文 = "最终超时生成镜头内容";
+    const episode = snapshot.project.episodes[0];
+    episode.shot_list.node_state.status = "failed";
+    episode.shot_list.node_state.reason = "镜头表：镜头总时长超出允许范围（本集参考时长±30秒，允许 1–40 秒）";
+    episode.shot_list.shots[0].body = "最终超时生成镜头内容";
     view.tab = "shots";
     renderTaskPanel(root, snapshot, context);
     assert.ok(root.querySelector('[data-business="shots"]'));
     assert.ok(!root.querySelector('[data-business="episode-characters"]'));
     assert.ok(root.textContent.includes("失败"));
-    assert.ok(root.textContent.includes(episode.镜头表.原因));
+    assert.ok(root.textContent.includes(episode.shot_list.node_state.reason));
     assert.ok(root.textContent.includes("最终超时生成镜头内容"));
     const shotCard = root.querySelector('[data-business="shots"]'),
       title = shotCard.querySelector(".section-head"),
@@ -128,7 +128,7 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
     const t = {
       id: "t-test",
       business_type: "video",
-      target_id: snapshot.project.剧集[0].镜头表.镜头[0].id,
+      target_id: snapshot.project.episodes[0].shot_list.shots[0].id,
       task_status: "running",
       queue_order: 1,
       end_reason: "",
@@ -155,17 +155,17 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
   }
 });
 
-test("故事大纲按小段各占一行", () => {
+test("故事大纲按小段顺序展示正文、参考时长与因果衔接", () => {
   const dom = new JSDOM("<main></main>"),
     previous = globalThis.document;
   globalThis.document = dom.window.document;
   try {
     const snapshot = snapshotFixture(),
-      episode = snapshot.project.剧集[0],
+      episode = snapshot.project.episodes[0],
       root = document.querySelector("main");
-    episode.故事大纲.小段 = [
-      { 序号: 2, 时长秒: 6, 正文: "武松上路" },
-      { 序号: 1, 时长秒: 4, 正文: "酒馆开场" },
+    episode.story_outline.segments = [
+      { sequence: 2, duration_seconds: 6, body: "武松上路", causal: "因酒馆消息而动身" },
+      { sequence: 1, duration_seconds: 4.5, body: "酒馆开场", causal: "承接开场来信" },
     ];
     renderTaskPanel(root, snapshot, {
       session_id: "session-test",
@@ -177,9 +177,12 @@ test("故事大纲按小段各占一行", () => {
     const lines = [
       ...root.querySelectorAll("[data-business=outline] .outline-segments p"),
     ].map((node) => node.textContent);
-    assert.deepEqual(lines, ["1. 4秒 酒馆开场", "2. 6秒 武松上路"]);
-    episode.故事大纲.状态 = "running";
-    episode.摘要.状态 = "empty";
+    assert.deepEqual(lines, [
+      "1. 4.5秒 酒馆开场\n因果衔接：承接开场来信",
+      "2. 6秒 武松上路\n因果衔接：因酒馆消息而动身",
+    ]);
+    episode.story_outline.node_state.status = "running";
+    episode.summary.node_state.status = "empty";
     renderTaskPanel(root, snapshot, {
       session_id: "session-test",
       view: { page: "episode", episode_id: episode.id, tab: "script" },
@@ -218,6 +221,45 @@ test("故事大纲按小段各占一行", () => {
   }
 });
 
+test("镜头表九字段按序直接展开，时长在标题旁且不重复展示下游模型", () => {
+  const dom = new JSDOM("<main></main>"), previous = globalThis.document;
+  globalThis.document = dom.window.document;
+  try {
+    const snapshot = snapshotFixture(), episode = snapshot.project.episodes[0],
+      root = document.querySelector("main"), shots = episode.shot_list.shots;
+    for (const [index, shot] of shots.entries()) {
+      Object.assign(shot, {
+        title: `镜头标题${index + 1}`, duration_seconds: 5 + index,
+        body: `镜头正文${index + 1}`, shot_scale: "近景", hook: "人物察觉异样",
+        continuity_transition: "承接前镜抬头动作",
+        reference_anchor: { fixed_landmark: "门槛", character_positions: "门内左侧", departed_characters: "王婆已离场", lighting: "窗外冷光" },
+        audio_arrangement: { narration: "日色将晚", dialogue: "且慢", sound_effects: "落碗声" },
+        actual_duration_seconds: 9.75,
+      });
+      shot.seconds_storyboard.storyboard[0].action = "不应展示的每秒分镜";
+      shot.text_to_video_prompt.integrated_multimodal_description = "不应展示的视频提示词";
+      shot.video.address = "hidden-video.mp4";
+    }
+    episode.shot_list.shots = [...shots].reverse();
+    renderTaskPanel(root, snapshot, {
+      session_id: "session-test", view: { page: "episode", episode_id: episode.id, tab: "shots" },
+      refresh: async () => {}, paint: () => {}, onError: () => {},
+    });
+    const cards = [...root.querySelectorAll(".shot-card")];
+    assert.deepEqual(cards.map(card => card.querySelector(".outline-head h3").textContent), [
+      "S01 镜头标题1 · 5s", "S02 镜头标题2 · 6s",
+    ]);
+    assert.equal(root.querySelectorAll("details, [aria-expanded]").length, 0);
+    assert.equal(root.querySelector('[data-business="shots"] .prompt'), null);
+    for (const [index, card] of cards.entries()) {
+      assert.equal(root.textContent.split(`镜头正文${index + 1}`).length - 1, 1);
+      for (const text of ["景别：近景", "钩子：人物察觉异样", "连续性衔接：承接前镜抬头动作", "参考锚点", "固定地标：门槛", "人物位置：门内左侧", "离场角色：王婆已离场", "光位：窗外冷光", "音频安排", "旁白：日色将晚", "对白：且慢", "音效：落碗声"])
+        assert.ok(card.textContent.includes(text), text);
+    }
+    assert.doesNotMatch(root.textContent, /不应展示|hidden-video|9\.75|shot_scale|reference_anchor|seconds_storyboard/);
+  } finally { globalThis.document = previous; dom.window.close(); }
+});
+
 test("项目详情四张卡片标题旁有状态，生成按钮按内容显示", () => {
   const dom = new JSDOM("<main></main>"),
     previous = globalThis.document;
@@ -244,7 +286,7 @@ test("项目详情四张卡片标题旁有状态，生成按钮按内容显示",
       });
     paint();
     const outline = root.querySelector("[data-business=project-summary]");
-    assert.equal(outline.querySelector(".section-titles h3").textContent, "项目大纲");
+    assert.equal(outline.querySelector(".section-titles h3").textContent, "项目摘要");
     assert.equal(outline.querySelector(".section-titles .status-label").textContent, "已生成");
     assert.deepEqual(
       labelsOf(outline).filter((label) => ["AI生成", "重新生成", "按意见修改"].includes(label)),
@@ -252,14 +294,14 @@ test("项目详情四张卡片标题旁有状态，生成按钮按内容显示",
     );
     assert.deepEqual(
       labelsOf(cardOf("剧本")).filter((label) => ["AI生成", "重新生成", "按意见修改"].includes(label)),
-      ["重新生成"],
+      [],
     );
     assert.equal(cardOf("剧本").querySelector(".status-label"), null);
     assert.equal(cardOf("角色卡").querySelector(".section-titles .status-label").textContent, "未生成");
-    assert.deepEqual(labelsOf(cardOf("角色卡")), ["提取角色"]);
-    assert.ok(cardOf("剧集").querySelector("[aria-label=新增剧集]"));
+    assert.deepEqual(labelsOf(cardOf("角色卡")), ["AI生成", "查看任务历史"]);
+    assert.ok(cardOf("剧集").querySelector("[aria-label=重新拆分剧集]"));
     assert.ok(![...root.querySelectorAll("button")].some((button) => button.textContent.includes("添加角色")));
-    project.创作方式 = "剧本";
+    project.creation_mode = "剧本";
     snapshot.tasks = [{
       id: "split",
       business_type: "script-split",
@@ -271,16 +313,13 @@ test("项目详情四张卡片标题旁有状态，生成按钮按内容显示",
     snapshot.groups = [{ id: "g", group_type: "single" }];
     paint();
     assert.equal(cardOf("剧集").querySelector(".section-titles .status-label").textContent, "生成中");
-    assert.equal(
-      cardOf("剧集").querySelector(".overview-title-actions [aria-label=重新拆分剧集]").parentElement.className,
-      "overview-title-actions",
-    );
+    assert.equal(cardOf("剧集").querySelector("[aria-label=重新拆分剧集]"), null);
     assert.deepEqual(labelsOf(cardOf("剧本")), []);
-    project.创作方式 = "自由创作";
-    project.项目摘要.状态 = "rejected";
-    project.角色库.状态 = "rejected";
-    project.角色库.原因 = "未通过";
-    project.角色库.角色 = [{ id: "c1", 编号: "C01", 名称: "武松", 身份: "好汉", 图片: { 地址: "" } }];
+    project.creation_mode = "自由创作";
+    project.project_summary.node_state.status = "rejected";
+    project.character_library.node_state.status = "rejected";
+    project.character_library.node_state.reason = "未通过";
+    project.character_library.characters = [{ id: "c1", number: "C01", name: "武松", position: "好汉", character_image: { address: "" } }];
     snapshot.tasks = [{
       id: "script-task",
       business_type: "script",
@@ -296,16 +335,16 @@ test("项目详情四张卡片标题旁有状态，生成按钮按内容显示",
       "未通过",
     );
     assert.deepEqual(
-      labelsOf(cardOf("项目大纲")).filter((label) => ["重新生成", "按意见修改"].includes(label)),
+      labelsOf(cardOf("项目摘要")).filter((label) => ["重新生成", "按意见修改"].includes(label)),
       ["重新生成", "按意见修改"],
     );
     assert.equal(cardOf("剧本").querySelector(".status-label").textContent, "未通过");
     assert.deepEqual(
       labelsOf(cardOf("剧本")).filter((label) => ["重新生成", "按意见修改"].includes(label)),
-      ["重新生成", "按意见修改"],
+      [],
     );
     assert.equal(cardOf("角色卡").querySelector(".status-label").textContent, "未通过");
-    assert.deepEqual(labelsOf(cardOf("角色卡")), ["重新生成", "按意见修改"]);
+    assert.deepEqual(labelsOf(cardOf("角色卡")), ["重新生成", "查看任务历史", "按意见修改"]);
   } finally {
     globalThis.document = previous;
     dom.window.close();

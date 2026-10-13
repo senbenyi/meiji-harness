@@ -1,4 +1,7 @@
 import test from "node:test";
+import { emptyCharacterModel } from "../shared/models/character_model.js";
+import { emptyCostumeModel } from "../shared/models/costume_model.js";
+import { emptyCostumeImageModel } from "../shared/models/costume_image_model.js";
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 import {
@@ -28,54 +31,26 @@ import {
 import { deliverTaskNotice } from "../server/host/task-notices.js";
 
 const projectFixture = () => {
-  const p = emptyProject({
-    名称: "新项目",
-    创作方式: "自由创作",
-    创作方向: "测试故事",
-  });
-  const c = {
-    id: createId("character"),
-    编号: "C01",
-    名称: "甲",
-    国籍: "",
-    身份: "",
-    身份特征: "",
-    性别: "",
-    年代: "",
-    年龄: "",
-    身高: "",
-    体型: "",
-    面相: "",
-    声音: "",
-    必出: true,
-    默认服装id: "",
-    图片: { 状态: "empty", 原因: "", 依赖hash: "", 地址: "" },
-    参考图: { 地址: "" },
-    服装: [],
-  };
-  const co = {
-    id: createId("costume"),
-    编号: "C01-01",
-    名称: "常服",
-    描述: "常服",
-    图片: { 状态: "empty", 原因: "", 依赖hash: "", 地址: "" },
-  };
-  c.服装 = [co];
-  c.默认服装id = co.id;
-  p.角色库.角色 = [c];
-  const e = emptyEpisode({ 序号: 1 });
-  const s = emptyShot({ 序号: 1, 编号: "S01" });
-  s.出镜角色 = [{ 角色id: c.id, 服装id: co.id }];
-  e.镜头表.镜头 = [s];
-  p.剧集 = [e];
+  const p = emptyProject({ name: "新项目", creation_mode: "自由创作", creative_direction: "测试故事" });
+  const c = emptyCharacterModel({ number: "C01", name: "甲", required_appearance: true });
+  const co = emptyCostumeModel({ number: "C01-01", name: "常服", description: "常服" });
+  c.costume_images = [emptyCostumeImageModel(co.id)];
+  c.costumes = [co];
+  c.default_costume_id = co.id;
+  p.character_library.characters = [c];
+  const e = emptyEpisode({ sequence: 1 });
+  const s = emptyShot({ sequence: 1, number: "S01" });
+  s.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
+  e.shot_list.shots = [s];
+  p.episodes = [e];
   return p;
 };
 const taskFixture = (p) => ({
   id: createId("task"),
   project_id: p.id,
-  episode_id: p.剧集[0].id,
+  episode_id: p.episodes[0].id,
   business_type: "seconds",
-  target_id: p.剧集[0].镜头表.镜头[0].id,
+  target_id: p.episodes[0].shot_list.shots[0].id,
   action: "generate",
   group_id: null,
   group_seq: null,
@@ -87,7 +62,7 @@ const taskFixture = (p) => ({
   started_at: null,
   ended_at: null,
   opinion: "",
-  previous_node_state: { 状态: "empty", 原因: "" },
+  previous_node_state: { status: "empty", reason: "" },
 });
 
 test("S1-01 新项目结构、八种状态及原因约束", () => {
@@ -95,8 +70,8 @@ test("S1-01 新项目结构、八种状态及原因约束", () => {
   assert.equal(validateProject(p), p);
   for (const status of NODE_STATUS) {
     const q = structuredClone(p);
-    q.项目摘要.状态 = status;
-    q.项目摘要.原因 = ["rejected", "failed", "cancelled", "expired"].includes(
+    q.project_summary.node_state.status = status;
+    q.project_summary.node_state.reason = ["rejected", "failed", "cancelled", "expired"].includes(
       status,
     )
       ? "原因"
@@ -104,18 +79,18 @@ test("S1-01 新项目结构、八种状态及原因约束", () => {
     assert.equal(validateProject(q), q);
   }
   const bad = structuredClone(p);
-  delete bad.输出语言;
-  assert.throws(() => validateProject(bad), /输出语言/);
-  p.项目摘要.状态 = "passed";
-  assert.throws(() => validateProject(p), /状态/);
+  delete bad.output_language;
+  assert.throws(() => validateProject(bad), /output_language/);
+  p.project_summary.node_state.status = "passed";
+  assert.throws(() => validateProject(p), /status/);
 });
 test("本集资产不再属于项目结构或可提交任务业务", () => {
   const p = projectFixture(),
-    e = p.剧集[0];
+    e = p.episodes[0];
   assert.equal(Object.hasOwn(e, "本集资产"), false);
   assert.equal(Object.hasOwn(BUSINESS_TARGET, "episode-characters"), false);
   const invalid = structuredClone(p);
-  invalid.剧集[0].本集资产 = { 状态: "empty", 原因: "", 角色: [] };
+  invalid.episodes[0].本集资产 = { 状态: "empty", 原因: "", 角色: [] };
   assert.throws(() => validateProject(invalid), /本集资产/);
   assert.throws(() => validateCommand({
     type: "submit", project_id: p.id, request_id: "removed",
@@ -124,10 +99,10 @@ test("本集资产不再属于项目结构或可提交任务业务", () => {
 });
 test("S1-02 ID 一次生成，编号排序与 ID 独立", () => {
   const p = projectFixture();
-  const before = p.剧集[0].镜头表.镜头[0].id;
-  p.剧集[0].镜头表.镜头[0].编号 = "S02";
+  const before = p.episodes[0].shot_list.shots[0].id;
+  p.episodes[0].shot_list.shots[0].number = "S02";
   validateProject(p);
-  assert.equal(p.剧集[0].镜头表.镜头[0].id, before);
+  assert.equal(p.episodes[0].shot_list.shots[0].id, before);
   for (const kind of [
     "project",
     "episode",
@@ -144,10 +119,10 @@ test("S1-02 ID 一次生成，编号排序与 ID 独立", () => {
 });
 test("S1-03 AI 资料与编号引用不泄漏内部 ID，未知与重复编号失败", () => {
   const p = projectFixture(),
-    catalog = projectNumberCatalog(p, p.剧集[0].id);
+    catalog = projectNumberCatalog(p, p.episodes[0].id);
   const source = JSON.stringify(catalog);
   assert.ok(!source.includes(p.id));
-  assert.ok(!source.includes(p.角色库.角色[0].id));
+  assert.ok(!source.includes(p.character_library.characters[0].id));
   const value = translateNumbers(
     {
       角色编号: "C01",
@@ -155,15 +130,15 @@ test("S1-03 AI 资料与编号引用不泄漏内部 ID，未知与重复编号�
       对白: [{ 说话人编号: "C01", 台词: "你好" }],
     },
     p,
-    p.剧集[0].id,
+    p.episodes[0].id,
   );
-  assert.equal(value.角色id, p.角色库.角色[0].id);
-  assert.equal(value.对白[0].说话人id, p.角色库.角色[0].id);
+  assert.equal(value.character_id, p.character_library.characters[0].id);
+  assert.equal(value.对白[0].speaker_id, p.character_library.characters[0].id);
   assert.throws(() => translateNumbers({ 角色编号: "C99" }, p), /未知/);
   assert.throws(() => translateNumbers({ 角色编号: "C01-01" }, p), /类型/);
-  assert.equal(catalog.角色[0].默认服装编号, "C01-01");
-  assert.equal(catalog.镜头[0].出镜角色[0].角色编号, "C01");
-  p.角色库.角色.push({ ...p.角色库.角色[0], id: createId("character") });
+  assert.equal(catalog.characters[0].默认服装编号, "C01-01");
+  assert.equal(catalog.shots[0].on_screen_characters[0].角色编号, "C01");
+  p.character_library.characters.push({ ...p.character_library.characters[0], id: createId("character") });
   assert.throws(() => projectNumberCatalog(p), /重复/);
 });
 test("S1-04 任务目标归属和字段协议严格校验，剧本无状态", () => {
@@ -196,7 +171,7 @@ test("S1-04 任务目标归属和字段协议严格校验，剧本无状态", ()
     /组合/,
   );
   assert.equal(validateProject(p), p);
-  assert.ok(!("状态" in p.剧本));
+  assert.ok(!("状态" in p.script));
   const st = {
     id: createId("step"),
     task_id: t.id,
@@ -234,6 +209,7 @@ test("S1-04 任务目标归属和字段协议严格校验，剧本无状态", ()
     "ready",
     "running",
     "done",
+    "rejected",
     "failed",
     "skipped",
     "cancelled",
@@ -274,28 +250,28 @@ test("S1-05 用户资料中的占位符、ID 和 mark 不改变模板结构", as
 test("S1-05 项目/节点规则顺序和参考素材分开，无资料不保留空段", () => {
   const rules = [
     {
-      范围: "node",
-      节点id: "target",
-      适用业务: ["seconds"],
-      约束: "必须",
-      内容: "节点规则",
-      类别: "动作",
+      scope: "node",
+      node_id: "target",
+      applicable_business_types: ["seconds"],
+      constraint: "必须",
+      content: "节点规则",
+      category: "动作",
     },
     {
-      范围: "project",
-      节点id: "",
-      适用业务: ["seconds"],
-      约束: "必须",
-      内容: "项目规则",
-      类别: "动作",
+      scope: "project",
+      node_id: "",
+      applicable_business_types: ["seconds"],
+      constraint: "必须",
+      content: "项目规则",
+      category: "动作",
     },
     {
-      范围: "project",
-      节点id: "",
-      适用业务: ["seconds"],
-      约束: "参考",
-      内容: "参考动作",
-      类别: "动作",
+      scope: "project",
+      node_id: "",
+      applicable_business_types: ["seconds"],
+      constraint: "参考",
+      content: "参考动作",
+      category: "动作",
     },
   ];
   const v = ruleInputs(rules, "seconds", "target");
@@ -365,7 +341,7 @@ test("S1-04 所有命令共享严格白名单，组/人工/删除/队列协议�
     {
       type: "submit-group",
       group_type: "episode-film",
-      episode_id: p.剧集[0].id,
+      episode_id: p.episodes[0].id,
     },
     { type: "cancel", task_id: taskId },
     { type: "continue-group", group_id: groupId },
@@ -379,7 +355,7 @@ test("S1-04 所有命令共享严格白名单，组/人工/删除/队列协议�
     {
       type: "delete",
       business_type: "character-delete",
-      target_id: p.角色库.角色[0].id,
+      target_id: p.character_library.characters[0].id,
     },
     { type: "start-queued", task_id: taskId },
     { type: "remove-queued", task_id: taskId },
@@ -395,7 +371,7 @@ test("S1-04 所有命令共享严格白名单，组/人工/删除/队列协议�
         ...base,
         type: "submit-group",
         group_type: "unknown",
-        episode_id: p.剧集[0].id,
+        episode_id: p.episodes[0].id,
       }),
     /group_type/,
   );

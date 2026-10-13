@@ -8,20 +8,21 @@ export const businessNames = Object.freeze({
       definition.label,
     ]),
   ),
+  script: "已移除的剧本生成任务",
   "episode-characters": "已移除的历史任务",
 });
 export function taskName(task, project) {
   if (task.name) return task.name;
   const business = businessNames[task.business_type] || task.business_type;
   let target = "";
-  for (const c of project.角色库.角色) {
-    if (c.id === task.target_id) target = c.名称;
-    for (const co of c.服装) if (co.id === task.target_id) target = `${c.名称}·${co.名称}`;
+  for (const c of project.character_library.characters) {
+    if (c.id === task.target_id) target = c.name;
+    for (const co of c.costumes) if (co.id === task.target_id) target = `${c.name}·${co.name}`;
   }
-  for (const e of project.剧集) {
-    if (e.id === task.target_id) target = `第 ${e.序号} 集`;
-    for (const s of e.镜头表.镜头)
-      if (s.id === task.target_id) target = `第 ${e.序号} 集 ${s.编号}`;
+  for (const e of project.episodes) {
+    if (e.id === task.target_id) target = `第 ${e.sequence} 集`;
+    for (const s of e.shot_list.shots)
+      if (s.id === task.target_id) target = `第 ${e.sequence} 集 ${s.number}`;
   }
   const action = { generate: "生成", regenerate: "重新生成", continue: "生成", manual_edit: "编辑", override: "放行", delete: "删除" }[task.action] || "生成";
   if (task.business_type === "script-split") return `${task.action === "manual_edit" ? "编辑拆分设置" : "拆分剧集"}`;
@@ -33,7 +34,7 @@ export function stepName(step, task) {
   const business = businessNames[task.business_type] || task.business_type;
   return {
     precheck: "前置检查", generate: task.business_type === "project-characters" ? "提取角色资料" : `${task.action === "regenerate" ? "重新生成" : "生成"}${business}`,
-    review: `${step.round ? `第 ${step.round} 轮` : ""}审核${business}`,
+    review: `${step.round ? `第 ${step.round} 轮` : ""}${step.review_type === "program" ? "程序审核" : "AI审核"}${business}`,
     revise: `第 ${step.round} 轮修订${business}`, manual_edit: "保存人工编辑",
     override: "人工放行", impact: "检查删除影响", apply: "执行删除",
   }[step.kind] || step.kind;
@@ -45,9 +46,9 @@ export function groupName(group, tasks, project) {
     if (tasks[0]?.business_type === "project-characters") return "提取剧本重要角色及图片";
     return tasks[0] ? taskName(tasks[0], project) : "制作任务";
   }
-  const e = project.剧集.find(e => e.id === group.episode_id);
-  const scope = group.shot_ids?.length === 1 ? project.剧集.flatMap(e=>e.镜头表.镜头).find(s=>s.id===group.shot_ids[0])?.编号 : "";
-  return `${e ? `第 ${e.序号} 集` : "剧集"}${scope ? ` ${scope}` : ""}${group.group_type === "episode-film" ? "成片" : "每秒分镜"}${group.action === "continue" ? " · 继续" : ""}`;
+  const e = project.episodes.find(e => e.id === group.episode_id);
+  const scope = group.shot_ids?.length === 1 ? project.episodes.flatMap(e=>e.shot_list.shots).find(s=>s.id===group.shot_ids[0])?.number : "";
+  return `${e ? `第 ${e.sequence} 集` : "剧集"}${scope ? ` ${scope}` : ""}${group.group_type === "episode-film" ? "成片" : "每秒分镜"}${group.action === "continue" ? " · 继续" : ""}`;
 }
 export function groupStatus(tasks) {
   const stopped = tasks.find(t=>["failed","rejected","cancelled"].includes(t.task_status));

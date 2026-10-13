@@ -19,8 +19,8 @@ test("S7-12 完整面板刷新保留编辑草稿；切换拒绝旧项目；卸�
     other = `session-${randomUUID()}`,
     a = snapshotFixture(),
     b = snapshotFixture();
-  a.project.名称 = "项目甲";
-  b.project.名称 = "项目乙";
+  a.project.name = "项目甲";
+  b.project.name = "项目乙";
   let deferred, resolve, app;
   try {
     Object.assign(globalThis, {

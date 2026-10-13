@@ -37,6 +37,7 @@ const canonical = (value) =>
   );
 const terminalSteps = new Set([
   "done",
+  "rejected",
   "failed",
   "skipped",
   "cancelled",
@@ -93,8 +94,6 @@ export function validateSnapshot(snapshot) {
         "shot_ids",
         "created_at",
         "action",
-        "continued_from_group_id",
-        "opinion",
         ...(Object.hasOwn(group, "name") ? ["name"] : []),
       ],
       "group",
@@ -115,22 +114,6 @@ export function validateSnapshot(snapshot) {
       ["generate", "regenerate", "continue", "manual_edit", "override", "delete"],
       "group.action",
     );
-    assertText(group.opinion, "group.opinion");
-    if (group.action === "continue") {
-      if (
-        !groups.has(group.continued_from_group_id) ||
-        group.continued_from_group_id === group.id
-      )
-        invalid("group.continued_from_group_id", "来源组合不存在");
-      const origin = groups.get(group.continued_from_group_id);
-      if (
-        origin.episode_id !== group.episode_id ||
-        origin.group_type !== group.group_type ||
-        canonical(origin.shot_ids) !== canonical(group.shot_ids)
-      )
-        invalid("group", "继续组合需继承原范围");
-    } else if (group.continued_from_group_id !== null)
-      invalid("group.continued_from_group_id", "普通组合为空");
     if (!Number.isFinite(Date.parse(group.created_at)))
       invalid("group.created_at", "时间无效");
     if (
@@ -145,10 +128,12 @@ export function validateSnapshot(snapshot) {
       .sort((a, b) => a.group_seq - b.group_seq);
     if (!members.length) invalid("group", "不可创建空组");
     members.forEach((task, index) => {
+      const assembly = group.group_type === "episode-film" && task.business_type === "assembly";
       if (
         task.group_seq !== index + 1 ||
+        (assembly && index !== members.length - 1) ||
         (!generic && (task.episode_id !== group.episode_id ||
-        !group.shot_ids.includes(task.target_id)))
+        (assembly ? task.target_id !== group.episode_id : !group.shot_ids.includes(task.target_id))))
       )
         invalid("group", "任务归属、范围或顺序错误");
     });
@@ -314,14 +299,14 @@ export class ModelRepository extends EventEmitter {
     const rows = [];
     const ids = new Set(this.#store.list());
     for (const name of await readdir(this.#root)) {
-      if (name.endsWith(".json")) rows.push({ id: name.slice(0, -5), 名称: name.slice(0, -5), unsupported: true });
+      if (name.endsWith(".json")) rows.push({ id: name.slice(0, -5), name: name.slice(0, -5), unsupported: true });
       else if (/^[a-z]+_[0-9a-f-]{36}$/.test(name) && !ids.has(name))
-        rows.push({ id: name, 名称: name, unsupported: true, error: "项目未入库" });
+        rows.push({ id: name, name: name, unsupported: true, error: "项目未入库" });
     }
     for (const id of ids) {
       const model = await this.open(id), p = model.read().project;
-      rows.push({ id, 名称: p.名称, 画幅: p.画幅, 集数: p.剧集.length,
-        已完成: p.剧集.length > 0 && p.剧集.every(e => e.合片.状态 === "generated") });
+      rows.push({ id, name: p.name, aspect_ratio: p.aspect_ratio, episode_count: p.episodes.length,
+        completed: p.episodes.length > 0 && p.episodes.every(e => e.assembly.node_state.status === "generated") });
     }
     return rows;
   }

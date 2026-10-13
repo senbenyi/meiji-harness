@@ -11,14 +11,20 @@ import { emptyStoryboardBeatModel } from "./storyboard_beat_model.js";
 import { emptyDialogueModel } from "./dialogue_model.js";
 import { emptyRuleModel } from "./rule_model.js";
 import { emptyCostumeImageModel } from "./costume_image_model.js";
+import { updateEpisodeActualDuration } from "./episode_model.js";
+import { nodeOf } from "../task_contract.js";
+import { dependencyHash, expireDownstream } from "../node-dependencies.js";
 
 const pick = (value, english, chinese, fallback) =>
   value?.[english] ?? value?.[chinese] ?? fallback;
-const state = (value = {}) => ({
+const state = (value = {}) => {
+  value = value.node_state ?? value;
+  return ({
   status: pick(value, "status", "状态", "empty"),
   reason: pick(value, "reason", "原因", ""),
   dependency_hash: pick(value, "dependency_hash", "依赖hash", ""),
 });
+};
 const node = (value = {}, bodyKey = "") => ({
   node_state: value.node_state ? state(value.node_state) : state(value),
   ...(bodyKey ? { [bodyKey]: pick(value, bodyKey, "正文", "") } : {}),
@@ -29,6 +35,17 @@ const media = (value = {}) => ({
 });
 
 export function migrateProjectModelV3(old) {
+  // 支持已按英文 Model 写入的 v3 项目，保留所有现有节点和媒体。
+  if (old.project_summary) {
+    const project = structuredClone(old);
+    for (const character of project.character_library.characters) {
+      const keys = character.costumes.length ? character.costumes.map(costume => costume.id) : [""];
+      for (const key of keys)
+        if (!character.costume_images.some(image => image.costume_id === key))
+          character.costume_images.push(emptyCostumeImageModel(key));
+    }
+    return project;
+  }
   const project = emptyProjectModel();
   Object.assign(project, {
     id: old.id,
@@ -120,6 +137,10 @@ export function migrateProjectModelV3(old) {
               address: pick(image, "address", "地址", ""),
             }] : [];
           });
+      const imageKeys = character.costumes.length ? character.costumes.map(costume => costume.id) : [""];
+      for (const key of imageKeys)
+        if (!character.costume_images.some(image => image.costume_id === key))
+          character.costume_images.push(emptyCostumeImageModel(key));
       return character;
     }),
   };
@@ -236,4 +257,31 @@ export function migrateProjectModelV3(old) {
     return episode;
   });
   return project;
+}
+
+// v4→v5：修正剧集累计时长并使旧依赖失效；不伪造新的成功指纹或改写历史。
+export function migrateEpisodeNodesV4(snapshot) {
+  const reason = "剧集节点依赖规则已更新，请重新生成";
+  for (const episode of snapshot.project.episodes) {
+    updateEpisodeActualDuration(episode);
+    const entries = [
+      ["outline", episode.id], ["shots", episode.id],
+      ...[...episode.shot_list.shots].sort((a, b) => a.sequence - b.sequence)
+        .flatMap(shot => ["seconds", "storyboard", "video", "tail"].map(business => [business, shot.id])),
+      ["assembly", episode.id],
+    ];
+    for (const [business, id] of entries) {
+      const node = nodeOf(snapshot.project, business, id);
+      const queued = snapshot.tasks.find(task => task.business_type === business && task.target_id === id && task.task_status === "queued");
+      const state = node.node_state.status === "queued" ? queued?.previous_node_state : node.node_state;
+      if (state?.status === "expired") {
+        expireDownstream(snapshot, business, id, state.reason, { compareHash: false });
+        continue;
+      }
+      if (state?.status !== "generated" || node.node_state.dependency_hash === dependencyHash(snapshot, business, id)) continue;
+      state.status = "expired";
+      state.reason = reason;
+      expireDownstream(snapshot, business, id, reason, { compareHash: false });
+    }
+  }
 }

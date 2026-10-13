@@ -55,10 +55,10 @@ export async function renderLibrary(
     const list = element("div", "", "project-list");
     view.append(list);
     for (const p of projects) {
-      const completed = p.已完成 === true;
+      const completed = p.completed === true;
       if ((status === "completed") !== completed) continue;
       const card = element("article", "", "card"),
-        pick = element("button", p.名称);
+        pick = element("button", p.name);
       pick.disabled = !!p.unsupported;
       pick.onclick = () => open(p);
       const del = element("button", "删除项目", "delete-content");
@@ -68,7 +68,7 @@ export async function renderLibrary(
       };
       card.append(
         pick,
-        element("p", `${p.画幅 || ""} · ${p.集数 || 0} 集`, "meta"),
+        element("p", `${p.aspect_ratio || ""} · ${p.episode_count || 0} 集`, "meta"),
         del,
       );
       if (p.unsupported)

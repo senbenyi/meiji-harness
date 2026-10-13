@@ -49,62 +49,21 @@ const names = {
   tail: "尾帧",
   assembly: "合片",
   "character-image": "角色图片",
-  "costume-image": "服装图片",
+  "costume-image": "角色定妆照",
 };
-function payload(node, project) {
-  const numbers = new Map();
-  for (const c of project.角色库.角色) {
-    numbers.set(c.id, c.编号);
-    for (const co of c.服装) numbers.set(co.id, co.编号);
-  }
-  const ref = {
-    角色id: "角色编号",
-    服装id: "服装编号",
-    说话人id: "说话人编号",
-    默认服装id: "默认服装编号",
-  };
-  const walk = (v) =>
-    Array.isArray(v)
-      ? v.map(walk)
-      : v && typeof v === "object"
-        ? Object.fromEntries(
-            Object.entries(v).flatMap(([k, x]) => {
-              if (
-                [
-                  "id",
-                  "状态",
-                  "原因",
-                  "剧本版本",
-                  "说话人名称",
-                  "图片",
-                  "参考图",
-                ].includes(k)
-              )
-                return [];
-              if (ref[k])
-                return [
-                  [
-                    ref[k],
-                    numbers.get(x) ||
-                      (k === "说话人id" ? v.说话人名称 || "" : ""),
-                  ],
-                ];
-              return [[k, walk(x)]];
-            }),
-          )
-        : v;
+function payload(node) {
+  const walk = (value) => Array.isArray(value) ? value.map(walk)
+    : value && typeof value === "object" ? Object.fromEntries(Object.entries(value)
+      .filter(([key]) => !["id", "node_state", "script_version", "character_image", "costume_images", "reference_image"].includes(key))
+      .map(([key, child]) => [key, walk(child)])) : value;
   return walk(node);
 }
 function hasContent(value) {
   if (typeof value === "string") return Boolean(value.trim());
   if (Array.isArray(value)) return value.some(hasContent);
   if (!value || typeof value !== "object") return false;
-  return Object.entries(value).some(
-    ([key, child]) =>
-      !["id", "状态", "原因", "剧本版本", "编号", "序号", "时长秒", "实际时长秒"].includes(key) &&
-      !key.endsWith("id") &&
-      hasContent(child),
-  );
+  return Object.entries(value).some(([key, child]) =>
+    !["id", "node_state", "script_version", "number", "sequence", "duration_seconds", "actual_duration_seconds", "costume_id"].includes(key) && hasContent(child));
 }
 export function renderTaskPanel(root, snapshot, context) {
   const p = snapshot.project,
@@ -154,19 +113,19 @@ export function renderTaskPanel(root, snapshot, context) {
       } else b.onclick = () => Promise.resolve(fn()).catch(() => {});
       return b;
     };
-  const nodeCard = (business, id, node) => {
+  const nodeCard = (business, id, node, { readOnly = false } = {}) => {
     const card = element("section", "", "session-project");
     card.dataset.business = business;
     card.append(
       element("h3", names[business] || business),
-      element("span", labels[node.状态] || node.状态, "status-label"),
+      element("span", labels[node.node_state.status] || node.node_state.status, "status-label"),
     );
-    if (node.原因) card.append(element("p", node.原因, "error"));
-    if (node.地址) {
+    if (node.node_state.reason) card.append(element("p", node.node_state.reason, "error"));
+    if (node.address) {
       const asset = element(
         ["video", "assembly"].includes(business) ? "video" : "img",
       );
-      asset.src = node.地址 + "?session_id=" + encodeURIComponent(session_id);
+      asset.src = node.address + "?session_id=" + encodeURIComponent(session_id);
       asset.controls = true;
       asset.style.maxWidth = "100%";
       if (asset.tagName === "IMG") {
@@ -189,27 +148,28 @@ export function renderTaskPanel(root, snapshot, context) {
       card.append(asset);
     } else if (business === "outline") {
       const segments = element("div", "", "outline-segments");
-      for (const part of [...(node.小段 || [])].sort((a, b) => a.序号 - b.序号))
+      for (const part of [...(node.segments || [])].sort((a, b) => a.sequence - b.sequence))
         segments.append(
-          element("p", `${part.序号}. ${part.时长秒}秒 ${part.正文}`, "prompt full"),
+          element("p", `${part.sequence}. ${part.duration_seconds}秒 ${part.body}${part.causal ? `\n因果衔接：${part.causal}` : ""}`, "prompt full"),
         );
       card.append(segments);
-    } else
+    } else if (business !== "shots")
       card.append(
         element(
           "p",
-          typeof node.正文 === "string"
-            ? node.正文
+          typeof node.body === "string"
+            ? node.body
             : readable(payload(node, p)),
           "prompt full",
         ),
       );
-    if (typeof node.正文 === "string") appendJsonCopy(card, node.正文);
+    if (typeof node.body === "string") appendJsonCopy(card, node.body);
     const hasOutput = hasContent(node),
       generate = (opinion = "") =>
         act(business === "video" ? {
           type: "submit-group", group_type: "episode-film",
-          episode_id: p.剧集.find(e => e.镜头表.镜头.some(s => s.id === id)).id,
+          action: hasOutput ? "regenerate" : "generate",
+          episode_id: p.episodes.find(e => e.shot_list.shots.some(s => s.id === id)).id,
           shot_id: id, ...(opinion ? { opinion } : {}),
         } : {
           type: "submit",
@@ -218,16 +178,15 @@ export function renderTaskPanel(root, snapshot, context) {
           action: hasOutput ? "regenerate" : "generate",
           ...(opinion ? { opinion } : {}),
         });
-    card.append(
-      button(hasOutput ? "重新生成" : "AI生成", () => generate()),
-    );
-    if (hasOutput && node.状态 === "rejected")
+    const active = ["queued", "running"].includes(node.node_state.status);
+    if (!active && !readOnly) card.append(button(hasOutput ? "重新生成" : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
+    if (!active && !readOnly && hasOutput && node.node_state.status === "rejected")
       card.append(
         button("按意见修改", () =>
           editor(
             root,
             "按意见修改",
-            "",
+            node.node_state.reason,
             (opinion) => {
               if (!opinion.trim()) throw new Error("请输入修改意见");
               return generate(opinion.trim());
@@ -244,7 +203,7 @@ export function renderTaskPanel(root, snapshot, context) {
       "assembly",
     ].includes(business);
     const upload = element("input");
-    if (isMedia) {
+    if (isMedia && !readOnly) {
       upload.type = "file";
       upload.accept = ["video", "assembly"].includes(business)
         ? "video/mp4"
@@ -274,29 +233,25 @@ export function renderTaskPanel(root, snapshot, context) {
       };
       card.append(upload);
     }
-    card.append(
+    if (!readOnly) card.append(
       button("人工编辑", () =>
         isMedia
           ? upload.click()
           : editor(
               root,
               "人工编辑",
-              business === "shots"
-                ? {
-                    镜头: payload(node, p).镜头.map((s) =>
-                      Object.fromEntries(
-                        [
-                          "序号",
-                          "编号",
-                          "时长秒",
-                          "标题",
-                          "正文",
-                          "出镜角色",
-                        ].map((key) => [key, s[key]]),
-                      ),
-                    ),
-                  }
-                : payload(node, p),
+              ["project-summary", "episode-summary"].includes(business)
+                ? node.body
+                : business === "storyboard"
+                  ? `integrated_multimodal_description:\n${node.integrated_multimodal_description}\noverall_soundscape:\n${node.overall_soundscape}\nnon_diegetic_music:\n${node.non_diegetic_music}`
+                : business === "shots"
+                  ? { shots: node.shots.map((shot) => Object.fromEntries(["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"].map((key) => [key, structuredClone(shot[key])]))) }
+                : business === "project-characters"
+                  ? { characters: node.characters.map((character) => ({
+                      ...Object.fromEntries(Object.keys(blankCharacter()).filter((key) => key !== "costumes").map((key) => [key, character[key]])),
+                      costumes: character.costumes.map(({ name, color, material, props }) => ({ name, color, material, props })),
+                    })) }
+                  : payload(node),
               (content) =>
                 act({
                   type: "manual-edit",
@@ -305,17 +260,13 @@ export function renderTaskPanel(root, snapshot, context) {
                   content,
                 }),
               {
-                templates: {
-                  角色:
-                    business === "project-characters"
-                      ? blankCharacter()
-                      : { 角色编号: "", 出镜: "出镜" },
-                },
+                json: !["project-summary", "episode-summary", "storyboard"].includes(business),
+                templates: { characters: blankCharacter() },
               },
             ),
       ),
     );
-    if (node.状态 === "rejected")
+    if (!readOnly && node.node_state.status === "rejected")
       card.append(
         button("人工放行", () =>
           act({ type: "override", business_type: business, target_id: id }),
@@ -328,12 +279,20 @@ export function renderTaskPanel(root, snapshot, context) {
           state.task_id = null;
           state.page = "history";
           state.history_business = business;
-          state.target_id = null;
+          state.target_id = id;
           context.paint();
         },
         false,
       ),
     );
+    const currentTask = snapshot.tasks.find((task) => task.business_type === business && task.target_id === id && ["queued", "running"].includes(task.task_status));
+    if (currentTask && !readOnly) {
+      card.append(button("取消", () => act({ type: "cancel", task_id: currentTask.id }), false));
+      if (currentTask.task_status === "queued") card.append(
+        button("开始", () => act({ type: "start-queued", task_id: currentTask.id }), false),
+        button("移除", () => act({ type: "remove-queued", task_id: currentTask.id }), false),
+      );
+    }
     const head = element("div", "", "section-head"),
       titles = element("div", "", "section-titles"),
       actions = element("div", "", "workflow-generation-row");
@@ -393,17 +352,17 @@ export function renderTaskPanel(root, snapshot, context) {
     backHeader(root, "剧本详情", "返回项目概要", () => go("overview"));
     const card = element("section", "", "overview-card");
     card.append(
-      element("p", `版本 ${p.剧本.版本} · ${p.剧本.更新时间}`, "meta"),
-      element("p", p.剧本.正文, "prompt full"),
+      element("p", `版本 ${p.script.version} · ${p.script.updated_at}`, "meta"),
+      element("p", p.script.body, "prompt full"),
     );
-    appendJsonCopy(card, p.剧本.正文);
+    appendJsonCopy(card, p.script.body);
     root.append(card);
   } else if (state.page === "settings") {
     const page = element("section", "", "settings-page");
     page.append(
       button("← 返回项目", () => go("overview"), false),
       element("h2", "设置"),
-      element("p", p.名称, "meta"),
+      element("p", p.name, "meta"),
     );
     const group = element("section", "", "settings-group"),
       form = element("form"),
@@ -411,7 +370,7 @@ export function renderTaskPanel(root, snapshot, context) {
       label = element("label", "模型返回语言");
     form.dataset.draftKey = "language";
     form.oninput = () => (form.dataset.dirty = "true");
-    language.name = "输出语言";
+    language.name = "output_language";
     language.setAttribute("aria-label", "模型返回语言");
     for (const [v, text] of [
       ["zh-CN", "简体中文"],
@@ -421,7 +380,7 @@ export function renderTaskPanel(root, snapshot, context) {
       o.value = v;
       language.append(o);
     }
-    language.value = p.输出语言;
+    language.value = p.output_language;
     language.disabled = busy;
     label.append(language);
     const save = element("button", "保存", "primary");
@@ -438,7 +397,7 @@ export function renderTaskPanel(root, snapshot, context) {
     );
     form.onsubmit = (event) => {
       event.preventDefault();
-      void act({ type: "edit", fields: { 输出语言: language.value } }, true)
+      void act({ type: "edit", fields: { output_language: language.value } }, true)
         .then(() => {
           form.dataset.dirty = "false";
         })
@@ -448,24 +407,24 @@ export function renderTaskPanel(root, snapshot, context) {
     page.append(group);
     const rulesGroup = element("section", "", "settings-group"),
       targets = new Map([[p.id, "项目"]]);
-    for (const c of p.角色库.角色) {
-      targets.set(c.id, c.编号);
-      for (const co of c.服装) targets.set(co.id, co.编号);
+    for (const c of p.character_library.characters) {
+      targets.set(c.id, c.number);
+      for (const co of c.costumes) targets.set(co.id, co.number);
     }
-    for (const e of p.剧集) {
-      targets.set(e.id, `第${e.序号}集`);
-      for (const s of e.镜头表.镜头)
-        targets.set(s.id, `第${e.序号}集/${s.编号}`);
+    for (const e of p.episodes) {
+      targets.set(e.id, `第${e.sequence}集`);
+      for (const s of e.shot_list.shots)
+        targets.set(s.id, `第${e.sequence}集/${s.number}`);
     }
-    const rules = p.规则.map(({ id, 节点id, ...row }) => ({
+    const rules = p.rules.map(({ id, node_id, ...row }) => ({
       ...row,
-      节点编号: 节点id ? targets.get(节点id) : "",
+      node_number: node_id ? targets.get(node_id) : "",
     }));
     rulesGroup.append(
       element("h3", "规则"),
       button("编辑规则", () =>
-        editor(root, "规则列表", { 规则: rules }, ({ 规则 }) =>
-          act({ type: "edit", fields: { 规则 } }, true),
+        editor(root, "规则列表", { rules: rules }, ({ rules }) =>
+          act({ type: "edit", fields: { rules } }, true),
         ),
       ),
     );

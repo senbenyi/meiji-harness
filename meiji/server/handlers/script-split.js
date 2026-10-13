@@ -46,13 +46,13 @@ export function buildSplit(text, raw) {
       invalid(`第${row.序号}集.预估时长秒`, "需为正整数");
     next = end + 1;
     return {
-      序号: row.序号,
-      时长秒: row.预估时长秒,
-      剧情: paragraphs.slice(start, end + 1).join(""),
+      sequence: row.序号,
+      duration_seconds: row.预估时长秒,
+      plot: paragraphs.slice(start, end + 1).join(""),
     };
   });
   if (next !== paragraphs.length) invalid("拆分剧集", "最后一集未到剧本结尾");
-  if (episodes.map((e) => e.剧情).join("") !== String(text))
+  if (episodes.map((e) => e.plot).join("") !== String(text))
     invalid("拆分剧集", "拼接结果与原剧本不一致");
-  return { 剧集: episodes };
+  return { episodes };
 }

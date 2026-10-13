@@ -33,7 +33,7 @@ export async function httpFixture(work) {
         chat: async ({ step }) =>
           step.kind === "review"
             ? { 是否通过: true, 原因: "" }
-            : { 正文: "新摘要" },
+            : "新摘要",
       },
     });
     const p = projectFixture();
@@ -85,7 +85,7 @@ test("S7-01/02 同一真实 HTTP 与会话工具服务，绑定拒绝、通知�
       ),
       again = JSON.parse(
         await tool.execute(
-          { ...command, request_id: "session-duplicate" },
+          command,
           { agent: { session: { id: sid } } },
         ),
       );
@@ -125,7 +125,7 @@ test("S7 通知失败仍受理，稳定消息 ID 待投递，重连后去重再�
           chat: async ({ step }) =>
             step.kind === "review"
               ? { 是否通过: true, 原因: "" }
-              : { 正文: "摘要" },
+              : "摘要",
         },
       });
       await r.repository.create(p);
@@ -176,4 +176,15 @@ test("S7-04 旧端点不再存在，鉴权与同源写入检查保留", () =>
       ).status,
       403,
     );
+  }));
+
+test("面板可加载英文共享契约及嵌套Model模块，拒绝越界模块路径", () =>
+  httpFixture(async ({ base }) => {
+    for (const path of ["task_contract.js", "project_contract.js", "models/costume_image_model.js", "models/node_state_model.js"]) {
+      const response = await fetch(`${base}/plugins/meiji/shared/${path}`);
+      assert.equal(response.status, 200, path);
+      assert.match(response.headers.get("content-type"), /javascript/);
+    }
+    const response = await fetch(`${base}/plugins/meiji/shared/models/%2e%2e%2fserver.js`);
+    assert.equal(response.status, 404);
   }));

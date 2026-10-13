@@ -5,7 +5,7 @@
   "aspect_ratio": "1344x768（项目画面的宽高尺寸。）",
   "creative_direction": "（项目整体创作方向。）",
   "output_language": "zh-CN（生成内容使用的语言代码。）",
-  "reference_episode_duration_seconds": "150（本集计划参考时长，单位秒；故事大纲小段总时长与镜头表参考时长总和由程序按该参考值 ±30 秒校验。）",
+  "reference_episode_duration_seconds": "150（拆分剧集使用的参考单集时长，单位秒；各集大纲和镜头表审核读取该集 duration_seconds。）",
   "rules": [
     {
       "id": "r_uuid（当前对象的唯一标识。）",
@@ -107,7 +107,7 @@
       "id": "e_uuid（当前对象的唯一标识。）",
       "sequence": "1（剧集、故事段落或镜头在列表中的顺序号。；数值）",
       "duration_seconds": "150（本集计划参考时长，单位秒。）",
-      "actual_duration_seconds": "0（最终视频实测时长总和，单位秒；由本集各镜头 actual_duration_seconds 累加，不从计划时长推算。）",
+      "actual_duration_seconds": "0（当前正式镜头视频实测时长总和，单位秒；由本集各镜头 actual_duration_seconds 累加，视频生成、导入或镜头集合变化后重算，不从参考时长推算，也不被合片实测时长覆盖。）",
       "episode_requirements": "（本集额外的制作要求。）",
       "plot": "（本集剧情正文。）",
       "cover": "（剧集封面资源。）",
@@ -128,7 +128,7 @@
         "segments": [
           {
             "sequence": "1（剧集、故事段落或镜头在列表中的顺序号。；数值）",
-            "duration_seconds": "12（该故事小段的计划时长预算，单位秒；所有小段预算合计由程序按本集参考时长 ±30 秒校验。）",
+            "duration_seconds": "12.5（该故事小段的计划时长预算，单位秒；有限正数，允许小数。所有小段预算合计由程序按本集 duration_seconds ±30 秒校验。）",
             "body": "（正文或摘要内容。）",
             "causal": "（本段与前后段落的衔接因果。）"
           }
@@ -145,7 +145,7 @@
             "id": "s_uuid（当前对象的唯一标识。）",
             "sequence": "1（剧集、故事段落或镜头在列表中的顺序号。；数值）",
             "number": "S01（角色或镜头的展示编号。）",
-            "duration_seconds": "12（该镜计划参考时长，单位秒；单镜4–15秒、全剧集镜头时长总和按项目规则由程序审核。）",
+            "duration_seconds": "12（该镜计划参考时长，整数秒；单镜4–15秒、全剧集镜头时长总和按本集 duration_seconds ±30 秒由程序审核。）",
             "actual_duration_seconds": "0（该镜最终视频实测时长，单位秒；生成视频节点测量并写入，不是提示词或分镜预算。）",
             "title": "（镜头标题。）",
             "body": "（正文或摘要内容。）",

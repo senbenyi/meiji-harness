@@ -27,9 +27,9 @@ export function mount() {
     paintVersion++;
     const snapshot = context.read();
     if (!snapshot) return catalog();
-    shell.root.querySelector(".brand").textContent = snapshot.project.名称;
+    shell.root.querySelector(".brand").textContent = snapshot.project.name;
     shell.root.querySelector(".language").textContent =
-      snapshot.project.输出语言 === "en" ? "English" : "中文";
+      snapshot.project.output_language === "en" ? "English" : "中文";
     const key = JSON.stringify([
       context.token(),
       view.page,

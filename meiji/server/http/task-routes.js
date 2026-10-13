@@ -47,7 +47,7 @@ export function createTaskHttpHandler(
                     ? "/plugins/meiji/shared/".length
                     : "/plugins/meiji/client/".length,
                 );
-        if (!/^[a-z0-9-]+\.(js|css)$/.test(name))
+        if (!(shared ? /^(?:models\/)?[a-z0-9_-]+\.js$/ : /^[a-z0-9-]+\.(js|css)$/).test(name))
           return json(res, 404, { message: "文件不存在" });
         const bytes = await readFile(
           join(shared ? sharedRoot : clientRoot, name),

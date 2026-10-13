@@ -6,7 +6,9 @@ import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
 import { createTextHandler } from "../server/handlers/text-handler.js";
-import { commitContent, aiProjection } from "../server/handlers/content.js";
+import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
+import { commitContent, aiProjection, prepareContent } from "../server/handlers/content.js";
+import { dependencyHash, stampDependencyHash } from "../shared/node-dependencies.js";
 import {
   loadTemplate,
   renderTemplate,
@@ -20,42 +22,24 @@ import { promptValues } from "../server/handlers/text-handler.js";
 const cases = [
   "project-summary",
   "project-characters",
-  "script",
   "episode-summary",
   "outline",
   "shots",
   "seconds",
   "storyboard",
 ];
-function output(p, b) {
-  const e = p.剧集[0],
-    s = e.镜头表.镜头[0];
+function output(p, business) {
+  const episode = p.episodes[0], shot = episode.shot_list.shots[0];
+  const fields = ["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"];
   return {
-    "project-summary": { 正文: "新项目摘要" },
-    "project-characters": { 角色: [] },
-    script: {
-      正文: "新剧本",
-      分节: [{ 剧集序号: 1, 正文: "新剧本" }],
-      后续剧情: "",
-    },
-    "episode-summary": { 正文: "新展示摘要" },
-    outline: {
-      小段: e.故事大纲.小段.map((part) => ({ 因果: "", ...part })),
-    },
-    shots: {
-      镜头: e.镜头表.镜头.map((s) => ({
-        编号: s.编号,
-        参考时长: s.时长秒,
-        标题: s.标题,
-        正文: s.正文,
-      })),
-    },
-    seconds: {
-      衔接上一镜方式: s.每秒分镜.衔接上一镜方式,
-      内容: aiProjection(s.每秒分镜.内容, p),
-    },
-    storyboard: { 正文: s.文本提示词.正文, 环境声: "", 配乐: "" },
-  }[b];
+    "project-summary": "新项目摘要",
+    "project-characters": { characters: [] },
+    "episode-summary": "新展示摘要",
+    outline: { segments: episode.story_outline.segments },
+    shots: { shots: episode.shot_list.shots.map(item => Object.fromEntries(fields.map(key => [key, item[key]]))) },
+    seconds: { storyboard: shot.seconds_storyboard.storyboard },
+    storyboard: "integrated_multimodal_description\nA man walks.\noverall_soundscape\nFootsteps.\nnon_diegetic_music\nNone.",
+  }[business];
 }
 for (const business of cases)
   for (const ending of ["completed", "rejected", "failed"])
@@ -65,13 +49,13 @@ for (const business of cases)
         const p = projectFixture(),
           repository = new ModelRepository(root),
           model = await repository.create(p),
-          target = ["project-summary", "project-characters", "script"].includes(
+          target = ["project-summary", "project-characters"].includes(
             business,
           )
             ? p.id
             : ["seconds", "storyboard"].includes(business)
-              ? p.剧集[0].镜头表.镜头[0].id
-              : p.剧集[0].id;
+              ? p.episodes[0].shot_list.shots[0].id
+              : p.episodes[0].id;
         let generated = 0;
         const handler = createTextHandler({
           chat: async ({ task, step }) => {
@@ -87,7 +71,7 @@ for (const business of cases)
         });
         const service = new TaskService({
           repository,
-          execute: handler,
+          execute: createHandlerRegistry({ text: handler, media: () => { throw Error("unexpected media"); } }),
           commitOutput: commitContent,
         });
         const action =
@@ -108,17 +92,11 @@ for (const business of cases)
         if (ending === "rejected")
           assert.deepEqual(
             snapshot.steps
-              .filter((s) => s.task_id === task.id && s.kind === "review")
+              .filter((s) => s.task_id === task.id && s.kind === "review" && s.step_status === "rejected")
               .map((s) => s.round),
             [0, 1, 2],
           );
-        if (business === "script" && ending === "completed") {
-          assert.equal(snapshot.project.剧本.版本, 2);
-          assert.equal(snapshot.project.剧集[0].故事大纲.状态, "generated");
-          assert.ok(
-            snapshot.tasks.some((t) => t.business_type === "project-summary"),
-          );
-        }
+
       } finally {
         await rm(root, { recursive: true, force: true });
       }
@@ -127,13 +105,13 @@ test("S5-01 所有文本模板占位符均从真实项目资料构建，不暴�
   const snapshot = snapshotFixture(),
     p = snapshot.project;
   for (const business of cases) {
-    const target = ["project-summary", "project-characters", "script"].includes(
+    const target = ["project-summary", "project-characters"].includes(
         business,
       )
         ? p.id
         : ["seconds", "storyboard"].includes(business)
-          ? p.剧集[0].镜头表.镜头[0].id
-          : p.剧集[0].id,
+          ? p.episodes[0].shot_list.shots[0].id
+          : p.episodes[0].id,
       t = taskFixture(p, business, target);
     for (const suffix of ["generate", "regenerate", "review"]) {
       const template = await loadTemplate(`${business}-${suffix}`),
@@ -150,4 +128,162 @@ test("S5-01 所有文本模板占位符均从真实项目资料构建，不暴�
       assert.ok(!prompt.user.includes(p.id));
     }
   }
+});
+
+test("项目摘要拒绝保存最后正文和原因，修订收到原稿且不改依赖 hash", async () => {
+  const root = await mkdtemp(join(tmpdir(), "meiji-summary-rejection-"));
+  const project = projectFixture();
+  const oldHash = "b".repeat(64);
+  project.project_summary.node_state.dependency_hash = oldHash;
+  const repository = new ModelRepository(root), model = await repository.create(project), prompts = [];
+  let round = 0;
+  const text = createTextHandler({ chat: async ({ step, prompt }) => {
+    if (step.kind === "review") return { 是否通过: false, 原因: "遗漏明确结局" };
+    prompts.push(prompt);
+    return `本轮摘要${++round}`;
+  } });
+  const service = new TaskService({ repository, execute: createHandlerRegistry({ text }), commitOutput: commitContent });
+  try {
+    const result = await service.command({ type: "submit", project_id: project.id, request_id: "summary-reject", business_type: "project-summary", target_id: project.id, action: "regenerate" });
+    await service.idle(project.id);
+    const snapshot = model.read(), task = snapshot.tasks.find(item => item.id === result.task_id);
+    assert.equal(task.task_status, "rejected");
+    assert.equal(snapshot.project.project_summary.body, "本轮摘要3");
+    assert.equal(snapshot.project.project_summary.node_state.reason, "遗漏明确结局");
+    assert.equal(snapshot.project.project_summary.node_state.dependency_hash, oldHash);
+    assert.match(prompts[1], /本轮摘要1/);
+    assert.match(prompts[1], /遗漏明确结局/);
+    assert.match(prompts[2], /本轮摘要2/);
+    assert.equal(snapshot.tasks.length, 1);
+  } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test("人物审核只接收本次增量，拒绝保存角色但不派生图片或更新 hash", async () => {
+  const root = await mkdtemp(join(tmpdir(), "meiji-character-rejection-"));
+  const project = projectFixture(), oldHash = "c".repeat(64);
+  project.character_library.node_state.dependency_hash = oldHash;
+  const repository = new ModelRepository(root), model = await repository.create(project), prompts = [];
+  const row = { name: "新人物", position: "主角", age_range: "约三十岁", body_type: "高大", hairstyle: "束发", signature_props: "", immutable_traits: "", costumes: [] };
+  const text = createTextHandler({ chat: async ({ step, prompt }) => {
+    prompts.push({ kind: step.kind, prompt });
+    return step.kind === "review" ? { 是否通过: false, 原因: "人物来源有误" } : { characters: [row] };
+  } });
+  const service = new TaskService({ repository, execute: createHandlerRegistry({ text }), commitOutput: commitContent });
+  try {
+    const result = await service.command({ type: "submit", project_id: project.id, request_id: "characters-reject", business_type: "project-characters", target_id: project.id, action: "generate" });
+    await service.idle(project.id);
+    const snapshot = model.read(), node = snapshot.project.character_library;
+    assert.equal(snapshot.tasks.find(item => item.id === result.task_id).task_status, "rejected");
+    assert.equal(node.node_state.dependency_hash, oldHash);
+    assert.equal(node.characters[0].name, "新人物");
+    assert.equal(node.characters[0].age_range, "约三十岁");
+    assert.deepEqual(node.characters[0].costumes, []);
+    assert.equal(node.characters[0].costume_images[0].costume_id, "");
+    assert.equal(snapshot.tasks.length, 1);
+    for (const { prompt } of prompts.filter(item => item.kind === "review")) {
+      assert.match(prompt, /新人物/);
+      assert.doesNotMatch(prompt, /new_ids|node_state|c_[0-9a-f-]{36}/);
+    }
+    assert.match(prompts.find(item => item.kind === "revise").prompt, /人物来源有误/);
+    assert.match(prompts.find(item => item.kind === "revise").prompt, /新人物/);
+  } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+for (const change of ["character", "costume"])
+  for (const action of ["regenerate", "override"])
+    test(`S5-角色拒绝候选经 ${action} 通过后按生成时依赖使 ${change} 图片过期`, () => {
+      const snapshot = snapshotFixture(), project = snapshot.project;
+      const task = taskFixture(project, "project-characters", project.id, { action: "generate" });
+      const row = name => ({ name, position: "主角", age_range: "三十岁", body_type: "高大", hairstyle: "束发", signature_props: "", immutable_traits: "", costumes: [{ name: "长袍", color: "蓝色", material: "布", props: "" }] });
+      commitContent(snapshot, task, prepareContent(snapshot, task, { characters: [row("甲"), row("乙")] }));
+      for (const character of project.character_library.characters) {
+        character.character_image.address = `${character.name}.png`;
+        character.character_image.node_state.status = "generated";
+        stampDependencyHash(snapshot, "character-image", character.id);
+        character.costume_images[0].address = `${character.name}-衣服.png`;
+        character.costume_images[0].node_state.status = "generated";
+        stampDependencyHash(snapshot, "costume-image", character.costumes[0].id);
+      }
+      const changed = row("甲");
+      if (change === "character") changed.position = "反派";
+      else changed.costumes[0].color = "红色";
+      const content = prepareContent(snapshot, task, { characters: [changed] });
+      commitContent(snapshot, task, content, { passed: false });
+      const [first, second] = project.character_library.characters;
+      const imageHash = first.character_image.node_state.dependency_hash;
+      const costumeHash = first.costume_images[0].node_state.dependency_hash;
+      assert.equal(first.character_image.node_state.status, "generated");
+      assert.equal(first.costume_images[0].node_state.status, "generated");
+      assert.notEqual(costumeHash, dependencyHash(snapshot, "costume-image", first.costumes[0].id));
+      commitContent(snapshot, { ...task, action }, content);
+      const [accepted, untouched] = project.character_library.characters;
+      assert.equal(accepted.character_image.node_state.dependency_hash, imageHash);
+      assert.equal(accepted.character_image.node_state.status, change === "character" ? "expired" : "generated");
+      assert.equal(accepted.costume_images[0].node_state.status, "expired");
+      assert.equal(accepted.costume_images[0].node_state.dependency_hash, costumeHash);
+      assert.equal(untouched.id, second.id);
+      assert.equal(untouched.character_image.node_state.status, "generated");
+      assert.equal(untouched.costume_images[0].node_state.status, "generated");
+    });
+
+test("项目人物组按角色和服装顺序派生五张图片，空增量重新生成仍覆盖全部角色", async () => {
+  const root = await mkdtemp(join(tmpdir(), "meiji-character-group-"));
+  const repository = new ModelRepository(root), project = projectFixture(), model = await repository.create(project);
+  const person = (name, costumes) => ({ name, position: "主角", age_range: "成年", body_type: "健壮", hairstyle: "短发", signature_props: "", immutable_traits: "", costumes });
+  const characters = [
+    person("甲", [{ name: "常服", color: "蓝色", material: "棉", props: "" }, { name: "礼服", color: "红色", material: "丝绸", props: "" }]),
+    person("乙", []),
+  ];
+  let extractionCalls = 0;
+  const imageCalls = [];
+  const text = createTextHandler({ chat: async ({ step }) => {
+    if (step.kind === "review") return { 是否通过: true, 原因: "" };
+    return { characters: extractionCalls++ === 0 ? characters : [] };
+  } });
+  const service = new TaskService({ repository, commitOutput: commitContent, execute: createHandlerRegistry({
+    text,
+    media: async ({ snapshot, task }) => {
+      imageCalls.push({ group_id: task.group_id, business_type: task.business_type, target_id: task.target_id });
+      if (task.business_type === "costume-image") {
+        const character = snapshot.project.character_library.characters.find(item => item.id === task.target_id || item.costumes.some(costume => costume.id === task.target_id));
+        assert.equal(character.character_image.node_state.status, "generated");
+        assert.ok(character.character_image.address);
+      }
+      return { content: { address: `${task.id}.png` } };
+    },
+  }) });
+  try {
+    let originalIds;
+    for (const action of ["generate", "regenerate"]) {
+      const result = await service.command({ type: "submit", project_id: project.id, request_id: `characters-${action}`, business_type: "project-characters", target_id: project.id, action });
+      await service.idle(project.id);
+      const snapshot = model.read(), [first, second] = snapshot.project.character_library.characters;
+      const groupId = snapshot.tasks.find(task => task.id === result.task_id).group_id;
+      const expected = [
+        ["project-characters", project.id],
+        ["character-image", first.id],
+        ["costume-image", first.costumes[0].id],
+        ["costume-image", first.costumes[1].id],
+        ["character-image", second.id],
+        ["costume-image", second.id],
+      ];
+      const tasks = snapshot.tasks.filter(task => task.group_id === groupId).sort((a, b) => a.group_seq - b.group_seq);
+      assert.equal(tasks.length, 6);
+      assert.deepEqual(tasks.map(task => task.group_seq), [1, 2, 3, 4, 5, 6]);
+      assert.deepEqual(tasks.map(task => [task.business_type, task.target_id]), expected);
+      assert.ok(tasks.every(task => task.task_status === "completed"), tasks.map(task => task.end_reason).join("\n"));
+      assert.ok(tasks.every(task => task.action === action));
+      assert.deepEqual(imageCalls.filter(call => call.group_id === groupId).map(call => [call.business_type, call.target_id]), expected.slice(1));
+      assert.deepEqual(second.costumes, []);
+      assert.equal(second.costume_images.length, 1);
+      assert.equal(second.costume_images[0].costume_id, "");
+      assert.equal(second.costume_images[0].node_state.status, "generated");
+      assert.ok(second.costume_images[0].address);
+      const ids = expected.slice(1).map(([, id]) => id);
+      if (originalIds) assert.deepEqual(ids, originalIds);
+      else originalIds = ids;
+    }
+    assert.equal(extractionCalls, 2);
+    assert.equal(imageCalls.length, 10);
+  } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
 });

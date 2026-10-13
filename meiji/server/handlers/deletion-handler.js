@@ -4,33 +4,35 @@ export function applyDelete(snapshot, task) {
   const p = snapshot.project,
     { object, character } = locateTarget(p, task.business_type, task.target_id);
   if (task.business_type === "character-delete")
-    p.角色库.角色 = p.角色库.角色.filter((c) => c.id !== object.id);
+    p.character_library.characters = p.character_library.characters.filter((c) => c.id !== object.id);
   else {
-    for (const e of p.剧集)
-      for (const s of e.镜头表.镜头)
-        for (const r of s.出镜角色)
-          if (r.服装id === object.id) {
-            r.服装id = character.默认服装id;
+    for (const e of p.episodes)
+      for (const s of e.shot_list.shots)
+        for (const r of s.on_screen_characters)
+          if (r.costume_id === object.id) {
+            r.costume_id = character.default_costume_id;
             const node = nodeOf(p, "video", s.id);
-            if (node.状态 === "generated") {
-              node.状态 = "expired";
-              node.原因 = "引用服装已删除";
+            if (node.node_state.status === "generated") {
+              node.node_state.status = "expired";
+              node.node_state.reason = "引用服装已删除";
             }
-            if (node.状态 === "queued") {
+            if (node.node_state.status === "queued") {
               const t = snapshot.tasks.find(
                 (t) =>
                   t.target_id === s.id &&
                   t.business_type === "video" &&
                   t.task_status === "queued",
               );
-              if (t?.previous_node_state.状态 === "generated")
+              if (t?.previous_node_state.status === "generated")
                 t.previous_node_state = {
-                  状态: "expired",
-                  原因: "引用服装已删除",
+                  status: "expired",
+                  reason: "引用服装已删除",
                 };
             }
             expireDownstream(snapshot, "video", s.id, "引用服装已删除");
           }
-    character.服装 = character.服装.filter((co) => co.id !== object.id);
+    character.costumes = character.costumes.filter((co) => co.id !== object.id);
+    character.costume_images = character.costume_images.filter(image => image.costume_id !== object.id);
   }
+  expireDownstream(snapshot, "project-characters", p.id, "角色或服装资料已删除");
 }

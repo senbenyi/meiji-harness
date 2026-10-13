@@ -46,7 +46,7 @@ test("任务组、任务和步骤固定字段模型均为英文 snake_case", () 
   const group = createTaskGroupModel();
   const task = createTaskModel();
   const step = createStepModel();
-  assert.deepEqual(Object.keys(group), ["id", "project_id", "episode_id", "name", "group_type", "action", "source", "shot_ids", "created_at", "continued_from_group_id", "opinion"]);
+  assert.deepEqual(Object.keys(group), ["id", "project_id", "episode_id", "name", "group_type", "action", "source", "shot_ids", "created_at"]);
   assert.deepEqual(Object.keys(task), ["id", "project_id", "episode_id", "business_type", "target_id", "action", "group_id", "group_seq", "task_status", "source", "name", "queue_order", "end_reason", "created_at", "started_at", "ended_at", "opinion", "previous_node_state"]);
   assert.deepEqual(Object.keys(step), ["id", "task_id", "name", "seq", "kind", "round", "step_status", "error_reason", "prompt", "result", "started_at", "ended_at"]);
 });

@@ -1,6 +1,8 @@
 # meiji 开发指引
 
-Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGENTS.md)。每次修改 `meiji/` 代码前，必须先完整阅读 [制作工作流](../meiji/dev_docs/制作工作流.md)，并以它作为当前业务规格入口；未读完不得开始改代码。修改配置、skill 或测试也遵循同一要求。普通咨询和只读调研不要求通读。本次完整重构的依据和证据见 [计划](../docs/plans/1010-计划-分阶段开发总纲.md) 与 [实施记录](../docs/implement/1010-实施-分阶段开发总纲.md)。历史计划和实施记录仅用于追溯。
+Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGENTS.md)。每次修改 `meiji/` 代码前，必须先完整阅读 [制作工作流](../meiji/dev_docs/制作工作流.md)，并以它作为当前业务规格入口；未读完不得开始改代码。修改配置、skill 或测试也遵循同一要求。普通咨询和只读调研不要求通读。项目级节点对齐的依据和证据见 [计划](../docs/plans/1013-计划-项目级节点对齐.md) 与 [实施记录](../docs/implement/1013-实施-项目级节点对齐.md)；剧集级见 [计划](../docs/plans/1013-计划-剧集级节点对齐.md) 与 [实施记录](../docs/implement/1013-实施-剧集级节点对齐.md)。历史计划和实施记录仅用于追溯。
+
+镜头级下一阶段见[节点对齐开发计划](../docs/plans/1013-计划-镜头级节点对齐.md)，包含独立角色与服装识别、视频类型编排及尾帧并入视频任务；当前仅完成设计，正式结构、Model 与执行链须在实施阶段同步。
 
 ## 项目配置
 
@@ -8,7 +10,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - `meiji/docs/`、`meiji/reports/`、`meiji/dev_docs/` 和其他纯文档修改按文档流程处理，不要求开发计划。
 - 不修改上游 Harness 源码。数据根为 `$DSH_HOME/storages/meiji/`，未设置 DSH_HOME 时为 `~/.dsh/storages/meiji/`。
 - 同一个 DSH_HOME 只运行一个写入服务实例。项目级事务与制作任务串行；不同项目可独立运行。
-- GitNexus 仓库名为 `llm-dsh-plugins`，索引放在 `$HOME/.gitnexus/indexes`。根目录执行 `node ../../.gitnexus/indexes/llm-dsh-plugins-995853d2d454/run.cjs status`；更新执行同一 runner 的 `analyze --index-only`。索引符号身份异常时使用 `--force` 全量重建。MCP 可用时优先使用，UNKNOWN 必须补查实际源码与动态注册。
+- GitNexus 仓库名为 `llm-dsh-plugins`，索引放在 `$HOME/.gitnexus/indexes`。根目录执行 `node ../../../.gitnexus/indexes/llm-dsh-plugins-033e0c85dfd2/run.cjs status`；更新执行同一 runner 的 `analyze --index-only`。索引符号身份异常时使用 `--force` 全量重建。MCP 可用时优先使用，UNKNOWN 必须补查实际源码与动态注册。
 - 根 `CLAUDE.md`、`.claude/AGENTS.md`、`.cursor/AGENTS.md` 引用通用规范；`.claude/meiji-dev.md`、`.cursor/meiji-dev.md` 链接本文。`.claude/guard.mjs` 的计划检查不拦截 `meiji/dev_docs/`、`meiji/docs/`、`meiji/reports/`，也不适用于普通咨询、只读调研和纯文档修改。
 
 ## 模块与唯一执行链
@@ -19,8 +21,8 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 | 路径（相对 meiji） | 职责 |
 | --- | --- |
-| `shared/task-contract.js`、`project-contract.js` | ID、命令、节点、task/step/group、项目契约和定位 |
-| `shared/collection-identity.js` | 按编号合并角色/服装、替换镜头并保留已有 ID，核对删除引用 |
+| `shared/task_contract.js`、`project_contract.js` | ID、命令、节点、task/step/group、项目契约和定位 |
+| `shared/collection-identity.js` | 按姓名合并角色、按服装名称合并服装，按编号替换镜头并保留已有 ID，核对删除引用 |
 | `shared/node-state.js`、`node-dependencies.js` | 显式节点状态、有效输出校验、保留正文的过期传播 |
 | `shared/task-plan.js` | 固定步骤；不自动安排上游任务 |
 | `server/model/project-model.js` | 深拷贝读取与唯一事务提交入口 |
@@ -44,7 +46,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 唯一数据库为 `$DSH_HOME/storages/meiji/meiji.sqlite`，使用 Node 内置 `node:sqlite`（^22.19.0 或 >=24）。`schema.sql` 定义 projects、task_groups、tasks、task_steps、command_requests、notification_outbox、schema_migrations 七表；任务必须归组，步骤必须归任务，顺序唯一且同项目最多一个 running 任务。`sqlite-store.js` 使用 WAL/foreign_keys/FULL、短同步事务及 revision 条件校验，变化记录增量写入；不在持锁期间调用模型或等待异步工作。ProjectModel 的写接口只允许 repository 提供的事务闭包，项目内容/任务/步骤/幂等/通知一起提交，事件发生在持久化后。卸载时等待任务和通知结束，再关闭连接。
 
-`projects/<p_UUID>/` 仅作为宿主工作区目录。项目 Model 存在 SQLite 的 `projects.data_json`；字段变更通过明确的 schema migration 同步删除字段与配置引用，不重建项目或改写已结束任务历史。首次启动自动创建数据库；发现未清理的 CURRENT 分代数据时明确拒绝启用。独立素材库和模型配置保留。
+`projects/<p_UUID>/` 仅作为宿主工作区目录。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 的固定英文字段和 `node_state.{status,reason,dependency_hash}`；字段或数据语义变更通过明确版本迁移执行，不重建项目或改写已结束任务历史。当前 schema 为 v5；支持的 v1–v4 升级前用 SQLite 快照备份。v3→v4 转换英文项目、节点快照、任务组列和步骤 rejected 枚举；v4→v5 不增表或字段，重算剧集实测时长，并将与新依赖规则不符的旧 generated 节点及下游标 expired，保留正文/媒体/原成功 hash，同步未结束排队任务的恢复快照。所有过渡在同一事务内，失败整体回滚，不改历史 prompt/result。首次启动自动创建数据库；发现未清理的 CURRENT 分代数据时明确拒绝启用。独立素材库和模型配置保留。
 
 项目、剧集、角色、服装、镜头、规则、任务、组和步骤使用创建时生成的带前缀 UUID。AI 输入输出及资料界面使用编号，引用转换由程序核对唯一性和归属。重生成保留同一对象 ID，不按列表位置重建身份、不无声删除引用对象。独立素材继续使用原 `assets/<category>/<UUID>/metadata.json` 和 `original.<ext>` 文件格式；场景、道具及指导素材入口退出，但磁盘数据不会在启动时被删除。
 
@@ -54,26 +56,28 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 - 8 种节点状态为 empty、queued、running、generated、rejected、failed、cancelled、expired，原因和状态一同提交；剧本没有节点状态。
 - 入队保存原状态/原因；排队取消或作废恢复快照。上游变化同步更新排队快照中的 generated→expired。正文和媒体地址保留。
-- 仅 generated 且结构有效的节点可作为前置。执行时重读当前 Model；不足记录 failed/precheck，不调用 AI，不自动补上游。
+- 仅 generated、结构有效且保存 hash 与当前依赖相符的节点可作为前置；空 hash 不视为有效。执行时重读当前 Model；不足记录 failed/precheck，不调用 AI，不自动补上游。
 - 剧本是制作工作流的输入资料；工作流包含提取剧集，不包含剧本生成或修改。
 - 单任务针对一个节点操作；文本 precheck→generate→程序审核→AI 审核，节点没有的审核跳过。程序审核或 AI 审核未通过时，按该节点重试轮次 revise→再审核；修订次数用尽后才是 rejected。协议/结构/网络错误 failed，保留旧内容与历史。
-- 图片 precheck→generate，无审核。视频 precheck→generate→程序审核，尾帧在该任务内截取，不是独立任务。合片是独立媒体任务。人工编辑与 override 均为两步，不调用 AI；override 只允许结构有效的 rejected 节点。
+- 图片 precheck→generate，无审核。当前逐镜实现仍将视频和尾帧分别执行；工作流要求尾帧并入视频、视频类型编排和视频程序审核，留待镜头级对齐。合片为程序任务，输入文件在 precheck 校验，无审核或自动修订。人工编辑与 override 均为两步、不调用 AI；manual_edit 校验结构，override 只对 rejected 文本跳过 AI 审核，结构及程序时长审核仍须通过。
 - 删除任务 precheck→impact→apply。被镜头出镜/对白、规则或素材库引用的角色不能删除；默认/素材库引用服装不能删除；其他服装删除同次重绑为默认并使相关视频过期。
-- 项目内执行串行；完成后自动下一项；failed/rejected/cancelled 停止队列。面板再次生成最新任务为失败、未通过、取消或作废的同一节点时，创建新任务并保留旧终态；`generate` 自动按 `regenerate` 通过前置检查。若该重试已排队则复用；无其他未结束任务时直接启动；有其他等待/运行任务时明确冲突，不误启动其他任务。开始/移除排队项、人工操作与删除只能从面板发起。
+- 项目内执行串行；完成后自动下一项；failed/rejected/cancelled 停止队列。面板再次生成最新任务为失败、未通过、取消或作废的同一节点时，创建新任务并保留旧终态；有内容时 `generate` 按 `regenerate` 受理；首次无内容失败仍允许 `generate`。若该重试已排队则复用；无其他未结束任务时直接启动；有其他等待/运行任务时明确冲突，不误启动其他任务。开始/移除排队项、人工操作与删除只能从面板发起。
 - 服务重启把所有 queued/running 旧任务统一结算为 superseded（已作废），未完成步骤同样作废，已完成步骤与历史终态保留；排队节点恢复快照，运行节点结算 cancelled 并保留内容。重启清除 queue_stopped，旧任务不重放，新任务可直接执行；晚到结果不得覆盖作废任务。
 - 面板提交拆分剧集会直接恢复并执行该拆分（已有排队拆分复用）；存在其他未结束任务时明确拒绝，不带起其他暂停任务。面板同节点重试遵循相同直启规则；会话提交和其他普通提交仍遵循暂停队列规则。
-- 成片使用 episode-film，按镜头表顺序逐镜执行每秒分镜→文生视频提示词→（按视频类型可选）首尾帧/多模态提示词→视频；尾帧在视频任务内截取。可选 shot_id 限定单镜，镜头必须属于指定剧集，opinion 保存到组内任务。episode-seconds 保留单项及历史契约，不再有独立标签入口。组合整组受理，冲突整组拒绝；停止后后序 superseded，继续新建组并保留旧终态。跳过有效节点时也计算上游重生成将造成的下游过期。
-- 每镜视频完成后记录 FFprobe 实测的实际时长秒（保留一位小数），人工导入视频同样测量；镜头表时长秒作为参考预算不变。现有未测量的镜头暂不展示实际时长，不追溯重写已有媒体。
-- 每次独立操作创建 single 组；角色提取创建 workflow 组，派生图片/摘要按 group_seq 追加到同组。父任务已完成不因子任务失败被改写。task/group/step 创建时保存 name，后续资料改名不改历史；已有记录缺名称时只读补显；持久化任务必须有父组，运行时不创建虚拟组。
-- 任务历史以组为列表入口，组内直接排列各任务全部步骤。组状态只读聚合，部分完成加其余作废显示已作废；继续创建新组并链接原组，旧历史保留。人工/删除任务从原入口重新操作，不提供通用组继续。
-- 按项目数据结构的过期表传播。拆分剧集整表替换剧集，不把旧节点标为过期。输出语言、画幅、规则、声音、默认服装配置只影响后续步骤，不使已有资源过期。面板修改必出会使角色图片过期；角色提取写回时必出变化不使图片过期。
+- 成片使用 episode-film；当前逐镜任务为每秒分镜→分镜提示词→视频→尾帧，镜头级类型分支及尾帧并入视频仍待对齐。submit-group 的 action=generate 补齐无效节点，action=regenerate 重跑所选镜头；跳过有效节点前计算本次及已排队上游任务将造成的下游过期。可选 shot_id 限定单镜，镜头必须属于指定剧集，opinion 保存到组内任务且要求 regenerate。同集成片队列结束、本集全部视频有效时，最后完成组追加唯一合片；单镜组不代生成其他镜头，合片失败后继续只创建合片。episode-seconds 保留单项及历史契约，不再有独立标签入口。组合整组受理，冲突整组拒绝；停止后后序 superseded，继续新建组并保留旧终态。
+- 每镜视频完成后记录 FFprobe 实测的实际时长秒（保留一位小数），人工导入视频同样测量；写回视频或替换镜头集合时，剧集实际时长立即累加各镜实测值。合片文件的实测值留步骤结果，不覆盖该累计值；参考预算不变。现有未测量的镜头暂不展示实际时长，不追溯重写已有媒体。
+- 每次独立操作创建 single 组；角色提取、拆分剧集创建 workflow 组，派生图片/摘要按 group_seq 追加到同组。父任务已完成不因子任务失败被改写。task/group/step 创建时保存 name，后续资料改名不改历史；已有记录缺名称时只读补显；持久化任务必须有父组，运行时不创建虚拟组。
+- 任务历史以组为列表入口，组内直接排列各任务全部步骤。组状态只读聚合，部分完成加其余作废显示已作废；继续从停点创建新组，组不保存来源组或意见；意见仅在对应任务，旧历史保留。人工/删除任务从原入口重新操作，不提供通用组继续。
+- 按项目数据结构的过期表传播。拆分剧集整表替换剧集，不把旧节点标为过期。输出语言、画幅、规则、声音、默认服装配置只影响后续步骤，不使已有资源过期。图片依赖使用本节点实际提示资料：角色图读取人物描述和可选参考图，定妆照另依赖对应服装与角色图；未参与提示的资料不触发图片过期。
 - 每秒分镜的对白保存在 `dialogue[]` 的 `speaker_id` 和 `speaker_name`；未建卡人物/独立旁白保留原称谓和空 `speaker_id`，不自动建卡。
+
+定妆照任务有服装时 `target_id=co_id`，定位该角色 `costume_images[costume_id=co_id]`；空服装时 `target_id=c_id`，定位唯一 `costume_id: ""` 条目，不建立假服装。角色新增明确服装后，原未绑定图片及其终态历史保留，只读展示，不加入新生成组。
 
 ## 提示词与网关
 
-全部生产、审核、修订正文和输出结构来自 `dev_docs/in_puts/*.yaml`。`mark` 不进入请求，输出格式只在 system，user 的任务是模板固定正文。占位符缺失直接失败；注入资料不二次展开。规则以范围、适用业务、类别、必须/参考组织，配置变更不追溯改写历史。
+业务与输出结构以制作工作流、step_model、project_detail 和 dots 为开发依据；代码 Model/节点定义写定字段和审核配置，运行时由 `dev_docs/in_puts/*.yaml` 渲染生成、审核、修订正文。`mark` 不进入请求，输出格式只在 system，user 的任务是模板固定正文。占位符缺失直接失败；注入资料不二次展开。规则以范围、适用业务、类别、必须/参考组织，配置变更不追溯改写历史。
 
-文本返回按 JSON 解析，并按对应提示词 YAML 中声明的 JSON 输出结构校验字段与类型，然后核对时长、覆盖和编号引用；不通过结构校验的结果不会覆盖节点。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图，后续镜头使用前镜尾帧及交接资料；远端 ID 在提交后记录。
+文本按对应节点声明解析：项目/剧集摘要为纯文本，人物和切点等按 JSON 结构校验；分镜提示词保留其既定段落协议。JSON 结构不可用时 failed 并保留旧内容；可用候选的业务审核未通过时按节点轮次修订，耗尽后将最后内容及 rejected 原因存正式节点，不刷新 hash、不传播、不派生。拆分只做程序审核，拒绝候选留任务历史且不替换剧集。角色图可有或没有用户参考图；定妆照固定且唯一地引用角色图，所有生成/修订动作一致。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图，后续镜头使用前镜尾帧及交接资料；远端 ID 在提交后记录。
 
 文本协议以[下游接入接口文档](../下游接入接口文档.md)第 4 节为准：`POST /v1/chat/completions` 使用 model/messages/stream=false，不发送未声明的 response_format；JSON 输出由 YAML 提示词要求和本地校验保证，不使用网关 JSON 模式替代校验。
 

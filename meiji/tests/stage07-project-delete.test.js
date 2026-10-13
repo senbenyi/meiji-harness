@@ -13,7 +13,7 @@ async function fixture(work) {
  const dom=new JSDOM('<body></body>',{url:'http://localhost'}), saved={};
  for(const key of ['window','document','localStorage','EventSource','fetch'])saved[key]=globalThis[key];
  const sid=`session-${randomUUID()}`, s=snapshotFixture(), other=snapshotFixture(), streams=[];
- s.project.名称='待删除甲';other.project.名称='保留乙';
+ s.project.name='待删除甲';other.project.name='保留乙';
  const api={projects:[s,other],bound:s,fail:false,confirmed:true,deletes:0};let app;
  try {
   Object.assign(globalThis,{window:dom.window,document:dom.window.document,localStorage:dom.window.localStorage,EventSource:class{constructor(){streams.push(this);}close(){this.closed=true;}}});
@@ -28,7 +28,7 @@ async function fixture(work) {
     if(api.bound?.project.id===command.project_id)api.bound=null;
     return {ok:true,json:async()=>({deleted:true})};
    }
-   if(url.endsWith('/projects'))return {ok:true,json:async()=>({projects:api.projects.map(p=>({id:p.project.id,名称:p.project.名称,画幅:p.project.画幅,集数:1}))})};
+   if(url.endsWith('/projects'))return {ok:true,json:async()=>({projects:api.projects.map(p=>({id:p.project.id,name:p.project.name,aspect_ratio:p.project.aspect_ratio,集数:1}))})};
    if(url.includes('/context?')){
     const snapshot=api.bound?structuredClone(api.bound):null;
     if(api.waitContext){const wait=api.waitContext;api.waitContext=null;await wait;}

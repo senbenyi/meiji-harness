@@ -8,14 +8,16 @@ import { TaskService } from "../server/flow/tasks/task-service.js";
 import { commitContent } from "../server/handlers/content.js";
 import { projectFixture } from "./fixtures/project.js";
 import { nodeOf } from "../shared/task_contract.js";
+import { stampDependencyHash } from "../shared/node-dependencies.js";
 const group = (p) => ({
   type: "submit-group",
   project_id: p.id,
   request_id: "group",
   group_type: "episode-seconds",
-  episode_id: p.剧集[0].id,
+  action: "regenerate",
+  episode_id: p.episodes[0].id,
 });
-test("S4-04/05/06 组内停止作废后序，继续新组跳过有效节点，旧历史不变", async () => {
+test("S4-04/05/06 组内停止作废后序，继续新组从停点接续，旧历史不变", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-groups-"));
   let fail = true;
   try {
@@ -27,12 +29,11 @@ test("S4-04/05/06 组内停止作废后序，继续新组跳过有效节点，�
         commitOutput: commitContent,
         execute: async ({ snapshot, task, step }) =>
           step.kind === "review"
-            ? { result: { 通过: !fail, 原因: fail ? "审核失败" : "" } }
+            ? { result: { 是否通过: !fail, 原因: fail ? "审核失败" : "" } }
             : {
                 content: {
-                  衔接上一镜方式: "尾帧衔接",
-                  内容: structuredClone(
-                    nodeOf(snapshot.project, "seconds", task.target_id).内容,
+                  storyboard: structuredClone(
+                    nodeOf(snapshot.project, "seconds", task.target_id).storyboard,
                   ),
                 },
               },
@@ -43,7 +44,7 @@ test("S4-04/05/06 组内停止作废后序，继续新组跳过有效节点，�
     assert.equal(before.tasks[0].task_status, "rejected");
     assert.equal(before.tasks[1].task_status, "superseded");
     assert.equal(
-      before.project.剧集[0].镜头表.镜头[1].每秒分镜.状态,
+      before.project.episodes[0].shot_list.shots[1].seconds_storyboard.node_state.status,
       "generated",
     );
     fail = false;
@@ -54,11 +55,11 @@ test("S4-04/05/06 组内停止作废后序，继续新组跳过有效节点，�
       group_id: result.group_id,
     });
     assert.notEqual(next.group_id, result.group_id);
-    assert.equal(next.task_ids.length, 1);
+    assert.equal(next.task_ids.length, 2);
     const task = next.task_ids[0];
     assert.equal(
       model.read().tasks.find((t) => t.id === task).action,
-      "continue",
+      "regenerate",
     );
     // 队列失败后继续创建新组，仍须显式从面板开始。
     await service.command({
@@ -113,9 +114,14 @@ test("S4-11 继续组重做上游时，将即将过期的已生成视频/尾帧�
   let service;
   try {
     const p = projectFixture();
-    p.剧集[0].镜头表.镜头 = p.剧集[0].镜头表.镜头.slice(0, 1);
-    p.剧集[0].时长秒 = 5;
-    p.剧集[0].故事大纲.小段[0].时长秒 = 5;
+    p.episodes[0].shot_list.shots = p.episodes[0].shot_list.shots.slice(0, 1);
+    p.episodes[0].duration_seconds = 5;
+    p.episodes[0].story_outline.segments[0].duration_seconds = 5;
+    const snapshot = { project: p, tasks: [], steps: [] };
+    for (const business of ["outline", "shots"])
+      stampDependencyHash(snapshot, business, p.episodes[0].id);
+    for (const business of ["seconds", "storyboard", "video", "tail"])
+      stampDependencyHash(snapshot, business, p.episodes[0].shot_list.shots[0].id);
     const repository = new ModelRepository(root),
       model = await repository.create(p);
     service = new TaskService({
@@ -130,11 +136,13 @@ test("S4-11 继续组重做上游时，将即将过期的已生成视频/尾帧�
       project_id: p.id,
       request_id: "first",
       group_type: "episode-film",
-      episode_id: p.剧集[0].id,
+      action: "regenerate",
+      episode_id: p.episodes[0].id,
     });
     await service.idle(p.id);
+    assert.equal(model.read().tasks[0].end_reason, "模拟上游失败");
     assert.equal(
-      model.read().project.剧集[0].镜头表.镜头[0].视频.状态,
+      model.read().project.episodes[0].shot_list.shots[0].video.node_state.status,
       "generated",
     );
     const next = await service.command({
@@ -154,4 +162,26 @@ test("S4-11 继续组重做上游时，将即将过期的已生成视频/尾帧�
     await service?.dispose();
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("继续只给停点任务带拒绝原因，组不保存意见或来源组", async () => {
+  const root = await mkdtemp(join(tmpdir(), "meiji-continue-reason-"));
+  let service;
+  try {
+    const repository = new ModelRepository(root), p = projectFixture(), model = await repository.create(p);
+    service = new TaskService({ repository, commitOutput: commitContent, execute: async ({ snapshot, task, step }) =>
+      step.kind === "review" ? { result: { 是否通过: false, 原因: "停点审核拒绝" } }
+        : { content: { storyboard: structuredClone(nodeOf(snapshot.project, "seconds", task.target_id).storyboard) } } });
+    const first = await service.command({ ...group(p), opinion: "旧组意见" });
+    await service.idle(p.id);
+    const before = model.read();
+    const continued = await service.command({ type: "continue-group", project_id: p.id, request_id: "resume", group_id: first.group_id });
+    const current = model.read(), tasks = current.tasks.filter(t => t.group_id === continued.group_id), nextGroup = current.groups.find(g => g.id === continued.group_id);
+    assert.equal(tasks[0].opinion, "停点审核拒绝");
+    assert.equal(tasks[1].opinion, "");
+    assert.deepEqual(tasks.map(t => t.group_seq), [1,2]);
+    assert.equal("opinion" in nextGroup, false);
+    assert.equal("continued_from_group_id" in nextGroup, false);
+    assert.deepEqual(current.tasks.slice(0,2), before.tasks);
+  } finally { await service?.dispose(); await rm(root, { recursive: true, force: true }); }
 });

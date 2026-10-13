@@ -28,6 +28,7 @@ export const STEP_STATUS = Object.freeze([
   "ready",
   "running",
   "done",
+  "rejected",
   "failed",
   "skipped",
   "cancelled",
@@ -117,48 +118,55 @@ export function assertFields(value, keys, path) {
     if (!Object.hasOwn(value, k)) invalid(`${path}.${k}`, "缺少字段");
   return value;
 }
-export function validateNode(node, path, checkHash = true) {
-  assertRecord(node, path);
-  assertEnum(node.状态, NODE_STATUS, `${path}.状态`);
-  assertText(node.原因, `${path}.原因`);
+export function validateNode(state, path, checkHash = true) {
+  assertRecord(state, path);
+  assertEnum(state.status, NODE_STATUS, `${path}.status`);
+  assertText(state.reason, `${path}.reason`);
   if (checkHash) {
-    assertText(node.依赖hash, `${path}.依赖hash`);
-    if (node.依赖hash && !/^[a-f0-9]{64}$/.test(node.依赖hash))
-      invalid(`${path}.依赖hash`, "需为空或依赖指纹");
+    assertText(state.dependency_hash, `${path}.dependency_hash`);
+    if (state.dependency_hash && !/^[a-f0-9]{64}$/.test(state.dependency_hash))
+      invalid(`${path}.dependency_hash`, "需为空或依赖指纹");
   }
-  const needs = ["rejected", "failed", "cancelled", "expired"].includes(
-    node.状态,
-  );
-  if (needs !== Boolean(node.原因.trim()))
-    invalid(`${path}.原因`, needs ? "当前状态必须有原因" : "当前状态原因为空");
-  return node;
+  const needs = ["rejected", "failed", "cancelled", "expired"].includes(state.status);
+  if (needs !== Boolean(state.reason.trim()))
+    invalid(`${path}.reason`, needs ? "当前状态必须有原因" : "当前状态原因为空");
+  return state;
 }
 export function locateTarget(project, business, targetId) {
   const kind = BUSINESS_TARGET[business];
   if (!kind) invalid("business_type", "未知任务业务");
   if (kind === "project" && project.id === targetId)
     return { kind, object: project, episode: null };
-  if (kind === "character" || kind === "costume")
-    for (const c of project.角色库.角色) {
-      if (kind === "character" && c.id === targetId)
-        return { kind, object: c, episode: null };
-      for (const co of c.服装)
-        if (kind === "costume" && co.id === targetId)
-          return { kind, object: co, character: c, episode: null };
+  if (kind === "character" || kind === "costume") {
+    for (const character of project.character_library.characters) {
+      if (kind === "character" && character.id === targetId)
+        return { kind, object: character, character, episode: null };
+      // 空服装限制属于新任务前置；旧未绑定定妆照在增加服装后仍可查询。
+      if (business === "costume-image" && character.id === targetId)
+        return { kind, object: null, character, episode: null };
+      const costume = character.costumes.find(item => item.id === targetId);
+      if (kind === "costume" && costume)
+        return { kind, object: costume, character, episode: null };
     }
-  for (const e of project.剧集) {
-    if (kind === "episode" && e.id === targetId)
-      return { kind, object: e, episode: e };
-    for (const s of e.镜头表.镜头)
-      if (kind === "shot" && s.id === targetId)
-        return { kind, object: s, episode: e };
+  }
+  for (const episode of project.episodes) {
+    if (kind === "episode" && episode.id === targetId)
+      return { kind, object: episode, episode };
+    const shot = episode.shot_list.shots.find(item => item.id === targetId);
+    if (kind === "shot" && shot) return { kind, object: shot, episode };
   }
   invalid("target_id", "目标不存在或与业务归属不符");
 }
 export function nodeOf(project, business, targetId) {
   const definition = NODE_DEFINITIONS[business];
   if (!definition) return null;
-  return locateTarget(project, business, targetId).object[definition.field];
+  const target = locateTarget(project, business, targetId);
+  if (business === "costume-image") {
+    const node = target.character.costume_images.find(image => image.costume_id === (target.object?.id || ""));
+    if (!node) invalid("target_id", "定妆照节点不存在");
+    return node;
+  }
+  return target.object[definition.field];
 }
 const taskFields = [
   "id",
@@ -184,18 +192,18 @@ export function validateTask(t, p) {
   if (Object.hasOwn(t, "name")) { assertText(t.name, "task.name"); if (!t.name.trim()) invalid("task.name", "不可为空"); }
   for (const k of ["id", "project_id", "target_id"])
     assertId(t[k], `task.${k}`);
-  const removedBusiness = t.business_type === "episode-characters";
+  const removedBusiness = ["episode-characters", "script"].includes(t.business_type);
   if (removedBusiness && !TERMINAL_TASKS.includes(t.task_status))
     invalid("task.business_type", "已移除的任务只能保留为历史终态");
   assertEnum(t.business_type, [
     ...Object.keys(BUSINESS_TARGET),
-    ...(removedBusiness ? ["episode-characters"] : []),
+    ...(removedBusiness ? [t.business_type] : []),
   ], "task.business_type");
   if (t.episode_id !== null) assertId(t.episode_id, "task.episode_id");
-  if (NODE_TYPES.includes(t.business_type) || removedBusiness) {
+  if (NODE_TYPES.includes(t.business_type) || t.business_type === "episode-characters") {
     assertFields(
       t.previous_node_state,
-      ["状态", "原因"],
+      ["status", "reason"],
       "task.previous_node_state",
     );
     validateNode(t.previous_node_state, "task.previous_node_state", false);
@@ -228,6 +236,7 @@ export function validateTask(t, p) {
     invalid("task.end_reason", "当前状态原因为空");
   if (p) {
     if (p.id !== t.project_id) invalid("task.project_id", "跨项目");
+    if (TERMINAL_TASKS.includes(t.task_status)) return t;
     const target = locateTarget(p, t.business_type, t.target_id);
     if ((target.episode?.id ?? null) !== t.episode_id)
       invalid("task.episode_id", "剧集归属不符");
@@ -279,8 +288,8 @@ export function validateStep(s, t) {
   if (s.round > 2) invalid("step.round", "最多两轮");
   assertEnum(s.step_status, STEP_STATUS, "step.step_status");
   assertText(s.error_reason, "step.error_reason");
-  if (s.step_status === "failed" && !s.error_reason.trim())
-    invalid("step.error_reason", "失败需原因");
+  if (["failed", "rejected"].includes(s.step_status) && !s.error_reason.trim())
+    invalid("step.error_reason", "失败或未通过需原因");
   timestamps(s, "step");
   return s;
 }
@@ -316,7 +325,7 @@ export function validateCommand(command) {
     "type",
     "project_id",
     ...commandFields[command.type],
-    ...(command.type === "submit-group" ? ["shot_id", "opinion"] : []),
+    ...(command.type === "submit-group" ? ["shot_id", "opinion", "action"] : []),
     ...(command.type === "query" ? [] : ["request_id"]),
   ];
   for (const key of Object.keys(command))
@@ -363,9 +372,12 @@ export function validateCommand(command) {
       "command.group_type",
     );
   if (command.type === "submit-group") {
+    assertEnum(command.action ?? "generate", ["generate", "regenerate"], "command.action");
     if (command.shot_id && command.group_type !== "episode-film")
       invalid("command.shot_id", "单镜范围仅支持成片组合");
     if (command.opinion !== undefined) assertText(command.opinion, "command.opinion");
+    if ((command.action ?? "generate") === "generate" && command.opinion?.trim())
+      invalid("command.opinion", "修改意见需使用重新生成");
   }
   if (
     command.type === "delete" &&
@@ -385,11 +397,11 @@ export function validateCommand(command) {
   return command;
 }
 const references = {
-  角色编号: { field: "角色id", kind: "character" },
-  服装编号: { field: "服装id", kind: "costume" },
-  说话人编号: { field: "说话人id", kind: "character" },
-  默认服装编号: { field: "默认服装id", kind: "costume" },
-  镜头编号: { field: "镜头id", kind: "shot" },
+  角色编号: { field: "character_id", kind: "character" },
+  服装编号: { field: "costume_id", kind: "costume" },
+  说话人编号: { field: "speaker_id", kind: "character" },
+  默认服装编号: { field: "default_costume_id", kind: "costume" },
+  镜头编号: { field: "shot_id", kind: "shot" },
 };
 function catalogs(project, episodeId) {
   const map = new Map();
@@ -397,13 +409,13 @@ function catalogs(project, episodeId) {
     if (!number || map.has(number)) invalid("编号", "重复或空编号");
     map.set(number, { id, kind });
   };
-  for (const c of project.角色库.角色) {
-    add(c.编号, c.id, "character");
-    for (const co of c.服装) add(co.编号, co.id, "costume");
+  for (const c of project.character_library.characters) {
+    add(c.number, c.id, "character");
+    for (const co of c.costumes) add(co.number, co.id, "costume");
   }
-  const e = episodeId ? project.剧集.find((e) => e.id === episodeId) : null;
+  const e = episodeId ? project.episodes.find((e) => e.id === episodeId) : null;
   if (episodeId && !e) invalid("episode_id", "剧集不存在");
-  if (e) for (const s of e.镜头表.镜头) add(s.编号, s.id, "shot");
+  if (e) for (const s of e.shot_list.shots) add(s.number, s.id, "shot");
   return map;
 }
 export function projectNumberCatalog(project, episodeId) {
@@ -418,23 +430,23 @@ export function projectNumberCatalog(project, episodeId) {
       : value && typeof value === "object"
         ? Object.fromEntries(
             Object.entries(value).flatMap(([k, v]) => {
-              if (k === "id" || k === "状态" || k === "原因" || k === "地址")
+              if (["id", "node_state", "address"].includes(k))
                 return [];
               if (fields[k]) {
                 if (v && !inverse.has(v)) invalid(k, "引用无法映射为编号");
                 return [[fields[k], v ? inverse.get(v) : ""]];
               }
               if (k.endsWith("id")) return [];
-              if (k === "图片") return [["有图", Boolean(v.地址)]];
-              if (k === "参考图") return [];
+              if (k === "character_image") return [["has_image", Boolean(v.address)]];
+              if (k === "reference_image") return [];
               return [[k, strip(v)]];
             }),
           )
         : value;
   return {
-    角色: project.角色库.角色.map(strip),
-    镜头: episodeId
-      ? project.剧集.find((e) => e.id === episodeId).镜头表.镜头.map(strip)
+    characters: project.character_library.characters.map(strip),
+    shots: episodeId
+      ? project.episodes.find((e) => e.id === episodeId).shot_list.shots.map(strip)
       : [],
   };
 }

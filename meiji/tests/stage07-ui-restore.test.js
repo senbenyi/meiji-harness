@@ -55,9 +55,9 @@ test("UI-1 原创建表单默认剧本；本地导入、移除和自由模式提
     assert.equal(dialog.querySelector("#title").value, "恢复剧本");
     submit(dialog.querySelector("form"), dom);
     await tick();
-    assert.equal(output.创作方式, "剧本");
-    assert.equal(output.剧本.正文, "第一幕");
-    assert.equal(output.画幅, "1344x768");
+    assert.equal(output.creation_mode, "剧本");
+    assert.equal(output.script.body, "第一幕");
+    assert.equal(output.aspect_ratio, "1344x768");
     const second = projectDialog(root, (v) => {
       output = v;
     });
@@ -69,8 +69,8 @@ test("UI-1 原创建表单默认剧本；本地导入、移除和自由模式提
     second.querySelector("#project-premise").value = "新的方向";
     submit(second.querySelector("form"), dom);
     await tick();
-    assert.equal(output.创作方式, "自由创作");
-    assert.equal(output.创作方向, "新的方向");
+    assert.equal(output.creation_mode, "自由创作");
+    assert.equal(output.creative_direction, "新的方向");
     assert.equal("剧本" in output, false);
   }));
 test("UI-1 素材库选择剧本按正文提交，未选择不得创建", () =>
@@ -107,7 +107,7 @@ test("UI-1 素材库选择剧本按正文提交，未选择不得创建", () =>
     await d.querySelector("select.script-picker").onchange();
     submit(d.querySelector("form"), dom);
     await tick();
-    assert.equal(value.剧本.正文, "库中剧本");
+    assert.equal(value.script.body, "库中剧本");
   }));
 test("UI-2/3 概要原卡片、剧本入口；剧集四标签和镜头两标签保持返回层级", () =>
   domTest((root) => {
@@ -129,7 +129,7 @@ test("UI-2/3 概要原卡片、剧本入口；剧集四标签和镜头两标签�
     root.querySelector(".episode-card").click();
     assert.equal(view.page, "episode");
     assert.equal(root.querySelectorAll(".stage-overview .stage").length, 4);
-    snap.project.剧集[0].镜头表.镜头[0].标题 = "开门";
+    snap.project.episodes[0].shot_list.shots[0].title = "开门";
     view.tab = "shots";
     context.paint();
     const firstShot = root.querySelector(".shot-card");
@@ -156,56 +156,27 @@ test("UI-2/3 概要原卡片、剧本入口；剧集四标签和镜头两标签�
 test("UI-3 编辑小段/对白/提示词使用字段和时段，提交类型与未知人物称谓保持正确", () =>
   domTest(async (root, dom) => {
     let result;
-    const value = {
-      衔接上一镜方式: "尾帧衔接",
-      内容: {
-        事件: "事件",
-        节拍: [
-          {
-            开始秒: 0,
-            结束秒: 5,
-            动作: "动作",
-            镜头: "镜头",
-            空间: "空间",
-            声音: "声音",
-            交接: "结束",
-            对白: [
-              { 说话人编号: "路人", 方式: "画外", 原话: "快走", 表演: "急切" },
-            ],
-          },
-        ],
-        环境声: [],
-        配乐: [],
-      },
-    };
-    const d = editor(root, "每秒分镜", value, (v) => {
-      result = v;
-    });
-    assert.equal(d.querySelector("textarea").value, "事件");
-    d.querySelector("[name=原话]").value = "回来";
-    submit(d.querySelector("form"), dom);
-    await tick();
-    assert.equal(result.内容.节拍[0].对白[0].说话人编号, "路人");
-    assert.equal(result.内容.节拍[0].对白[0].原话, "回来");
-    assert.equal(result.内容.节拍[0].结束秒, 5);
-    const f = fieldsForm({ 正文: [] });
-    root.append(f.box);
-    [...f.box.querySelectorAll("button")]
-      .find((b) => b.textContent === "＋ 添加正文")
-      .click();
-    assert.equal(typeof f.read().正文[0].对白, "string");
+    const value = { storyboard: [{ time_range: "0–5s", action: "动作", camera: "固定", space: "桌面", audio: "声音", handoff: "结束", dialogue: [{ speaker_name: "路人", speaker_id: "", mode: "画外", dialogue_text: "快走" }] }] };
+    const d = editor(root, "每秒分镜", value, (v) => { result = v; });
+    d.querySelector("[name=dialogue_text]").value = "回来";
+    submit(d.querySelector("form"), dom); await tick();
+    assert.equal(result.storyboard[0].dialogue[0].speaker_name, "路人");
+    assert.equal(result.storyboard[0].dialogue[0].dialogue_text, "回来");
+    assert.equal(result.storyboard[0].time_range, "0–5s");
+    const f = fieldsForm({ storyboard: [] }); root.append(f.box);
+    [...f.box.querySelectorAll("button")].find((b) => b.textContent === "＋ 添加每秒分镜").click();
+    assert.equal(typeof f.read().storyboard[0].action, "string");
   }));
 test("UI-4 人物文字网格/服装详情和编号，运行冻结；不显示内部 ID", () =>
   domTest((root) => {
     const snap = snapshotFixture(),
       c = {
         ...blankCharacter(),
-        名称: "小明",
-        服装: [{ 编号: "C01-01", 名称: "日常服", 描述: "灰色外套" }],
-        默认服装编号: "C01-01",
+        name: "小明",
+        costumes: [{ name: "日常服", color: "灰色", material: "", props: "" }],
       };
-    snap.project.角色库.角色 = mergeCharacters(snap.project, [c]).characters;
-    const role = snap.project.角色库.角色[0],
+    snap.project.character_library.characters = mergeCharacters(snap.project, [c]).characters;
+    const role = snap.project.character_library.characters[0],
       view = { page: "character", character_id: role.id },
       context = {
         view,
@@ -220,7 +191,7 @@ test("UI-4 人物文字网格/服装详情和编号，运行冻结；不显示�
     assert.equal(root.textContent.includes(role.id), false);
     root.querySelector(".wardrobe-name").click();
     assert.ok(root.querySelector(".costume-detail"));
-    assert.ok(root.querySelector("[name=描述]"));
+    assert.ok(root.querySelector("[name=color]"));
     snap.tasks = [{ task_status: "running" }];
     context.paint();
     assert.ok(
@@ -243,7 +214,7 @@ test("UI-5 设置为语言表单/规则入口；历史筛选和步骤独立详�
         paint: () => renderTaskPanel(root, snap, context),
       };
     context.paint();
-    assert.ok(root.querySelector(".settings-page select[name=输出语言]"));
+    assert.ok(root.querySelector(".settings-page select[name=output_language]"));
     assert.equal(root.querySelector("pre"), null);
     snap.tasks = [
       {
@@ -281,7 +252,7 @@ test("UI-1/3 项目、剧集编辑保留原标签并提交数值时长", () =>
     const d = detailsDialog(
       root,
       "新增剧集",
-      { 时长秒: 150, 本集要求: "" },
+      { duration_seconds: 150, episode_requirements: "" },
       (v) => {
         result = v;
       },
@@ -289,10 +260,10 @@ test("UI-1/3 项目、剧集编辑保留原标签并提交数值时长", () =>
     );
     assert.ok(d.querySelector("form.episode"));
     assert.match(d.textContent, /本集时长（秒）/);
-    d.querySelector("[name=时长秒]").value = "60";
+    d.querySelector("[name=duration_seconds]").value = "60";
     submit(d.querySelector("form"), dom);
     await tick();
-    assert.equal(result.时长秒, 60);
+    assert.equal(result.duration_seconds, 60);
   }));
 test("UI-5 片库恢复短剧状态/素材分类/原卡片，分类切换不显示其他素材", () =>
   domTest(async (root) => {
@@ -315,17 +286,17 @@ test("UI-5 片库恢复短剧状态/素材分类/原卡片，分类切换不显�
               projects: [
                 {
                   id: "p",
-                  名称: "未完成",
-                  画幅: "1344x768",
-                  集数: 1,
-                  已完成: false,
+                  name: "未完成",
+                  aspect_ratio: "1344x768",
+                  episode_count: 1,
+                  completed: false,
                 },
                 {
                   id: "q",
-                  名称: "已完成",
-                  画幅: "768x1344",
-                  集数: 2,
-                  已完成: true,
+                  name: "已完成",
+                  aspect_ratio: "768x1344",
+                  episode_count: 2,
+                  completed: true,
                 },
               ],
             }
@@ -404,7 +375,7 @@ test("UI-6 设置语言和模型表单在事件刷新后保留草稿，运行中
       await app.refresh();
       app.shell.root.querySelector(".settings").click();
       await tick();
-      const language = app.shell.content.querySelector("[name=输出语言]"),
+      const language = app.shell.content.querySelector("[name=output_language]"),
         model = app.shell.content.querySelector("[name=剧情模型]");
       language.value = "en";
       language.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
@@ -414,7 +385,7 @@ test("UI-6 设置语言和模型表单在事件刷新后保留草稿，运行中
       await app.refresh();
       await tick();
       assert.equal(
-        app.shell.content.querySelector("[name=输出语言]"),
+        app.shell.content.querySelector("[name=output_language]"),
         language,
       );
       assert.equal(language.value, "en");
@@ -430,4 +401,30 @@ test("UI-6 设置语言和模型表单在事件刷新后保留草稿，运行中
       app?.dispose();
       Object.assign(globalThis, saved);
     }
+  }));
+
+test("无服装角色可直接打开定妆照卡；新增服装后旧空图只读且可查看历史", () =>
+  domTest(async (root) => {
+    const { emptyCharacterModel } = await import("../shared/models/character_model.js");
+    const { emptyCostumeModel } = await import("../shared/models/costume_model.js");
+    const { emptyCostumeImageModel } = await import("../shared/models/costume_image_model.js");
+    const snap = snapshotFixture();
+    const c = emptyCharacterModel({ name: "甲", number: "C01", body_type: "健壮", costume_images: [emptyCostumeImageModel()] });
+    snap.project.character_library.characters = [c];
+    const view = { page: "character", character_id: c.id, costume_id: "" };
+    const context = { view, session_id: "s", refresh: async () => {}, onError: () => {}, paint: () => renderTaskPanel(root, snap, context) };
+    context.paint();
+    let card = root.querySelector('[data-business="costume-image"]');
+    assert.ok([...card.querySelectorAll("button")].some((button) => button.textContent === "AI生成"));
+    c.costume_images[0].address = "old.png";
+    c.costumes = [emptyCostumeModel({ name: "常服", number: "C01-01" })];
+    c.costume_images.push(emptyCostumeImageModel(c.costumes[0].id));
+    context.paint();
+    card = root.querySelector('[data-business="costume-image"]');
+    assert.ok(card.querySelector('img[src^="old.png"]'));
+    assert.deepEqual([...card.querySelectorAll('.workflow-generation-row button')].map((button) => button.textContent), ["任务历史"]);
+    card.querySelector('.workflow-generation-row button').click();
+    assert.equal(view.target_id, c.id);
+    assert.equal(view.history_business, "costume-image");
+    assert.equal(c.costume_images.length, 2);
   }));

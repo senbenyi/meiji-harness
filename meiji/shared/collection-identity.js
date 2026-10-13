@@ -1,131 +1,85 @@
-import {
-  createId,
-  assertFields,
-  assertText,
-  invalid,
-} from "./task_contract.js";
+import { assertFields, assertText, invalid } from "./task_contract.js";
 import { emptyShot, validateProject } from "./project_contract.js";
+import { emptyCharacterModel } from "./models/character_model.js";
+import { emptyCostumeModel } from "./models/costume_model.js";
+import { emptyCostumeImageModel } from "./models/costume_image_model.js";
 
-const characterFields = [
-  "编号",
-  "名称",
-  "国籍",
-  "身份",
-  "身份特征",
-  "性别",
-  "年代",
-  "年龄",
-  "身高",
-  "体型",
-  "面相",
-  "声音",
-  "必出",
-  "默认服装编号",
-  "服装",
-];
-const costumeFields = ["编号", "名称", "描述"];
-const shotFields = ["序号", "编号", "时长秒", "标题", "正文", "出镜角色"];
-const media = () => ({ 状态: "empty", 原因: "", 依赖hash: "", 地址: "" });
+const characterFields = ["name", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits", "costumes"];
+const costumeFields = ["name", "color", "material", "props"];
+const shotFields = ["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"];
 
-// 在事务草稿中执行；整次合并通过验证后才替换，失败不修改调用方。
+// AI 只提供资料增量，身份和编号由程序维护；未返回的对象不表示删除。
 export function mergeCharacters(project, rows) {
-  if (!Array.isArray(rows)) invalid("角色", "需为数组");
-  const draft = structuredClone(project),
-    byNumber = new Map(draft.角色库.角色.map((c) => [c.编号, c])),
-    allNumbers = new Set();
-  for (const c of draft.角色库.角色) {
-    allNumbers.add(c.编号);
-    for (const co of c.服装) allNumbers.add(co.编号);
-  }
-  const seen = new Set(),
-    newIds = [];
+  if (!Array.isArray(rows)) invalid("characters", "需为数组");
+  const draft = structuredClone(project), characters = draft.character_library.characters;
+  const numbers = new Set(characters.flatMap(c => [c.number, ...c.costumes.map(co => co.number)]));
+  const allocate = (prefix) => {
+    let index = 1;
+    while (numbers.has(`${prefix}${String(index).padStart(2, "0")}`)) index++;
+    const number = `${prefix}${String(index).padStart(2, "0")}`;
+    numbers.add(number);
+    return number;
+  };
+  const seen = new Set(), new_ids = [];
   for (const row of rows) {
-    assertFields(row, characterFields, "角色输出");
-    assertText(row.编号, "角色.编号");
-    if (!row.编号 || seen.has(row.编号)) invalid("角色.编号", "重复或空编号");
-    seen.add(row.编号);
-    let c = byNumber.get(row.编号);
-    if (!c) {
-      if (allNumbers.has(row.编号)) invalid("角色.编号", "编号类型冲突");
-      c = {
-        id: createId("character"),
-        图片: media(),
-        参考图: { 地址: "" },
-        服装: [],
-      };
-      draft.角色库.角色.push(c);
-      allNumbers.add(row.编号);
-      newIds.push(c.id);
+    assertFields(row, characterFields, "characters[]");
+    for (const key of characterFields.filter(key => key !== "costumes")) assertText(row[key], `character.${key}`);
+    if (!row.name.trim() || seen.has(row.name)) invalid("character.name", "重复或空姓名");
+    seen.add(row.name);
+    const matches = characters.filter(c => c.name === row.name);
+    if (matches.length > 1) invalid("character.name", "已有角色同名，无法唯一关联");
+    let character = matches[0];
+    if (!character) {
+      character = emptyCharacterModel({ number: allocate("C") });
+      characters.push(character);
+      new_ids.push(character.id);
     }
-    const costumes = new Map(c.服装.map((co) => [co.编号, co])),
-      seenCostumes = new Set();
-    if (!Array.isArray(row.服装)) invalid("角色.服装", "需为数组");
-    for (const data of row.服装) {
-      assertFields(data, costumeFields, "服装输出");
-      assertText(data.编号, "服装.编号");
-      if (!data.编号 || seenCostumes.has(data.编号))
-        invalid("服装.编号", "重复或空编号");
-      seenCostumes.add(data.编号);
-      let co = costumes.get(data.编号);
-      if (!co) {
-        if (allNumbers.has(data.编号))
-          invalid("服装.编号", "编号冲突或不属于当前角色");
-        co = { id: createId("costume"), 图片: media() };
-        c.服装.push(co);
-        costumes.set(data.编号, co);
-        allNumbers.add(data.编号);
-        newIds.push(co.id);
+    if (!Array.isArray(row.costumes)) invalid("character.costumes", "需为数组");
+    const seenCostumes = new Set();
+    for (const data of row.costumes) {
+      assertFields(data, costumeFields, "costumes[]");
+      for (const key of costumeFields) assertText(data[key], `costume.${key}`);
+      if (!data.name.trim() || seenCostumes.has(data.name)) invalid("costume.name", "重复或空名称");
+      seenCostumes.add(data.name);
+      const matches = character.costumes.filter(co => co.name === data.name);
+      if (matches.length > 1) invalid("costume.name", "已有服装同名，无法唯一关联");
+      let costume = matches[0];
+      if (!costume) {
+        costume = emptyCostumeModel({ number: allocate(`${character.number}-`) });
+        character.costumes.push(costume);
+        new_ids.push(costume.id);
       }
-      Object.assign(co, structuredClone(data));
+      Object.assign(costume, structuredClone(data));
     }
-    const values = Object.fromEntries(
-      characterFields
-        .filter((k) => !["服装", "默认服装编号"].includes(k))
-        .map((k) => [k, structuredClone(row[k])]),
-    );
-    Object.assign(c, values);
-    assertText(row.默认服装编号, "默认服装编号");
-    const selected = costumes.get(row.默认服装编号);
-    if (row.默认服装编号 && !selected)
-      invalid("默认服装编号", "未知或不属于当前角色");
-    c.默认服装id = selected?.id || "";
+    for (const key of characterFields.filter(key => key !== "costumes")) character[key] = row[key];
+    for (const costume_id of character.costumes.length ? character.costumes.map(co => co.id) : [""])
+      if (!character.costume_images.some(image => image.costume_id === costume_id))
+        character.costume_images.push(emptyCostumeImageModel(costume_id));
   }
   validateProject(draft);
-  return { characters: draft.角色库.角色, new_ids: newIds };
+  return { characters, new_ids };
 }
 
 export function replaceShots(project, episodeId, rows, tasks = []) {
-  if (!Array.isArray(rows)) invalid("镜头", "需为数组");
-  const draft = structuredClone(project),
-    episode = draft.剧集.find((e) => e.id === episodeId);
+  if (!Array.isArray(rows)) invalid("shots", "需为数组");
+  const draft = structuredClone(project), episode = draft.episodes.find(e => e.id === episodeId);
   if (!episode) invalid("episode_id", "剧集不存在");
-  const byNumber = new Map(episode.镜头表.镜头.map((s) => [s.编号, s])),
-    seen = new Set();
-  const next = rows.map((row) => {
-    assertFields(row, shotFields, "镜头输出");
-    assertText(row.编号, "镜头.编号");
-    if (!row.编号 || seen.has(row.编号)) invalid("镜头.编号", "重复或空编号");
-    seen.add(row.编号);
-    return {
-      ...(byNumber.get(row.编号) || emptyShot()),
-      ...structuredClone(row),
-    };
+  const byNumber = new Map(episode.shot_list.shots.map(shot => [shot.number, shot])), seen = new Set();
+  const next = rows.map((row, index) => {
+    assertFields(row, shotFields, "shots[]");
+    assertText(row.number, "shot.number");
+    if (!row.number || seen.has(row.number)) invalid("shot.number", "重复或空编号");
+    seen.add(row.number);
+    return { ...(byNumber.get(row.number) || emptyShot()), ...structuredClone(row), sequence: index + 1 };
   });
-  const retained = new Set(next.map((s) => s.id)),
-    removed = episode.镜头表.镜头.filter((s) => !retained.has(s.id));
+  const retained = new Set(next.map(shot => shot.id)), removed = episode.shot_list.shots.filter(shot => !retained.has(shot.id));
   for (const shot of removed) {
-    if (
-      tasks.some(
-        (t) =>
-          t.target_id === shot.id &&
-          ["queued", "running"].includes(t.task_status),
-      )
-    )
-      invalid("镜头", "被移除镜头仍有未结束任务");
-    if (draft.规则.some((r) => r.范围 === "node" && r.节点id === shot.id))
-      invalid("镜头", "被移除镜头仍有节点规则引用");
+    if (tasks.some(task => task.target_id === shot.id && ["queued", "running"].includes(task.task_status)))
+      invalid("shots", "被移除镜头仍有未结束任务");
+    if (draft.rules.some(rule => rule.scope === "node" && rule.node_id === shot.id))
+      invalid("shots", "被移除镜头仍有节点规则引用");
   }
-  episode.镜头表.镜头 = next;
+  episode.shot_list.shots = next;
   validateProject(draft);
-  return { shots: next, removed_ids: removed.map((s) => s.id) };
+  return { shots: next, removed_ids: removed.map(shot => shot.id) };
 }

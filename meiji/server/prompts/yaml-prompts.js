@@ -105,21 +105,21 @@ export function renderTemplate(template, values) {
 export function ruleInputs(rules, business, targetId) {
   const applicable = rules.filter(
     (r) =>
-      r.适用业务.includes(business) &&
-      (r.范围 === "project" || r.节点id === targetId),
+      r.applicable_business_types.includes(business) &&
+      (r.scope === "project" || r.node_id === targetId),
   );
   const ordered = [
-    ...applicable.filter((r) => r.范围 === "project"),
-    ...applicable.filter((r) => r.范围 === "node"),
+    ...applicable.filter((r) => r.scope === "project"),
+    ...applicable.filter((r) => r.scope === "node"),
   ];
   const must = ordered
-    .filter((r) => r.约束 === "必须")
-    .map((r) => r.内容)
+    .filter((r) => r.constraint === "必须")
+    .map((r) => r.content)
     .filter(Boolean);
   const groups = new Map();
-  for (const r of ordered.filter((r) => r.约束 === "参考" && r.内容)) {
-    if (!groups.has(r.类别)) groups.set(r.类别, []);
-    groups.get(r.类别).push(r.内容);
+  for (const r of ordered.filter((r) => r.constraint === "参考" && r.content)) {
+    if (!groups.has(r.category)) groups.set(r.category, []);
+    groups.get(r.category).push(r.content);
   }
   return {
     补充规则: must.map((s, i) => `${i + 1}. ${s}`).join("\n"),

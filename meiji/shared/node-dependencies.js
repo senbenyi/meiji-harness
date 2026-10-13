@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { nodeOf, locateTarget } from "./task_contract.js";
+import { assertOutput } from "./node-state.js";
 
 const recordedHash = /^[a-f0-9]{64}$/;
 const canonical = (value) =>
@@ -13,95 +14,115 @@ const canonical = (value) =>
       : item,
   );
 
-// 参与指纹的资料只定义在这里。状态、原因、依赖hash、声音、默认服装id、画幅、输出语言、规则不参与。
-function dependencyMaterial(snapshot, business, id, memo) {
+const characterMaterial = character => ({
+  name: character.name, position: character.position, age_range: character.age_range,
+  body_type: character.body_type, hairstyle: character.hairstyle,
+  signature_props: character.signature_props, immutable_traits: character.immutable_traits,
+});
+
+// 提示词与依赖使用同一份角色文字；图片、声线和默认服装配置不参与。
+export function shotCharacterContext(project) {
+  return project.character_library.characters.map(character => ({
+    number: character.number,
+    ...characterMaterial(character),
+    costumes: character.costumes.map(costume => ({
+      number: costume.number, name: costume.name, color: costume.color,
+      material: costume.material, props: costume.props,
+    })),
+  }));
+}
+
+// 参与指纹的业务资料只定义在这里，节点状态和原因不参与；图片节点读取其固定参考图。
+function dependencyMaterial(snapshot, business, id) {
   const project = snapshot.project;
   const upstream = (type, target) =>
-    dependencyHash(snapshot, type, target, memo);
+    nodeOf(project, type, target).node_state.dependency_hash;
   const body = (node) => {
     const copy = { ...node };
-    delete copy.状态;
-    delete copy.原因;
-    delete copy.依赖hash;
+    delete copy.node_state;
     return copy;
   };
   if (business === "project-summary" || business === "project-characters")
-    return { 剧本正文: project.剧本.正文 };
+    return { 剧本正文: project.script.body };
   if (business === "character-image") {
     const character = locateTarget(project, business, id).object;
-    return {
-      名称: character.名称,
-      国籍: character.国籍,
-      身份: character.身份,
-      身份特征: character.身份特征,
-      性别: character.性别,
-      年代: character.年代,
-      年龄: character.年龄,
-      身高: character.身高,
-      体型: character.体型,
-      面相: character.面相,
-      必出: character.必出,
-    };
+    return { ...characterMaterial(character), reference_image: character.reference_image.address };
   }
   if (business === "costume-image") {
-    const costume = locateTarget(project, business, id).object;
-    return { 名称: costume.名称, 描述: costume.描述 };
+    const { object: costume, character } = locateTarget(project, business, id);
+    return {
+      character: characterMaterial(character),
+      costume: costume ? { name: costume.name, color: costume.color, material: costume.material, props: costume.props } : null,
+      character_image: { address: character.character_image.address, dependency_hash: character.character_image.node_state.dependency_hash },
+    };
   }
-  if (business === "episode-summary" || business === "outline")
-    return { 剧情: locateTarget(project, business, id).episode.剧情 };
+  if (business === "episode-summary")
+    return { 剧情: locateTarget(project, business, id).episode.plot };
+  if (business === "outline") {
+    const episode = locateTarget(project, business, id).episode;
+    return { 剧情: episode.plot, 参考时长秒: episode.duration_seconds };
+  }
   if (business === "shots") {
     const episode = locateTarget(project, business, id).episode;
     return {
-      小段: episode.故事大纲.小段.map((part) => ({
-        序号: part.序号,
-        时长秒: part.时长秒,
-        正文: part.正文,
+      小段: episode.story_outline.segments.map((part) => ({
+        序号: part.sequence,
+        时长秒: part.duration_seconds,
+        正文: part.body,
+        衔接: part.causal,
       })),
+      参考时长秒: episode.duration_seconds,
+      角色资料: shotCharacterContext(project),
       上游: upstream("outline", episode.id),
     };
   }
   if (business === "seconds") {
     const located = locateTarget(project, business, id);
     return {
-      标题: located.object.标题,
-      编号: located.object.编号,
-      时长秒: located.object.时长秒,
-      正文: located.object.正文,
+      标题: located.object.title,
+      编号: located.object.number,
+      时长秒: located.object.duration_seconds,
+      正文: located.object.body,
+      景别: located.object.shot_scale,
+      钩子: located.object.hook,
+      连续性衔接: located.object.continuity_transition,
+      参考锚点: located.object.reference_anchor,
+      音频安排: located.object.audio_arrangement,
       上游: upstream("shots", located.episode.id),
     };
   }
   if (business === "storyboard") {
     const shot = locateTarget(project, business, id).object;
-    return { 分镜: body(shot.每秒分镜), 上游: upstream("seconds", shot.id) };
+    return { 分镜: body(shot.seconds_storyboard), 上游: upstream("seconds", shot.id) };
   }
   if (business === "video") {
     const located = locateTarget(project, business, id),
       shot = located.object,
-      list = [...located.episode.镜头表.镜头].sort(
-        (a, b) => a.序号 - b.序号,
+      list = [...located.episode.shot_list.shots].sort(
+        (a, b) => a.sequence - b.sequence,
       ),
       index = list.findIndex((item) => item.id === shot.id),
       previous = index > 0 ? list[index - 1] : null;
     return {
-      提示词: body(shot.文本提示词),
+      提示词: body(shot.text_to_video_prompt),
       上游: upstream("storyboard", shot.id),
-      参考图: referencedImages(snapshot, shot, memo),
+      参考图: referencedImages(snapshot, shot),
       上一尾帧: previous
-        ? { 地址: previous.尾帧.地址, 上游: upstream("tail", previous.id) }
+        ? { 镜头id: previous.id, 地址: previous.last_frame.address, 上游: upstream("tail", previous.id) }
         : null,
     };
   }
   if (business === "tail") {
     const shot = locateTarget(project, business, id).object;
-    return { 视频地址: shot.视频.地址, 上游: upstream("video", shot.id) };
+    return { 视频地址: shot.video.address, 上游: upstream("video", shot.id) };
   }
   if (business === "assembly") {
     const episode = locateTarget(project, business, id).episode;
     return {
-      视频: [...episode.镜头表.镜头]
-        .sort((a, b) => a.序号 - b.序号)
+      视频: [...episode.shot_list.shots]
+        .sort((a, b) => a.sequence - b.sequence)
         .map((shot) => ({
-          地址: shot.视频.地址,
+          地址: shot.video.address,
           上游: upstream("video", shot.id),
         })),
     };
@@ -109,7 +130,7 @@ function dependencyMaterial(snapshot, business, id, memo) {
   return {};
 }
 
-function referencedImages(snapshot, shot, memo) {
+function referencedImages(snapshot, shot) {
   const steps = snapshot.steps || [];
   const task = (snapshot.tasks || [])
     .filter(
@@ -122,67 +143,73 @@ function referencedImages(snapshot, shot, memo) {
     .find((item) =>
       steps.some(
         (step) =>
-          step.task_id === item.id && step.result?.address === shot.视频.地址,
+          step.task_id === item.id && step.result?.address === shot.video.address,
       ),
     );
   const recorded = task
     ? steps.find(
         (step) =>
-          step.task_id === task.id && step.result?.address === shot.视频.地址,
+          step.task_id === task.id && step.result?.address === shot.video.address,
       )?.result?.reference_ids
     : null;
   const ids = Array.isArray(recorded)
     ? recorded
-    : (shot.出镜角色 || []).map((row) => row.服装id || row.角色id);
+    : (shot.on_screen_characters || []).map((row) => row.costume_id || row.character_id);
   return ids.filter(Boolean).map((imageId) => {
-    for (const character of snapshot.project.角色库.角色) {
+    for (const character of snapshot.project.character_library.characters) {
       if (character.id === imageId)
         return {
-          地址: character.图片.地址,
-          上游: dependencyHash(snapshot, "character-image", imageId, memo),
+          地址: character.character_image.address,
+          上游: character.character_image.node_state.dependency_hash,
         };
-      for (const costume of character.服装)
+      for (const costume of character.costumes)
         if (costume.id === imageId)
           return {
-            地址: costume.图片.地址,
-            上游: dependencyHash(snapshot, "costume-image", imageId, memo),
+            地址: character.costume_images.find(image => image.costume_id === costume.id).address,
+            上游: nodeOf(snapshot.project, "costume-image", imageId).node_state.dependency_hash,
           };
     }
     return { 地址: "", 上游: "" };
   });
 }
 
-export function dependencyHash(snapshot, business, id, memo = new Map()) {
-  const key = `${business}:${id}`;
-  if (memo.has(key)) {
-    const cached = memo.get(key);
-    if (cached == null) throw new Error(`依赖指纹循环：${key}`);
-    return cached;
-  }
-  memo.set(key, null);
-  const digest = createHash("sha256")
-    .update(canonical(dependencyMaterial(snapshot, business, id, memo)))
+export function dependencyHash(snapshot, business, id) {
+  return createHash("sha256")
+    .update(canonical(dependencyMaterial(snapshot, business, id)))
     .digest("hex");
-  memo.set(key, digest);
-  return digest;
+}
+
+export function isNodeCurrent(snapshot, business, id) {
+  try {
+    const node = nodeOf(snapshot.project, business, id);
+    if (!node || node.node_state.status !== "generated") return false;
+    assertOutput(snapshot.project, business, id);
+    return recordedHash.test(node.node_state.dependency_hash) &&
+      node.node_state.dependency_hash === dependencyHash(snapshot, business, id);
+  } catch (error) {
+    if (error.code === "INVALID_CONTRACT") return false;
+    throw error;
+  }
 }
 
 export function stampDependencyHash(snapshot, business, id) {
   const node = nodeOf(snapshot.project, business, id);
   if (!node) return "";
-  node.依赖hash = dependencyHash(snapshot, business, id);
-  return node.依赖hash;
+  node.node_state.dependency_hash = dependencyHash(snapshot, business, id);
+  return node.node_state.dependency_hash;
 }
 
 export function downstream(snapshot, business, id) {
   const p = snapshot.project,
     t = locateTarget(
       p,
-      business === "character-setting"
+      business === "script"
+        ? "project-summary"
+        : business === "character-setting"
         ? "character-image"
         : business === "costume-setting"
           ? "costume-image"
-          : ["episode-plot", "episode-plot-sync"].includes(business)
+          : ["episode-plot", "episode-plot-sync", "episode-duration"].includes(business)
             ? "outline"
             : business,
       id,
@@ -190,30 +217,40 @@ export function downstream(snapshot, business, id) {
     e = t.episode,
     s = t.object;
   const one = (b, target) => ({ business_type: b, target_id: target });
-  if (business === "script") return [one("project-summary", p.id)];
+  const roleContext = () => p.episodes.map(episode => ({ ...one("shots", episode.id), context_only: true }));
+  if (business === "script") return [one("project-summary", p.id), one("project-characters", p.id)];
   // 剧集剧情（剧本原文）不是节点：拆分写入或人工编辑使摘要与故事大纲过期；
   // 自由创作剧本更新回写剧情时，故事大纲是剧情的来源，只使摘要过期。
   if (business === "episode-plot")
     return [one("episode-summary", id), one("outline", id)];
   if (business === "episode-plot-sync") return [one("episode-summary", id)];
+  if (business === "episode-duration") return [one("outline", id), one("shots", id)];
+  if (business === "project-characters") return roleContext();
   if (business === "script-split") return [];
   if (business === "outline") return [one("shots", id)];
   if (business === "shots")
-    return e.镜头表.镜头.map((x) => one("seconds", x.id));
+    return [
+      ...e.shot_list.shots.map((x) => one("seconds", x.id)),
+      // 集合顺序也影响前镜尾帧和合片，不能依赖每秒分镜变化才触达。
+      ...e.shot_list.shots.map((x) => one("video", x.id)),
+      one("assembly", e.id),
+    ];
   if (business === "seconds") return [one("storyboard", id)];
   if (business === "storyboard") return [one("video", id)];
   if (business === "video") return [one("tail", id), one("assembly", e.id)];
   if (business === "tail") {
-    const list = [...e.镜头表.镜头].sort((a, b) => a.序号 - b.序号),
+    const list = [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence),
       next = list[list.findIndex((x) => x.id === id) + 1];
     return next ? [one("video", next.id)] : [];
   }
-  if (business === "character-setting") return [one("character-image", id)];
-  if (business === "costume-setting") return [one("costume-image", id)];
+  if (business === "character-setting") return [one("character-image", id), ...s.costume_images.map(image => one("costume-image", image.costume_id || id)), ...roleContext()];
+  if (business === "costume-setting") return [one("costume-image", id), ...roleContext()];
   if (["character-image", "costume-image"].includes(business)) {
-    const result = [];
-    for (const episode of p.剧集)
-      for (const shot of episode.镜头表.镜头) {
+    const result = business === "character-image"
+      ? t.object.costume_images.map(image => one("costume-image", image.costume_id || t.object.id))
+      : [];
+    for (const episode of p.episodes)
+      for (const shot of episode.shot_list.shots) {
         const task = snapshot.tasks
           .filter(
             (t) =>
@@ -225,21 +262,21 @@ export function downstream(snapshot, business, id) {
           .find((t) =>
             snapshot.steps.some(
               (st) =>
-                st.task_id === t.id && st.result?.address === shot.视频.地址,
+                st.task_id === t.id && st.result?.address === shot.video.address,
             ),
           );
         const refs = task
           ? snapshot.steps.find(
               (st) =>
-                st.task_id === task.id && st.result?.address === shot.视频.地址,
+                st.task_id === task.id && st.result?.address === shot.video.address,
             )?.result?.reference_ids
           : null;
         const used = refs
           ? refs.includes(id)
-          : shot.出镜角色.some((r) =>
+          : shot.on_screen_characters.some((r) =>
               business === "costume-image"
-                ? r.服装id === id
-                : r.角色id === id && !r.服装id,
+                ? r.costume_id === id
+                : r.character_id === id && !r.costume_id,
             );
         if (used) result.push(one("video", shot.id));
       }
@@ -255,8 +292,9 @@ export function expireDownstream(
   options = {},
 ) {
   const compare = options.compareHash !== false;
+  const sourceExpired = nodeOf(snapshot.project, business, id)?.node_state.status === "expired";
   const visited = new Set(),
-    queue = downstream(snapshot, business, id);
+    queue = downstream(snapshot, business, id).map(item => ({ ...item, force: !compare || (sourceExpired && !item.context_only) }));
   while (queue.length) {
     const item = queue.shift(),
       key = `${item.business_type}:${item.target_id}`;
@@ -264,27 +302,30 @@ export function expireDownstream(
     const node = nodeOf(snapshot.project, item.business_type, item.target_id);
     if (
       compare &&
-      recordedHash.test(node.依赖hash || "") &&
-      node.依赖hash ===
+      !item.force &&
+      node.node_state.status !== "expired" &&
+      recordedHash.test(node.node_state.dependency_hash || "") &&
+      node.node_state.dependency_hash ===
         dependencyHash(snapshot, item.business_type, item.target_id)
     )
       continue;
     visited.add(key);
-    if (node.状态 === "generated") {
-      node.状态 = "expired";
-      node.原因 = reason;
+    if (node.node_state.status === "generated") {
+      node.node_state.status = "expired";
+      node.node_state.reason = reason;
     }
-    if (node.状态 === "queued") {
+    if (node.node_state.status === "queued") {
       const task = snapshot.tasks.find(
         (t) =>
           t.business_type === item.business_type &&
           t.target_id === item.target_id &&
           t.task_status === "queued",
       );
-      if (task?.previous_node_state?.状态 === "generated")
-        task.previous_node_state = { 状态: "expired", 原因: reason };
+      if (task?.previous_node_state?.status === "generated")
+        task.previous_node_state = { status: "expired", reason };
     }
-    queue.push(...downstream(snapshot, item.business_type, item.target_id));
+    queue.push(...downstream(snapshot, item.business_type, item.target_id)
+      .map(next => ({ ...next, force: !compare || !next.context_only })));
   }
   return [...visited];
 }

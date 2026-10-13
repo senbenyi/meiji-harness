@@ -25,8 +25,8 @@ export async function withService(work, execute) {
           execute ||
           (async ({ snapshot, task, step }) =>
             step.kind === "review"
-              ? { result: { 通过: true, 原因: "" } }
-              : { content: { 正文: "新摘要" } }),
+              ? { result: { 是否通过: true, 原因: "" } }
+              : { content: { body: "新摘要" } }),
         commitOutput: commitContent,
       });
     await work({ root, repository, p, model, service });
@@ -37,7 +37,7 @@ export async function withService(work, execute) {
 const submit = (
   p,
   business = "episode-summary",
-  id = p.剧集[0].id,
+  id = p.episodes[0].id,
   key = "submit",
 ) => ({
   type: "submit",
@@ -59,7 +59,7 @@ test("S4-01/02 同节点去重与项目串行，可控 Promise 确認实际时�
       const a = await service.command(submit(p));
       await entered.promise;
       const duplicate = await service.command(
-        submit(p, "episode-summary", p.剧集[0].id, "same-target"),
+        submit(p, "episode-summary", p.episodes[0].id, "same-target"),
       );
       assert.equal(a.task_id, duplicate.task_id);
       await service.command(submit(p, "project-summary", p.id, "second"));
@@ -74,14 +74,14 @@ test("S4-01/02 同节点去重与项目串行，可控 Promise 确認实际时�
       assert.ok(model.read().tasks.every((t) => t.task_status === "completed"));
     },
     async ({ step }) => {
-      if (step.kind === "review") return { result: { 通过: true, 原因: "" } };
+      if (step.kind === "review") return { result: { 是否通过: true, 原因: "" } };
       count++;
       running++;
       maximum = Math.max(maximum, running);
       entered.resolve();
       await gate.promise;
       running--;
-      return { content: { 正文: "新摘要" } };
+      return { content: { body: "新摘要" } };
     },
   );
 });
@@ -113,8 +113,8 @@ test("S4-03 rejected 停住队列，原任务终态不可复活，面板显式�
     },
     async ({ step }) =>
       step.kind === "review"
-        ? { result: { 通过: !first, 原因: first ? "剧情未通过" : "" } }
-        : { content: { 正文: "新摘要" } },
+        ? { result: { 是否通过: !first, 原因: first ? "剧情未通过" : "" } }
+        : { content: { body: "新摘要" } },
   );
 });
 test("面板重试同一失败节点直接启动新任务并保留失败历史", async () => {
@@ -124,10 +124,10 @@ test("面板重试同一失败节点直接启动新任务并保留失败历史",
       const failed = await service.command(submit(p));
       await service.idle(p.id);
       assert.equal(model.read().tasks[0].task_status, "failed");
-      assert.equal(model.read().project.剧集[0].摘要.状态, "failed");
+      assert.equal(model.read().project.episodes[0].summary.node_state.status, "failed");
       assert.equal(model.read().runtime.queue_stopped, true);
 
-      const retry = submit(p, "episode-summary", p.剧集[0].id, "retry");
+      const retry = submit(p, "episode-summary", p.episodes[0].id, "retry");
       retry.action = "generate";
       const retried = await service.command(retry);
       assert.notEqual(retried.task_id, failed.task_id);
@@ -137,12 +137,12 @@ test("面板重试同一失败节点直接启动新任务并保留失败历史",
       assert.equal(model.read().tasks[0].task_status, "failed");
       assert.equal(model.read().tasks[1].task_status, "completed");
       assert.equal(model.read().tasks[1].action, "regenerate");
-      assert.equal(model.read().project.剧集[0].摘要.状态, "generated");
+      assert.equal(model.read().project.episodes[0].summary.node_state.status, "generated");
 
       await model.update("pause-after-retry", {}, (s) => {
         s.runtime.queue_stopped = true;
       });
-      const later = submit(p, "episode-summary", p.剧集[0].id, "ordinary-after-retry");
+      const later = submit(p, "episode-summary", p.episodes[0].id, "ordinary-after-retry");
       later.action = "generate";
       const ordinary = await service.command(later);
       assert.equal(model.read().tasks.find((task) => task.id === ordinary.task_id).action, "generate");
@@ -154,9 +154,9 @@ test("面板重试同一失败节点直接启动新任务并保留失败历史",
           failReview = false;
           throw new Error("JSON 解析失败");
         }
-        return { result: { 通过: true, 原因: "" } };
+        return { result: { 是否通过: true, 原因: "" } };
       }
-      return { content: { 正文: "重试后摘要" } };
+      return { content: { body: "重试后摘要" } };
     },
   );
 });
@@ -176,7 +176,7 @@ test("失败节点重试遇到其他等待任务时冲突，会话重试仍保�
       const retry = submit(
         p,
         "episode-summary",
-        p.剧集[0].id,
+        p.episodes[0].id,
         "retry-conflict",
       );
       retry.action = "generate";
@@ -191,7 +191,7 @@ test("失败节点重试遇到其他等待任务时冲突，会话重试仍保�
     },
     async ({ step }) => {
       if (step.kind === "review") throw new Error("解析失败");
-      return { content: { 正文: "内容" } };
+      return { content: { body: "内容" } };
     },
   );
 });
@@ -201,7 +201,7 @@ test("面板重试已排队的同节点请求时复用并校正为重新生成",
     async ({ p, model, service }) => {
       await service.command(submit(p));
       await service.idle(p.id);
-      const pending = submit(p, "episode-summary", p.剧集[0].id, "session-retry");
+      const pending = submit(p, "episode-summary", p.episodes[0].id, "session-retry");
       pending.action = "generate";
       const queued = await service.command(pending, {
         source: "session",
@@ -211,7 +211,7 @@ test("面板重试已排队的同节点请求时复用并校正为重新生成",
       assert.equal(model.read().tasks[1].task_status, "queued");
       assert.equal(model.read().runtime.queue_stopped, true);
 
-      const retry = submit(p, "episode-summary", p.剧集[0].id, "panel-retry");
+      const retry = submit(p, "episode-summary", p.episodes[0].id, "panel-retry");
       retry.action = "generate";
       const started = await service.command(retry);
       assert.equal(started.task_id, queued.task_id);
@@ -221,7 +221,7 @@ test("面板重试已排队的同节点请求时复用并校正为重新生成",
       assert.equal(model.read().tasks[0].task_status, "failed");
       assert.equal(model.read().tasks[1].task_status, "completed");
       assert.equal(model.read().tasks[1].action, "regenerate");
-      assert.equal(model.read().project.剧集[0].摘要.状态, "generated");
+      assert.equal(model.read().project.episodes[0].summary.node_state.status, "generated");
     },
     async ({ step }) => {
       if (step.kind === "review") {
@@ -229,9 +229,9 @@ test("面板重试已排队的同节点请求时复用并校正为重新生成",
           failReview = false;
           throw new Error("JSON 解析失败");
         }
-        return { result: { 通过: true, 原因: "" } };
+        return { result: { 是否通过: true, 原因: "" } };
       }
-      return { content: { 正文: "重试后摘要" } };
+      return { content: { body: "重试后摘要" } };
     },
   );
 });
@@ -252,13 +252,13 @@ test("S4-07 运行取消后晚到模型不写内容，队列不自动继续", as
       gate.resolve();
       await service.idle(p.id);
       assert.equal(model.read().tasks[0].task_status, "cancelled");
-      assert.equal(model.read().project.剧集[0].摘要.正文, "展示摘要");
+      assert.equal(model.read().project.episodes[0].summary.body, "展示摘要");
       assert.equal(model.read().tasks[1].task_status, "queued");
     },
     async () => {
       entered.resolve();
       await gate.promise;
-      return { content: { 正文: "晚到结果" } };
+      return { content: { body: "晚到结果" } };
     },
   );
 });
@@ -266,16 +266,83 @@ test("S4-03 precheck 失败不调用 AI，原因写节点，旧稿保留", () =>
   withService(
     async ({ p, model, service }) => {
       await model.update("expire-upstream", {}, (s) => {
-        s.project.剧集[0].故事大纲.状态 = "expired";
-        s.project.剧集[0].故事大纲.原因 = "过期";
+        s.project.episodes[0].plot = "";
         return {};
       });
       await service.command(submit(p));
       await service.idle(p.id);
       assert.equal(model.read().tasks[0].task_status, "failed");
-      assert.equal(model.read().project.剧集[0].摘要.正文, "展示摘要");
+      assert.equal(model.read().project.episodes[0].summary.body, "展示摘要");
     },
     async () => {
       throw new Error("不应调用 AI");
     },
   ));
+
+test("审核耗尽保留候选与拒绝原因，不刷新 hash；新任务合并原因和用户意见", async () => {
+  let calls = 0, reject = true;
+  await withService(async ({ p, model, service }) => {
+    await model.update("hash", {}, s => { s.project.project_summary.node_state.dependency_hash = "a".repeat(64); });
+    await service.command(submit(p, "project-summary", p.id, "reject"));
+    await service.idle(p.id);
+    const before = model.read();
+    assert.equal(calls, 3);
+    assert.equal(before.tasks[0].task_status, "rejected");
+    assert.equal(before.project.project_summary.body, "候选3");
+    assert.equal(before.project.project_summary.node_state.reason, "剧情来源不符");
+    assert.equal(before.project.project_summary.node_state.dependency_hash, "a".repeat(64));
+    assert.deepEqual(before.steps.filter(s => s.kind === "review").map(s => [s.round, s.step_status, s.error_reason]), [[0,"rejected","剧情来源不符"],[1,"rejected","剧情来源不符"],[2,"rejected","剧情来源不符"]]);
+    reject = false;
+    await service.command({ ...submit(p, "project-summary", p.id, "retry-rejected"), opinion: "保留结局" });
+    await service.idle(p.id);
+    const after = model.read();
+    assert.equal(after.tasks[1].opinion, "剧情来源不符\n保留结局");
+    assert.deepEqual(after.tasks[0], before.tasks[0]);
+    assert.equal(after.tasks[1].task_status, "completed");
+  }, async ({ step }) => step.kind === "review"
+    ? { result: { 是否通过: !reject, 原因: reject ? "剧情来源不符" : "" } }
+    : { content: { body: `候选${++calls}` } });
+});
+
+test("程序审核与 AI 审核共用修订次数，程序不通过时跳过该轮 AI 审核", async () => {
+  const reviews = [];
+  await withService(async ({ p, model, service }) => {
+    await service.command(submit(p, "shots", p.episodes[0].id, "dual-review"));
+    await service.idle(p.id);
+    const snapshot = model.read();
+    assert.equal(snapshot.tasks[0].task_status, "completed", snapshot.tasks[0].end_reason);
+    assert.deepEqual(reviews, [[0,"program"],[1,"program"],[1,"ai"],[2,"program"],[2,"ai"]]);
+    assert.equal(snapshot.steps.filter(s => s.kind === "revise").length, 2);
+    assert.ok(snapshot.steps.some(s => s.kind === "review" && s.round === 0 && s.name.includes("AI审核") && s.step_status === "superseded"));
+  }, async ({ snapshot, task, step, reviewType }) => {
+    if (step.kind === "review") {
+      reviews.push([step.round, reviewType]);
+      const rejected = step.round === 0 || (step.round === 1 && reviewType === "ai");
+      return { result: { 是否通过: !rejected, 原因: rejected ? `${reviewType}审核原因` : "" } };
+    }
+    return { content: { shots: structuredClone(nodeOf(snapshot.project, task.business_type, task.target_id).shots) } };
+  });
+});
+
+test("首次无内容解析失败后，AI生成创建新任务并直接执行", async () => {
+  let fail = true;
+  await withService(async ({ p, model, service }) => {
+    await model.update("empty-summary", {}, s => {
+      s.project.project_summary.body = "";
+      s.project.project_summary.node_state = { status: "empty", reason: "", dependency_hash: "" };
+    });
+    const command = { ...submit(p, "project-summary", p.id, "empty-first"), action: "generate" };
+    await service.command(command);
+    await service.idle(p.id);
+    assert.equal(model.read().tasks[0].task_status, "failed");
+    fail = false;
+    await service.command({ ...command, request_id: "empty-retry" });
+    await service.idle(p.id);
+    const tasks = model.read().tasks;
+    assert.equal(tasks[1].action, "generate");
+    assert.equal(tasks[1].task_status, "completed", tasks[1].end_reason);
+  }, async ({ step }) => {
+    if (fail) throw new Error("输出无法解析");
+    return step.kind === "review" ? { result: { 是否通过: true, 原因: "" } } : { content: { body: "新摘要" } };
+  });
+});

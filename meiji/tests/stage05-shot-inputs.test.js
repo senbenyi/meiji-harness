@@ -3,40 +3,35 @@ import assert from 'node:assert/strict';
 import { loadTemplate, renderTemplate } from '../server/prompts/yaml-prompts.js';
 import { promptValues } from '../server/handlers/text-handler.js';
 import { prepareContent } from '../server/handlers/content.js';
+import { emptyCharacterModel } from '../shared/models/character_model.js';
 import { snapshotFixture, taskFixture } from './fixtures/project.js';
 
-for (const suffix of ['generate', 'regenerate']) test(`镜头表${suffix}按故事小段细分且只要求四字段`, async () => {
-  const s = snapshotFixture(), p = s.project, e = p.剧集[0];
-  p.角色库.角色 = [{ id: 'c_library', 编号: 'C07', 名称: '周巡检', 身份: '军中巡检',
-    国籍: '', 身份特征: '', 性别: '', 年代: '', 年龄: '', 身高: '', 体型: '', 面相: '',
-    声音: '', 必出: true, 默认服装id: '', 图片: { 地址: '' }, 参考图: { 地址: '' }, 服装: [] }];
-  e.时长秒 = 300;
-  e.故事大纲.小段[0].时长秒 = 300;
-  const t = taskFixture(p, 'shots', e.id, { opinion: '' });
-  const rendered = renderTemplate(await loadTemplate(`shots-${suffix}`), promptValues(s, t, {}, 'generate'));
-
-  assert.match(rendered.system, /把【本集故事小段】中的每个小段按原顺序拆成更细的镜头/);
-  assert.match(rendered.system, /每个镜头参考时长为1至15秒正整数/);
-  assert.match(rendered.system, /切点参考，不要求每种情况都拆/);
+const fields = ['title', 'number', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement'];
+for (const suffix of ['generate', 'regenerate']) test(`镜头表${suffix}返回与现行 dots 一致的字段`, async () => {
+  const snapshot = snapshotFixture(), project = snapshot.project, episode = project.episodes[0];
+  const character = emptyCharacterModel({ number: 'C07', name: '周巡检', position: '军中巡检', age_range: '四十岁', voice: '不参与镜头依赖的声线标记' });
+  character.character_image.address = '不参与镜头依赖的图片地址.png';
+  character.character_image.node_state.status = 'generated';
+  project.character_library.characters = [character];
+  const task = taskFixture(project, 'shots', episode.id);
+  const rendered = renderTemplate(await loadTemplate(`shots-${suffix}`), promptValues(snapshot, task, null, 'generate'));
+  assert.match(rendered.system, /本集故事小段/);
   assert.match(rendered.user, /周巡检/);
+  assert.match(rendered.user, /四十岁/);
+  assert.doesNotMatch(rendered.user, /has_image|costume_images|不参与镜头依赖/);
   assert.doesNotMatch(rendered.system + rendered.user, /本集资产/);
-  assert.doesNotMatch(rendered.system + rendered.user, /最低镜头数|小段预算|逐镜累加|本集参考时长秒/);
-  assert.deepEqual(Object.keys(rendered.output.structure.镜头[0]), ['标题', '编号', '参考时长', '正文']);
+  assert.deepEqual(Object.keys(rendered.output.structure.shots[0]), fields);
   if (suffix === 'regenerate') assert.match(rendered.user, /待修订镜头表/);
 });
 
-test('四字段镜头表在写入前映射到项目镜头字段', () => {
-  const snapshot = snapshotFixture(), project = snapshot.project, episode = project.剧集[0];
-  episode.时长秒 = 10;
-  episode.故事大纲.小段[0].时长秒 = 10;
-  const task = taskFixture(project, 'shots', episode.id, { action: 'regenerate' });
-  const content = prepareContent(snapshot, task, {
-    镜头: [{ 标题: '开门', 编号: 'S01', 参考时长: 10, 正文: '人物推门进入。' }],
-  });
-
-  assert.deepEqual(
-    content.镜头.map(({ 序号, 编号, 时长秒, 标题, 正文, 出镜角色 }) =>
-      [序号, 编号, 时长秒, 标题, 正文, 出镜角色]),
-    [[1, 'S01', 10, '开门', '人物推门进入。', []]],
-  );
+test('镜头表保留 dots 全部正文资料并由程序维护身份', () => {
+  const snapshot = snapshotFixture(), project = snapshot.project, episode = project.episodes[0];
+  const original = episode.shot_list.shots[0];
+  const row = Object.fromEntries(fields.map(key => [key, original[key]]));
+  row.title = '开门'; row.body = '人物推门进入。'; row.shot_scale = '中景';
+  row.reference_anchor.fixed_landmark = '木门';
+  const content = prepareContent(snapshot, taskFixture(project, 'shots', episode.id), { shots: [row] });
+  assert.equal(content.shots[0].id, original.id);
+  assert.equal(content.shots[0].sequence, 1);
+  for (const key of fields) assert.deepEqual(content.shots[0][key], row[key]);
 });

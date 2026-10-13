@@ -5,7 +5,7 @@ const nodeTypeNames = {
   "project-summary": "项目摘要",
   "project-characters": "剧本重要角色",
   "character-image": "角色图片",
-  "costume-image": "服装图片",
+  "costume-image": "角色定妆照",
   "episode-summary": "展示摘要",
   outline: "故事大纲",
   "episode-characters": "已移除的历史任务",
@@ -170,7 +170,7 @@ export function renderHistory(root, env, snapshot) {
       "h2",
       selected
         ? "任务组详情"
-        : `${p.名称} · 任务历史`,
+        : `${p.name} · 任务历史`,
     ),
   );
   view.append(header);
@@ -201,7 +201,7 @@ export function renderHistory(root, env, snapshot) {
     return renderStepRecord(view, env, selectedGroup.tasks.find(t=>t.id === recordStep.task_id), recordStep);
   }
   const canContinue = entry =>
-    !groups.some(row=>row.group.continued_from_group_id === entry.group.id) &&
+    !groups.some(row => row.group.id !== entry.group.id && row.tasks.some(task => entry.tasks.some(old => old.business_type === task.business_type && old.target_id === task.target_id && task.queue_order > old.queue_order))) &&
     ["failed","rejected","cancelled","superseded"].includes(entry.status) &&
     entry.tasks.every(t=>!["queued","running"].includes(t.task_status)) &&
     entry.tasks.every(t=>!["manual_edit","override","delete"].includes(t.action));
@@ -209,10 +209,6 @@ export function renderHistory(root, env, snapshot) {
     const groupHead = element("div", "", "run-group-head run-list-heading");
     groupHead.append(element("strong", selectedGroup.name), element("span", statuses[selectedGroup.status], `task-history-status is-${selectedGroup.status}`));
     view.append(groupHead, element("p", `任务完成 ${selectedGroup.tasks.filter(t=>t.task_status === "completed").length}/${selectedGroup.tasks.length}`, "meta"));
-    if (selectedGroup.group.continued_from_group_id)
-      view.append(button("查看原组", () => go("history", {group_id:selectedGroup.group.continued_from_group_id,task_id:null,step_id:null,step_view:null}), false));
-    const continuation = groups.find(row=>row.group.continued_from_group_id === selectedGroup.group.id);
-    if (continuation) view.append(button("查看续作组", () => go("history", {group_id:continuation.group.id,task_id:null,step_id:null,step_view:null}), false));
     if (canContinue(selectedGroup))
       view.append(button("继续", () => act({type:"continue-group",group_id:selectedGroup.group.id})));
     for (const selected of selectedGroup.tasks) {
@@ -238,7 +234,7 @@ export function renderHistory(root, env, snapshot) {
       item.dataset.stepId = step.id;
       item.dataset.stepNumber = step.seq;
       const passed = step.result?.是否通过 ?? step.result?.通过;
-      const rejected = step.kind === "review" && passed === false;
+      const rejected = step.step_status === "rejected" || (step.kind === "review" && passed === false);
       const failed = step.step_status === "failed" || rejected;
       item.classList.toggle("is-failed", failed);
       const expanded = state.history_step_open ||= {};
@@ -325,7 +321,7 @@ export function renderHistory(root, env, snapshot) {
   options(
     episode,
     "按选集筛选",
-    [["", "全部剧集"], ...p.剧集.map((e) => [e.id, `第 ${e.序号} 集`])],
+    [["", "全部剧集"], ...p.episodes.map((e) => [e.id, `第 ${e.sequence} 集`])],
     state.history_episode,
     "history_episode",
   );

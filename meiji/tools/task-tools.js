@@ -67,8 +67,8 @@ export function taskTools(runtime) {
           project_id: { type: "string" },
           request_id: { type: "string" },
           business_type: { type: "string" },
-          target_id: { type: "string" },
-          action: { type: "string", enum: ["generate", "regenerate"] },
+          target_id: { type: "string", description: "项目/角色/服装等对象 ID。costume-image 有明确服装使用 co_，服装数组为空使用角色 c_；角色图 character-image 始终使用 c_。" },
+          action: { type: "string", enum: ["generate", "regenerate"], description: "节点或成片组的执行方式：generate 补齐未有效生成的内容，regenerate 重跑所选范围；成片组缺省为 generate。" },
           opinion: { type: "string" },
           group_type: {
             type: "string",

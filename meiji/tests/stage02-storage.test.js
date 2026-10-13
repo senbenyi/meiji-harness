@@ -14,19 +14,19 @@ import {
 } from "../shared/project_contract.js";
 
 export function fixture() {
-  const p = emptyProject({ 名称: "存储测试" }),
+  const p = emptyProject({ name: "存储测试" }),
     e = emptyEpisode();
-  e.镜头表.镜头 = [emptyShot()];
-  p.剧集 = [e];
+  e.shot_list.shots = [emptyShot()];
+  p.episodes = [e];
   return p;
 }
 export function task(p, fields = {}) {
   return {
     id: createId("task"),
     project_id: p.id,
-    episode_id: p.剧集[0].id,
+    episode_id: p.episodes[0].id,
     business_type: "seconds",
-    target_id: p.剧集[0].镜头表.镜头[0].id,
+    target_id: p.episodes[0].shot_list.shots[0].id,
     action: "generate",
     group_id: null,
     group_seq: null,
@@ -38,7 +38,7 @@ export function task(p, fields = {}) {
     started_at: null,
     ended_at: null,
     opinion: "",
-    previous_node_state: { 状态: "empty", 原因: "" },
+    previous_node_state: { status: "empty", reason: "" },
     ...fields,
   };
 }
@@ -75,14 +75,12 @@ test("S2-01/02 项目、独立 task/step/group 重载一致，查询按顺序，
     const g = {
       id: createId("group"),
       project_id: p.id,
-      episode_id: p.剧集[0].id,
+      episode_id: p.episodes[0].id,
       group_type: "episode-seconds",
       source: "panel",
       created_at: new Date().toISOString(),
-      shot_ids: [p.剧集[0].镜头表.镜头[0].id],
+      shot_ids: [p.episodes[0].shot_list.shots[0].id],
       action: "generate",
-      continued_from_group_id: null,
-      opinion: "",
     };
     const a = task(p, { group_id: g.id, group_seq: 1 }),
       b = task(p, { group_id: g.id, group_seq: 2, queue_order: 2 });
@@ -111,8 +109,8 @@ test("S2-01/02 项目、独立 task/step/group 重载一致，查询按顺序，
     assert.equal(db.prepare("SELECT count(*) AS n FROM task_groups").get().n, 1);
     db.close();
     const view = restored.read();
-    view.project.名称 = "外部修改";
-    assert.equal(restored.read().project.名称, "存储测试");
+    view.project.name = "外部修改";
+    assert.equal(restored.read().project.name, "存储测试");
   }));
 
 test("S2-04 并发、幂等和不同项目隔离，无覆盖丢失；同键不同输入拒绝", () =>
@@ -125,8 +123,8 @@ test("S2-04 并发、幂等和不同项目隔离，无覆盖丢失；同键不�
     const same = () =>
       model.update("same", { n: 1 }, (s) => {
         calls++;
-        s.project.剧本.版本++;
-        return { value: s.project.剧本.版本 };
+        s.project.script.version++;
+        return { value: s.project.script.version };
       });
     const [a, b] = await Promise.all([same(), same()]);
     assert.deepEqual(a, b);
@@ -138,21 +136,21 @@ test("S2-04 并发、幂等和不同项目隔离，无覆盖丢失；同键不�
     await Promise.all(
       Array.from({ length: 8 }, (_, n) =>
         model.update(`add-${n}`, { n }, (s) => {
-          s.project.剧本.版本++;
+          s.project.script.version++;
           return {};
         }),
       ).concat(
         other.update("other", {}, (s) => {
-          s.project.名称 = "独立项目";
+          s.project.name = "独立项目";
           return {};
         }),
       ),
     );
-    assert.equal(model.read().project.剧本.版本, 10);
-    assert.equal(other.read().project.剧本.版本, 1);
-    assert.equal(other.read().project.名称, "独立项目");
+    assert.equal(model.read().project.script.version, 10);
+    assert.equal(other.read().project.script.version, 1);
+    assert.equal(other.read().project.name, "独立项目");
     const fresh = await new ModelRepository(root).open(p.id);
-    assert.equal(fresh.read().project.剧本.版本, 10);
+    assert.equal(fresh.read().project.script.version, 10);
   }));
 
 test("S2-05 非法路径、符号链接、跨项目步骤及旧格式拒绝，不改合法数据", () =>
@@ -188,12 +186,12 @@ test("S2-06 Model 写入后事件与重载一致，订阅错误不影响提交",
       events.push({ event, project: model.read().project }),
     );
     const result = await model.update("edit", {}, (s) => {
-      s.project.名称 = "已保存";
+      s.project.name = "已保存";
       return {};
     });
     assert.equal(result.accepted, true);
     assert.equal(events.length, 1);
-    assert.equal(events[0].project.名称, "已保存");
+    assert.equal(events[0].project.name, "已保存");
     assert.equal(events[0].event.revision, result.revision);
     assert.deepEqual(
       (await new ModelRepository(root).open(model.id)).read(),
@@ -213,7 +211,7 @@ test("S2 历史终态 task/step/group 不可改写或删除", () =>
       st = { ...step(t), step_status: "done" };
     await model.update("history", {}, (s) => {
       t.group_id = createId("group"); t.group_seq = 1;
-      s.groups = [{ id: t.group_id, project_id: p.id, episode_id: t.episode_id, group_type: "single", source: t.source, shot_ids: [], action: t.action, continued_from_group_id: null, opinion: "", created_at: t.created_at }];
+      s.groups = [{ id: t.group_id, project_id: p.id, episode_id: t.episode_id, group_type: "single", source: t.source, shot_ids: [], action: t.action, created_at: t.created_at }];
       s.tasks = [t];
       s.steps = [st];
       return {};

@@ -1,44 +1,33 @@
 import { element, showPanelDialog } from "./panel-dom.js";
+export const fieldLabels = {
+  name: "名称", position: "定位", age_range: "年龄段", body_type: "身材", hairstyle: "发型",
+  signature_props: "签名道具", immutable_traits: "不可改特征", gender: "性别", nationality: "国籍",
+  era: "年代", height: "身高", facial_features: "面相", voice: "声音", required_appearance: "必出",
+  default_costume_id: "默认服装", costumes: "服装", characters: "角色", color: "颜色", material: "材质", props: "道具",
+  number: "编号", sequence: "序号", duration_seconds: "参考时长（秒）", title: "标题", body: "正文",
+  description: "描述", segments: "故事小段", shots: "镜头", causal: "因果衔接", plot: "本集剧情",
+  shot_scale: "景别", hook: "钩子", continuity_transition: "连续性衔接", reference_anchor: "参考锚点",
+  fixed_landmark: "固定地标", character_positions: "人物位置", departed_characters: "离场角色", lighting: "光位",
+  audio_arrangement: "音频安排", narration: "旁白", sound_effects: "音效",
+  aspect_ratio: "画幅", output_language: "输出语言", creative_direction: "创作方向", episode_requirements: "本集要求",
+  reference_episode_duration_seconds: "参考单集时长（秒）", rules: "规则", scope: "范围", category: "类别",
+  constraint: "约束", content: "内容", node_number: "节点编号", applicable_business_types: "适用业务",
+  character_id: "角色 ID", costume_id: "服装 ID", character_number: "角色编号", costume_number: "服装编号",
+  on_screen_characters: "出镜角色", storyboard: "每秒分镜", dialogue: "对白", speaker_id: "说话人 ID",
+  speaker_name: "说话人", speaker_number: "说话人编号", dialogue_text: "原话", mode: "方式", time_range: "时段",
+  action: "动作", camera: "镜头", space: "空间", audio: "声音", handoff: "交接",
+  integrated_multimodal_description: "综合描述", overall_soundscape: "整体声音", non_diegetic_music: "配乐",
+};
 const templates = {
-  角色: { 角色编号: "", 出镜: "出镜" },
-  服装: { 编号: "", 名称: "", 描述: "" },
-  小段: { 序号: 1, 时长秒: 10, 正文: "" },
-  镜头: { 序号: 1, 编号: "S01", 时长秒: 10, 标题: "", 正文: "", 出镜角色: [] },
-  出镜角色: { 角色编号: "", 服装编号: "" },
-  节拍: {
-    开始秒: 0,
-    结束秒: 1,
-    动作: "",
-    镜头: "",
-    空间: "",
-    声音: "",
-    交接: "",
-    对白: [],
-  },
-  对白: { 说话人编号: "", 方式: "画内", 原话: "", 表演: "" },
-  环境声: { 开始秒: 0, 结束秒: 1, 正文: "" },
-  配乐: { 开始秒: 0, 结束秒: 1, 正文: "" },
-  适用业务: "",
-  正文: {
-    开始秒: 0,
-    结束秒: 1,
-    动作: "",
-    镜头: "",
-    空间: "",
-    同步声音: "",
-    对白: "",
-    心声: "",
-    结尾状态: "",
-  },
-  心声: { 说话人编号: "", 原话: "", 表演: "" },
-  规则: {
-    范围: "project",
-    适用业务: [],
-    节点编号: "",
-    类别: "其他",
-    约束: "参考",
-    内容: "",
-  },
+  characters: { name: "", position: "", age_range: "", body_type: "", hairstyle: "", signature_props: "", immutable_traits: "", costumes: [] },
+  costumes: { name: "", color: "", material: "", props: "" },
+  segments: { sequence: 1, duration_seconds: 10, body: "", causal: "" },
+  shots: { title: "", number: "S01", duration_seconds: 10, shot_scale: "中景", hook: "揭示", body: "", continuity_transition: "", reference_anchor: { fixed_landmark: "", character_positions: "", departed_characters: "", lighting: "" }, audio_arrangement: { narration: "", dialogue: "", sound_effects: "" } },
+  on_screen_characters: { character_number: "", costume_number: "" },
+  storyboard: { time_range: "0–1s", action: "", camera: "", space: "", audio: "", handoff: "", dialogue: [] },
+  dialogue: { speaker_number: "", speaker_name: "", mode: "画内", dialogue_text: "" },
+  applicable_business_types: "",
+  rules: { scope: "project", applicable_business_types: [], node_number: "", category: "其他", constraint: "参考", content: "" },
 };
 export function fieldsForm(
   value,
@@ -51,7 +40,7 @@ export function fieldsForm(
         heading = element("div", "", "image-text-head"),
         rows = element("div"),
         readers = [];
-      heading.append(element("h4", key));
+      heading.append(element("h4", fieldLabels[key] || key));
       section.append(heading, rows);
       parent.append(section);
       const add = (item) => {
@@ -69,7 +58,7 @@ export function fieldsForm(
         readers.push(entry);
       };
       initial.forEach(add);
-      const plus = element("button", "＋ 添加" + key);
+      const plus = element("button", "＋ 添加" + (fieldLabels[key] || key));
       plus.type = "button";
       plus.disabled = disabled;
       plus.onclick = () =>
@@ -79,7 +68,7 @@ export function fieldsForm(
     }
     if (initial && typeof initial === "object") {
       const section = element("div", "", "image-text-grid image-text-wide");
-      if (key) section.append(element("h4", key, "image-text-wide"));
+      if (key) section.append(element("h4", fieldLabels[key] || key, "image-text-wide"));
       parent.append(section);
       const entries = Object.entries(initial).map(([name, v]) => [
         name,
@@ -89,15 +78,15 @@ export function fieldsForm(
         Object.fromEntries(entries.map(([name, read]) => [name, read()]));
     }
     const label = element("label"),
-      caption = element("span", key, "image-text-key");
+      caption = element("span", fieldLabels[key] || key, "image-text-key");
     const options = {
-      画幅: ["1344x768", "768x1344"],
-      输出语言: ["zh-CN", "en"],
-      范围: ["project", "node"],
-      类别: ["动作", "表情", "武术", "特效", "声音", "对白", "配乐", "其他"],
-      约束: ["必须", "参考"],
+      aspect_ratio: ["1344x768", "768x1344"],
+      output_language: ["zh-CN", "en"],
+      scope: ["project", "node"],
+      category: ["动作", "表情", "武术", "特效", "声音", "对白", "配乐", "其他"],
+      constraint: ["必须", "参考"],
       出镜: ["出镜", "仅声音"],
-      方式: ["画内", "画外", "心声"],
+      mode: ["画内", "画外", "心声"],
     };
     const input = element(
       options[key]
@@ -105,7 +94,7 @@ export function fieldsForm(
         : typeof initial === "boolean"
           ? "input"
           : /正文|描述|方向|要求|动作|镜头|空间|声音|交接|原话|表演|内容|体型|面相|身份特征|事件|结尾状态/.test(
-                key,
+                fieldLabels[key] || key,
               ) && typeof initial !== "number"
             ? "textarea"
             : "input",
@@ -131,7 +120,7 @@ export function fieldsForm(
       label.className = "image-text-wide";
     }
     input.name = key;
-    input.setAttribute("aria-label", key || "内容");
+    input.setAttribute("aria-label", fieldLabels[key] || key || "内容");
     input.disabled = disabled;
     label.append(caption, input);
     parent.append(label);
@@ -171,7 +160,7 @@ export function editor(
   error.setAttribute("role", "alert");
   submit.type = "submit";
   submit.disabled = disabled;
-  const fields = fieldsForm(json ? value : { 正文: String(value) }, {
+  const fields = fieldsForm(json ? value : { body: String(value) }, {
     disabled,
     templates,
   });
@@ -183,7 +172,7 @@ export function editor(
     submit.disabled = true;
     try {
       const result = fields.read();
-      await save(json ? result : result.正文);
+      await save(json ? result : result.body);
       dialog.close();
     } catch (cause) {
       error.textContent = cause.message;
@@ -202,7 +191,7 @@ export function readable(value) {
   if (value && typeof value === "object")
     return Object.entries(value)
       .filter(([, v]) => v !== "" && v != null)
-      .map(([key, v]) => `${key}：${readable(v)}`)
+      .map(([key, v]) => `${fieldLabels[key] || key}：${readable(v)}`)
       .join("\n");
   return String(value ?? "");
 }

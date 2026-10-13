@@ -131,27 +131,27 @@ export async function createAppRuntime({
         for (const key of Object.keys(fields))
           if (
             ![
-              "名称",
-              "创作方式",
-              "画幅",
-              "创作方向",
-              "输出语言",
-              "参考单集时长秒",
-              "规则",
-              "剧本",
+              "name",
+              "creation_mode",
+              "aspect_ratio",
+              "creative_direction",
+              "output_language",
+              "reference_episode_duration_seconds",
+              "rules",
+              "script",
             ].includes(key)
           )
             invalid(key, "创建项目不接受身份、节点或执行状态");
-        if (fields.剧本)
-          fields.剧本 = {
-            ...emptyProject().剧本,
-            正文: fields.剧本.正文 || "",
+        if (fields.script)
+          fields.script = {
+            ...emptyProject().script,
+            body: fields.script.body || "",
           };
-        if (!fields.名称?.trim()) invalid("名称", "项目名称为空");
-        if (fields.创作方式 === "剧本" && !fields.剧本?.正文?.trim())
+        if (!fields.name?.trim()) invalid("name", "项目名称为空");
+        if ((fields.creation_mode || "剧本") === "剧本" && !fields.script?.body?.trim())
           invalid("剧本", "剧本模式需完整剧本");
-        if (fields.创作方式 !== "剧本" && !fields.创作方向?.trim())
-          invalid("创作方向", "自由创作需用户提供方向");
+        if (fields.creation_mode === "自由创作" && !fields.creative_direction?.trim())
+          invalid("creative_direction", "自由创作需用户提供方向");
         const p = emptyProject(fields);
         await repository.create(p);
         return runtime.projectCommand(
@@ -172,11 +172,11 @@ export async function createAppRuntime({
               });
               await workspaceController.rename({
                 workspaceId: workspace.workspaceId,
-                title: `${model.read().project.名称} · ${model.id.slice(-8)}`,
+                title: `${model.read().project.name} · ${model.id.slice(-8)}`,
               });
               return {
                 id: workspace.workspaceId,
-                title: model.read().project.名称,
+                title: model.read().project.name,
               };
             })
           : null;
@@ -206,16 +206,16 @@ export async function createAppRuntime({
         return model.update(command.request_id, command, (s) => {
           if (s.tasks.some((t) => t.task_status === "running"))
             invalid("状态", "运行中不能编辑");
-          if (s.project.创作方式 === "剧本")
+          if (s.project.creation_mode === "剧本")
             invalid("剧集", "剧本创作方式请使用拆分剧集");
           for (const key of Object.keys(command.fields || {}))
-            if (!["时长秒", "本集要求"].includes(key))
+            if (!["duration_seconds", "episode_requirements"].includes(key))
               invalid(key, "未定义剧集创建字段");
           const e = emptyEpisode({
             ...command.fields,
-            序号: Math.max(0, ...s.project.剧集.map((e) => e.序号)) + 1,
+            sequence: Math.max(0, ...s.project.episodes.map((e) => e.sequence)) + 1,
           });
-          s.project.剧集.push(e);
+          s.project.episodes.push(e);
           return { episode_id: e.id };
         });
       if (command.type === "reference-image") {
@@ -245,7 +245,8 @@ export async function createAppRuntime({
               "character-image",
               command.target_id,
             );
-            target.object.参考图.地址 = asset.address;
+            target.object.reference_image.address = asset.address;
+            expireDownstream(s, "character-setting", target.object.id, "参考图已修改");
             return {};
           },
         );
@@ -258,31 +259,33 @@ export async function createAppRuntime({
           const isCharacter = command.type === "edit-character",
             target = locateTarget(
               s.project,
-              isCharacter ? "character-image" : "costume-image",
+              isCharacter ? "character-image" : "costume-delete",
               command.target_id,
             ).object;
           const allowed = isCharacter
             ? [
-                "名称",
-                "国籍",
-                "身份",
-                "身份特征",
-                "性别",
-                "年代",
-                "年龄",
-                "身高",
-                "体型",
-                "面相",
-                "声音",
-                "必出",
-                "默认服装id",
+                "name",
+                "nationality",
+                "position",
+                "immutable_traits",
+                "hairstyle",
+                "signature_props",
+                "gender",
+                "era",
+                "age_range",
+                "height",
+                "body_type",
+                "facial_features",
+                "voice",
+                "required_appearance",
+                "default_costume_id",
               ]
-            : ["名称", "描述"];
+            : ["name", "color", "material", "props"];
           let visual = false;
           for (const [key, value] of Object.entries(command.fields || {})) {
             if (!allowed.includes(key)) invalid(key, "未定义资料字段");
             if (
-              !["声音", "默认服装id"].includes(key) &&
+              !["voice", "default_costume_id"].includes(key) &&
               JSON.stringify(value) !== JSON.stringify(target[key])
             )
               visual = true;
@@ -302,18 +305,23 @@ export async function createAppRuntime({
           if (source !== "panel") invalid("source", "剧集资料只允许面板维护");
           if (s.tasks.some((t) => t.task_status === "running"))
             invalid("状态", "运行中不能编辑");
-          const e = s.project.剧集.find((e) => e.id === command.episode_id);
+          const e = s.project.episodes.find((e) => e.id === command.episode_id);
           if (!e) invalid("剧集", "剧集不存在");
           for (const [key, value] of Object.entries(command.fields || {})) {
-            if (!["本集要求", "时长秒", "剧情"].includes(key))
+            if (!["episode_requirements", "duration_seconds", "plot"].includes(key))
               invalid(key, "未定义剧集资料");
-            if (key === "剧情") {
-              if (typeof value !== "string") invalid("剧情", "需为文本");
-              const changed = value !== e.剧情;
-              e.剧情 = value;
+            if (key === "plot") {
+              if (typeof value !== "string") invalid("plot", "需为文本");
+              const changed = value !== e.plot;
+              e.plot = value;
               if (changed)
                 expireDownstream(s, "episode-plot", e.id, "剧情已修改");
-            } else e[key] = value;
+            } else {
+              const changed = value !== e[key];
+              e[key] = value;
+              if (key === "duration_seconds" && changed)
+                expireDownstream(s, "episode-duration", e.id, "参考时长已修改");
+            }
           }
           return {};
         });
@@ -322,44 +330,44 @@ export async function createAppRuntime({
           if (s.tasks.some((t) => t.task_status === "running"))
             invalid("状态", "运行中不能编辑");
           const allowed = [
-            "名称",
-            "创作方向",
-            "输出语言",
-            "画幅",
-            "参考单集时长秒",
-            "规则",
+            "name",
+            "creative_direction",
+            "output_language",
+            "aspect_ratio",
+            "reference_episode_duration_seconds",
+            "rules",
           ];
           for (const [key, value] of Object.entries(command.fields || {})) {
             if (!allowed.includes(key)) invalid(key, "未定义项目配置");
-            if (key === "规则") {
-              if (!Array.isArray(value)) invalid("规则", "需为数组");
+            if (key === "rules") {
+              if (!Array.isArray(value)) invalid("rules", "需为数组");
               const targets = new Map([["项目", s.project.id]]);
-              for (const c of s.project.角色库.角色) {
-                targets.set(c.编号, c.id);
-                for (const co of c.服装) targets.set(co.编号, co.id);
+              for (const c of s.project.character_library.characters) {
+                targets.set(c.number, c.id);
+                for (const co of c.costumes) targets.set(co.number, co.id);
               }
-              for (const e of s.project.剧集) {
-                targets.set(`第${e.序号}集`, e.id);
-                for (const shot of e.镜头表.镜头)
-                  targets.set(`第${e.序号}集/${shot.编号}`, shot.id);
+              for (const e of s.project.episodes) {
+                targets.set(`第${e.sequence}集`, e.id);
+                for (const shot of e.shot_list.shots)
+                  targets.set(`第${e.sequence}集/${shot.number}`, shot.id);
               }
-              s.project.规则 = value.map((row, index) => {
-                const { 节点编号, ...fields } = row;
+              s.project.rules = value.map((row, index) => {
+                const { node_number, ...fields } = row;
                 if (
                   Object.keys(fields).some(
                     (k) =>
-                      !["范围", "适用业务", "类别", "约束", "内容"].includes(k),
+                      !["scope", "applicable_business_types", "category", "constraint", "content"].includes(k),
                   )
                 )
-                  invalid("规则", "未定义规则字段");
+                  invalid("rules", "未定义规则字段");
                 const node =
-                  fields.范围 === "project" ? "" : targets.get(节点编号);
+                  fields.scope === "project" ? "" : targets.get(node_number);
                 if (node === undefined)
-                  invalid("节点编号", "规则目标编号不存在");
+                  invalid("node_number", "规则目标编号不存在");
                 return {
-                  id: s.project.规则[index]?.id || createId("rule"),
+                  id: s.project.rules[index]?.id || createId("rule"),
                   ...fields,
-                  节点id: node,
+                  node_id: node,
                 };
               });
             } else s.project[key] = value;

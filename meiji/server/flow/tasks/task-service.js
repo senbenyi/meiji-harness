@@ -11,14 +11,14 @@ import {
   enqueueNode,
   restoreQueued,
   setNodeState,
-  assertOutput,
-  TEXT_BUSINESSES,
+  hasNodeContent,
 } from "../../../shared/node-state.js";
-import { expireDownstream } from "../../../shared/node-dependencies.js";
-import { stepKinds, newStep } from "../../../shared/task-plan.js";
+import { expireDownstream, isNodeCurrent } from "../../../shared/node-dependencies.js";
+import { stepKinds, newStep, reviewTypes, reviewType } from "../../../shared/task-plan.js";
 import { taskDetail, groupDetail } from "../../data/task-store.js";
 import { createTaskGroupModel } from "../../../shared/models/task_group_model.js";
 import { createTaskModel } from "../../../shared/models/task_model.js";
+import { BUSINESS_DEFINITIONS } from "../../../shared/node-definitions.js";
 import { precheck } from "./precheck.js";
 const now = () => new Date().toISOString();
 const unfinished = (t) => ["queued", "running"].includes(t.task_status);
@@ -128,7 +128,7 @@ export class TaskService {
         );
         if (old) {
           if (retrying && old.task_status === "queued" && old.action === "generate")
-            old.action = "regenerate";
+            old.action = hasNodeContent(s.project, command.business_type, command.target_id) ? "regenerate" : "generate";
           return { task_id: old.id };
         }
         return {
@@ -136,7 +136,7 @@ export class TaskService {
             command.business_type,
             command.target_id,
             retrying && command.action === "generate"
-              ? "regenerate"
+              ? hasNodeContent(s.project, command.business_type, command.target_id) ? "regenerate" : "generate"
               : command.action,
           ).id,
         };
@@ -169,71 +169,68 @@ export class TaskService {
             : null;
         if (command.type === "continue-group" && !original)
           invalid("group_id", "组合不存在");
-        if (original && ["single", "workflow"].includes(original.group_type)) {
+        if (original) {
           const members = s.tasks.filter(t => t.group_id === original.id).sort((a,b)=>a.group_seq-b.group_seq);
           if (members.some(unfinished)) conflict(members.filter(unfinished));
-          const remaining = members.filter(t => t.task_status !== "completed" && t.business_type !== "episode-characters");
-          if (remaining.some(t=>["manual_edit", "override", "delete"].includes(t.action))) invalid("group", "人工与删除任务请从原入口重新操作");
+          const stoppedAt = members.findIndex(t => t.task_status !== "completed");
+          const remaining = stoppedAt < 0 ? [] : members.slice(stoppedAt);
+          if (remaining.some(t => !BUSINESS_DEFINITIONS[t.business_type] || ["manual_edit", "override", "delete"].includes(t.action)))
+            invalid("group", "历史已移除业务、人工与删除任务不能继续，请从对应入口重新操作");
           if (!remaining.length) return { group_id: null, task_ids: [], message: "当前范围无需继续" };
           const conflicts = s.tasks.filter(t => unfinished(t) && remaining.some(x => x.business_type === t.business_type && x.target_id === t.target_id));
           if (conflicts.length) conflict(conflicts);
-          const group = createTaskGroupModel({ ...original, id: createId("group"), name: `${original.name || groupName(original, members, s.project)} · 继续`, created_at: now(), source: origin.source, action: "continue", continued_from_group_id: original.id });
+          const group = createTaskGroupModel({ ...original, id: createId("group"), name: `${original.name || groupName(original, members, s.project)} · 继续`, created_at: now(), source: origin.source, action: "continue" });
           s.groups.push(group);
           const tasks = remaining.map((t,i) => add(t.business_type, t.target_id,
-            ["manual_edit", "override", "delete"].includes(t.action) ? t.action : nodeOf(s.project,t.business_type,t.target_id)?.状态 === "empty" ? "generate" : "regenerate",
-            group.id, i+1, t.opinion));
+            hasNodeContent(s.project,t.business_type,t.target_id) ? "regenerate" : "generate",
+            group.id, i+1, ""));
           return { group_id: group.id, task_ids: tasks.map(t=>t.id) };
         }
-        const episodeId = original?.episode_id || command.episode_id,
-          episode = s.project.剧集.find((e) => e.id === episodeId);
+        const episodeId = command.episode_id,
+          episode = s.project.episodes.find((e) => e.id === episodeId);
         if (!episode) invalid("episode_id", "剧集不存在");
-        if (command.shot_id && !episode.镜头表.镜头.some(x => x.id === command.shot_id))
+        if (command.shot_id && !episode.shot_list.shots.some(x => x.id === command.shot_id))
           invalid("shot_id", "镜头不存在或不属于当前剧集");
-        const type = original?.group_type || command.group_type,
+        const type = command.group_type,
+          action = command.action ?? "generate",
           scope =
-            original?.shot_ids ||
-            [...episode.镜头表.镜头].filter(x => !command.shot_id || x.id === command.shot_id)
-              .sort((a, b) => a.序号 - b.序号)
+            [...episode.shot_list.shots].filter(x => !command.shot_id || x.id === command.shot_id)
+              .sort((a, b) => a.sequence - b.sequence)
               .map((x) => x.id),
           planned = [],
           prospective = structuredClone(s);
+        if (action === "generate")
+          for (const task of s.tasks.filter(task => unfinished(task) && task.episode_id === episodeId &&
+            s.groups.some(group => group.id === task.group_id && group.group_type === "episode-film")))
+            expireDownstream(prospective, task.business_type, task.target_id, "队列前序即将重新生成", { compareHash: false });
         for (const id of scope)
           for (const business of type === "episode-seconds"
-            ? ["seconds"]
-            : ["seconds", "storyboard", "video", "tail"]) {
-            const node = nodeOf(prospective.project, business, id);
-            let valid = false;
-            try {
-              assertOutput(prospective.project, business, id);
-              valid = node.状态 === "generated";
-            } catch {}
-            if (command.type === "continue-group" && valid) continue;
+             ? ["seconds"]
+             : ["seconds", "storyboard", "video", "tail"]) {
+            if (action === "generate" && isNodeCurrent(prospective, business, id)) continue;
             planned.push({ business, id });
-            if (command.type === "continue-group")
-              expireDownstream(prospective, business, id, undefined, {
-                compareHash: false,
-              });
+            expireDownstream(prospective, business, id, "本组前序即将重新生成", { compareHash: false });
           }
-        if (!planned.length)
+        const assemblyOnly = type === "episode-film" && !planned.length && this.#needsAssembly(s, episode);
+        if (!planned.length && !assemblyOnly)
           return { group_id: null, task_ids: [], message: "当前范围无需继续" };
         const conflicts = s.tasks.filter(
           (t) =>
             unfinished(t) &&
-            planned.some(
+            (planned.some(
               (x) => x.business === t.business_type && x.id === t.target_id,
-            ),
+            ) || (type === "episode-film" && t.business_type === "assembly" && t.target_id === episodeId)),
         );
         if (conflicts.length) conflict(conflicts);
         const group = createTaskGroupModel({
+          name: "",
           project_id: s.project.id,
           episode_id: episodeId,
           group_type: type,
           source: origin.source,
           shot_ids: scope,
           created_at: now(),
-          action: original ? "continue" : "generate",
-          continued_from_group_id: original?.id || null,
-          opinion: original?.opinion || command.opinion || "",
+          action,
         });
         group.name = groupName(group, [], s.project);
         s.groups.push(group);
@@ -241,16 +238,13 @@ export class TaskService {
           add(
             x.business,
             x.id,
-            original
-              ? "continue"
-              : nodeOf(s.project, x.business, x.id).状态 === "empty"
-                ? "generate"
-                : "regenerate",
+            hasNodeContent(s.project, x.business, x.id) ? "regenerate" : "generate",
             group.id,
             i + 1,
-            group.opinion,
+            command.opinion || "",
           ),
         );
+        if (assemblyOnly) tasks.push(this.#appendAssembly(s, group, origin));
         return { group_id: group.id, task_ids: tasks.map((t) => t.id) };
       }
       const task = s.tasks.find((t) => t.id === command.task_id);
@@ -323,8 +317,24 @@ export class TaskService {
     opinion = "",
     content = null,
   ) {
-    const target = locateTarget(s.project, business, id),
-      task = createTaskModel({
+    const target = locateTarget(s.project, business, id);
+    if (business === "assembly") {
+      const producing = s.tasks.filter(task => unfinished(task) && task.group_id !== group && task.episode_id === id &&
+        s.groups.some(item => item.id === task.group_id && item.group_type === "episode-film"));
+      if (producing.length) conflict(producing);
+    }
+    if (business === "costume-image" && !target.object && target.character.costumes.length)
+      invalid("target_id", "已有明确服装，请选择对应服装生成定妆照");
+    const node = nodeOf(s.project, business, id);
+    const previous = business === "script-split"
+      ? s.tasks.filter(t => t.business_type === business && t.target_id === id).sort((a,b)=>b.queue_order-a.queue_order)[0]
+      : null;
+    const rejectedReason = node?.node_state.status === "rejected" ? node.node_state.reason
+      : previous?.task_status === "rejected" ? previous.end_reason : "";
+    if (["generate", "regenerate", "continue"].includes(action) && rejectedReason && !opinion.includes(rejectedReason))
+      opinion = [rejectedReason, opinion].filter(Boolean).join("\n");
+    const task = createTaskModel({
+        name: "",
         project_id: s.project.id,
         episode_id: target.episode?.id || null,
         business_type: business,
@@ -345,11 +355,12 @@ export class TaskService {
     task.name = taskName(task, s.project);
     if (!task.group_id) {
       const group = createTaskGroupModel({
+        name: "",
         project_id: s.project.id,
         episode_id: task.episode_id,
-        group_type: ["project-characters", "script"].includes(business) ? "workflow" : "single",
+        group_type: ["project-characters", "script-split"].includes(business) ? "workflow" : "single",
         source: origin.source, shot_ids: [], created_at: task.created_at,
-        action, continued_from_group_id: null, opinion,
+        action,
       });
       group.name = groupName(group, [task], s.project);
       task.group_id = group.id;
@@ -358,9 +369,10 @@ export class TaskService {
     }
     enqueueNode(s.project, task);
     s.tasks.push(task);
+    const reviewers = reviewTypes(task);
     s.steps.push(
       ...stepKinds(task).map((kind, i) => {
-        const st = newStep(task, i + 1, kind);
+        const st = newStep(task, i + 1, kind, 0, kind === "review" ? reviewers.shift() : null);
         if (kind === "manual_edit")
           st.result = { input: structuredClone(content) };
         return st;
@@ -480,151 +492,82 @@ export class TaskService {
     }
   }
   async #run(model, id, signal) {
-    let draft = null,
-      round = 0;
+    let draft = null;
+    const initial = model.read();
+    const current = initial.tasks.find(t => t.id === id);
+    if (current.business_type === "script-split") {
+      const previous = initial.tasks.filter(t => t.id !== id && t.business_type === current.business_type && t.target_id === current.target_id)
+        .sort((a,b)=>b.queue_order-a.queue_order)[0];
+      if (previous?.task_status === "rejected")
+        draft = initial.steps.filter(st => st.task_id === previous.id && ["generate", "revise"].includes(st.kind) && st.step_status === "done")
+          .sort((a,b)=>b.seq-a.seq)[0]?.result ?? null;
+    }
     while (!signal.aborted) {
       const snapshot = model.read(),
-        task = snapshot.tasks.find((t) => t.id === id);
+        task = snapshot.tasks.find(t => t.id === id);
       if (task.task_status !== "running") return;
-      const step = snapshot.steps
-        .filter((st) => st.task_id === id && st.step_status === "ready")
-        .sort((a, b) => a.seq - b.seq)[0];
+      const step = snapshot.steps.filter(st => st.task_id === id && st.step_status === "ready").sort((a,b)=>a.seq-b.seq)[0];
       if (!step) return;
-      await model.update(`step-start:${step.id}`, { step: step.id }, (s) => {
-        const st = s.steps.find((x) => x.id === step.id);
+      await model.update(`step-start:${step.id}`, { step: step.id }, s => {
+        const st = s.steps.find(x => x.id === step.id);
         st.step_status = "running";
         st.started_at = now();
         return {};
       });
-      const record = async (patch) => {
+      const record = async patch => {
         if (signal.aborted) return;
-        await model.update(
-          `record:${step.id}:${createId("step")}`,
-          { step: step.id, patch },
-          (s) => {
-            const t = s.tasks.find((x) => x.id === id),
-              st = s.steps.find((x) => x.id === step.id);
-            if (t.task_status === "running" && st.step_status === "running")
-              Object.assign(st, patch);
-            return {};
-          },
-        );
-      };
-      const fresh = model.read();
-      let output;
-      if (step.kind === "precheck")
-        output = {
-          result: precheck(fresh, task, {
-            libraryReferences: await this.#libraryReferences(),
-          }),
-        };
-      else
-        output = await this.#execute({
-          snapshot: fresh,
-          task,
-          step,
-          draft,
-          signal,
-          record,
-        });
-      if (
-        signal.aborted ||
-        model.read().tasks.find((t) => t.id === id).task_status !== "running"
-      )
-        return;
-      if (output.validation_error && task.business_type === "shots") {
-        draft = output.content;
-        await model.update(`duration-repair:${step.id}`, { step: step.id }, (s) => {
-          const t = s.tasks.find((x) => x.id === id),
-            st = s.steps.find((x) => x.id === step.id);
-          if (t.task_status !== "running") return {};
-          Object.assign(st, {
-            step_status: "failed",
-            error_reason: output.validation_error,
-            result: output.result,
-            prompt: output.prompt ?? st.prompt,
-            ended_at: now(),
-          });
-          if (round >= 2) {
-            if (
-              output.validation_error.startsWith(
-                "镜头表：镜头总时长超出允许范围",
-              ) &&
-              output.prepared_content
-            )
-              s.project.剧集.find((e) => e.id === t.target_id).镜头表.镜头 =
-                output.prepared_content.镜头;
-            this.#finish(s, t, "failed", output.validation_error);
-            return {};
-          }
-          round++;
-          const pendingReview = s.steps.find(
-            (x) => x.task_id === id && x.kind === "review" && x.step_status === "ready",
-          );
-          if (pendingReview) {
-            pendingReview.step_status = "superseded";
-            pendingReview.ended_at = now();
-          }
-          const seq = Math.max(...s.steps.filter((x) => x.task_id === id).map((x) => x.seq));
-          s.steps.push(newStep(t, seq + 1, "revise", round), newStep(t, seq + 2, "review", round));
+        await model.update(`record:${step.id}:${createId("step")}`, { step: step.id, patch }, s => {
+          const t = s.tasks.find(x => x.id === id), st = s.steps.find(x => x.id === step.id);
+          if (t.task_status === "running" && st.step_status === "running") Object.assign(st, patch);
           return {};
         });
-        continue;
-      }
-      if (["generate", "revise"].includes(step.kind)) draft = output.content;
-      await model.update(`step-end:${step.id}`, { step: step.id }, (s) => {
-        const t = s.tasks.find((x) => x.id === id),
-          st = s.steps.find((x) => x.id === step.id);
+      };
+      const fresh = model.read();
+      const context = { snapshot: fresh, task, step, draft, reviewType: reviewType(step), signal, record };
+      let output;
+      if (step.kind === "precheck") {
+        output = { result: precheck(fresh, task, { libraryReferences: await this.#libraryReferences() }) };
+        if (task.business_type === "assembly" && ["generate", "regenerate", "continue"].includes(task.action))
+          output = await this.#execute(context);
+      } else output = await this.#execute(context);
+      if (signal.aborted || model.read().tasks.find(t => t.id === id).task_status !== "running") return;
+      if (["generate", "revise"].includes(step.kind) || (step.kind === "review" && output.content !== undefined)) draft = output.content;
+      await model.update(`step-end:${step.id}`, { step: step.id }, s => {
+        const t = s.tasks.find(x => x.id === id), st = s.steps.find(x => x.id === step.id);
         if (t.task_status !== "running") return {};
         Object.assign(st, {
-          step_status: "done",
-          result: output.result ?? output.content ?? null,
-          prompt: output.prompt ?? st.prompt,
-          ended_at: now(),
+          step_status: "done", result: output.result ?? output.content ?? null,
+          prompt: output.prompt ?? st.prompt, ended_at: now(),
         });
         if (step.kind === "review") {
           const review = output.result;
-          const passed =
-            typeof review?.是否通过 === "boolean" ? review.是否通过 : review?.通过;
-          if (
-            typeof passed !== "boolean" ||
-            typeof review?.原因 !== "string" ||
-            (passed ? Boolean(review.原因.trim()) : !review.原因.trim())
-          )
+          if (typeof review?.是否通过 !== "boolean" || typeof review?.原因 !== "string" ||
+              (review.是否通过 ? Boolean(review.原因.trim()) : !review.原因.trim()))
             invalid("review", "审核协议错误");
-          if (!passed && round < 2) {
-            round++;
-            s.steps.push(
-              newStep(t, st.seq + 1, "revise", round),
-              newStep(t, st.seq + 2, "review", round),
-            );
+          if (!review.是否通过) {
+            st.step_status = "rejected";
+            st.error_reason = review.原因;
+            for (const pending of s.steps.filter(x => x.task_id === id && x.step_status === "ready")) {
+              pending.step_status = "superseded";
+              pending.ended_at = now();
+            }
+            if (step.round < BUSINESS_DEFINITIONS[t.business_type].retryRounds) {
+              const round = step.round + 1;
+              let seq = Math.max(...s.steps.filter(x => x.task_id === id).map(x => x.seq));
+              s.steps.push(newStep(t, ++seq, "revise", round));
+              for (const reviewer of reviewTypes(t)) s.steps.push(newStep(t, ++seq, "review", round, reviewer));
+              return {};
+            }
+            this.#commitOutput(s, t, draft, { passed: false });
+            this.#finish(s, t, "rejected", review.原因);
             return {};
           }
-          const derived =
-            t.business_type === "script" && !passed
-              ? []
-              : this.#commitOutput(s, t, draft);
-          if (passed) expireDownstream(s, t.business_type, t.target_id);
-          this.#finish(
-            s,
-            t,
-            passed ? "completed" : "rejected",
-            review.原因,
-          );
-          if (passed) this.#derived(s, t, { ...output, derived });
-          return {};
         }
-        const last = !s.steps.some(
-          (x) => x.task_id === id && x.step_status === "ready",
-        );
-        if (last) {
-          const derived = this.#commitOutput(
-            s,
-            t,
-            step.kind === "override" ? null : output.content,
-          );
-          if (task.action !== "delete")
-            expireDownstream(s, t.business_type, t.target_id);
+        if (!s.steps.some(x => x.task_id === id && x.step_status === "ready")) {
+          const content = ["generate", "revise", "review"].includes(step.kind) ? draft
+            : step.kind === "override" ? null : output.content;
+          const derived = this.#commitOutput(s, t, content, { passed: true });
+          if (task.action !== "delete") expireDownstream(s, t.business_type, t.target_id);
           this.#finish(s, t, "completed");
           this.#derived(s, t, { ...output, derived });
         }
@@ -638,27 +581,39 @@ export class TaskService {
       ),
       source = { source: t.source, session_id: origin?.session_id || null };
     const parentGroup = s.groups.find(g => g.id === t.group_id);
+    if (parentGroup?.group_type === "episode-film") {
+      if (s.tasks.filter(task => task.group_id === parentGroup.id).every(task => task.task_status === "completed"))
+        this.#appendAssembly(s, parentGroup, source);
+      return;
+    }
     const group = parentGroup && ["workflow", "single"].includes(parentGroup.group_type) ? parentGroup.id : null;
     const next = () => group ? Math.max(0, ...s.tasks.filter(x => x.group_id === group).map(x => x.group_seq)) + 1 : null;
-    if (t.business_type === "script")
-      this.#add(
-        s,
-        "project-summary",
-        s.project.id,
-        s.project.项目摘要.状态 === "empty" ? "generate" : "regenerate",
-        source, group, next(),
-      );
-    for (const item of output.derived || []) {
-      if (
-        !s.tasks.some(
-          (t) =>
-            unfinished(t) &&
-            t.business_type === item.business_type &&
-            t.target_id === item.target_id,
-        )
-      )
-        this.#add(s, item.business_type, item.target_id, "generate", source, group, next());
+    const derived = output.derived || [];
+    const collisions = s.tasks.filter(task => unfinished(task) && derived.some(item =>
+      task.business_type === item.business_type && task.target_id === item.target_id));
+    if (collisions.length) conflict(collisions);
+    for (const item of derived) {
+      const node = nodeOf(s.project, item.business_type, item.target_id);
+      const action = node && hasNodeContent(s.project, item.business_type, item.target_id) ? "regenerate" : "generate";
+      this.#add(s, item.business_type, item.target_id, action, source, group, next());
     }
+  }
+  #needsAssembly(snapshot, episode) {
+    return episode.shot_list.shots.length > 0 &&
+      !snapshot.tasks.some(task => unfinished(task) && task.episode_id === episode.id &&
+        snapshot.groups.some(group => group.id === task.group_id && group.group_type === "episode-film")) &&
+      episode.shot_list.shots.every(shot => isNodeCurrent(snapshot, "video", shot.id)) &&
+      !isNodeCurrent(snapshot, "assembly", episode.id);
+  }
+  #appendAssembly(snapshot, group, origin) {
+    const members = snapshot.tasks.filter(task => task.group_id === group.id),
+      episode = snapshot.project.episodes.find(item => item.id === group.episode_id);
+    if (members.some(task => task.business_type === "assembly") || !this.#needsAssembly(snapshot, episode)) return null;
+    const collisions = snapshot.tasks.filter(task => unfinished(task) && task.business_type === "assembly" && task.target_id === episode.id);
+    if (collisions.length) conflict(collisions);
+    return this.#add(snapshot, "assembly", episode.id,
+      hasNodeContent(snapshot.project, "assembly", episode.id) ? "regenerate" : "generate",
+      origin, group.id, members.length + 1);
   }
   async idle(projectId) {
     while (this.#active.has(projectId)) {

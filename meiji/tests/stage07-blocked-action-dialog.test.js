@@ -8,7 +8,7 @@ function setup(snapshot, onError = () => {}, refresh = async () => {}) {
   const dom = new JSDOM("<main></main>"),
     previousDocument = globalThis.document,
     root = dom.window.document.querySelector("main"),
-    episode = snapshot.project.剧集[0],
+    episode = snapshot.project.episodes[0],
     view = { page: "episode", episode_id: episode.id, tab: "shots" };
   dom.window.HTMLDialogElement.prototype.show = function () {
     this.open = true;

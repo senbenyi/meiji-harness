@@ -10,7 +10,7 @@ for (const status of ['queued', 'running', 'failed', 'completed', 'cancelled', '
     try {
       globalThis.document = dom.window.document;
       const s = snapshotFixture(), root = document.querySelector('main');
-      s.project.创作方式 = '剧本';
+      s.project.creation_mode = '剧本';
       s.runtime.queue_stopped = true;
       s.tasks = [
         { id: 'old', business_type: 'script-split', target_id: s.project.id, task_status: 'failed', end_reason: '旧错误', queue_order: 1 },
@@ -18,9 +18,9 @@ for (const status of ['queued', 'running', 'failed', 'completed', 'cancelled', '
       ];
       const view = { page: 'overview' }, context = { session_id: 'session-test', view, refresh: async () => {}, paint: () => {}, onError: () => {} };
       renderTaskPanel(root, s, context);
-      const actions = root.querySelector('.episode-head .overview-title-actions');
+      const actions = root.querySelector('.episode-head + .workflow-generation-row');
       assert.ok(actions);
-      assert.deepEqual([...actions.querySelectorAll('button')].map(button => button.textContent), ['重新拆分剧集', '查看拆分任务']);
+      assert.deepEqual([...actions.querySelectorAll('button')].map(button => button.textContent), [...(['queued', 'running'].includes(status) ? [] : ['重新拆分剧集']), '查看拆分任务']);
       const feedback = root.querySelector('.split-task-feedback');
       if (status === 'failed') {
         assert.match(feedback.textContent, /模型没有返回有效JSON/);
