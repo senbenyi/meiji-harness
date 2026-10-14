@@ -352,3 +352,47 @@ test("拆分已经成功后带意见修改使用正式切点，不复用更早�
   const values = taskNodeInput(snapshot, { id: "new", business_type: "script-split", target_id: project.id, action: "regenerate", opinion: "调整切点" }, null, "regenerate");
   assert.deepEqual(values.content, { 剧集: rows });
 });
+
+test('一次报告首部、中间、尾部全部遗漏以及重叠的期望编号', () => {
+  const raw = { 剧集: [
+    { 序号: 1, 起始段落: 'P002', 结束段落: 'P002', 预估时长秒: 10 },
+    { 序号: 2, 起始段落: 'P004', 结束段落: 'P005', 预估时长秒: 20 },
+  ] };
+  const before = structuredClone(raw);
+  assert.throws(() => buildSplit(script, raw), error => {
+    assert.equal(error.code, 'INVALID_CONTRACT');
+    for (const text of ['P001—P001', 'P003—P003', 'P006—P006', '起始段落应为P001', '起始段落应为P003', '结束段落应为P006']) assert.ok(error.message.includes(text), error.message);
+    return true;
+  });
+  assert.deepEqual(raw, before, '审核不得自动修正候选');
+  raw.剧集[1].起始段落 = 'P002';
+  assert.throws(() => buildSplit(script, raw), error => /重叠或倒序.*应为P003/.test(error.message) && error.message.includes('P006—P006'));
+});
+
+test('全部覆盖问题进入同一轮修订，通过后逐字保存原文且保留审核历史', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'meiji-split-all-gaps-'));
+  let runtime, calls = 0;
+  try {
+    runtime = await createAppRuntime({ home, gateway: { chat: async ({ prompt }) => {
+      calls++;
+      if (calls === 1) return { 剧集: [
+        { 序号: 1, 起始段落: 'P002', 结束段落: 'P002', 预估时长秒: 10 },
+        { 序号: 2, 起始段落: 'P004', 结束段落: 'P005', 预估时长秒: 20 },
+      ] };
+      for (const range of ['P001—P001', 'P003—P003', 'P006—P006']) assert.ok(prompt.includes(range), prompt);
+      return { 剧集: rows };
+    } } });
+    const project = scriptProject();
+    project.episodes = [emptyEpisode({ plot: '原有剧情' })];
+    const model = await runtime.repository.create(project);
+    const result = await runtime.tasks.command({ type: 'submit', project_id: project.id, target_id: project.id, business_type: 'script-split', action: 'regenerate', request_id: randomUUID() });
+    await runtime.tasks.idle(project.id);
+    const snapshot = model.read();
+    assert.equal(snapshot.tasks.find(t => t.id === result.task_id).task_status, 'completed');
+    assert.equal(calls, 2);
+    assert.equal(snapshot.project.episodes.map(e => e.plot).join(''), script);
+    const review = snapshot.steps.find(s => s.kind === 'review' && s.round === 0);
+    assert.equal(review.step_status, 'rejected');
+    for (const range of ['P001—P001', 'P003—P003', 'P006—P006']) assert.ok(review.error_reason.includes(range));
+  } finally { await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
+});

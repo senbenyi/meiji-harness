@@ -30,17 +30,17 @@ export function buildSplit(text, raw) {
   const rows = raw.剧集;
   if (!rows.length) invalid("拆分剧集", "没有返回剧集");
   let next = 0;
+  const coverageErrors = [];
   const episodes = rows.map((row, i) => {
     if (row.序号 !== i + 1) invalid("拆分剧集.序号", "需从1连续递增");
     const start = index.get(row.起始段落),
       end = index.get(row.结束段落);
     if (start === undefined || end === undefined)
       invalid(`第${row.序号}集`, "段落编号不存在");
-    if (start !== next)
-      invalid(
-        `第${row.序号}集`,
-        start > next ? "段落有遗漏" : "段落重叠或倒序",
-      );
+    if (start !== next) {
+      const expected = next < paragraphs.length ? paragraphNumber(next) : '剧本已结束，不应再有剧集';
+      coverageErrors.push(`第${row.序号}集：${start > next ? `段落有遗漏（${paragraphNumber(next)}—${paragraphNumber(start - 1)}）` : '段落重叠或倒序'}；起始段落应为${expected}，实际为${row.起始段落}`);
+    }
     if (end < start) invalid(`第${row.序号}集`, "结束段落早于起始段落");
     if (!Number.isInteger(row.预估时长秒) || row.预估时长秒 < 1)
       invalid(`第${row.序号}集.预估时长秒`, "需为正整数");
@@ -51,7 +51,9 @@ export function buildSplit(text, raw) {
       plot: paragraphs.slice(start, end + 1).join(""),
     };
   });
-  if (next !== paragraphs.length) invalid("拆分剧集", "最后一集未到剧本结尾");
+  if (next !== paragraphs.length)
+    coverageErrors.push(`最后一集未到剧本结尾：遗漏${paragraphNumber(next)}—${paragraphNumber(paragraphs.length - 1)}；结束段落应为${paragraphNumber(paragraphs.length - 1)}`);
+  if (coverageErrors.length) invalid("拆分剧集", coverageErrors.join('\n'));
   if (episodes.map((e) => e.plot).join("") !== String(text))
     invalid("拆分剧集", "拼接结果与原剧本不一致");
   return { episodes };
