@@ -39,7 +39,8 @@ test("S3-01/02 状态和原因一起转换，未开始取消恢复快照，非�
     t = taskFixture(p),
     node = p.episodes[0].shot_list.shots[0].seconds_storyboard;
   enqueueNode(p, t);
-  assert.equal(node.node_state.status, "queued");
+  assert.equal(node.node_state.status, "generated");
+  assert.deepEqual(t.previous_node_state, { status: "generated", reason: "" });
   restoreQueued(p, t);
   assert.equal(node.node_state.status, "generated");
   assert.equal(node.storyboard[0].action, "动作");
@@ -49,7 +50,7 @@ test("S3-01/02 状态和原因一起转换，未开始取消恢复快照，非�
   setNodeState(node, "cancelled", "用户取消");
   assert.equal(node.node_state.reason, "用户取消");
   assert.equal(node.storyboard[0].action, "动作");
-  assert.throws(() => setNodeState(node, "queued", "多余原因"), /不一致/);
+  assert.throws(() => setNodeState(node, "queued", "多余原因"), /非法转换/);
 });
 
 test("大纲结构允许有限正数，程序审核按参考时长±30；镜头仍为4–15整数秒", () => {

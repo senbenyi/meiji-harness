@@ -300,7 +300,7 @@ export function renderOverview(root, env) {
       }),
     { c: library, actions: libraryActions } = card(
       "角色卡",
-      labels[roleStatus] || ({ completed: "已通过", superseded: "已作废" })[roleStatus] || roleStatus,
+      labels[roleStatus] || ({ queued: "排队中", completed: "已通过", superseded: "已作废" })[roleStatus] || roleStatus,
     ),
     strip = element(
       "div",

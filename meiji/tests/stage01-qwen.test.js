@@ -4,9 +4,9 @@ import { mkdtemp, readFile, rm, readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
-import { defaults, normalizeModels, compactModels, modelRoute } from '../models/model-config.js'
+import { defaults, normalizeModels, modelRoute } from '../models/model-config.js'
 import { modelStore } from '../server/data/model-settings.js'
-import { migrateQwenModels } from '../scripts/migrate-qwen-models.js'
+import { migrateSettingsModel } from '../scripts/migrate-settings-model.js'
 import { syncChatModel } from '../server/host/harness-chat-model.js'
 import { loadTemplate, renderTemplate } from '../server/prompts/yaml-prompts.js'
 import { createAppRuntime } from '../server/runtime/app-runtime.js'
@@ -16,22 +16,21 @@ import { emptyProject } from '../shared/project_contract.js'
 const config = {
   baseUrl: 'https://media.test/v1', apiKey: 'media-secret',
   textBaseUrl: 'http://127.0.0.1:11435/v1',
-  chat: { model: 'qwen3.5:27b' }, story: { model: 'qwen3.5:27b' },
-  image: { model: 'original-image' }, video: { model: 'original-video' },
+  text: { model: 'qwen3.5:27b' },
+  image: { model: 'elysium-image' }, video: { model: 'elysium-video' },
 }
 
 test('千问：文本路由和媒体凭据隔离，配置保存不丢失独立地址', async () => {
   const base = await defaults(new URL('./fixtures/absent-local.json', import.meta.url))
-  assert.equal(base.chat.model, 'qwen3.5:27b')
-  assert.equal(base.story.model, 'qwen3.5:27b')
+  assert.equal(base.text.model, 'qwen3.5:27b')
   const normalized = normalizeModels(config)
   for (const purpose of ['chat', 'story']) {
-    assert.deepEqual(normalized[purpose], { baseUrl: config.textBaseUrl, apiKey: 'ollama', model: 'qwen3.5:27b' })
+    assert.deepEqual(modelRoute(normalized, purpose), { baseUrl: config.textBaseUrl, apiKey: 'ollama', model: 'qwen3.5:27b' })
   }
   for (const purpose of ['image', 'video']) {
-    assert.deepEqual(normalized[purpose], { baseUrl: config.baseUrl, apiKey: config.apiKey, model: config[purpose].model })
+    assert.deepEqual(modelRoute(normalized, purpose), { baseUrl: config.baseUrl, apiKey: config.apiKey, model: config[purpose].model })
   }
-  assert.deepEqual(compactModels(normalized), config)
+  assert.deepEqual(normalized, config)
   assert.throws(() => normalizeModels({ ...config, textBaseUrl: '' }), /网关地址无效/)
   assert.equal(modelRoute({ ...config, apiKey: '' }, 'story').apiKey, 'ollama')
 })
@@ -39,19 +38,20 @@ test('千问：文本路由和媒体凭据隔离，配置保存不丢失独立�
 test('千问：显式迁移先备份，媒体、额外设置及原备份不变，重复执行不重写', async () => {
   const home = await mkdtemp(join(tmpdir(), 'meiji-qwen-migration-'))
   try {
-    const previous = { ...config, textBaseUrl: undefined, chat: { model: 'old-chat' }, story: { model: 'old-story' }, concurrency: { text: 4, image: 2, video: 2 } }
+    const previous = { ...config, text: undefined, textBaseUrl: undefined, chat: { model: 'qwen3.5:27b' }, story: { model: 'qwen3.5:27b' }, concurrency: { text: 4, image: 2, video: 2 } }
     const store = modelStore(home)
     await store.write(previous)
     const before = await readFile(join(home, 'storages/meiji/models.json'), 'utf8')
-    const migrated = await migrateQwenModels(home)
+    const migrated = await migrateSettingsModel(home)
     assert.equal(migrated.changed, true)
     assert.equal(await readFile(migrated.backup, 'utf8'), before)
     const after = await store.read()
     for (const key of ['baseUrl', 'apiKey', 'image', 'video', 'concurrency']) assert.deepEqual(after[key], previous[key])
-    assert.equal(after.chat.model, 'qwen3.5:27b')
-    assert.equal(after.story.model, 'qwen3.5:27b')
+    assert.equal(after.text.model, 'qwen3.5:27b')
+    assert.equal(after.chat, undefined)
+    assert.equal(after.story, undefined)
     assert.equal(after.textBaseUrl, config.textBaseUrl)
-    assert.deepEqual(await migrateQwenModels(home), { changed: false })
+    assert.deepEqual(await migrateSettingsModel(home), { changed: false })
     assert.equal(await readFile(migrated.backup, 'utf8'), before)
   } finally { await rm(home, { recursive: true, force: true }) }
 })
@@ -124,7 +124,7 @@ test('千问：真实 runtime 经独立文本 HTTP 完成生成、审核及修�
     await new Promise(resolve => api.listen(0, '127.0.0.1', resolve))
     const url = `http://127.0.0.1:${api.address().port}/api/meiji/models`
     const get = await (await fetch(url)).json()
-    assert.equal(get.settings.textBaseUrl, local.textBaseUrl)
+    assert.deepEqual(get.settings, { text: config.text, image: config.image, video: config.video })
     assert.ok(!JSON.stringify(get).includes(config.apiKey))
     const saved = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Meiji-Request': '1' }, body: JSON.stringify({ settings: get.settings }) })
     assert.equal(saved.status, 200)
@@ -141,7 +141,7 @@ test('千问：真实 runtime 经独立文本 HTTP 完成生成、审核及修�
       assert.equal(request.url, '/v1/chat/completions')
       assert.equal(request.authorization, 'Bearer ollama')
       assert.equal(request.body.model, 'qwen3.5:27b')
-      assert.equal(request.body.reasoning_effort, 'none')
+      for (const key of ['reasoning_effort', 'temperature', 'top_p', 'presence_penalty']) assert.equal(request.body[key], undefined)
       assert.equal(request.body.max_tokens, undefined)
       assert.ok(!JSON.stringify(request).includes('不进入下一轮提示'))
     }

@@ -65,7 +65,7 @@ const taskFixture = (p) => ({
   previous_node_state: { status: "empty", reason: "" },
 });
 
-test("S1-01 新项目结构、八种状态及原因约束", () => {
+test("S1-01 新项目结构、七种状态及原因约束", () => {
   const p = projectFixture();
   assert.equal(validateProject(p), p);
   for (const status of NODE_STATUS) {
@@ -188,7 +188,6 @@ test("S1-04 任务目标归属和字段协议严格校验，剧本无状态", ()
   validateStep(st, t);
   assert.deepEqual(NODE_STATUS, [
     "empty",
-    "queued",
     "running",
     "generated",
     "rejected",

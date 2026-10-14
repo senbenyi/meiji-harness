@@ -22,7 +22,7 @@
   ],
   "project_summary": {
     "node_state": {
-      "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+      "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
       "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
       "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
     },
@@ -44,7 +44,7 @@
   },
   "character_library": {
     "node_state": {
-      "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+      "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
       "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
       "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
     },
@@ -66,7 +66,7 @@
         "costume_images": [
           {
             "node_state": {
-              "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+              "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
               "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
               "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
             },
@@ -111,7 +111,7 @@
       "cover": "（剧集封面资源。）",
       "summary": {
         "node_state": {
-          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
           "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
           "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
         },
@@ -119,7 +119,7 @@
       },
       "story_outline": {
         "node_state": {
-          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
           "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
           "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
         },
@@ -134,7 +134,7 @@
       },
       "shot_list": {
         "node_state": {
-          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
           "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
           "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
         },
@@ -155,7 +155,7 @@
             ],
             "seconds_storyboard": {
               "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
                 "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
@@ -180,7 +180,7 @@
             },
             "text_to_video_prompt": {
               "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
                 "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
@@ -190,7 +190,7 @@
             },
             "first_last_frame_prompt": {
               "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
                 "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
@@ -202,7 +202,7 @@
             },
             "multimodal_prompt": {
               "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
                 "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
@@ -215,7 +215,7 @@
             "video_generation_type": "（本镜实际使用的视频生成类型。）",
             "video": {
               "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
                 "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
@@ -223,7 +223,7 @@
             },
             "last_frame": {
               "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
                 "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
@@ -248,7 +248,7 @@
       },
       "assembly": {
         "node_state": {
-          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
+          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
           "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
           "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
         },

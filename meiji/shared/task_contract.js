@@ -8,7 +8,6 @@ import {
 // 新任务协议的纯模块；不读取旧 Run、任务历史或文件。
 export const NODE_STATUS = Object.freeze([
   "empty",
-  "queued",
   "running",
   "generated",
   "rejected",

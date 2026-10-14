@@ -16,19 +16,17 @@ export function applyDelete(snapshot, task) {
               node.node_state.status = "expired";
               node.node_state.reason = "引用服装已删除";
             }
-            if (node.node_state.status === "queued") {
-              const t = snapshot.tasks.find(
-                (t) =>
-                  t.target_id === s.id &&
-                  t.business_type === "video" &&
-                  t.task_status === "queued",
-              );
-              if (t?.previous_node_state.status === "generated")
-                t.previous_node_state = {
-                  status: "expired",
-                  reason: "引用服装已删除",
-                };
-            }
+            const t = snapshot.tasks.find(
+              (t) =>
+                t.target_id === s.id &&
+                t.business_type === "video" &&
+                t.task_status === "queued",
+            );
+            if (t?.previous_node_state?.status === "generated")
+              t.previous_node_state = {
+                status: "expired",
+                reason: "引用服装已删除",
+              };
             expireDownstream(snapshot, "video", s.id, "引用服装已删除");
           }
     character.costumes = character.costumes.filter((co) => co.id !== object.id);

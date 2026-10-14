@@ -4,7 +4,7 @@ DeepSeek Harness 短剧制作插件。按项目 Model 保存剧本、角色与�
 
 创建项目选择自由创作或剧本模式。自由创作需要用户提供方向；剧本模式需要完整剧本。新增剧集填写时长与本集要求，之后可以编辑。制作从提取剧集开始：一边提取人物资料，再从各人物卡按全部服装生成定妆照（首套作为默认角色图），一边按故事大纲、镜头表、逐镜制作到合片。逐镜顺序是每秒分镜、文生视频提示词，再按类型决定是否编排首尾帧或多模态提示词，然后生成视频；尾帧在视频任务里截取，只有首尾帧类型用上一镜尾帧开场。项目摘要和剧集摘要不挡住这条路径。前置不足会记录具体失败原因，不自动补上游。
 
-每个文本任务完成生成、程序审核、AI 审核，并按该节点的重试轮次修订。程序审核未通过同样带意见进入修订；用尽后才进入未通过。时长误差由程序审核按该节点的误差时长判定。人工编辑与人工放行不调用 AI。节点显示未生成、排队中、生成中、已生成、未通过、失败、已取消、已过期；状态与原因直接来自持久化 Model。上游变化保留旧资源并标记过期。输出语言、画幅、规则、角色声音和默认服装的修改只影响后续步骤。
+每个文本任务完成生成、程序审核、AI 审核，并按该节点的重试轮次修订。程序审核未通过同样带意见进入修订；用尽后才进入未通过。时长误差由程序审核按该节点的误差时长判定。人工编辑与人工放行不调用 AI。节点显示未生成、生成中、已生成、未通过、失败、已取消、已过期；状态与原因直接来自持久化 Model。排队中只出现在任务和任务组上，不写入节点。上游变化保留旧资源并标记过期。输出语言、画幅、规则、角色声音和默认服装的修改只影响后续步骤。
 
 同一项目串行执行。任务完成后自动下一项；失败、未通过或取消后停止。排队项可从面板开始或移除。组合任务包括本集每秒分镜与成片，继续操作创建新组和新任务，旧终态历史保持不变。会话关闭不会取消制作；程序通知可被模型读取，但不授权模型自主修复或继续。
 
@@ -18,11 +18,13 @@ DeepSeek Harness 短剧制作插件。按项目 Model 保存剧本、角色与�
 
 图片和视频沿用现有网关协议，尾帧和合片使用 FFmpeg，所有产物在保存前校验。停止视频任务只停止本地等待，网关不提供远端取消接口。不要同时运行多个写入同一 DSH_HOME 的实例。
 
-聊天和全部制作文本（生成、审核、修订）使用本地接入的 `qwen3.5:27b`，默认地址为 `http://127.0.0.1:11435/v1`。这里的本地地址通过 SSH 转发到已部署的 CloudGPU Ollama；模型实际运行在远端 V100 上。模型设置中的「语言模型地址」只影响文本，「媒体网关地址/密钥」继续用于图片与视频。Ollama 使用占位密钥 `ollama`，不发送媒体网关凭据。
+设置页提供「语言」和「模型」卡片，选择后自动保存。语言作用于当前项目后续生成；模型选择作用于全部项目。文本可选「接口」（网关 `elysium-chat`）或「Qwen3.5 27B」（本地 HTTP `qwen3.5:27b`），聊天与制作文本共同读取 `SettingsModel` 的文本选择。图片、视频分别固定为接口 `elysium-image`、`elysium-video`。界面不再编辑地址、密钥或自由模型名。
 
-已有运行配置先执行 `node meiji/scripts/migrate-qwen-models.js`（可传 DSH_HOME 路径），再按现有流程重启 Harness。脚本先备份 models.json，仅切换文本地址和 chat/story 模型，保留媒体配置及其他设置；不会迁移或清空项目。没有运行配置时写入当前默认值。运行时不回退旧语言模型。隧道中断后可运行 `ssh -fN -L 127.0.0.1:11435:127.0.0.1:11434 -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -p 24520 root@js4.blockelite.cn`，在终端输入实例密码；密码不保存在项目内。实例地址改变时需同步 SSH 连接参数。
+连接配置仍在 `$DSH_HOME/storages/meiji/models.json`：`baseUrl/apiKey` 为网关，`textBaseUrl` 为独立 [llm-server](../../llm-server/README.md) 的 HTTP 接口（默认 `http://127.0.0.1:11435/v1`，由该服务管理 SSH 隧道并连接 CloudGPU Ollama）。本地请求仅使用占位密钥 `ollama`。`text/image/video.model` 为设置 Model 的唯一选择来源；旧 `chat/story` 已移除。已有配置执行 `node meiji/scripts/migrate-settings-model.js`（可传 DSH_HOME 路径）后重启：先备份，保留地址、密钥、并发配置及当前文本选择；不更改项目数据。未知模型配置迁移时直接报错，需明确修正，不作运行时兜底。
 
-提示词遵循 [Qwen3.5 官方说明](https://huggingface.co/Qwen/Qwen3.5-27B)：标准 system/user 消息，system 保存角色、规则和输出格式，user 保存任务与资料；只把最终正文用于后续任务，不回填思考过程。文本公共约定限定资料用途和最终输出，节点 YAML 的业务规则与字段结构保持原样。制作文本采用非思考通用参数 `temperature=0.7`、`top_p=0.8`、`presence_penalty=1.5`，按 [Ollama 协议](https://docs.ollama.com/api/openai-compatibility) 用 `reasoning_effort=none` 关闭思考，不拼接 `/nothink` 或聊天模板特殊标记。未向 OpenAI 兼容接口发送未声明的 top_k/min_p；聊天采样由宿主处理。应用不发送 `max_tokens`，聊天配置不设置 `maxTokens`；当前服务配置 `num_predict=-1`，生成至结束。服务实际上下文已调整为 32768 tokens，并同步聊天配置；上下文容量仍有限，这不是无限长度或模型理论最大容量。后续扩大窗口需先调整服务器 `num_ctx` 并验证显存可用，不能只提高客户端声明。
+隧道中断后可运行 `ssh -fN -L 127.0.0.1:11435:127.0.0.1:11434 -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -p 24520 root@js4.blockelite.cn`，在终端输入实例密码；密码不保存在项目内。实例地址改变时需同步 SSH 连接参数。
+
+提示词遵循 [Qwen3.5 官方说明](https://huggingface.co/Qwen/Qwen3.5-27B)：标准 system/user 消息，system 保存角色、规则和输出格式，user 保存任务与资料；只把最终正文用于后续任务，不回填思考过程。文本公共约定限定资料用途和最终输出，节点 YAML 的业务规则与字段结构保持原样。选择 Qwen 时，制作文本采用非思考通用参数 `temperature=0.7`、`top_p=0.8`、`presence_penalty=1.5`，按 [Ollama 协议](https://docs.ollama.com/api/openai-compatibility) 用 `reasoning_effort=none` 关闭思考，不拼接 `/nothink` 或聊天模板特殊标记。未向 OpenAI 兼容接口发送未声明的 top_k/min_p；聊天采样由宿主处理。应用不发送 `max_tokens`，聊天配置不设置 `maxTokens`；当前服务配置 `num_predict=-1`，生成至结束。服务实际上下文已调整为 32768 tokens，并同步聊天配置；上下文容量仍有限，这不是无限长度或模型理论最大容量。后续扩大窗口需先调整服务器 `num_ctx` 并验证显存可用，不能只提高客户端声明。
 
 在本目录执行 `npm test`；阶段测试文件以 stage01～stage08 命名。开发规则、模块边界、存储和接口见 [开发指引](../.agents/meiji-dev.md)，重构完成及真实走查证据见 [实施记录](../docs/implement/1010-实施-分阶段开发总纲.md)。
 

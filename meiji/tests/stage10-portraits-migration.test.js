@@ -25,7 +25,7 @@ for (const malformed of [false, true]) test(`v6→v7 默认图与历史原图保
   if (malformed) c.name = 123;
   const old = JSON.stringify(p), db = new DatabaseSync(path);
   db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(old, p.id);
-  db.exec('DELETE FROM schema_migrations WHERE version=7; PRAGMA user_version=6'); db.close();
+  db.exec('DELETE FROM schema_migrations WHERE version>=7; PRAGMA user_version=6'); db.close();
   repo = new ModelRepository(root);
   if (malformed) {
    await assert.rejects(repo.open(p.id), /name/);

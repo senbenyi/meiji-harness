@@ -65,6 +65,6 @@ test("S8-08 双端可达模块与全部源码无旧控制依赖；R1–R13 文�
     await assert.rejects(readFile(join(root, old)), { code: "ENOENT" });
   const scripts = await readdir(join(root, "scripts"));
   // 旧项目迁移仍退出；这次只新增独立模型配置的显式迁移。
-  assert.deepEqual(scripts.filter((name) => name.startsWith("migrate-")), ["migrate-qwen-models.js"]);
+  assert.deepEqual(scripts.filter((name) => name.startsWith("migrate-")), ["migrate-settings-model.js"]);
   assert.ok(!seen.has("scripts/migrate-qwen-models.js"));
 });

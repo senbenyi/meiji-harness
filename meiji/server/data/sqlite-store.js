@@ -3,6 +3,7 @@ import { readFileSync, chmodSync, lstatSync } from "node:fs";
 import { migrateProjectModelV3, migrateEpisodeNodesV4, migrateCharacterListsV5, migrateCharacterPortraitsV6 } from "../../shared/models/migrate_project_model.js";
 import { validateProject } from "../../shared/project_contract.js";
 import { expireDownstream } from "../../shared/node-dependencies.js";
+import { releaseQueuedNodeStatus } from "../../shared/node-state.js";
 
 const columns = {
   task_groups: "id project_id episode_id name group_type action source shot_ids_json created_at position".split(" "),
@@ -51,15 +52,19 @@ export class SQLiteStore {
         const backupPath = `${path}.before-v7-${Date.now()}-${globalThis.crypto.randomUUID()}.sqlite`;
         this.#db.prepare("VACUUM INTO ?").run(backupPath);
         chmodSync(backupPath, 0o600);
+      } else if (version === 7) {
+        const backupPath = `${path}.before-v8-${Date.now()}-${globalThis.crypto.randomUUID()}.sqlite`;
+        this.#db.prepare("VACUUM INTO ?").run(backupPath);
+        chmodSync(backupPath, 0o600);
       }
       if (version === 0) {
         this.#db.exec("BEGIN IMMEDIATE");
         try {
           this.#db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
           this.#db.exec("COMMIT");
-          version = 7;
+          version = 8;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
-      } else if (version > 0 && version < 7) {
+      } else if (version > 0 && version < 8) {
         // 所有版本过渡和数据校验在同一事务内；失败时连同版本号一起回滚。
         this.#db.exec("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE");
         try {
@@ -211,11 +216,25 @@ export class SQLiteStore {
             this.#db.exec("PRAGMA user_version=7");
             version = 7;
           }
+          if (version === 7) {
+            const saveProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
+            for (const row of this.#db.prepare("SELECT id,data_json FROM projects").all()) {
+              const project = JSON.parse(row.data_json);
+              const tasks = this.#db.prepare("SELECT business_type,target_id,task_status,previous_node_state_json FROM tasks WHERE project_id=?").all(row.id)
+                .map(task => ({ ...task, previous_node_state: JSON.parse(task.previous_node_state_json) }));
+              releaseQueuedNodeStatus(project, tasks);
+              validateProject(project);
+              saveProject.run(JSON.stringify(project), row.id);
+            }
+            this.#db.prepare("INSERT INTO schema_migrations VALUES (8,?)").run(new Date().toISOString());
+            this.#db.exec("PRAGMA user_version=8");
+            version = 8;
+          }
           this.#db.exec("COMMIT");
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
         finally { this.#db.exec("PRAGMA foreign_keys=ON"); }
       }
-      if (version !== 7) throw new Error(`不支持的数据库版本：${version}`);
+      if (version !== 8) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => f !== "id").map(f => `${f}=excluded.${f}`).join(",")}`));
       }

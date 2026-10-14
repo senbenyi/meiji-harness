@@ -319,16 +319,14 @@ export function expireDownstream(
       node.node_state.status = "expired";
       node.node_state.reason = reason;
     }
-    if (node.node_state.status === "queued") {
-      const task = snapshot.tasks.find(
-        (t) =>
-          t.business_type === item.business_type &&
-          t.target_id === item.target_id &&
-          t.task_status === "queued",
-      );
-      if (task?.previous_node_state?.status === "generated")
-        task.previous_node_state = { status: "expired", reason };
-    }
+    const task = snapshot.tasks.find(
+      (t) =>
+        t.business_type === item.business_type &&
+        t.target_id === item.target_id &&
+        t.task_status === "queued",
+    );
+    if (task?.previous_node_state?.status === "generated")
+      task.previous_node_state = { status: "expired", reason };
     queue.push(...downstream(snapshot, item.business_type, item.target_id)
       .map(next => ({ ...next, force: !compare || !next.context_only })));
   }

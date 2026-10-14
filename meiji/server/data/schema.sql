@@ -90,4 +90,5 @@ INSERT INTO schema_migrations VALUES (4,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (5,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (6,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (7,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
-PRAGMA user_version=7;
+INSERT INTO schema_migrations VALUES (8,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+PRAGMA user_version=8;

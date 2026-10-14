@@ -71,8 +71,9 @@ test("S3-03 排队快照随上游失效，取消后恢复 expired", () => {
     s = p.episodes[0].shot_list.shots[0];
   enqueueNode(p, t);
   snapshot.tasks = [t];
+  assert.equal(s.video.node_state.status, "generated");
   expireDownstream(snapshot, "seconds", s.id, "上游已修改", { compareHash: false });
-  assert.equal(s.video.node_state.status, "queued");
+  assert.equal(s.video.node_state.status, "expired");
   assert.equal(t.previous_node_state.status, "expired");
   restoreQueued(p, t);
   assert.equal(s.video.node_state.status, "expired");
@@ -282,7 +283,7 @@ test("修改剧集参考时长使大纲、镜头及排队快照过期，摘要�
   assert.equal(e.story_outline.node_state.status, "expired");
   assert.equal(e.story_outline.node_state.dependency_hash, oldHash);
   assert.equal(e.shot_list.node_state.status, "expired");
-  assert.equal(s.video.node_state.status, "queued");
+  assert.equal(s.video.node_state.status, "expired");
   assert.deepEqual(queued.previous_node_state, { status: "expired", reason: "参考时长已修改" });
   assert.equal(e.assembly.node_state.status, "expired");
 });

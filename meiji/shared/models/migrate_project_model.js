@@ -294,6 +294,8 @@ export function migrateEpisodeNodesV4(snapshot) {
       if (state?.status !== "generated" || node.node_state.dependency_hash === dependencyHash(snapshot, business, id)) continue;
       state.status = "expired";
       state.reason = reason;
+      if (queued?.previous_node_state && queued.previous_node_state !== state && queued.previous_node_state.status === "generated")
+        queued.previous_node_state = { status: "expired", reason };
       expireDownstream(snapshot, business, id, reason, { compareHash: false });
     }
   }

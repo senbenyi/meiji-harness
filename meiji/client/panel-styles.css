@@ -363,3 +363,5 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 
 .overview-page .character-card{display:flex;flex-direction:column;gap:8px;min-width:0}
 .overview-page .character-card>.library-card{width:100%;box-sizing:border-box}
+
+.settings-group .settings-option{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:12px 0}.settings-group .settings-option select{width:220px;max-width:60%;margin:0}.settings-group .settings-error:empty{display:none}.settings-group>h3{margin-top:0}

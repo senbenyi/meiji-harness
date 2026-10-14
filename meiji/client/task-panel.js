@@ -6,7 +6,6 @@ import { element, showPanelDialog, appendJsonCopy } from "./panel-dom.js";
 import { sendCommand } from "./task-client.js";
 const labels = {
   empty: "未生成",
-  queued: "排队中",
   running: "生成中",
   generated: "已生成",
   rejected: "未通过",
@@ -178,7 +177,8 @@ export function renderTaskPanel(root, snapshot, context) {
           action: hasOutput ? "regenerate" : "generate",
           ...(opinion ? { opinion } : {}),
         });
-    const active = ["queued", "running"].includes(node.node_state.status);
+    const currentTask = snapshot.tasks.find((task) => task.business_type === business && task.target_id === id && ["queued", "running"].includes(task.task_status));
+    const active = node.node_state.status === "running" || Boolean(currentTask);
     if (!active && !readOnly) card.append(button(hasOutput ? "重新生成" : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
     if (!active && !readOnly && hasOutput && node.node_state.status === "rejected")
       card.append(
@@ -285,7 +285,6 @@ export function renderTaskPanel(root, snapshot, context) {
         false,
       ),
     );
-    const currentTask = snapshot.tasks.find((task) => task.business_type === business && task.target_id === id && ["queued", "running"].includes(task.task_status));
     if (currentTask && !readOnly) {
       card.append(button("取消", () => act({ type: "cancel", task_id: currentTask.id }), false));
       if (currentTask.task_status === "queued") card.append(
@@ -365,45 +364,31 @@ export function renderTaskPanel(root, snapshot, context) {
       element("p", p.name, "meta"),
     );
     const group = element("section", "", "settings-group"),
-      form = element("form"),
       language = element("select"),
-      label = element("label", "模型返回语言");
-    form.dataset.draftKey = "language";
-    form.oninput = () => (form.dataset.dirty = "true");
+      label = element("label", "生成语言", "settings-option"),
+      message = element("p", "", "error settings-error");
+    message.setAttribute("role", "status");
     language.name = "output_language";
-    language.setAttribute("aria-label", "模型返回语言");
-    for (const [v, text] of [
-      ["zh-CN", "简体中文"],
-      ["en", "English（英文）"],
-    ]) {
-      const o = element("option", text);
-      o.value = v;
-      language.append(o);
+    language.setAttribute("aria-label", "生成语言");
+    for (const [v, text] of [["zh-CN", "简体中文"], ["en", "English（英文）"]]) {
+      const option = element("option", text);
+      option.value = v;
+      language.append(option);
     }
     language.value = p.output_language;
     language.disabled = busy;
-    label.append(language);
-    const save = element("button", "保存", "primary");
-    save.type = "submit";
-    save.disabled = busy;
-    form.append(
-      label,
-      element(
-        "p",
-        "仅影响当前短剧后续生成的内容，已有内容保留原文。界面仍使用中文。",
-        "meta",
-      ),
-      save,
-    );
-    form.onsubmit = (event) => {
-      event.preventDefault();
-      void act({ type: "edit", fields: { output_language: language.value } }, true)
-        .then(() => {
-          form.dataset.dirty = "false";
-        })
-        .catch(() => {});
+    language.onchange = async () => {
+      language.disabled = true;
+      message.textContent = "";
+      try {
+        await act({ type: "edit", fields: { output_language: language.value } }, true);
+      } catch (error) {
+        language.value = p.output_language;
+        message.textContent = error.message;
+      } finally { language.disabled = busy; }
     };
-    group.append(element("h3", "内容生成"), form);
+    label.append(language);
+    group.append(element("h3", "语言"), label, message);
     page.append(group);
     const rulesGroup = element("section", "", "settings-group"),
       targets = new Map([[p.id, "项目"]]);

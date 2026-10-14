@@ -10,11 +10,10 @@ export { TEXT_BUSINESSES };
 export function setNodeState(node, status, reason = "") {
   const state = node.node_state;
   const allowed = {
-    empty: ["queued"],
-    queued: ["running", "empty", "generated", "rejected", "failed", "cancelled", "expired"],
+    empty: ["running"],
     running: ["generated", "rejected", "failed", "cancelled"],
-    generated: ["queued", "expired"],
-    rejected: ["queued"], failed: ["queued"], cancelled: ["queued"], expired: ["queued"],
+    generated: ["running", "expired"],
+    rejected: ["running"], failed: ["running"], cancelled: ["running"], expired: ["running"],
   };
   if (state.status !== status && !allowed[state.status]?.includes(status))
     invalid("node_state.status", `非法转换 ${state.status} → ${status}`);
@@ -27,9 +26,37 @@ export function enqueueNode(project, task) {
   const node = nodeOf(project, task.business_type, task.target_id);
   if (!node) { task.previous_node_state = null; return; }
   const { status, reason } = node.node_state;
-  if (["queued", "running"].includes(status)) invalid("node_state.status", "目标已占用");
+  if (status === "running") invalid("node_state.status", "目标已占用");
   task.previous_node_state = { status, reason };
-  setNodeState(node, "queued");
+}
+export function releaseQueuedNodeStatus(project, tasks) {
+  const apply = (business, id, node) => {
+    if (node?.node_state?.status !== "queued") return;
+    const match = (status) => tasks.find((task) => task.business_type === business && task.target_id === id && task.task_status === status);
+    const previous = match("queued")?.previous_node_state;
+    if (match("running")) Object.assign(node.node_state, { status: "running", reason: "" });
+    else if (previous && previous.status !== "queued") Object.assign(node.node_state, { status: previous.status, reason: previous.reason || "" });
+    else Object.assign(node.node_state, { status: "cancelled", reason: "排队中已从节点状态移除" });
+  };
+  apply("project-summary", project.id, project.project_summary);
+  apply("project-characters", project.id, project.character_library);
+  for (const character of project.character_library?.characters || [])
+    for (const image of character.costume_images || [])
+      apply("costume-image", image.costume_id || character.id, image);
+  for (const episode of project.episodes || []) {
+    apply("episode-summary", episode.id, episode.summary);
+    apply("outline", episode.id, episode.story_outline);
+    apply("shots", episode.id, episode.shot_list);
+    apply("assembly", episode.id, episode.assembly);
+    for (const shot of episode.shot_list?.shots || []) {
+      apply("seconds", shot.id, shot.seconds_storyboard);
+      apply("storyboard", shot.id, shot.text_to_video_prompt);
+      apply("first-last-frame", shot.id, shot.first_last_frame_prompt);
+      apply("multimodal", shot.id, shot.multimodal_prompt);
+      apply("video", shot.id, shot.video);
+      apply("tail", shot.id, shot.last_frame);
+    }
+  }
 }
 export function restoreQueued(project, task) {
   const node = nodeOf(project, task.business_type, task.target_id);

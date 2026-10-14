@@ -1,3 +1,4 @@
+import { SettingsModel } from '../shared/models/settings_model.js'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -12,8 +13,6 @@ export function gatewayBaseUrl(value) {
   return url.href.replace(/\/$/, '')
 }
 
-export const purposes = { chat: '聊天', story: '生成剧情', image: '文生图片', video: '生成视频' }
-const purposeIds = Object.keys(purposes)
 
 // MEIJI_MODELS_LOCAL 可替换本地配置路径；npm test 用它指向测试密钥，保证测试不读取真实密钥。
 const localConfig = process.env.MEIJI_MODELS_LOCAL
@@ -33,35 +32,17 @@ export function normalizeModels(raw) {
   const textBaseUrl = gatewayBaseUrl(raw?.textBaseUrl)
   const apiKey = String(raw?.apiKey || '').replace(/^Bearer\s+/i, '').trim()
   if (!apiKey) throw Object.assign(new Error('需要网关密钥'), { status: 400 })
-  const names = {}
-  for (const purpose of purposeIds) {
-    const model = String(raw?.[purpose]?.model || '').trim()
-    if (!model) throw Object.assign(new Error(`${purposes[purpose]}：请填写模型名`), { status: 400 })
-    names[purpose] = model
-  }
-  if (names.image === names.chat || names.video === names.chat) {
-    throw Object.assign(new Error('图片和视频不能使用文本模型'), { status: 400 })
-  }
-  const config = { ...raw, baseUrl, textBaseUrl, apiKey }
-  return { baseUrl, textBaseUrl, apiKey, ...Object.fromEntries(purposeIds.map(purpose => [purpose, modelRoute(config, purpose)])) }
+  return { ...raw, baseUrl, textBaseUrl, apiKey, ...new SettingsModel(raw).toJSON() }
 }
-// 文本使用本机 Ollama，占位密钥不复用图片/视频网关的真实凭据。
+// 聊天与制作文本读取同一个选择；本地 HTTP 不使用网关凭据。
 export function modelRoute(config, purpose) {
-  const text = purpose === 'chat' || purpose === 'story'
+  const selected = new SettingsModel(config)
+  const kind = purpose === 'chat' || purpose === 'story' ? 'text' : purpose
+  const model = selected[kind].model
+  const local = kind === 'text' && model === 'qwen3.5:27b'
   return {
-    baseUrl: gatewayBaseUrl(text ? config.textBaseUrl : config.baseUrl),
-    apiKey: text ? 'ollama' : config.apiKey,
-    model: String(config[purpose].model).trim(),
-  }
-}
-export function compactModels(config) {
-  return {
-    baseUrl: config.baseUrl,
-    textBaseUrl: config.textBaseUrl,
-    apiKey: config.apiKey,
-    chat: { model: config.chat.model },
-    story: { model: config.story.model },
-    image: { model: config.image.model },
-    video: { model: config.video.model },
+    baseUrl: gatewayBaseUrl(local ? config.textBaseUrl : config.baseUrl),
+    apiKey: local ? 'ollama' : config.apiKey,
+    model,
   }
 }

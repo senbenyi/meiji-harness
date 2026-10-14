@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
 import { createId } from "../shared/task_contract.js";
-import { projectFixture } from "./fixtures/project.js";
+import { projectFixture, taskFixture } from "./fixtures/project.js";
 import { migrateEpisodeNodesV4 } from "../shared/models/migrate_project_model.js";
 import { commitContent } from "../server/handlers/content.js";
 
@@ -126,7 +126,7 @@ test("SQLite v3→v7：保留终态和原始请求，移除组冗余字段，备
   const backup = new DatabaseSync(join(root, backups[0]));
   assert.equal(backup.prepare("PRAGMA user_version").get().user_version, 3); backup.close();
   const check = new DatabaseSync(join(root, "meiji.sqlite"));
-  assert.equal(check.prepare("PRAGMA user_version").get().user_version, 7);
+  assert.equal(check.prepare("PRAGMA user_version").get().user_version, 8);
   assert.deepEqual(check.prepare("PRAGMA foreign_key_check").all(), []);
   assert.deepEqual(check.prepare("SELECT prompt_json,result_json FROM task_steps").get(), before);
   assert.ok(!check.prepare("PRAGMA table_info(task_groups)").all().some(row => ["opinion", "continued_from_group_id"].includes(row.name)));
@@ -202,7 +202,7 @@ test("SQLite v4→v7：修正累计时长和旧依赖，排队恢复不覆盖过
   assert.equal(restoredModel.read().tasks.find(t => t.id === queued.task_id).task_status, "superseded");
   await recovering.dispose(); await upgraded.close();
   const check = new DatabaseSync(path);
-  assert.equal(check.prepare("PRAGMA user_version").get().user_version, 7);
+  assert.equal(check.prepare("PRAGMA user_version").get().user_version, 8);
   assert.deepEqual(check.prepare("SELECT * FROM tasks WHERE task_status='completed'").all(), historicalTasks);
   assert.deepEqual(check.prepare("SELECT * FROM task_steps WHERE task_id=?").all(completed.task_id), historicalSteps);
   check.close();
@@ -270,4 +270,34 @@ for (const point of ["after-tasks", "after-commit"]) test(`SQLite：真实进程
     assert.equal(s.runtime.requests.length, point === "after-commit" ? 1 : 0);
     if (point === "after-commit") assert.equal((await model.update("crash", {}, () => { throw Error("重复执行"); })).saved, true);
   } finally { await restored.close(); }
+}));
+
+test("SQLite v7→v8：排队节点恢复入队前状态，任务仍排队", () => fixture(async root => {
+  const repo = new ModelRepository(root), p = projectFixture();
+  const created = await repo.create(p);
+  const task = taskFixture(p, "project-summary", p.id, { episode_id: null, group_id: createId("group"), group_seq: 1 });
+  await created.update("queue", {}, s => {
+    s.runtime.queue_stopped = true;
+    s.groups = [{ id: task.group_id, project_id: p.id, episode_id: null, group_type: "single", source: "panel", shot_ids: [], action: "regenerate", created_at: task.created_at }];
+    s.tasks = [task];
+    return {};
+  });
+  await repo.close();
+  const path = join(root, "meiji.sqlite"), db = new DatabaseSync(path);
+  const project = JSON.parse(db.prepare("SELECT data_json FROM projects WHERE id=?").get(p.id).data_json);
+  project.project_summary.node_state.status = "queued";
+  db.prepare("UPDATE projects SET data_json=? WHERE id=?").run(JSON.stringify(project), p.id);
+  db.exec("DELETE FROM schema_migrations WHERE version=8; PRAGMA user_version=7");
+  db.close();
+  const upgraded = new ModelRepository(root);
+  try {
+    const restored = (await upgraded.open(p.id)).read();
+    assert.equal(restored.project.project_summary.node_state.status, "generated");
+    assert.equal(restored.tasks[0].task_status, "queued");
+    assert.deepEqual(restored.tasks[0].previous_node_state, { status: "generated", reason: "" });
+    const check = new DatabaseSync(path);
+    assert.equal(check.prepare("PRAGMA user_version").get().user_version, 8);
+    check.close();
+    assert.equal((await readdir(root)).filter(name => name.includes("before-v8")).length, 1);
+  } finally { await upgraded.close(); }
 }));

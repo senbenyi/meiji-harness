@@ -72,7 +72,7 @@ function assertModel(value, model, path) {
 function validateNodeState(node, path) {
   assertEnum(
     node.status,
-    ["empty", "queued", "running", "generated", "rejected", "failed", "cancelled", "expired"],
+    ["empty", "running", "generated", "rejected", "failed", "cancelled", "expired"],
     `${path}.status`,
   );
   if (typeof node.reason !== "string") invalid(`${path}.reason`, "需为文本");

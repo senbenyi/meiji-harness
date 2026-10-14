@@ -1,6 +1,6 @@
+import { modelOptions } from '../shared/models/settings_model.js';
 import { projectDialog } from "./project-forms.js";
 import { renderLibrary as libraryView } from "./library-ui.js";
-import { fieldsForm } from "./content-forms.js";
 import { createShell } from "./panel-shell.js";
 import { element } from "./panel-dom.js";
 import {
@@ -21,8 +21,7 @@ export function mount() {
     session = null,
     disposed = false,
     paintedContext = "",
-    paintVersion = 0,
-    retainedDrafts = new Map();
+    paintVersion = 0;
   const paint = () => {
     paintVersion++;
     const snapshot = context.read();
@@ -56,8 +55,6 @@ export function mount() {
             ),
           ]
         : [];
-    retainedDrafts.clear();
-    for (const form of drafts) retainedDrafts.set(form.dataset.draftKey, form);
     for (const node of [...editors, ...drafts]) node.remove();
     renderTaskPanel(shell.content, snapshot, {
       session_id: session,
@@ -99,7 +96,6 @@ export function mount() {
       character_id: null, costume_id: null,
     });
     paintedContext = "";
-    retainedDrafts.clear();
     shell.root.querySelector(".brand").textContent = emptyBrand;
     shell.root.querySelector(".language").textContent = "中文";
   };
@@ -229,67 +225,45 @@ export function mount() {
       )
         return;
       const group = element("section", "", "settings-group");
-      group.append(element("h3", "网关与模型"));
-      const values = {
-        语言模型地址: settings.textBaseUrl,
-        媒体网关地址: settings.baseUrl,
-        媒体网关密钥: "",
-        聊天模型: settings.chat.model,
-        剧情模型: settings.story.model,
-        图片模型: settings.image.model,
-        视频模型: settings.video.model,
-      };
-      const form = element("form", "", "image-text-editor"),
-        fields = fieldsForm(values, { disabled: busy });
-      form.dataset.draftKey = "models";
-      form.oninput = () => (form.dataset.dirty = "true");
-      fields.box.querySelector('[name="媒体网关密钥"]').type = "password";
-      for (const grid of fields.box.querySelectorAll(".image-text-grid"))
-        grid.style.gridTemplateColumns = "minmax(0,1fr)";
-      fields.box.style.gridTemplateColumns = "minmax(0,1fr)";
-      for (const label of fields.box.querySelectorAll("label"))
-        label.style.gridTemplateColumns = "minmax(0,1fr)";
-      const message = element("p", "", "error"),
-        save = element("button", "保存", "primary");
-      save.type = "submit";
-      save.disabled = busy;
-      form.append(
-        fields.box,
-        element("p", "本地语言模型无需密钥；媒体网关密钥留空保留原值", "meta"),
-        message,
-        save,
-      );
-      form.onsubmit = async (event) => {
-        event.preventDefault();
-        save.disabled = true;
-        try {
-          const v = fields.read(),
-            settings = {
-              textBaseUrl: v.语言模型地址,
-              baseUrl: v.媒体网关地址,
-              chat: { model: v.聊天模型 },
-              story: { model: v.剧情模型 },
-              image: { model: v.图片模型 },
-              video: { model: v.视频模型 },
-            };
-          if (v.媒体网关密钥) settings.apiKey = v.媒体网关密钥;
-          await request("models", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Meiji-Request": "1",
-            },
-            body: JSON.stringify({ settings }),
-          });
-          form.dataset.dirty = "false";
-          message.textContent = "已保存";
-        } catch (e) {
-          message.textContent = e.message;
-        } finally {
-          save.disabled = busy;
+      group.append(element("h3", "模型"));
+      const message = element("p", "", "error settings-error");
+      message.setAttribute("role", "status");
+      const selects = [];
+      for (const [kind, title] of [["text", "文本模型"], ["image", "图片模型"], ["video", "视频模型"]]) {
+        const label = element("label", title, "settings-option"), select = element("select");
+        select.name = kind;
+        select.setAttribute("aria-label", title);
+        for (const option of modelOptions[kind]) {
+          const item = element("option", option.label);
+          item.value = option.value;
+          select.append(item);
         }
-      };
-      group.append(retainedDrafts.get("models") || form);
+        select.value = settings[kind].model;
+        select.disabled = busy;
+        selects.push(select);
+        select.onchange = async () => {
+          const previous = settings[kind].model;
+          settings[kind] = { model: select.value };
+          selects.forEach(item => item.disabled = true);
+          message.textContent = "";
+          try {
+            await request("models", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Meiji-Request": "1" },
+              body: JSON.stringify({ settings }),
+            });
+          } catch (error) {
+            settings[kind] = { model: previous };
+            select.value = previous;
+            message.textContent = error.message;
+          } finally {
+            selects.forEach(item => item.disabled = busy);
+          }
+        };
+        label.append(select);
+        group.append(label);
+      }
+      group.append(message);
       root.append(group);
     } catch (error) {
       report(error);

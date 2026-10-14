@@ -412,7 +412,7 @@ test("后台页面释放实时连接，可见后刷新重连，晚到刷新与�
     } finally { app?.dispose(); Object.assign(globalThis, saved); }
   }));
 
-test("UI-6 设置语言和模型表单在事件刷新后保留草稿，运行中冻结", () =>
+test("UI-6 设置选项自动保存、刷新恢复、失败回退，运行中冻结", () =>
   domTest(async (root, dom) => {
     const { mount } = await import("../client/workbench.js"),
       { randomUUID } = await import("node:crypto"),
@@ -433,47 +433,47 @@ test("UI-6 设置语言和模型表单在事件刷新后保留草稿，运行中
         "dsh.sessions.current",
         JSON.stringify({ sessionId: "session-" + randomUUID() }),
       );
-      globalThis.fetch = async (url) => ({
-        ok: true,
-        json: async () =>
-          url.endsWith("/models")
-            ? {
-                settings: {
-                  baseUrl: "http://localhost/v1",
-                  chat: { model: "chat" },
-                  story: { model: "story" },
-                  image: { model: "image" },
-                  video: { model: "video" },
-                },
-              }
-            : { project_id: snap.project.id, snapshot: structuredClone(snap) },
-      });
+      const settings = { text: { model: "qwen3.5:27b" }, image: { model: "elysium-image" }, video: { model: "elysium-video" } };
+      let fail = false;
+      globalThis.fetch = async (url, options = {}) => {
+        if (options.method === "POST") {
+          if (fail) return { ok: false, json: async () => ({ message: "保存失败" }) };
+          const body = JSON.parse(options.body);
+          if (url.endsWith("/models")) Object.assign(settings, body.settings);
+          else snap.project.output_language = body.command.fields.output_language;
+        }
+        return { ok: true, json: async () => url.endsWith("/models") ? { settings: structuredClone(settings) } : { project_id: snap.project.id, snapshot: structuredClone(snap) } };
+      };
       app = mount();
       await app.refresh();
       app.shell.root.querySelector(".settings").click();
       await tick();
-      const language = app.shell.content.querySelector("[name=output_language]"),
-        model = app.shell.content.querySelector("[name=剧情模型]");
+      const content = app.shell.content;
+      assert.equal(content.querySelectorAll("select").length, 4);
+      assert.equal(content.querySelectorAll("input, textarea").length, 0);
+      assert.ok(![...content.querySelectorAll("button")].some(b => b.textContent === "保存"));
+      let language = content.querySelector("[name=output_language]"), model = content.querySelector("[name=text]");
+      assert.deepEqual([...model.options].map(o => o.textContent), ["接口", "Qwen3.5 27B"]);
+      model.value = "elysium-chat";
+      await model.onchange();
+      assert.equal(settings.text.model, "elysium-chat");
       language.value = "en";
-      language.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
-      model.value = "新的剧情模型";
-      model.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
-      snap.runtime.revision++;
-      await app.refresh();
+      await language.onchange();
       await tick();
-      assert.equal(
-        app.shell.content.querySelector("[name=output_language]"),
-        language,
-      );
+      assert.equal(snap.project.output_language, "en");
+      snap.runtime.revision++;
+      await app.refresh(); await tick();
+      language = content.querySelector("[name=output_language]"); model = content.querySelector("[name=text]");
+      assert.equal(language.value, "en"); assert.equal(model.value, "elysium-chat");
+      fail = true;
+      model.value = "qwen3.5:27b"; await model.onchange();
+      assert.equal(model.value, "elysium-chat"); assert.match(content.textContent, /保存失败/);
+      language.value = "zh-CN"; await language.onchange();
       assert.equal(language.value, "en");
-      assert.equal(app.shell.content.querySelector("[name=剧情模型]"), model);
-      assert.equal(model.value, "新的剧情模型");
-      snap.tasks = [{ task_status: "running" }];
-      snap.runtime.revision++;
-      await app.refresh();
-      await tick();
-      assert.equal(language.disabled, true);
-      assert.equal(model.disabled, true);
+      snap.tasks = [{ task_status: "running" }]; snap.runtime.revision++;
+      await app.refresh(); await tick();
+      assert.equal(content.querySelector("[name=output_language]").disabled, true);
+      assert.equal(content.querySelector("[name=text]").disabled, true);
     } finally {
       app?.dispose();
       Object.assign(globalThis, saved);

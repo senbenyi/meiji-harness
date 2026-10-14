@@ -46,7 +46,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 唯一数据库为 `$DSH_HOME/storages/meiji/meiji.sqlite`，使用 Node 内置 `node:sqlite`（^22.19.0 或 >=24）。`schema.sql` 定义 projects、task_groups、tasks、task_steps、command_requests、notification_outbox、schema_migrations 七表；任务必须归组，步骤必须归任务，顺序唯一且同项目最多一个 running 任务。`sqlite-store.js` 使用 WAL/foreign_keys/FULL、短同步事务及 revision 条件校验，变化记录增量写入；不在持锁期间调用模型或等待异步工作。ProjectModel 的写接口只允许 repository 提供的事务闭包，项目内容/任务/步骤/幂等/通知一起提交，事件发生在持久化后。卸载时等待任务和通知结束，再关闭连接。
 
-`projects/<p_UUID>/` 仅作为宿主工作区目录。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 的固定英文字段和 `node_state.{status,reason,dependency_hash}`；字段或数据语义变更通过明确版本迁移执行，不重建项目或改写已结束任务历史。当前 schema 为 v7；支持的 v1–v6 升级前用 SQLite 快照备份。v3→v4 转换英文项目、节点快照、任务组列和步骤 rejected 枚举；v4→v5 不增表或字段，重算剧集实测时长，并将与新依赖规则不符的旧 generated 节点及下游标 expired，保留正文/媒体/原成功 hash，同步未结束排队任务的恢复快照。v5→v6 将角色 signature_props、immutable_traits 和服装 props 统一为字符串数组：空白旧文本变 []，非空旧文本原样保留为单元素数组，不猜测分隔符；按新数组依赖使受影响节点及排队恢复快照过期，保留正文、媒体和旧 hash。v6→v7 移除独立 character_image 字段，将旧角色图保留为未绑定服装的历史定妆照，默认角色图读取第一套定妆照；作废未结束独立角色图任务，按新依赖使定妆照过期，保留媒体、旧 hash 和历史。所有过渡在同一事务内，失败整体回滚，不改历史 prompt/result。首次启动自动创建数据库；发现未清理的 CURRENT 分代数据时明确拒绝启用。独立素材库和模型配置保留。
+`projects/<p_UUID>/` 仅作为宿主工作区目录。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 的固定英文字段和 `node_state.{status,reason,dependency_hash}`；字段或数据语义变更通过明确版本迁移执行，不重建项目或改写已结束任务历史。当前 schema 为 v8；支持的 v1–v7 升级前用 SQLite 快照备份。v3→v4 转换英文项目、节点快照、任务组列和步骤 rejected 枚举；v4→v5 不增表或字段，重算剧集实测时长，并将与新依赖规则不符的旧 generated 节点及下游标 expired，保留正文/媒体/原成功 hash，同步未结束排队任务的恢复快照。v5→v6 将角色 signature_props、immutable_traits 和服装 props 统一为字符串数组：空白旧文本变 []，非空旧文本原样保留为单元素数组，不猜测分隔符；按新数组依赖使受影响节点及排队恢复快照过期，保留正文、媒体和旧 hash。v6→v7 移除独立 character_image 字段，将旧角色图保留为未绑定服装的历史定妆照，默认角色图读取第一套定妆照；作废未结束独立角色图任务，按新依赖使定妆照过期，保留媒体、旧 hash 和历史。v7→v8 去掉节点状态 queued：有运行任务的节点改为 running，有排队任务的节点恢复 previous_node_state，其余改为 cancelled 并写原因；任务排队状态保留。所有过渡在同一事务内，失败整体回滚，不改历史 prompt/result。首次启动自动创建数据库；发现未清理的 CURRENT 分代数据时明确拒绝启用。独立素材库和模型配置保留。
 
 项目、剧集、角色、服装、镜头、规则、任务、组和步骤使用创建时生成的带前缀 UUID。AI 输入输出及资料界面使用编号，引用转换由程序核对唯一性和归属。重生成保留同一对象 ID，不按列表位置重建身份、不无声删除引用对象。独立素材继续使用原 `assets/<category>/<UUID>/metadata.json` 和 `original.<ext>` 文件格式；场景、道具及指导素材入口退出，但磁盘数据不会在启动时被删除。
 
@@ -54,8 +54,8 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 ## 状态、前置和任务
 
-- 8 种节点状态为 empty、queued、running、generated、rejected、failed、cancelled、expired，原因和状态一同提交；剧本没有节点状态。
-- 入队保存原状态/原因；排队取消或作废恢复快照。上游变化同步更新排队快照中的 generated→expired。正文和媒体地址保留。
+- 7 种节点状态为 empty、running、generated、rejected、failed、cancelled、expired，原因和状态一同提交；剧本没有节点状态。排队中只属于任务和任务组。
+- 入队不改节点状态，只保存原状态/原因；排队取消或作废按快照写回。上游变化更新节点本身，并同步更新排队快照中的 generated→expired。正文和媒体地址保留。
 - 仅 generated、结构有效且保存 hash 与当前依赖相符的节点可作为前置；空 hash 不视为有效。执行时重读当前 Model；不足记录 failed/precheck，不调用 AI，不自动补上游。
 - 故事大纲（outline）是将已有本集剧情完整拆为故事小段，不生成新剧情；两种模式均要求本集 plot 非空，先完整分段再估算时长，生成/修订/审核都以原文逐项回查。任务名称统一为“故事大纲”。
 - 剧本是制作工作流的输入资料；工作流包含提取剧集，不包含剧本生成或修改。
@@ -82,11 +82,11 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 文本按对应节点声明解析：项目/剧集摘要为纯文本，人物和切点等按 JSON 结构校验；分镜提示词保留其既定段落协议。JSON 结构不可用时 failed 并保留旧内容；可用候选的业务审核未通过时按节点轮次修订，耗尽后将最后内容及 rejected 原因存正式节点，不刷新 hash、不传播、不派生。拆分只做程序审核，拒绝候选留任务历史且不替换剧集。定妆照的姓名、性别、年代、定位、年龄段、身材、发型、签名道具、不可改特征任一项去除首尾空白后非空即可生成；全部为空时拒绝。首套可有或没有用户参考图；后续定妆照固定且唯一地引用首套定妆照，所有生成/修订动作一致。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图，后续镜头使用前镜尾帧及交接资料；远端 ID 在提交后记录。
 
-文本改用本机 SSH 转发的 Ollama `qwen3.5:27b`，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 system/user、stream=false、reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由 YAML 提示词要求和本地校验保证。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../meiji/README.md)。
+文本由 `shared/models/settings_model.js` 的 SettingsModel 选择：接口 `elysium-chat` 或独立 llm-server 提供的 `qwen3.5:27b`。选择 Qwen 时，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 system/user、stream=false；Qwen 的 reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5 默认参数已迁到独立 llm-server；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由 YAML 提示词要求和本地校验保证。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../meiji/README.md)。
 
 当前网关图片协议为 `images/generations` 或 multipart `images/edits`；视频为 `videos` 提交、状态轮询与 content 下载；文本使用 chat/completions。沿用实际网关的地址和参数，不依赖旧 README 所述异步图片取消协议。网关不提供远端视频取消接口：取消停止本地等待并阻止晚到结果提交，如实保留远端可能继续运行的原因。新增视频/合片在本地保持比例缩放并填充到项目画幅的像素尺寸，保留音轨；网关请求仍使用兼容尺寸，旧媒体不追溯改写。生成文件须通过 FFprobe 及 FFmpeg 完整解码；不能只根据扩展名或 HTTP 成功判为有效。
 
-配置为运行目录 `models.json`，默认值来自 `config/models.json` 和被忽略的 `config/models.local.json`；测试覆盖使用 `MEIJI_MODELS_LOCAL`。已有配置须显式运行 `meiji/scripts/migrate-qwen-models.js`，先备份、保留媒体设置，不用运行时旧配置兜底替代迁移。密钥不得写入 Git、浏览器响应或日志。聊天模型通过公开 credentials/settings 同步到同一文本地址，使用占位密钥 ollama，声明已实测部署上下文 32768（服务 num_ctx=32768、num_predict=-1）；制作文本直接调用本机接口，图片/视频保留原网关。
+配置为运行目录 `models.json`，默认值来自 `config/models.json` 和被忽略的 `config/models.local.json`；测试覆盖使用 `MEIJI_MODELS_LOCAL`。已有配置须显式运行 `meiji/scripts/migrate-settings-model.js`，先备份、保留连接与并发设置、将 chat/story 合并为 text，不用运行时旧配置兜底替代迁移。密钥不得写入 Git、浏览器响应或日志。设置页只显示语言与模型选项，选择自动保存。语言保留项目 output_language，模型选择全局保存在 text/image/video.model。聊天通过公开 credentials/settings 同步选中服务；Qwen 使用 ollama 与上下文 32768，网关使用服务端密钥与接口文档声明的 65536；图片/视频保留原网关。设置 API 仅公开和接收选择，不公开连接地址与凭据。
 
 ## 双端与通知
 

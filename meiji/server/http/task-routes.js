@@ -1,7 +1,8 @@
+import { SettingsModel } from '../../shared/models/settings_model.js';
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { normalizeModels, compactModels } from "../../models/model-config.js";
+import { normalizeModels } from "../../models/model-config.js";
 import { redactJson } from "../gateway/redact.js";
 const clientRoot = fileURLToPath(new URL("../../client/", import.meta.url));
 const sharedRoot = fileURLToPath(new URL("../../shared/", import.meta.url));
@@ -135,8 +136,7 @@ export function createTaskHttpHandler(
         }
         if (path === "/api/meiji/models") {
           const settings = await runtime.models.read();
-          delete settings.apiKey;
-          return json(res, 200, { settings: redactJson(settings) });
+          return json(res, 200, { settings: new SettingsModel(settings).toJSON() });
         }
       }
       if (req.method !== "POST")
@@ -174,11 +174,10 @@ export function createTaskHttpHandler(
         );
       if (path === "/api/meiji/models") {
         const settings = await runtime.models.read();
-        const value = compactModels(
-          normalizeModels({ ...settings, ...input.settings }),
-        );
+        const selection = new SettingsModel(input.settings).toJSON();
+        const value = normalizeModels({ ...settings, ...selection });
+        if (runtime.syncModels) await runtime.syncModels(value);
         await runtime.models.write(value);
-        if (runtime.syncModels) void runtime.syncModels(value).catch(() => {});
         return json(res, 200, { saved: true });
       }
       return json(res, 404, { message: "端点不存在" });

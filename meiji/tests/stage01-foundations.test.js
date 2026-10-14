@@ -41,10 +41,10 @@ test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完�
         { role: "system", content: "系统" },
         { role: "user", content: "用户" },
       ]);
-      assert.equal(body.reasoning_effort, "none");
-      assert.equal(body.temperature, 0.7);
-      assert.equal(body.top_p, 0.8);
-      assert.equal(body.presence_penalty, 1.5);
+      assert.equal(body.reasoning_effort, undefined);
+      assert.equal(body.temperature, undefined);
+      assert.equal(body.top_p, undefined);
+      assert.equal(body.presence_penalty, undefined);
       assert.equal(body.max_tokens, undefined);
       assert.equal(body.response_format, undefined);
       assert.equal(body.model, "mock-model");
