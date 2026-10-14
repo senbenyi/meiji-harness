@@ -29,7 +29,7 @@ test("统一节点目录描述定位和审核规则", async () => {
       episode: project.episodes[0],
       shot: project.episodes[0].shot_list.shots[0],
     }[definition.targetKind];
-    assert.equal(node, business === "costume-image" ? character.costume_images[0] : targetObject[definition.field]);
+    assert.equal(node, ["costume-image", "character-image"].includes(business) ? character.costume_images[0] : targetObject[definition.field]);
     assert.equal(TEXT_BUSINESSES.includes(business), definition.handler === "text");
     assert.equal(stepKinds(taskFixture(project, business, targetByKind[definition.targetKind])).includes("review"), (definition.programReview || definition.aiReview));
   }

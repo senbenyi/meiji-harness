@@ -256,6 +256,19 @@ export function migrateProjectModelV3(old) {
     };
     return episode;
   });
+  return migrateCharacterPortraitsV6(migrateCharacterListsV5(project));
+}
+
+// 仅用于显式数据库迁移；保留旧文本，不猜测分隔符或拆分原句。
+export function migrateCharacterListsV5(project) {
+  const convert = (object, key) => {
+    if (typeof object[key] === "string") object[key] = object[key].trim() ? [object[key]] : [];
+  };
+  for (const character of project.character_library.characters) {
+    convert(character, "signature_props");
+    convert(character, "immutable_traits");
+    for (const costume of character.costumes) convert(costume, "props");
+  }
   return project;
 }
 
@@ -284,4 +297,24 @@ export function migrateEpisodeNodesV4(snapshot) {
       expireDownstream(snapshot, business, id, reason, { compareHash: false });
     }
   }
+}
+
+// v6→v7：独立角色图转为历史未绑定定妆照，保留地址和原状态。
+export function migrateCharacterPortraitsV6(project) {
+  for (const character of project.character_library.characters) {
+    const old = character.character_image;
+    if (old?.address) {
+      const unbound = character.costume_images.find(image => !image.costume_id);
+      if (!unbound?.address) {
+        if (unbound) Object.assign(unbound, old);
+        else character.costume_images.push({ ...old, costume_id: "" });
+      }
+    }
+    delete character.character_image;
+    for (const id of character.costumes.length ? character.costumes.map(costume => costume.id) : [""]) {
+      if (!character.costume_images.some(image => image.costume_id === id))
+        character.costume_images.push(emptyCostumeImageModel(id));
+    }
+  }
+  return project;
 }

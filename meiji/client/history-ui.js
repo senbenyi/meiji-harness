@@ -1,3 +1,4 @@
+import { BUSINESS_DEFINITIONS } from "../shared/node-definitions.js";
 import { historyGroups, taskName, stepName } from "../shared/task-labels.js";
 import { NODE_TYPES } from "../shared/task_contract.js";
 import { element } from "./panel-dom.js";
@@ -204,7 +205,7 @@ export function renderHistory(root, env, snapshot) {
     !groups.some(row => row.group.id !== entry.group.id && row.tasks.some(task => entry.tasks.some(old => old.business_type === task.business_type && old.target_id === task.target_id && task.queue_order > old.queue_order))) &&
     ["failed","rejected","cancelled","superseded"].includes(entry.status) &&
     entry.tasks.every(t=>!["queued","running"].includes(t.task_status)) &&
-    entry.tasks.every(t=>!["manual_edit","override","delete"].includes(t.action));
+    entry.tasks.every(t=>!["manual_edit","override","delete"].includes(t.action) && !BUSINESS_DEFINITIONS[t.business_type]?.retired);
   if (selected) {
     const groupHead = element("div", "", "run-group-head run-list-heading");
     groupHead.append(element("strong", selectedGroup.name), element("span", statuses[selectedGroup.status], `task-history-status is-${selectedGroup.status}`));

@@ -10,8 +10,8 @@ const fields = ['title', 'number', 'duration_seconds', 'shot_scale', 'hook', 'bo
 for (const suffix of ['generate', 'regenerate']) test(`镜头表${suffix}返回与现行 dots 一致的字段`, async () => {
   const snapshot = snapshotFixture(), project = snapshot.project, episode = project.episodes[0];
   const character = emptyCharacterModel({ number: 'C07', name: '周巡检', position: '军中巡检', age_range: '四十岁', voice: '不参与镜头依赖的声线标记' });
-  character.character_image.address = '不参与镜头依赖的图片地址.png';
-  character.character_image.node_state.status = 'generated';
+  character.costume_images[0].address = '不参与镜头依赖的图片地址.png';
+  character.costume_images[0].node_state.status = 'generated';
   project.character_library.characters = [character];
   const task = taskFixture(project, 'shots', episode.id);
   const rendered = renderTemplate(await loadTemplate(`shots-${suffix}`), promptValues(snapshot, task, null, 'generate'));

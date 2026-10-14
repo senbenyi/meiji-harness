@@ -60,7 +60,7 @@ test("暂停时会话拆分保持排队，面板重复拆分复用同一任务�
     const p = scriptProject(), repository = new ModelRepository(root), model = await repository.create(p);
     await model.update("pause", {}, s => { s.runtime.queue_stopped = true; });
     let calls = 0;
-    const text = createTextHandler({ chat: async ({ task, step }) => { calls++; return task.business_type === "script-split" ? { 剧集: rows } : step.kind === "review" ? { 是否通过: true, 原因: "" } : "剧集摘要"; } });
+    const text = createTextHandler({ chat: async ({ task, step }) => { calls++; assert.equal(task.business_type, "script-split"); return { 剧集: rows }; } });
     const service = new TaskService({ repository, commitOutput: commitContent,
       execute: createHandlerRegistry({ text, media: async () => { throw new Error("不应调用媒体"); } }) });
     const command = { type: "submit", project_id: p.id, target_id: p.id, business_type: "script-split", action: "generate", request_id: "session-split" };
@@ -72,10 +72,10 @@ test("暂停时会话拆分保持排队，面板重复拆分复用同一任务�
     const started = await service.command({ ...command, request_id: "panel-split" });
     assert.equal(started.task_id, queued.task_id);
     await service.idle(p.id);
-    assert.equal(model.read().tasks.length, 3);
+    assert.equal(model.read().tasks.length, 1);
     assert.ok(model.read().tasks.every(task => task.task_status === "completed"));
     assert.equal(new Set(model.read().tasks.map(task => task.group_id)).size, 1);
-    assert.equal(calls, 5);
+    assert.equal(calls, 1);
     assert.equal((await new ModelRepository(root).open(p.id)).read().project.episodes.length, 2);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -109,7 +109,7 @@ test("拆分剧集真实任务：失败暂停后面板再次拆分直接执行�
     let failOnce = true;
     const text = createTextHandler({
       chat: async ({ task, step, prompt }) => {
-        if (task.business_type !== "script-split") return step.kind === "review" ? { 是否通过: true, 原因: "" } : "剧集摘要";
+        assert.equal(task.business_type, "script-split", "拆分不应调用剧集摘要");
         seen.push(step.kind);
         assert.ok(prompt.includes("P006 武松打虎。"));
         assert.ok(prompt.includes("150"));
@@ -146,6 +146,9 @@ test("拆分剧集真实任务：失败暂停后面板再次拆分直接执行�
       ["precheck", "generate", "review"],
     );
     assert.equal(s.project.episodes.length, 2);
+    assert.equal(s.tasks.filter(t => t.group_id === task.group_id).length, 1);
+    assert.ok(s.tasks.every(t => t.business_type === "script-split"));
+    assert.ok(s.project.episodes.every(e => e.summary.body === "" && e.summary.node_state.status === "empty"));
     assert.equal(s.project.episodes.map((e) => e.plot).join(""), script);
     assert.deepEqual(s.project.episodes.map((e) => [e.sequence, e.duration_seconds]), [[1, 60], [2, 90]]);
     assert.ok(s.project.episodes.every((e) => e.story_outline.node_state.status === "empty"));
@@ -296,7 +299,7 @@ test("面板：剧本创作方式显示拆分剧集弹窗并依次提交时长�
   }
 });
 
-for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucceeds ? '修订通过后派生摘要' : '耗尽保留历史候选且不覆盖旧剧集'}`, async () => {
+for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucceeds ? '修订通过后只完成拆分' : '耗尽保留历史候选且不覆盖旧剧集'}`, async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-split-review-"));
   const project = scriptProject();
   project.episodes = [emptyEpisode({ plot: "旧正式剧情", duration_seconds: 150 })];
@@ -307,7 +310,7 @@ for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucc
   const prompts = [];
   let generations = 0;
   const text = createTextHandler({ chat: async ({ task, step, prompt }) => {
-    if (task.business_type !== "script-split") return step.kind === "review" ? { 是否通过: true, 原因: "" } : "剧集摘要";
+    assert.equal(task.business_type, "script-split", "拆分不应调用剧集摘要");
     prompts.push(prompt);
     generations++;
     return { 剧集: repairSucceeds && generations > 1 ? rows : badRows };
@@ -326,7 +329,8 @@ for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucc
     assert.ok(!Object.hasOwn(snapshot.project, "node_state"));
     if (repairSucceeds) {
       assert.equal(snapshot.project.episodes.map(episode => episode.plot).join(""), script);
-      assert.equal(snapshot.tasks.filter(item => item.group_id === task.group_id).length, 3);
+      assert.equal(snapshot.tasks.filter(item => item.group_id === task.group_id).length, 1);
+      assert.ok(snapshot.project.episodes.every(e => e.summary.body === "" && e.summary.node_state.status === "empty"));
     } else {
       assert.deepEqual(snapshot.project.episodes, oldEpisodes);
       assert.equal(snapshot.tasks.length, 1);

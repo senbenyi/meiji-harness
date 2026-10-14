@@ -19,6 +19,7 @@ import {
 } from "../gateway/model-gateway.js";
 import { withGatewayTrace } from "../gateway/gateway-trace.js";
 import { modelStore } from "../data/model-settings.js";
+import { modelRoute } from "../../models/model-config.js";
 import { NotificationOutbox } from "../host/notification-outbox.js";
 import { emptyProject, emptyEpisode } from "../../shared/project_contract.js";
 import { invalid, createId } from "../../shared/task_contract.js";
@@ -38,7 +39,7 @@ export async function createAppRuntime({
     library = new LibraryStore(join(root, "assets"));
   const route = async (purpose) => {
     const config = await models.read();
-    return { ...config, ...config[purpose] };
+    return modelRoute(config, purpose);
   };
   const trace = async (options, work) => {
     const transfers = [];
@@ -198,8 +199,8 @@ export async function createAppRuntime({
       await bindings.require(sessionId, command.project_id);
       const model = await repository.open(command.project_id);
       if (command.type === "delete") {
-        await repository.remove(model.id);
-        await bindings.forget(model.id);
+        await tasks.removeProject(model.id);
+        await bindings.forget(command.project_id);
         return { deleted: true };
       }
       if (command.type === "add-episode")

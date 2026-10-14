@@ -39,6 +39,7 @@ export class TaskService {
   #execute;
   #commitOutput;
   #active = new Map();
+  #deleting = new Set();
   #disposed = false;
   #libraryReferences;
   constructor({
@@ -63,6 +64,7 @@ export class TaskService {
     }
     let cancelId = null;
     const result = await model.update(command.request_id, command, (s) => {
+      if (this.#deleting.has(command.project_id)) invalid("project", "项目正在删除");
       const active = s.tasks.find((t) => t.task_status === "running");
       const add = (
         business,
@@ -141,6 +143,27 @@ export class TaskService {
           ).id,
         };
       }
+      if (command.type === "submit-costumes") {
+        const character = s.project.character_library.characters.find(c => c.id === command.target_id);
+        if (!character) invalid("target_id", "角色不存在");
+        const ids = character.costumes.length ? character.costumes.map(c => c.id) : [character.id];
+        const prospective = structuredClone(s), planned = [];
+        for (const id of ids) {
+          if (command.action === "generate" && isNodeCurrent(prospective, "costume-image", id)) continue;
+          planned.push(id);
+          expireDownstream(prospective, "costume-image", id, "前序定妆照将更新", { compareHash: false });
+        }
+        const collisions = s.tasks.filter(t => unfinished(t) && t.business_type === "costume-image" && ids.includes(t.target_id));
+        if (collisions.length) conflict(collisions);
+        if (!planned.length) return { group_id: null, task_ids: [], message: "定妆照已生成" };
+        const group = createTaskGroupModel({ project_id: s.project.id, group_type: "workflow",
+          name: `${character.name} · 定妆照`, action: command.action, source: origin.source });
+        s.groups.push(group);
+        if (origin.source === "panel" && !s.tasks.some(unfinished)) s.runtime.queue_stopped = false;
+        const tasks = planned.map((id, index) => add("costume-image", id,
+          hasNodeContent(s.project, "costume-image", id) ? "regenerate" : "generate", group.id, index + 1));
+        return { group_id: group.id, task_ids: tasks.map(t => t.id) };
+      }
       if (["manual-edit", "override", "delete"].includes(command.type)) {
         if (active) conflict([active]);
         const old = s.tasks.filter(
@@ -174,9 +197,14 @@ export class TaskService {
           if (members.some(unfinished)) conflict(members.filter(unfinished));
           const stoppedAt = members.findIndex(t => t.task_status !== "completed");
           const remaining = stoppedAt < 0 ? [] : members.slice(stoppedAt);
-          if (remaining.some(t => !BUSINESS_DEFINITIONS[t.business_type] || ["manual_edit", "override", "delete"].includes(t.action)))
+          if (remaining.some(t => (!BUSINESS_DEFINITIONS[t.business_type] || BUSINESS_DEFINITIONS[t.business_type].retired) || ["manual_edit", "override", "delete"].includes(t.action)))
             invalid("group", "历史已移除业务、人工与删除任务不能继续，请从对应入口重新操作");
           if (!remaining.length) return { group_id: null, task_ids: [], message: "当前范围无需继续" };
+          if (origin.source === "panel") {
+            const waiting = s.tasks.filter(unfinished);
+            if (waiting.length) conflict(waiting);
+            s.runtime.queue_stopped = false;
+          }
           const conflicts = s.tasks.filter(t => unfinished(t) && remaining.some(x => x.business_type === t.business_type && x.target_id === t.target_id));
           if (conflicts.length) conflict(conflicts);
           const group = createTaskGroupModel({ ...original, id: createId("group"), name: `${original.name || groupName(original, members, s.project)} · 继续`, created_at: now(), source: origin.source, action: "continue" });
@@ -430,6 +458,7 @@ export class TaskService {
   #pump(model) {
     if (
       this.#disposed ||
+      this.#deleting.has(model.id) ||
       this.#active.has(model.id) ||
       model.read().runtime.queue_stopped
     )
@@ -470,6 +499,8 @@ export class TaskService {
       try {
         await this.#run(model, task.id, signal);
       } catch (error) {
+        // 取消由命令结算，关闭由 recover 结算；中断请求不是模型失败。
+        if (signal.aborted) return;
         await model.update(
           `fail:${task.id}`,
           { failure: error.message },
@@ -615,6 +646,24 @@ export class TaskService {
       hasNodeContent(snapshot.project, "assembly", episode.id) ? "regenerate" : "generate",
       origin, group.id, members.length + 1);
   }
+  async removeProject(projectId) {
+    if (this.#deleting.has(projectId)) invalid("project", "项目正在删除");
+    this.#deleting.add(projectId);
+    try {
+      const model = await this.#repository.open(projectId);
+      await model.update(`delete-project:${createId("task")}`, { deleteProject: true }, s => {
+        s.runtime.queue_stopped = true;
+        for (const task of s.tasks.filter(unfinished).sort((a, b) => b.queue_order - a.queue_order))
+          this.#finish(s, task, "cancelled", "删除项目，取消未完成任务");
+        return {};
+      });
+      this.#active.get(projectId)?.controller.abort(new Error("项目正在删除"));
+      await this.idle(projectId);
+      return await this.#repository.remove(projectId);
+    } finally {
+      this.#deleting.delete(projectId);
+    }
+  }
   async idle(projectId) {
     while (this.#active.has(projectId)) {
       const entry = this.#active.get(projectId);
@@ -646,12 +695,13 @@ export class TaskService {
   }
   async dispose() {
     this.#disposed = true;
-    for (const entry of this.#active.values())
+    const active = [...this.#active.entries()];
+    for (const [, entry] of active)
       entry.controller.abort(new Error("服务关闭"));
-    for (const id of this.#active.keys()) {
+    for (const [id] of active) {
       const model = await this.#repository.open(id);
       await this.recover(model);
     }
-    await Promise.all([...this.#active.values()].map((entry) => entry.promise));
+    await Promise.all(active.map(([, entry]) => entry.promise));
   }
 }

@@ -1,3 +1,4 @@
+import { primaryCostumeImage } from "../../shared/models/character_model.js";
 import { dataUrl } from "../gateway/model-gateway.js";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -22,11 +23,11 @@ const missing = (v) =>
 export function personSentence(person) {
   const pick = (v, format = (x) => x) => (missing(v) ? "" : format(v.trim()));
   const parts = [
-    pick(person.name), pick(person.position), pick(person.age_range),
+    pick(person.name), pick(person.gender), pick(person.era), pick(person.position), pick(person.age_range),
     pick(person.body_type, (value) => `身材${value}`),
     pick(person.hairstyle, (value) => `发型${value}`),
-    pick(person.signature_props, (value) => `签名道具${value}`),
-    pick(person.immutable_traits, (value) => `不可改特征${value}`),
+    pick(person.signature_props.filter(value => !missing(value)).join("；"), (value) => `签名道具${value}`),
+    pick(person.immutable_traits.filter(value => !missing(value)).join("；"), (value) => `不可改特征${value}`),
   ].filter(Boolean);
   return parts.length ? `${parts.join("；")}。` : "";
 }
@@ -96,27 +97,24 @@ export function createMediaHandler({ media, gateway }) {
       } finally {
         await rm(temp, { recursive: true, force: true });
       }
-    } else if (["character-image", "costume-image"].includes(business)) {
+    } else if (business === "costume-image") {
       const hasOriginal = Boolean(node.address),
         modify = hasOriginal && Boolean(task.opinion.trim()),
         template = await loadTemplate(
           `${business}-${modify ? "regenerate" : "generate"}`,
         );
-      const person = business === "character-image" ? object : character,
-        identity = personSentence(person);
-      const reference = business === "character-image"
-        ? person.reference_image.address
-        : person.character_image.address;
+      const person = character, identity = personSentence(person);
+      const primary = primaryCostumeImage(person);
+      const first = primary.costume_id === (object?.id || "");
+      const reference = first ? person.reference_image.address : primary.address;
       prompt = renderTemplate(template, {
         输出语言: languageName(p.output_language),
         人物资料: identity,
-        本套服装描述: business === "costume-image" && object
-          ? [object.name, object.color, object.material, object.props].filter(Boolean).join("，")
+        本套服装描述: object
+          ? [object.name, object.color, object.material, ...object.props].filter(Boolean).join("，")
           : "",
         参考图片说明: reference
-          ? business === "character-image"
-            ? "参考图是用户提供的人物参考，只用于确定面相，不沿用其中的衣着、姿势、背景或表情。身材和肌肉以人物资料为准。"
-            : "参考图是该角色的角色图，是本次生成的固定且唯一参考。用于保持角色身份、脸、体型和不可改特征。有明确服装时按服装资料生成；没有明确服装时按人物资料生成定妆照，不补写服装资料。"
+          ? first ? "参考图用于人物身份和面相，服装按本次资料。" : "参考图为第一套定妆照，保持人物身份、面相和体型，服装按本次资料。"
           : "",
         修改意见: task.opinion,
         ...ruleInputs(p.rules, business, task.target_id),
@@ -154,7 +152,7 @@ export function createMediaHandler({ media, gateway }) {
           co = c.costumes.find((co) => co.id === row.costume_id),
           chosen = co
             ? c.costume_images.find((image) => image.costume_id === co.id)
-            : c.character_image,
+            : primaryCostumeImage(c),
           referenceId = co?.id || c.id;
         if (chosen?.node_state.status !== "generated")
           invalid("视频参考图", "角色或服装图片尚未有效生成");

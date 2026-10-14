@@ -19,8 +19,8 @@ export const fieldLabels = {
   integrated_multimodal_description: "综合描述", overall_soundscape: "整体声音", non_diegetic_music: "配乐",
 };
 const templates = {
-  characters: { name: "", position: "", age_range: "", body_type: "", hairstyle: "", signature_props: "", immutable_traits: "", costumes: [] },
-  costumes: { name: "", color: "", material: "", props: "" },
+  characters: { name: "", gender: "", era: "", position: "", age_range: "", body_type: "", hairstyle: "", signature_props: [], immutable_traits: [], costumes: [] },
+  costumes: { name: "", color: "", material: "", props: [] },
   segments: { sequence: 1, duration_seconds: 10, body: "", causal: "" },
   shots: { title: "", number: "S01", duration_seconds: 10, shot_scale: "中景", hook: "揭示", body: "", continuity_transition: "", reference_anchor: { fixed_landmark: "", character_positions: "", departed_characters: "", lighting: "" }, audio_arrangement: { narration: "", dialogue: "", sound_effects: "" } },
   on_screen_characters: { character_number: "", costume_number: "" },

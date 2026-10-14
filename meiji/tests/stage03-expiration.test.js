@@ -105,7 +105,7 @@ test("S3-05 图片变化只使实际使用该参考图的视频过期（基于�
     emptyCharacterModel({
       id,
       number: "C01",
-      character_image: { node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "c.png" },
+      costume_images: [{ costume_id: "", ...{ node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "c.png" } }],
       costumes: [],
     }),
   ];
@@ -173,7 +173,7 @@ test("声音不改变角色图片指纹，不可改特征变化使图片和引�
       name: "甲",
       nationality: "",
       position: "",
-      immutable_traits: "",
+      immutable_traits: [],
       gender: "",
       era: "",
       age_range: "",
@@ -183,7 +183,7 @@ test("声音不改变角色图片指纹，不可改特征变化使图片和引�
       voice: "低",
       required_appearance: false,
       default_costume_id: "",
-      character_image: { node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "c.png" },
+      costume_images: [{ costume_id: "", ...{ node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "c.png" } }],
       reference_image: { address: "" },
       costumes: [],
     }),
@@ -197,12 +197,12 @@ test("声音不改变角色图片指纹，不可改特征变化使图片和引�
   stampDependencyHash(snapshot, "video", shot.id);
   const image = project.character_library.characters[0];
   image.voice = "高";
-  assert.equal(dependencyHash(snapshot, "character-image", id), image.character_image.node_state.dependency_hash);
+  assert.equal(dependencyHash(snapshot, "character-image", id), image.costume_images[0].node_state.dependency_hash);
   expireDownstream(snapshot, "character-setting", id, "固定资料已修改");
-  assert.equal(image.character_image.node_state.status, "generated");
-  image.immutable_traits = "圆脸";
+  assert.equal(image.costume_images[0].node_state.status, "generated");
+  image.immutable_traits = ["圆脸"];
   expireDownstream(snapshot, "character-setting", id, "固定资料已修改");
-  assert.equal(image.character_image.node_state.status, "expired");
+  assert.equal(image.costume_images[0].node_state.status, "expired");
   assert.equal(shot.video.node_state.status, "expired");
   assert.equal(shot.video.address, "1.mp4");
 });
@@ -215,39 +215,41 @@ test("剧情同步更新只使展示摘要过期，不使故事大纲过期", ()
   assert.equal(e.story_outline.node_state.status, "generated");
 });
 
-test("角色参考图及人物字段参与hash；一套服装变化只使对应定妆照过期", () => {
+test("首套服装变化使后续定妆照过期，次套变化不影响首套", () => {
   const snapshot = snapshotFixture(), character = emptyCharacterModel({ name: "甲", body_type: "强壮", position: "主角", age_range: "青年", reference_image: { address: "reference.png" } });
-  character.character_image.address = "character.png";
-  character.character_image.node_state.status = "generated";
-  character.costumes = ["常服", "夜行服"].map((name, index) => ({ id: createId("costume"), number: `C01-0${index+1}`, name, color: "黑", material: "布", props: "", description: "" }));
+  character.costume_images[0].address = "character.png";
+  character.costume_images[0].node_state.status = "generated";
+  character.costumes = ["常服", "夜行服"].map((name, index) => ({ id: createId("costume"), number: `C01-0${index+1}`, name, color: "黑", material: "布", props: [], description: "" }));
   character.costume_images = character.costumes.map(costume => ({ costume_id: costume.id, address: `${costume.id}.png`, node_state: { status: "generated", reason: "", dependency_hash: "" } }));
   snapshot.project.character_library.characters = [character];
   stampDependencyHash(snapshot, "character-image", character.id);
   for (const costume of character.costumes) stampDependencyHash(snapshot, "costume-image", costume.id);
-  const before = character.character_image.node_state.dependency_hash;
+  const before = character.costume_images[0].node_state.dependency_hash;
   character.reference_image.address = "other.png";
   assert.notEqual(dependencyHash(snapshot, "character-image", character.id), before);
   character.reference_image.address = "reference.png";
+  character.costumes[1].color = "白";
+  expireDownstream(snapshot, "costume-setting", character.costumes[1].id);
+  assert.equal(character.costume_images[0].node_state.status, "generated");
+  assert.equal(character.costume_images[1].node_state.status, "expired");
+  character.costume_images[1].node_state.status = "generated";
+  stampDependencyHash(snapshot, "costume-image", character.costumes[1].id);
   character.costumes[0].color = "白";
   expireDownstream(snapshot, "costume-setting", character.costumes[0].id);
   assert.equal(character.costume_images[0].node_state.status, "expired");
-  assert.equal(character.costume_images[1].node_state.status, "generated");
-  assert.equal(character.character_image.node_state.status, "generated");
-  character.character_image.address = "new-character.png";
-  expireDownstream(snapshot, "character-image", character.id);
   assert.equal(character.costume_images[1].node_state.status, "expired");
 });
 
 test("空服装定妆照依赖角色资料和角色图，角色资料变更保留图片并使其过期", () => {
   const snapshot = snapshotFixture(), character = emptyCharacterModel({ name: "乙", body_type: "瘦削", position: "配角" });
-  character.character_image = { address: "character.png", node_state: { status: "generated", reason: "", dependency_hash: "" } };
+  character.costume_images[0] = { address: "character.png", node_state: { status: "generated", reason: "", dependency_hash: "" } };
   character.costume_images = [{ costume_id: "", address: "portrait.png", node_state: { status: "generated", reason: "", dependency_hash: "" } }];
   snapshot.project.character_library.characters = [character];
   stampDependencyHash(snapshot, "character-image", character.id);
   stampDependencyHash(snapshot, "costume-image", character.id);
   character.age_range = "老年";
   expireDownstream(snapshot, "character-setting", character.id);
-  assert.equal(character.character_image.node_state.status, "expired");
+  assert.equal(character.costume_images[0].node_state.status, "expired");
   assert.equal(character.costume_images[0].node_state.status, "expired");
   assert.equal(character.costume_images[0].address, "portrait.png");
   assert.deepEqual(character.costumes, []);
@@ -330,8 +332,8 @@ test("角色文字投影与hash排除图片、声音、默认服装，文本变�
   const snapshot = withCharacter(), p = snapshot.project, e = p.episodes[0], c = p.character_library.characters[0];
   const before = shotCharacterContext(p);
   c.reference_image.address = "reference.png";
-  c.character_image.address = "character.png";
-  c.character_image.node_state.status = "generated";
+  c.costume_images[0].address = "character.png";
+  c.costume_images[0].node_state.status = "generated";
   c.voice = "低沉";
   c.default_costume_id = c.costumes[0].id;
   assert.deepEqual(shotCharacterContext(p), before);

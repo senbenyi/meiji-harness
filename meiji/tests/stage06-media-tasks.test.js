@@ -39,7 +39,7 @@ export async function mediaBytes(root) {
   return { video: await readFile(video), image: await readFile(image) };
 }
 
-test("S6-01/02/03/04 真实媒体文件经过图片、视频、尾帧与合片执行链", async () => {
+test("S6-01/02/03/04 仅姓名角色通过前置，真实媒体经过图片、视频、尾帧与合片执行链", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-media-tasks-"));
   try {
     const bytes = await mediaBytes(root),
@@ -50,8 +50,8 @@ test("S6-01/02/03/04 真实媒体文件经过图片、视频、尾帧与合片�
     e.shot_list.shots = e.shot_list.shots.slice(0, 1);
     p.character_library.characters = mergeCharacters(p, [
       {
-        name: "甲", position: "主人公", age_range: "成年", body_type: "健壮", hairstyle: "短发",
-        signature_props: "", immutable_traits: "浓眉", costumes: [{ name: "常服", color: "白色", material: "棉", props: "" }],
+        name: "甲", gender: "未明确", era: "未明确", position: "", age_range: "", body_type: "", hairstyle: "",
+        signature_props: [], immutable_traits: [], costumes: [{ name: "常服", color: "白色", material: "棉", props: [] }],
       },
     ]).characters;
     p.character_library.characters[0].voice = "低沉";
@@ -102,11 +102,10 @@ test("S6-01/02/03/04 真实媒体文件经过图片、视频、尾帧与合片�
       );
       return result;
     };
-    await submit("character-image", c.id, "generate");
+    await submit("costume-image", co.id, "generate");
     assert.equal(calls[0].references.length, 0);
     assert.ok(!calls[0].prompt.includes("低沉"));
-    await submit("costume-image", co.id, "generate");
-    assert.equal(calls[1].references.length, 1);
+
     const video = await submit("video", s.id, "regenerate");
     assert.equal(
       model
@@ -140,7 +139,8 @@ test("图片提示词的人物资料组装为一句话，省略编号、必出�
     name: "郓哥",
     nationality: "中国",
     position: "水果贩",
-    immutable_traits: "受过武大郎照顾，愿意冒险相助",
+    signature_props: [],
+    immutable_traits: ["受过武大郎照顾，愿意冒险相助"],
     gender: "男",
     era: "古代（架空）",
     age_range: "18岁",
@@ -151,15 +151,16 @@ test("图片提示词的人物资料组装为一句话，省略编号、必出�
   });
   assert.equal(
     sentence,
-    "郓哥；水果贩；18岁；身材瘦削；不可改特征受过武大郎照顾，愿意冒险相助。",
+    "郓哥；男；古代（架空）；水果贩；18岁；身材瘦削；不可改特征受过武大郎照顾，愿意冒险相助。",
   );
-  const prompt = renderTemplate(await loadTemplate("character-image-generate"), {
+  const prompt = renderTemplate(await loadTemplate("costume-image-generate"), {
     输出语言: "zh-CN",
     人物资料: sentence,
+    本套服装描述: "",
     参考图片说明: "",
     补充规则: "",
   });
-  assert.match(prompt.user, /## 人物资料\n郓哥；水果贩；18岁/);
+  assert.match(prompt.user, /## 人物资料\n郓哥；男；古代/);
   assert.doesNotMatch(prompt.user, /### |编号|必出|有图|资料未提供/);
   const { languageName } = await import("../server/prompts/yaml-prompts.js");
   assert.equal(languageName("zh-CN"), "简体中文");
@@ -171,10 +172,10 @@ test("项目图片请求遵循可选用户参考和定妆照固定角色图，�
   const { emptyCostumeModel } = await import("../shared/models/costume_model.js");
   const { emptyCostumeImageModel } = await import("../shared/models/costume_image_model.js");
   const p = projectFixture();
-  const c = emptyCharacterModel({ number: "C01", name: "甲", position: "主角", age_range: "中年", body_type: "健壮", hairstyle: "短发", signature_props: "纸扇", immutable_traits: "左眉疤痕" });
-  const costume = emptyCostumeModel({ number: "C01-01", name: "常服", color: "蓝色", material: "棉", props: "腰带" });
-  c.character_image.address = "role.png";
-  c.character_image.node_state.status = "generated";
+  const c = emptyCharacterModel({ number: "C01", name: "甲", position: "主角", age_range: "中年", body_type: "健壮", hairstyle: "短发", signature_props: ["纸扇"], immutable_traits: ["左眉疤痕"] });
+  const costume = emptyCostumeModel({ number: "C01-01", name: "常服", color: "蓝色", material: "棉", props: ["腰带"] });
+  c.costume_images[0].address = "role.png";
+  c.costume_images[0].node_state.status = "generated";
   c.costumes = [costume];
   c.costume_images = [emptyCostumeImageModel(costume.id)];
   c.costume_images[0].address = "old-costume.png";
@@ -185,20 +186,22 @@ test("项目图片请求遵循可选用户参考和定妆照固定角色图，�
     media: { validate: async () => ({}), read: async (address) => Buffer.from(address), put: async () => ({ address: "new.png" }) },
   });
   const run = (business_type, target_id, opinion = "") => execute({ snapshot: { project: p }, task: { business_type, target_id, action: opinion ? "regenerate" : "generate", opinion }, step: { kind: "generate" }, signal: new AbortController().signal, record: async (record) => records.push(record) });
-  await run("character-image", c.id);
+  await run("costume-image", costume.id);
   assert.equal(calls.at(-1).references.length, 0);
   c.reference_image.address = "user.png";
-  await run("character-image", c.id, "保留疤痕");
+  await run("costume-image", costume.id, "保留疤痕");
   assert.equal(calls.at(-1).references[0].bytes.toString(), "user.png");
   assert.match(calls.at(-1).prompt, /中年|短发|纸扇|左眉疤痕/);
-  await run("costume-image", costume.id, "调整姿势");
+  const second = emptyCostumeModel({ name: "礼服", color: "蓝色", material: "棉", props: ["腰带"] });
+  c.costumes.push(second); c.costume_images.push(emptyCostumeImageModel(second.id));
+  await run("costume-image", second.id, "调整姿势");
   assert.equal(calls.at(-1).references.length, 1);
-  assert.equal(calls.at(-1).references[0].bytes.toString(), "role.png");
+  assert.equal(calls.at(-1).references[0].bytes.toString(), "old-costume.png");
   assert.match(calls.at(-1).prompt, /蓝色，棉，腰带/);
   c.costumes = [];
   c.costume_images = [emptyCostumeImageModel()];
   await run("costume-image", c.id);
-  assert.equal(calls.at(-1).references[0].bytes.toString(), "role.png");
+  assert.equal(calls.at(-1).references[0].bytes.toString(), "user.png");
   assert.doesNotMatch(calls.at(-1).prompt, /蓝色|棉，腰带/);
   assert.deepEqual(c.costumes, []);
   assert.equal(c.costume_images.length, 1);
@@ -290,4 +293,23 @@ test("合片缺失、损坏、跨项目或依赖过期的视频在前置失败�
       } finally { await service.dispose(); }
     }
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("定妆照提示词精简重复规则，保留参考图、补充规则与修改意见", async () => {
+  const { loadTemplate, renderTemplate } = await import("../server/prompts/yaml-prompts.js");
+  for (const kind of ["generate", "regenerate"]) {
+    const prompt = renderTemplate(await loadTemplate(`costume-image-${kind}`), {
+      人物资料: "甲；成年；身材健壮。", 本套服装描述: "蓝色常服", 参考图片说明: "参考图仅用于面相。",
+      补充规则: "保留左眉疤痕。", 修改意见: "调整发型。",
+    });
+    assert.equal(prompt.output.type, "图片");
+    assert.ok(prompt.body.length < 550, prompt.body.length);
+    assert.doesNotMatch(prompt.body, /裸露/);
+
+    assert.match(prompt.body, /单人全身.*3\/4.*纯色背景/);
+    assert.match(prompt.user, /参考图仅用于面相/);
+    assert.match(prompt.system, /保留左眉疤痕/);
+    assert.doesNotMatch(prompt.system, /内容边界|语言要求|需要呈现的文字/);
+    if (kind === "regenerate") assert.match(prompt.user, /调整发型/);
+  }
 });

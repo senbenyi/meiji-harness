@@ -62,7 +62,6 @@ export async function renderLibrary(
       pick.disabled = !!p.unsupported;
       pick.onclick = () => open(p);
       const del = element("button", "删除项目", "delete-content");
-      del.disabled = busy;
       del.onclick = () => {
         if (window.confirm("删除这部短剧及其资料？")) remove(p);
       };

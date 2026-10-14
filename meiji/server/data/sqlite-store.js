@@ -1,7 +1,8 @@
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, chmodSync, lstatSync } from "node:fs";
-import { migrateProjectModelV3, migrateEpisodeNodesV4 } from "../../shared/models/migrate_project_model.js";
+import { migrateProjectModelV3, migrateEpisodeNodesV4, migrateCharacterListsV5, migrateCharacterPortraitsV6 } from "../../shared/models/migrate_project_model.js";
 import { validateProject } from "../../shared/project_contract.js";
+import { expireDownstream } from "../../shared/node-dependencies.js";
 
 const columns = {
   task_groups: "id project_id episode_id name group_type action source shot_ids_json created_at position".split(" "),
@@ -45,9 +46,9 @@ export class SQLiteStore {
       chmodSync(path, 0o600);
       this.#db.exec("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");
       let version = this.#db.prepare("PRAGMA user_version").get().user_version;
-      if (version > 0 && version < 5) {
+      if (version > 0 && version < 7) {
         // VACUUM INTO 包含 WAL 中已提交的数据；升级失败时保留可恢复副本。
-        const backupPath = `${path}.before-v5-${Date.now()}-${globalThis.crypto.randomUUID()}.sqlite`;
+        const backupPath = `${path}.before-v7-${Date.now()}-${globalThis.crypto.randomUUID()}.sqlite`;
         this.#db.prepare("VACUUM INTO ?").run(backupPath);
         chmodSync(backupPath, 0o600);
       }
@@ -56,9 +57,9 @@ export class SQLiteStore {
         try {
           this.#db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
           this.#db.exec("COMMIT");
-          version = 5;
+          version = 7;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
-      } else if (version > 0 && version < 5) {
+      } else if (version > 0 && version < 7) {
         // 所有版本过渡和数据校验在同一事务内；失败时连同版本号一起回滚。
         this.#db.exec("PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE");
         try {
@@ -137,7 +138,7 @@ export class SQLiteStore {
             const updateProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
             const updateState = this.#db.prepare("UPDATE tasks SET previous_node_state_json=? WHERE id=?");
             for (const row of this.#db.prepare("SELECT id,data_json FROM projects").all()) {
-              const project = JSON.parse(row.data_json);
+              const project = migrateCharacterPortraitsV6(migrateCharacterListsV5(JSON.parse(row.data_json)));
               validateProject(project);
               const tasks = this.#db.prepare("SELECT * FROM tasks WHERE project_id=?").all(row.id)
                 .map(task => ({ ...task, previous_node_state: JSON.parse(task.previous_node_state_json) }));
@@ -154,11 +155,67 @@ export class SQLiteStore {
             this.#db.exec("PRAGMA user_version=5");
             version = 5;
           }
+          if (version === 5) {
+            const saveProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
+            const saveState = this.#db.prepare("UPDATE tasks SET previous_node_state_json=? WHERE id=?");
+            for (const row of this.#db.prepare("SELECT id,data_json FROM projects").all()) {
+              const project = migrateCharacterPortraitsV6(migrateCharacterListsV5(JSON.parse(row.data_json)));
+              validateProject(project);
+              const tasks = this.#db.prepare("SELECT * FROM tasks WHERE project_id=?").all(row.id)
+                .map(task => ({ ...task, previous_node_state: JSON.parse(task.previous_node_state_json) }));
+              const steps = this.#db.prepare("SELECT * FROM task_steps WHERE project_id=?").all(row.id)
+                .map(step => ({ ...step, result: JSON.parse(step.result_json) }));
+              const snapshot = { project, tasks, steps };
+              for (const character of project.character_library.characters)
+                expireDownstream(snapshot, "character-setting", character.id, "角色数组字段已更新，请重新生成");
+              validateProject(project);
+              saveProject.run(JSON.stringify(project), row.id);
+              for (const task of tasks)
+                if (task.task_status === "queued" && JSON.stringify(task.previous_node_state) !== task.previous_node_state_json)
+                  saveState.run(JSON.stringify(task.previous_node_state), task.id);
+            }
+            this.#db.prepare("INSERT INTO schema_migrations VALUES (6,?)").run(new Date().toISOString());
+            this.#db.exec("PRAGMA user_version=6");
+            version = 6;
+          }
+          if (version === 6) {
+            const now = new Date().toISOString();
+            this.#db.prepare(`UPDATE task_steps SET step_status='superseded',error_reason='独立角色图生成已移除',ended_at=?
+              WHERE task_id IN (SELECT id FROM tasks WHERE business_type='character-image' AND task_status IN ('queued','running'))
+              AND step_status IN ('ready','running')`).run(now);
+            this.#db.prepare(`UPDATE tasks SET task_status='superseded',end_reason='独立角色图生成已移除',ended_at=?
+              WHERE business_type='character-image' AND task_status IN ('queued','running')`).run(now);
+            const saveProject = this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?");
+            const saveState = this.#db.prepare("UPDATE tasks SET previous_node_state_json=? WHERE id=?");
+            for (const row of this.#db.prepare("SELECT id,data_json FROM projects").all()) {
+              const project = migrateCharacterPortraitsV6(JSON.parse(row.data_json));
+              const tasks = this.#db.prepare("SELECT * FROM tasks WHERE project_id=?").all(row.id)
+                .map(task => ({ ...task, previous_node_state: JSON.parse(task.previous_node_state_json) }));
+              const snapshot = { project, tasks, steps: [] };
+              for (const character of project.character_library.characters) {
+                for (const image of character.costume_images) {
+                  if (["queued", "running"].includes(image.node_state.status) && !tasks.some(task =>
+                    task.business_type === "costume-image" && task.target_id === (image.costume_id || character.id) &&
+                    ["queued", "running"].includes(task.task_status)))
+                    Object.assign(image.node_state, { status: "cancelled", reason: "独立角色图生成已移除" });
+                }
+                expireDownstream(snapshot, "character-setting", character.id, "定妆照依赖已更新，请重新生成");
+              }
+              validateProject(project);
+              saveProject.run(JSON.stringify(project), row.id);
+              for (const task of tasks)
+                if (task.task_status === "queued" && JSON.stringify(task.previous_node_state) !== task.previous_node_state_json)
+                  saveState.run(JSON.stringify(task.previous_node_state), task.id);
+            }
+            this.#db.prepare("INSERT INTO schema_migrations VALUES (7,?)").run(now);
+            this.#db.exec("PRAGMA user_version=7");
+            version = 7;
+          }
           this.#db.exec("COMMIT");
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
         finally { this.#db.exec("PRAGMA foreign_keys=ON"); }
       }
-      if (version !== 5) throw new Error(`不支持的数据库版本：${version}`);
+      if (version !== 7) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => f !== "id").map(f => `${f}=excluded.${f}`).join(",")}`));
       }

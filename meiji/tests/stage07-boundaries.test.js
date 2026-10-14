@@ -210,13 +210,13 @@ test("S7-13 规则 ID 程序创建与编号定位；语言/画幅/规则/声音/
       sid = `session-${randomUUID()}`;
     p.character_library.characters = mergeCharacters(p, [
       {
-        name: "甲", position: "主角", age_range: "成年", body_type: "健壮", hairstyle: "短发", signature_props: "", immutable_traits: "",
-        costumes: [{ name: "白衣", color: "白色", material: "", props: "" }, { name: "黑衣", color: "黑色", material: "", props: "" }],
+        name: "甲", gender: "男", era: "宋代", position: "主角", age_range: "成年", body_type: "健壮", hairstyle: "短发", signature_props: [], immutable_traits: [],
+        costumes: [{ name: "白衣", color: "白色", material: "", props: [] }, { name: "黑衣", color: "黑色", material: "", props: [] }],
       },
     ]).characters;
     const c = p.character_library.characters[0];
     c.voice = "旧声音";
-    c.character_image = { node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "original.png" };
+    c.costume_images[0] = { costume_id: c.costumes[0].id, node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "original.png" };
     for (const image of c.costume_images)
       Object.assign(image, { node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "costume.png" });
     const model = await runtime.repository.create(p);
@@ -257,7 +257,7 @@ test("S7-13 规则 ID 程序创建与编号定位；语言/画幅/规则/声音/
     assert.match(after.rules[0].id, /^r_/);
     assert.equal(after.rules[0].node_id, p.episodes[0].shot_list.shots[0].id);
     assert.deepEqual(after.episodes, p.episodes);
-    assert.deepEqual(after.character_library.characters[0].character_image, c.character_image);
+    assert.deepEqual(after.character_library.characters[0].costume_images[0], c.costume_images[0]);
     assert.deepEqual(after.character_library.characters[0].costumes, c.costumes);
     await assert.rejects(
       runtime.projectCommand(

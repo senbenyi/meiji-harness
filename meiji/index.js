@@ -27,7 +27,7 @@ export async function apply(ctx) {
   void runtime.models
     .read()
     .then(async (routes) => {
-      if (routes.apiKey) await syncChatModel(ctx, routes);
+      await syncChatModel(ctx, routes);
     })
     .catch((error) =>
       ctx.logger.warn("Meiji chat settings: %s", error.message),

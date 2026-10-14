@@ -28,6 +28,26 @@ const cases = [
   "seconds",
   "storyboard",
 ];
+test("角色生成与修订执行器要求性别，拒绝遗漏或空白并保存合法输出", async () => {
+  const snapshot = snapshotFixture();
+  const task = taskFixture(snapshot.project, "project-characters", snapshot.project.id);
+  const row = { name: "新角色", gender: "女", era: "宋代", position: "主角", age_range: "", body_type: "", hairstyle: "", signature_props: [], immutable_traits: [], costumes: [] };
+  for (const kind of ["generate", "revise"]) {
+    for (const gender of [undefined, "  ", "女", "未明确"]) {
+      const candidate = { ...row, gender };
+      if (gender === undefined) delete candidate.gender;
+      const handler = createTextHandler({ chat: async ({ system }) => {
+        assert.match(system, /gender/);
+        assert.match(system, /必须填写非空字符串/);
+        assert.doesNotMatch(system, /国籍、性别、声音/);
+        return { characters: [candidate] };
+      } });
+      const run = () => handler({ snapshot, task, step: { kind, seq: 1 }, record: async () => {} });
+      if (!gender?.trim()) await assert.rejects(run, /gender/);
+      else assert.equal((await run()).content.characters.at(-1).gender, gender);
+    }
+  }
+});
 function output(p, business) {
   const episode = p.episodes[0], shot = episode.shot_list.shots[0];
   const fields = ["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"];
@@ -163,7 +183,7 @@ test("人物审核只接收本次增量，拒绝保存角色但不派生图片�
   const project = projectFixture(), oldHash = "c".repeat(64);
   project.character_library.node_state.dependency_hash = oldHash;
   const repository = new ModelRepository(root), model = await repository.create(project), prompts = [];
-  const row = { name: "新人物", position: "主角", age_range: "约三十岁", body_type: "高大", hairstyle: "束发", signature_props: "", immutable_traits: "", costumes: [] };
+  const row = { name: "新人物", gender: "男", era: "宋代", position: "主角", age_range: "约三十岁", body_type: "高大", hairstyle: "束发", signature_props: [], immutable_traits: [], costumes: [] };
   const text = createTextHandler({ chat: async ({ step, prompt }) => {
     prompts.push({ kind: step.kind, prompt });
     return step.kind === "review" ? { 是否通过: false, 原因: "人物来源有误" } : { characters: [row] };
@@ -176,16 +196,22 @@ test("人物审核只接收本次增量，拒绝保存角色但不派生图片�
     assert.equal(snapshot.tasks.find(item => item.id === result.task_id).task_status, "rejected");
     assert.equal(node.node_state.dependency_hash, oldHash);
     assert.equal(node.characters[0].name, "新人物");
+    assert.equal(node.characters[0].gender, "男");
+    assert.equal(node.characters[0].era, "宋代");
     assert.equal(node.characters[0].age_range, "约三十岁");
     assert.deepEqual(node.characters[0].costumes, []);
     assert.equal(node.characters[0].costume_images[0].costume_id, "");
     assert.equal(snapshot.tasks.length, 1);
     for (const { prompt } of prompts.filter(item => item.kind === "review")) {
       assert.match(prompt, /新人物/);
+      assert.match(prompt, /"gender":\s*"男"/);
+      assert.match(prompt, /"era":\s*"宋代"/);
       assert.doesNotMatch(prompt, /new_ids|node_state|c_[0-9a-f-]{36}/);
     }
     assert.match(prompts.find(item => item.kind === "revise").prompt, /人物来源有误/);
     assert.match(prompts.find(item => item.kind === "revise").prompt, /新人物/);
+    assert.match(prompts.find(item => item.kind === "revise").prompt, /"gender":\s*"男"/);
+    assert.match(prompts.find(item => item.kind === "revise").prompt, /"era":\s*"宋代"/);
   } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
 });
 
@@ -194,11 +220,11 @@ for (const change of ["character", "costume"])
     test(`S5-角色拒绝候选经 ${action} 通过后按生成时依赖使 ${change} 图片过期`, () => {
       const snapshot = snapshotFixture(), project = snapshot.project;
       const task = taskFixture(project, "project-characters", project.id, { action: "generate" });
-      const row = name => ({ name, position: "主角", age_range: "三十岁", body_type: "高大", hairstyle: "束发", signature_props: "", immutable_traits: "", costumes: [{ name: "长袍", color: "蓝色", material: "布", props: "" }] });
+      const row = name => ({ name, gender: "男", era: "宋代", position: "主角", age_range: "三十岁", body_type: "高大", hairstyle: "束发", signature_props: [], immutable_traits: [], costumes: [{ name: "长袍", color: "蓝色", material: "布", props: [] }] });
       commitContent(snapshot, task, prepareContent(snapshot, task, { characters: [row("甲"), row("乙")] }));
       for (const character of project.character_library.characters) {
-        character.character_image.address = `${character.name}.png`;
-        character.character_image.node_state.status = "generated";
+        character.costume_images[0].address = `${character.name}.png`;
+        character.costume_images[0].node_state.status = "generated";
         stampDependencyHash(snapshot, "character-image", character.id);
         character.costume_images[0].address = `${character.name}-衣服.png`;
         character.costume_images[0].node_state.status = "generated";
@@ -210,28 +236,28 @@ for (const change of ["character", "costume"])
       const content = prepareContent(snapshot, task, { characters: [changed] });
       commitContent(snapshot, task, content, { passed: false });
       const [first, second] = project.character_library.characters;
-      const imageHash = first.character_image.node_state.dependency_hash;
+      const imageHash = first.costume_images[0].node_state.dependency_hash;
       const costumeHash = first.costume_images[0].node_state.dependency_hash;
-      assert.equal(first.character_image.node_state.status, "generated");
+      assert.equal(first.costume_images[0].node_state.status, "generated");
       assert.equal(first.costume_images[0].node_state.status, "generated");
       assert.notEqual(costumeHash, dependencyHash(snapshot, "costume-image", first.costumes[0].id));
       commitContent(snapshot, { ...task, action }, content);
       const [accepted, untouched] = project.character_library.characters;
-      assert.equal(accepted.character_image.node_state.dependency_hash, imageHash);
-      assert.equal(accepted.character_image.node_state.status, change === "character" ? "expired" : "generated");
+      assert.equal(accepted.costume_images[0].node_state.dependency_hash, imageHash);
+      assert.equal(accepted.costume_images[0].node_state.status, "expired");
       assert.equal(accepted.costume_images[0].node_state.status, "expired");
       assert.equal(accepted.costume_images[0].node_state.dependency_hash, costumeHash);
       assert.equal(untouched.id, second.id);
-      assert.equal(untouched.character_image.node_state.status, "generated");
+      assert.equal(untouched.costume_images[0].node_state.status, "generated");
       assert.equal(untouched.costume_images[0].node_state.status, "generated");
     });
 
-test("项目人物组按角色和服装顺序派生五张图片，空增量重新生成仍覆盖全部角色", async () => {
+test("提取仅写人物，每个人物独立生成全部服装，空服装生成一张", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-character-group-"));
   const repository = new ModelRepository(root), project = projectFixture(), model = await repository.create(project);
-  const person = (name, costumes) => ({ name, position: "主角", age_range: "成年", body_type: "健壮", hairstyle: "短发", signature_props: "", immutable_traits: "", costumes });
+  const person = (name, costumes) => ({ name, gender: "男", era: "宋代", position: "主角", age_range: "成年", body_type: "健壮", hairstyle: "短发", signature_props: [], immutable_traits: [], costumes });
   const characters = [
-    person("甲", [{ name: "常服", color: "蓝色", material: "棉", props: "" }, { name: "礼服", color: "红色", material: "丝绸", props: "" }]),
+    person("甲", [{ name: "常服", color: "蓝色", material: "棉", props: [] }, { name: "礼服", color: "红色", material: "丝绸", props: [] }]),
     person("乙", []),
   ];
   let extractionCalls = 0;
@@ -244,11 +270,6 @@ test("项目人物组按角色和服装顺序派生五张图片，空增量重�
     text,
     media: async ({ snapshot, task }) => {
       imageCalls.push({ group_id: task.group_id, business_type: task.business_type, target_id: task.target_id });
-      if (task.business_type === "costume-image") {
-        const character = snapshot.project.character_library.characters.find(item => item.id === task.target_id || item.costumes.some(costume => costume.id === task.target_id));
-        assert.equal(character.character_image.node_state.status, "generated");
-        assert.ok(character.character_image.address);
-      }
       return { content: { address: `${task.id}.png` } };
     },
   }) });
@@ -259,31 +280,27 @@ test("项目人物组按角色和服装顺序派生五张图片，空增量重�
       await service.idle(project.id);
       const snapshot = model.read(), [first, second] = snapshot.project.character_library.characters;
       const groupId = snapshot.tasks.find(task => task.id === result.task_id).group_id;
-      const expected = [
-        ["project-characters", project.id],
-        ["character-image", first.id],
-        ["costume-image", first.costumes[0].id],
-        ["costume-image", first.costumes[1].id],
-        ["character-image", second.id],
-        ["costume-image", second.id],
-      ];
-      const tasks = snapshot.tasks.filter(task => task.group_id === groupId).sort((a, b) => a.group_seq - b.group_seq);
-      assert.equal(tasks.length, 6);
-      assert.deepEqual(tasks.map(task => task.group_seq), [1, 2, 3, 4, 5, 6]);
-      assert.deepEqual(tasks.map(task => [task.business_type, task.target_id]), expected);
-      assert.ok(tasks.every(task => task.task_status === "completed"), tasks.map(task => task.end_reason).join("\n"));
-      assert.ok(tasks.every(task => task.action === action));
-      assert.deepEqual(imageCalls.filter(call => call.group_id === groupId).map(call => [call.business_type, call.target_id]), expected.slice(1));
+      assert.equal(snapshot.tasks.filter(task => task.group_id === groupId).length, 1);
+      const expected = [["costume-image", first.costumes[0].id], ["costume-image", first.costumes[1].id], ["costume-image", second.id]];
+      const ids = expected.map(([, id]) => id);
+      for (const character of [first, second]) {
+        const pictures = await service.command({ type: "submit-costumes", project_id: project.id, request_id: `${character.id}-${action}`, target_id: character.id, action });
+        await service.idle(project.id);
+        const tasks = model.read().tasks.filter(task => task.group_id === pictures.group_id);
+        assert.ok(tasks.every(task => task.task_status === "completed"), tasks.map(t => t.end_reason).join("\n"));
+        assert.deepEqual(tasks.map(task => task.target_id), character.costumes.length ? character.costumes.map(costume => costume.id) : [character.id]);
+      }
+      Object.assign(second, model.read().project.character_library.characters[1]);
       assert.deepEqual(second.costumes, []);
       assert.equal(second.costume_images.length, 1);
       assert.equal(second.costume_images[0].costume_id, "");
       assert.equal(second.costume_images[0].node_state.status, "generated");
       assert.ok(second.costume_images[0].address);
-      const ids = expected.slice(1).map(([, id]) => id);
+
       if (originalIds) assert.deepEqual(ids, originalIds);
       else originalIds = ids;
     }
     assert.equal(extractionCalls, 2);
-    assert.equal(imageCalls.length, 10);
+    assert.equal(imageCalls.length, 6);
   } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
 });

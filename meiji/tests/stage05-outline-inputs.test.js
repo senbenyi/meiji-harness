@@ -19,7 +19,7 @@ function fixture(mode, action = "generate") {
   const e = emptyEpisode({ duration_seconds: 10 });
   p.episodes = [e];
   if (mode === "剧本") p.script.body = e.plot = "林峥醒来，发现自己成为武松。";
-  else p.creative_direction = "少年在未来都市寻找失踪的兄长。";
+  else { p.creative_direction = "方向哨兵，不得代替剧情"; e.plot = "少年在雨夜的未来都市找到兄长留下的红色纸条。"; }
   if (action === "regenerate") e.story_outline = {
     node_state: { status: "generated", reason: "", dependency_hash: "" }, segments: [{ sequence: 1, duration_seconds: 10, body: "已有剧情", causal: "" }],
   };
@@ -35,12 +35,11 @@ for (const mode of ["剧本", "自由创作"]) {
       p.project_summary = { node_state: { status: state, reason: state === "failed" || state === "expired" ? "旧原因" : "", dependency_hash: "" }, body: "", script_version: 1 };
       assert.equal(precheck({ project: p }, task).passed, true);
     }
-    if (mode === "剧本") p.episodes[0].plot = " \n ";
-    else p.creative_direction = " \n ";
+    p.episodes[0].plot = " \n ";
     p.project_summary = { node_state: { status: "generated", reason: "", dependency_hash: "" }, body: "有效摘要不能替代必需输入", script_version: 1 };
     if (mode === "剧本") p.creative_direction = "不能替代剧本";
     else p.script.body = "不能替代创作方向";
-    assert.throws(() => precheck({ project: p }, task), mode === "剧本" ? /本集剧情为空/ : /创作方向为空/);
+    assert.throws(() => precheck({ project: p }, task), /本集剧情为空/);
   });
 
   for (const action of ["generate", "regenerate"]) {
@@ -54,7 +53,8 @@ for (const mode of ["剧本", "自由创作"]) {
           execute: createHandlerRegistry({ text: createTextHandler({ chat: async ({ step, prompt }) => {
             seen.push(step.kind);
             assert.ok(!prompt.includes("项目摘要"));
-            assert.ok(prompt.includes(mode === "剧本" ? p.script.body : p.creative_direction));
+            assert.ok(prompt.includes(e.plot));
+            assert.ok(!prompt.includes("方向哨兵"));
             return step.kind === "review" ? { 是否通过: true, 原因: "" }
               : { segments: [{ sequence: 1, duration_seconds: 10, body: "新的剧情", causal: "" }] };
           } }) }),
@@ -68,6 +68,12 @@ for (const mode of ["剧本", "自由创作"]) {
         assert.equal(snapshot.project.episodes[0].story_outline.node_state.status, "generated");
         assert.deepEqual(snapshot.project.project_summary, p.project_summary);
         assert.equal(snapshot.tasks.length, 1);
+        assert.equal(snapshot.project.episodes[0].plot, e.plot);
+        assert.match(task.name, /生成故事大纲/);
+        assert.match(snapshot.groups[0].name, /生成故事大纲/);
+        const steps = snapshot.steps.filter(step => step.task_id === task.id);
+        assert.match(steps.find(step => step.kind === "generate").name, /生成故事大纲/);
+        assert.ok(steps.filter(step => step.kind === "review").every(step => step.name.includes("审核故事大纲")));
       } finally { await rm(root, { recursive: true, force: true }); }
     });
   }
@@ -88,7 +94,7 @@ for (const mode of ["剧本", "自由创作"]) {
     try {
       const { p, e } = fixture(mode);
       if (mode === "剧本") { p.episodes[0].plot = " "; p.creative_direction = "其他资料"; }
-      else { p.creative_direction = " "; p.script.body = "其他资料"; }
+      else { e.plot = " "; p.creative_direction = "其他资料"; }
       p.project_summary = { node_state: { status: "generated", reason: "", dependency_hash: "" }, body: "已有摘要", script_version: 1 };
       const repository = new ModelRepository(root), model = await repository.create(p);
       let calls = 0;
@@ -100,7 +106,7 @@ for (const mode of ["剧本", "自由创作"]) {
       await service.idle(p.id);
       const snapshot = model.read(), task = snapshot.tasks.find(t => t.id === result.task_id);
       assert.equal(task.task_status, "failed");
-      assert.match(task.end_reason, mode === "剧本" ? /本集剧情为空/ : /创作方向为空/);
+      assert.match(task.end_reason, /本集剧情为空/);
       assert.equal(calls, 0);
       assert.deepEqual(snapshot.project.project_summary, p.project_summary);
     } finally { await rm(root, { recursive: true, force: true }); }
@@ -117,4 +123,12 @@ test("B-8 镜头表以有效故事大纲为唯一剧集前置", () => {
   e.story_outline.segments = [{ sequence: 1, duration_seconds: 10, body: "完整故事", causal: "" }];
   stampDependencyHash({ project: p }, "outline", e.id);
   assert.equal(precheck({ project: p }, s).passed, true);
+});
+
+
+test("自由模式有本集剧情无需创作方向，缺少剧情不能由方向替代", () => {
+  const { p, e, task } = fixture("自由创作"); p.creative_direction = "";
+  assert.equal(precheck({project:p},task).passed,true);
+  e.plot=""; p.creative_direction="补写另一个故事";
+  assert.throws(()=>precheck({project:p},task),/本集剧情为空/);
 });

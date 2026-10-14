@@ -30,6 +30,7 @@ export async function defaults(local = localConfig) {
 }
 export function normalizeModels(raw) {
   const baseUrl = gatewayBaseUrl(raw?.baseUrl)
+  const textBaseUrl = gatewayBaseUrl(raw?.textBaseUrl)
   const apiKey = String(raw?.apiKey || '').replace(/^Bearer\s+/i, '').trim()
   if (!apiKey) throw Object.assign(new Error('需要网关密钥'), { status: 400 })
   const names = {}
@@ -41,12 +42,22 @@ export function normalizeModels(raw) {
   if (names.image === names.chat || names.video === names.chat) {
     throw Object.assign(new Error('图片和视频不能使用文本模型'), { status: 400 })
   }
-  const route = purpose => ({ baseUrl, apiKey, model: names[purpose] })
-  return { baseUrl, apiKey, chat: route('chat'), story: route('story'), image: route('image'), video: route('video') }
+  const config = { ...raw, baseUrl, textBaseUrl, apiKey }
+  return { baseUrl, textBaseUrl, apiKey, ...Object.fromEntries(purposeIds.map(purpose => [purpose, modelRoute(config, purpose)])) }
+}
+// 文本使用本机 Ollama，占位密钥不复用图片/视频网关的真实凭据。
+export function modelRoute(config, purpose) {
+  const text = purpose === 'chat' || purpose === 'story'
+  return {
+    baseUrl: gatewayBaseUrl(text ? config.textBaseUrl : config.baseUrl),
+    apiKey: text ? 'ollama' : config.apiKey,
+    model: String(config[purpose].model).trim(),
+  }
 }
 export function compactModels(config) {
   return {
     baseUrl: config.baseUrl,
+    textBaseUrl: config.textBaseUrl,
     apiKey: config.apiKey,
     chat: { model: config.chat.model },
     story: { model: config.story.model },

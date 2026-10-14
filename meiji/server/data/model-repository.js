@@ -313,12 +313,6 @@ export class ModelRepository extends EventEmitter {
   async remove(id) {
     return this.#serial(id, async () => {
       const model = this.#models.get(id) || this.#install(await this.#read(id));
-      if (
-        model
-          .read()
-          .tasks.some((t) => ["queued", "running"].includes(t.task_status))
-      )
-        fail("TASK_CONFLICT", "项目仍有未结束任务", 409);
       this.#store.remove(id, model.read().runtime.revision);
       await rm(join(this.#root, id), { recursive: true, force: true });
       this.#models.delete(id);

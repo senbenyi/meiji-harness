@@ -23,7 +23,7 @@ function shotTableForPrompt(value) {
 function candidateForPrompt(business, value) {
   if (["project-summary", "episode-summary"].includes(business)) return value?.body || "";
   if (business === "project-characters") {
-    const fields = ["name", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits"];
+    const fields = ["name", "gender", "era", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits"];
     return { characters: (value?.changes || value?.characters || []).map(character => ({
       ...Object.fromEntries(fields.map(key => [key, character[key]])),
       costumes: character.costumes.map(costume => Object.fromEntries(["name", "color", "material", "props"].map(key => [key, costume[key]]))),
@@ -54,12 +54,6 @@ export function promptValues(snapshot, task, draft, kind, step = null) {
     本集时长秒: episode?.duration_seconds || 0,
     本镜参考时长秒: object.duration_seconds || 0,
     项目摘要: project.project_summary.body,
-    剧情依据: project.creation_mode === "剧本" ? episode?.plot || "" : {
-      creative_direction: project.creative_direction,
-      previous_plot: project.episodes.filter(item => item.sequence < (episode?.sequence || 0)).map(item => item.story_outline.segments),
-    },
-    剧情依据优先级: project.creation_mode === "剧本" ? "以本集剧情（拆分后的剧本原文）为最高事实依据，不改事件与原台词。" : "以创作方向及已发生剧情为依据，保留既有事实。",
-    本集分场边界: episode?.episode_requirements || "",
     创作方式: project.creation_mode,
     本集剧情: episode?.plot || "",
     本集故事小段: episode?.story_outline.segments || [],

@@ -61,13 +61,7 @@ test("S4-04/05/06 组内停止作废后序，继续新组从停点接续，旧�
       model.read().tasks.find((t) => t.id === task).action,
       "regenerate",
     );
-    // 队列失败后继续创建新组，仍须显式从面板开始。
-    await service.command({
-      type: "start-queued",
-      project_id: p.id,
-      request_id: "start-new-group",
-      task_id: task,
-    });
+    // 面板继续直接执行新组，无需再次点击开始。
     await service.idle(p.id);
     assert.deepEqual(model.read().tasks.slice(0, 2), before.tasks);
     assert.deepEqual(model.read().groups[0], before.groups[0]);

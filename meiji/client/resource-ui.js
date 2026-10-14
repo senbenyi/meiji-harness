@@ -1,10 +1,11 @@
+import { primaryCostumeImage } from "../shared/models/character_model.js";
 import { element } from "./panel-dom.js";
 import { editor, fieldsForm } from "./content-forms.js";
 import { backHeader } from "./project-ui.js";
 import { emptyCostumeImageModel } from "../shared/models/costume_image_model.js";
 export const blankCharacter = () => ({
-  name: "", position: "", age_range: "", body_type: "", hairstyle: "",
-  signature_props: "", immutable_traits: "", costumes: [],
+  name: "", gender: "", era: "", position: "", age_range: "", body_type: "", hairstyle: "",
+  signature_props: [], immutable_traits: [], costumes: [],
 });
 export function addCharacter(root, env) {
   return editor(root, "添加角色", blankCharacter(), (character) =>
@@ -22,15 +23,15 @@ export function renderResource(root, env) {
   const costumeId = costume?.id || "";
   const image = costumeView
     ? character.costume_images.find((entry) => entry.costume_id === costumeId) || emptyCostumeImageModel(costumeId)
-    : character.character_image;
+    : primaryCostumeImage(character);
   const historical = costumeView && !costume && character.costumes.length > 0;
   const title = costumeView ? `${character.name} · ${costume?.name || "未绑定服装定妆照"}` : `${character.name} · 人物资料`;
   const view = element("section", "", costumeView ? "costume-detail" : "character-detail project-library-page");
   backHeader(view, title, costumeView ? "返回人物资料" : "返回项目概要",
     () => costumeView ? go("character", { costume_id: null }) : go("overview"));
   const card = element("article", "", "overview-card");
-  const imageCard = nodeCard(costumeView ? "costume-image" : "character-image",
-    costume?.id || character.id, image, { readOnly: historical });
+  const imageCard = nodeCard("costume-image",
+    costumeView ? costume?.id || character.id : image.costume_id || character.id, image, { readOnly: historical || !costumeView });
   imageCard.className = "character-primary-picture";
   card.append(imageCard, element("p", costume?.number || character.number, "meta"));
   if (historical) card.append(element("p", "此图为尚无明确服装时的历史定妆照，内容与任务历史保留。", "meta"));
@@ -74,6 +75,9 @@ export function renderResource(root, env) {
     }));
   }
   if (!costumeView) {
+    const portraits = character.costumes.length ? character.costumes.map(costume => character.costume_images.find(image => image.costume_id === costume.id)) : [primaryCostumeImage(character)];
+    const regenerate = portraits.every(image => image?.address);
+    card.append(button(regenerate ? "重新生成定妆照" : "生成定妆照", () => act({ type: "submit-costumes", target_id: character.id, action: regenerate ? "regenerate" : "generate" })));
     const upload = element("input"); upload.type = "file"; upload.hidden = true;
     upload.accept = "image/png,image/jpeg,image/webp"; upload.disabled = busy;
     upload.setAttribute("aria-label", "上传角色参考图");
@@ -94,7 +98,7 @@ export function renderResource(root, env) {
     }
     const wardrobe = element("section", "", "character-wardrobe"), head = element("div", "", "image-text-head");
     head.append(element("h4", "定妆照与服装"), button("＋ 添加服装", () =>
-      editor(root, "添加服装", { name: "", color: "", material: "", props: "" }, (outfit) =>
+      editor(root, "添加服装", { name: "", color: "", material: "", props: [] }, (outfit) =>
         act({ type: "manual-edit", business_type: "project-characters", target_id: p.id,
           content: { characters: [{ ...Object.fromEntries(Object.keys(blankCharacter()).filter((key) => key !== "costumes").map((key) => [key, character[key]])), costumes: [outfit] }] } }),
       ),

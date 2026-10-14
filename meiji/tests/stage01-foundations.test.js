@@ -41,12 +41,17 @@ test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完�
         { role: "system", content: "系统" },
         { role: "user", content: "用户" },
       ]);
-      assert.deepEqual(Object.keys(body).sort(), ["messages", "model", "stream"]);
+      assert.equal(body.reasoning_effort, "none");
+      assert.equal(body.temperature, 0.7);
+      assert.equal(body.top_p, 0.8);
+      assert.equal(body.presence_penalty, 1.5);
+      assert.equal(body.max_tokens, undefined);
+      assert.equal(body.response_format, undefined);
       assert.equal(body.model, "mock-model");
       assert.equal(body.stream, false);
       return json({
         choices: [
-          { finish_reason: "stop", message: { content: ' {"正文":"完成"} ' } },
+          { finish_reason: "stop", message: { content: ' {"正文":"完成"} ', reasoning: "不应作为正文返回" } },
         ],
       });
     },

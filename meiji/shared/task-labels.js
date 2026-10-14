@@ -43,7 +43,7 @@ export function groupName(group, tasks, project) {
   if (group.name) return group.name;
   if (group.group_type === "single") return tasks[0] ? taskName(tasks[0], project) : "任务";
   if (group.group_type === "workflow") {
-    if (tasks[0]?.business_type === "project-characters") return "提取剧本重要角色及图片";
+    if (tasks[0]?.business_type === "project-characters") return "提取剧本重要角色";
     return tasks[0] ? taskName(tasks[0], project) : "制作任务";
   }
   const e = project.episodes.find(e => e.id === group.episode_id);

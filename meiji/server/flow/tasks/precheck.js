@@ -1,3 +1,4 @@
+import { primaryCostumeImage } from "../../../shared/models/character_model.js";
 import {
   nodeOf,
   locateTarget,
@@ -83,10 +84,8 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       if (!episode.plot.trim()) invalid("precheck", "本集剧情为空");
     },
     outline: () => {
-      if (p.creation_mode === "自由创作" && !p.creative_direction.trim())
-        invalid("precheck", "创作方向为空");
-      if (p.creation_mode === "剧本" && !episode.plot.trim())
-        invalid("precheck", "本集剧情为空，请先拆分剧集");
+      if (!episode.plot.trim())
+        invalid("precheck", "本集剧情为空，请先填写剧情或拆分剧集");
     },
     shots: () => requireNode("outline", episode.id),
     "shots-input": () => requireNode("shots", episode.id),
@@ -116,14 +115,16 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       if (!episode.shot_list.shots.length) invalid("precheck", "没有镜头");
       for (const shot of episode.shot_list.shots) requireNode("video", shot.id);
     },
-    "character-image": () => {
-      if (!object.name.trim() || !object.body_type.trim())
-        invalid("precheck", "角色资料不足，请先补充人物姓名和身材资料");
-    },
+    "character-image": () => invalid("precheck", "独立角色图已移除，请生成定妆照"),
     "costume-image": () => {
       if (!object && character.costumes.length)
         invalid("precheck", "已有明确服装，请选择对应服装生成定妆照");
-      requireNode("character-image", character.id);
+      if (![character.name, character.position, character.gender, character.era, character.age_range, character.body_type,
+        character.hairstyle, ...character.signature_props, ...character.immutable_traits].some(value => value.trim()))
+        invalid("precheck", "角色资料为空，请至少填写一项人物资料");
+      const primary = primaryCostumeImage(character);
+      if (primary.costume_id !== (object?.id || ""))
+        requireNode("costume-image", primary.costume_id || character.id);
     },
   };
   const precheckKey = NODE_DEFINITIONS[business]?.precheck;

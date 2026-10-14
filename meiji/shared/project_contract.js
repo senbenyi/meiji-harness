@@ -41,6 +41,9 @@ const arrayModels = {
 };
 const stringArrays = new Set([
   "project.rules[].applicable_business_types",
+  "project.character_library.characters[].signature_props",
+  "project.character_library.characters[].immutable_traits",
+  "project.character_library.characters[].costumes[].props",
 ]);
 const normalizePath = (path) => path.replace(/\[\d+\]/g, "[]");
 

@@ -59,6 +59,7 @@ export function taskTools(runtime) {
             enum: [
               "submit",
               "submit-group",
+              "submit-costumes",
               "query",
               "cancel",
               "continue-group",
@@ -67,7 +68,7 @@ export function taskTools(runtime) {
           project_id: { type: "string" },
           request_id: { type: "string" },
           business_type: { type: "string" },
-          target_id: { type: "string", description: "项目/角色/服装等对象 ID。costume-image 有明确服装使用 co_，服装数组为空使用角色 c_；角色图 character-image 始终使用 c_。" },
+          target_id: { type: "string", description: "项目/角色/服装等对象 ID。costume-image 有明确服装使用 co_，服装数组为空使用角色 c_；submit-costumes 使用角色 c_，按服装顺序生成全部定妆照。" },
           action: { type: "string", enum: ["generate", "regenerate"], description: "节点或成片组的执行方式：generate 补齐未有效生成的内容，regenerate 重跑所选范围；成片组缺省为 generate。" },
           opinion: { type: "string" },
           group_type: {
@@ -88,6 +89,7 @@ export function taskTools(runtime) {
           ![
             "submit",
             "submit-group",
+              "submit-costumes",
             "query",
             "cancel",
             "continue-group",

@@ -1,3 +1,4 @@
+import { primaryCostumeImage } from "./models/character_model.js";
 import { createHash } from "node:crypto";
 import { nodeOf, locateTarget } from "./task_contract.js";
 import { assertOutput } from "./node-state.js";
@@ -15,7 +16,7 @@ const canonical = (value) =>
   );
 
 const characterMaterial = character => ({
-  name: character.name, position: character.position, age_range: character.age_range,
+  name: character.name, gender: character.gender, era: character.era, position: character.position, age_range: character.age_range,
   body_type: character.body_type, hairstyle: character.hairstyle,
   signature_props: character.signature_props, immutable_traits: character.immutable_traits,
 });
@@ -45,15 +46,17 @@ function dependencyMaterial(snapshot, business, id) {
   if (business === "project-summary" || business === "project-characters")
     return { 剧本正文: project.script.body };
   if (business === "character-image") {
-    const character = locateTarget(project, business, id).object;
-    return { ...characterMaterial(character), reference_image: character.reference_image.address };
+    const character = locateTarget(project, business, id).character;
+    return dependencyMaterial(snapshot, "costume-image", character.costumes[0]?.id || character.id);
   }
   if (business === "costume-image") {
     const { object: costume, character } = locateTarget(project, business, id);
+    const primary = primaryCostumeImage(character);
+    const first = primary.costume_id === (costume?.id || "");
     return {
       character: characterMaterial(character),
       costume: costume ? { name: costume.name, color: costume.color, material: costume.material, props: costume.props } : null,
-      character_image: { address: character.character_image.address, dependency_hash: character.character_image.node_state.dependency_hash },
+      reference: first ? { address: character.reference_image.address } : { address: primary.address, dependency_hash: primary.node_state.dependency_hash },
     };
   }
   if (business === "episode-summary")
@@ -159,8 +162,8 @@ function referencedImages(snapshot, shot) {
     for (const character of snapshot.project.character_library.characters) {
       if (character.id === imageId)
         return {
-          地址: character.character_image.address,
-          上游: character.character_image.node_state.dependency_hash,
+          地址: primaryCostumeImage(character).address,
+          上游: primaryCostumeImage(character).node_state.dependency_hash,
         };
       for (const costume of character.costumes)
         if (costume.id === imageId)
@@ -243,12 +246,14 @@ export function downstream(snapshot, business, id) {
       next = list[list.findIndex((x) => x.id === id) + 1];
     return next ? [one("video", next.id)] : [];
   }
-  if (business === "character-setting") return [one("character-image", id), ...s.costume_images.map(image => one("costume-image", image.costume_id || id)), ...roleContext()];
+  if (business === "character-setting") return [...s.costume_images.map(image => one("costume-image", image.costume_id || id)), ...roleContext()];
   if (business === "costume-setting") return [one("costume-image", id), ...roleContext()];
   if (["character-image", "costume-image"].includes(business)) {
-    const result = business === "character-image"
-      ? t.object.costume_images.map(image => one("costume-image", image.costume_id || t.object.id))
-      : [];
+    const character = t.character;
+    const isPrimary = business === "character-image" || (t.object?.id || "") === primaryCostumeImage(character).costume_id;
+    const result = isPrimary ? character.costume_images
+      .filter(image => image.costume_id !== primaryCostumeImage(character).costume_id)
+      .map(image => one("costume-image", image.costume_id || character.id)) : [];
     for (const episode of p.episodes)
       for (const shot of episode.shot_list.shots) {
         const task = snapshot.tasks
@@ -272,10 +277,10 @@ export function downstream(snapshot, business, id) {
             )?.result?.reference_ids
           : null;
         const used = refs
-          ? refs.includes(id)
+          ? refs.includes(id) || (isPrimary && refs.includes(character.id))
           : shot.on_screen_characters.some((r) =>
               business === "costume-image"
-                ? r.costume_id === id
+                ? (r.costume_id === id || (isPrimary && r.character_id === character.id && !r.costume_id))
                 : r.character_id === id && !r.costume_id,
             );
         if (used) result.push(one("video", shot.id));

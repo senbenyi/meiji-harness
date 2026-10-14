@@ -1,3 +1,4 @@
+import { primaryCostumeImage } from "./models/character_model.js";
 import {
   BUSINESS_TARGET,
   NODE_TYPES,
@@ -161,6 +162,7 @@ export function nodeOf(project, business, targetId) {
   const definition = NODE_DEFINITIONS[business];
   if (!definition) return null;
   const target = locateTarget(project, business, targetId);
+  if (business === "character-image") return primaryCostumeImage(target.character);
   if (business === "costume-image") {
     const node = target.character.costume_images.find(image => image.costume_id === (target.object?.id || ""));
     if (!node) invalid("target_id", "定妆照节点不存在");
@@ -296,6 +298,7 @@ export function validateStep(s, t) {
 export const COMMANDS = Object.freeze([
   "submit",
   "submit-group",
+  "submit-costumes",
   "query",
   "cancel",
   "continue-group",
@@ -307,6 +310,7 @@ export const COMMANDS = Object.freeze([
 ]);
 const commandFields = {
   submit: ["business_type", "target_id", "action", "opinion"],
+  "submit-costumes": ["target_id", "action"],
   "submit-group": ["group_type", "episode_id"],
   query: ["task_id", "group_id"],
   cancel: ["task_id"],
@@ -351,6 +355,9 @@ export function validateCommand(command) {
       Object.keys(BUSINESS_TARGET),
       "command.business_type",
     );
+  if (command.business_type === "character-image" && command.type !== "query")
+    invalid("business_type", "独立角色图已移除，请生成人物定妆照");
+  if (command.type === "submit-costumes") assertEnum(command.action, ["generate", "regenerate"], "command.action");
   if (command.type === "submit") {
     assertEnum(
       command.action,
@@ -437,14 +444,14 @@ export function projectNumberCatalog(project, episodeId) {
                 return [[fields[k], v ? inverse.get(v) : ""]];
               }
               if (k.endsWith("id")) return [];
-              if (k === "character_image") return [["has_image", Boolean(v.address)]];
+
               if (k === "reference_image") return [];
               return [[k, strip(v)]];
             }),
           )
         : value;
   return {
-    characters: project.character_library.characters.map(strip),
+    characters: project.character_library.characters.map(character => ({ ...strip(character), has_image: Boolean(primaryCostumeImage(character).address) })),
     shots: episodeId
       ? project.episodes.find((e) => e.id === episodeId).shot_list.shots.map(strip)
       : [],

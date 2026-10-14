@@ -9,7 +9,7 @@ import { snapshotFixture } from "./fixtures/project.js";
 import { blankCharacter } from "../client/resource-ui.js";
 const tick = () => new Promise((r) => setTimeout(r, 0));
 async function domTest(work) {
-  const dom = new JSDOM("<main></main>", { url: "http://localhost" }),
+  const dom = new JSDOM("<main></main>", { url: "http://localhost", pretendToBeVisual: true }),
     saved = {
       document: globalThis.document,
       window: globalThis.window,
@@ -37,6 +37,37 @@ const submit = (form, dom) =>
   form.dispatchEvent(
     new dom.window.Event("submit", { bubbles: true, cancelable: true }),
   );
+test("角色卡按任务组显示停止状态，继续最新续作组，完成和执行中不显示继续", () =>
+  domTest(async (root) => {
+    const snap = snapshotFixture(), commands = [];
+    snap.project.character_library.node_state.status = "generated";
+    snap.groups = [{ id: "roles", group_type: "workflow" }];
+    snap.tasks = [
+      { id: "extract", group_id: "roles", group_seq: 1, queue_order: 1, business_type: "project-characters", task_status: "completed" },
+      { id: "image", group_id: "roles", group_seq: 2, queue_order: 2, business_type: "project-characters", task_status: "failed", end_reason: "图片失败" },
+    ];
+    globalThis.fetch = async (_url, options) => {
+      commands.push(JSON.parse(options.body).command);
+      return { ok: true, json: async () => ({}) };
+    };
+    const context = { session_id: "s", view: { page: "overview" }, refresh: async () => {}, onError: assert.fail };
+    const paint = () => renderTaskPanel(root, snap, context);
+    const next = () => [...root.querySelectorAll("button")].find(b => b.textContent === "继续");
+    for (const status of ["failed", "rejected", "cancelled", "superseded"]) {
+      snap.tasks[1].task_status = status;
+      paint(); assert.ok(next(), status);
+    }
+    next().click(); await tick();
+    assert.equal(commands[0].type, "continue-group"); assert.equal(commands[0].group_id, "roles");
+    snap.groups.push({ id: "next", group_type: "workflow", action: "continue" });
+    snap.tasks.push({ ...snap.tasks[1], id: "retry", group_id: "next", group_seq: 1, queue_order: 3, task_status: "rejected", end_reason: "续作未通过" });
+    paint(); assert.match(root.textContent, /续作未通过/); next().click(); await tick();
+    assert.equal(commands[1].group_id, "next");
+    for (const status of ["completed", "queued", "running"]) {
+      snap.tasks[2].task_status = status;
+      paint(); assert.equal(next(), undefined, status);
+    }
+  }));
 test("UI-1 原创建表单默认剧本；本地导入、移除和自由模式提交新契约", () =>
   domTest(async (root, dom) => {
     let output;
@@ -167,13 +198,26 @@ test("UI-3 编辑小段/对白/提示词使用字段和时段，提交类型与�
     [...f.box.querySelectorAll("button")].find((b) => b.textContent === "＋ 添加每秒分镜").click();
     assert.equal(typeof f.read().storyboard[0].action, "string");
   }));
+test("角色数组字段支持逐项编辑、添加和删除并保留数组类型", () =>
+  domTest(root => {
+    const form = fieldsForm({ signature_props: ["哨棒"], immutable_traits: [], props: [] });
+    root.append(form.box);
+    for (const label of ["签名道具", "不可改特征", "道具"])
+      [...form.box.querySelectorAll("button")].find(b => b.textContent === "＋ 添加" + label).click();
+    assert.deepEqual(form.read(), { signature_props: ["哨棒", ""], immutable_traits: [""], props: [""] });
+    [...form.box.querySelectorAll("button")].find(b => b.textContent === "移除").click();
+    assert.deepEqual(form.read().signature_props, [""]);
+  }));
+
 test("UI-4 人物文字网格/服装详情和编号，运行冻结；不显示内部 ID", () =>
   domTest((root) => {
     const snap = snapshotFixture(),
       c = {
         ...blankCharacter(),
         name: "小明",
-        costumes: [{ name: "日常服", color: "灰色", material: "", props: "" }],
+        gender: "男",
+        era: "现代",
+        costumes: [{ name: "日常服", color: "灰色", material: "", props: [] }],
       };
     snap.project.character_library.characters = mergeCharacters(snap.project, [c]).characters;
     const role = snap.project.character_library.characters[0],
@@ -335,6 +379,39 @@ test("UI-5 片库恢复短剧状态/素材分类/原卡片，分类切换不显�
     assert.match(root.querySelector(".asset-card").textContent, /剧本.txt/);
     assert.ok(root.querySelector(".asset-toolbar input[type=file]"));
   }));
+test("后台页面释放实时连接，可见后刷新重连，晚到刷新与卸载不重建连接", () =>
+  domTest(async (_root, dom) => {
+    const { mount } = await import("../client/workbench.js");
+    const saved = { localStorage: globalThis.localStorage, EventSource: globalThis.EventSource };
+    const snap = snapshotFixture(), streams = [];
+    let hidden = false, requests = 0, release, app;
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+    const visibility = (value) => { hidden = value; document.dispatchEvent(new dom.window.Event("visibilitychange")); };
+    try {
+      globalThis.localStorage = dom.window.localStorage;
+      localStorage.setItem("dsh.sessions.current", JSON.stringify({ sessionId: "session-" + crypto.randomUUID() }));
+      globalThis.EventSource = class { constructor() { streams.push(this); } close() { this.closed = true; } };
+      globalThis.fetch = async () => {
+        requests++;
+        if (release === null) await new Promise(resolve => { release = resolve; });
+        return { ok: true, json: async () => ({ project_id: snap.project.id, snapshot: structuredClone(snap) }) };
+      };
+      app = mount(); await app.refresh();
+      assert.equal(streams.length, 1);
+      release = null; const late = app.refresh();
+      visibility(true); assert.equal(streams[0].closed, true);
+      release(); await late; assert.equal(streams.length, 1);
+      const before = requests; await app.refresh(); assert.equal(requests, before);
+      snap.runtime.revision++;
+      visibility(false); await tick();
+      assert.equal(streams.length, 2); assert.equal(app.context.read().runtime.revision, snap.runtime.revision);
+      visibility(false); await tick(); assert.equal(streams.length, 2);
+      app.dispose(); assert.equal(streams[1].closed, true);
+      const disposedRequests = requests; visibility(true); visibility(false); await tick();
+      assert.equal(requests, disposedRequests);
+    } finally { app?.dispose(); Object.assign(globalThis, saved); }
+  }));
+
 test("UI-6 设置语言和模型表单在事件刷新后保留草稿，运行中冻结", () =>
   domTest(async (root, dom) => {
     const { mount } = await import("../client/workbench.js"),
@@ -428,3 +505,33 @@ test("无服装角色可直接打开定妆照卡；新增服装后旧空图只�
     assert.equal(view.history_business, "costume-image");
     assert.equal(c.costume_images.length, 2);
   }));
+
+test("每个人物卡独立提交全部服装，默认头像取首套定妆照", () => domTest(async root => {
+  const { emptyCharacterModel } = await import('../shared/models/character_model.js');
+  const { emptyCostumeModel } = await import('../shared/models/costume_model.js');
+  const { emptyCostumeImageModel } = await import('../shared/models/costume_image_model.js');
+  const snapshot = snapshotFixture(), calls = [];
+  const outfits = ['常服','礼服'].map(name => emptyCostumeModel({ name }));
+  const character = emptyCharacterModel({ name:'甲', costumes:outfits, costume_images:outfits.map(c => emptyCostumeImageModel(c.id)) });
+  snapshot.project.character_library.characters = [character];
+  globalThis.fetch = async (_url, options) => { calls.push(JSON.parse(options.body).command); return {ok:true,json:async()=>({})}; };
+  const context = {session_id:'s',view:{page:'overview'},refresh:async()=>{},onError:assert.fail};
+  renderTaskPanel(root,snapshot,context);
+  root.querySelector('.character-card').querySelectorAll('button')[1].click(); await tick();
+  assert.equal(calls[0].type,'submit-costumes'); assert.equal(calls[0].target_id,character.id); assert.equal(calls[0].action,'generate');
+  character.costume_images.forEach((image,index)=>{image.address=`portrait-${index}.png`;image.node_state.status='generated';});
+  renderTaskPanel(root,snapshot,context);
+  assert.match(root.querySelector('.character-card img').src,/portrait-0.png\?/);
+  const generate = root.querySelector('.character-card').querySelectorAll('button')[1];
+  assert.equal(generate.textContent,'重新生成定妆照'); generate.click(); await tick();
+  assert.equal(calls[1].action,'regenerate');
+}));
+
+test('旧提取组内图片失败不冒充提取失败，也不显示已移除流程的继续',()=>domTest(async root=>{
+ const snapshot=snapshotFixture();snapshot.project.character_library.node_state.status='generated';
+ snapshot.groups=[{id:'legacy',group_type:'workflow'}];
+ snapshot.tasks=[{id:'extract',group_id:'legacy',group_seq:1,business_type:'project-characters',task_status:'completed',queue_order:1},{id:'old-image',group_id:'legacy',group_seq:2,business_type:'character-image',task_status:'failed',end_reason:'旧角色图失败',queue_order:2}];
+ renderTaskPanel(root,snapshot,{session_id:'s',view:{page:'overview'},refresh:async()=>{},onError:assert.fail});
+ const card=[...root.querySelectorAll('.overview-card')].find(card=>card.querySelector('h3')?.textContent==='角色卡');assert.ok(card);
+ assert.match(card.textContent,/已通过/);assert.doesNotMatch(card.textContent,/旧角色图失败/);assert.equal([...card.querySelectorAll('button')].some(b=>b.textContent==='继续'),false);
+}));

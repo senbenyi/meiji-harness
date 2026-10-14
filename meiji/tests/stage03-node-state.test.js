@@ -9,6 +9,30 @@ import {
 } from "../shared/node-state.js";
 import { precheck } from "../server/flow/tasks/precheck.js";
 import { projectFixture, taskFixture } from "./fixtures/project.js";
+import { emptyCharacterModel } from "../shared/models/character_model.js";
+
+test("首套定妆照只需任一人物资料字段，全部空白或仅有管理字段仍拒绝", () => {
+  const fields = ["name", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits"];
+  const project = projectFixture();
+  const character = emptyCharacterModel({ number: "C01", required_appearance: true });
+  project.character_library.characters = [character];
+  const task = { business_type: "costume-image", target_id: character.id, action: "generate" };
+  for (const field of fields) {
+    Object.assign(character, Object.fromEntries(fields.map((key) => [key, ["signature_props", "immutable_traits"].includes(key) ? [" \n "] : " \n "])));
+    character[field] = ["signature_props", "immutable_traits"].includes(field) ? [" 有资料 "] : " 有资料 ";
+    assert.equal(precheck({ project }, task).passed, true, field);
+  }
+  for (const field of fields) character[field] = ["signature_props", "immutable_traits"].includes(field) ? [] : " \n ";
+  character.reference_image.address = "reference.png";
+  assert.throws(() => precheck({ project }, task), /至少填写一项人物资料/);
+  character.name = "甲";
+  assert.throws(() => precheck({ project }, { ...task, action: "regenerate" }), /未生成节点/);
+  character.costume_images[0].address = "existing.png";
+  assert.throws(() => precheck({ project }, task), /已有内容/);
+  assert.equal(precheck({ project }, { ...task, action: "regenerate" }).passed, true);
+  project.character_library.characters = [];
+  assert.throws(() => precheck({ project }, task), /不存在/);
+});
 
 test("S3-01/02 状态和原因一起转换，未开始取消恢复快照，非法转换拒绝", () => {
   const p = projectFixture(),

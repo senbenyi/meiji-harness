@@ -63,14 +63,6 @@
         "voice": "（角色声音特征，或分镜中的声音内容。）",
         "required_appearance": "false（该角色是否为必须出现的角色。；布尔值）",
         "default_costume_id": "co_uuid（默认服装 id；没有明确服装时为空字符串。）",
-        "character_image": {
-          "node_state": {
-            "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。）",
-            "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
-            "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-          },
-          "address": "（图片、视频或文件的存储地址。）"
-        },
         "costume_images": [
           {
             "node_state": {
@@ -92,13 +84,19 @@
             "name": "（服装名称；数组允许为空，剧本未明确描述服装时不创建服装项。）",
             "color": "（该套服装的颜色；角色级资料不再重复存服装颜色。）",
             "material": "（服装材质描述。）",
-            "props": "（角色或服装关联的道具。）"
+            "props": [
+              "（角色或服装关联的道具。）"
+            ]
           }
         ],
         "hairstyle": "（角色发型。）",
-        "signature_props": "（角色签名道具。）",
+        "signature_props": [
+          "（角色签名道具。）"
+        ],
         "position": "（角色在故事中的定位。）",
-        "immutable_traits": "（角色不可改特征。）"
+        "immutable_traits": [
+          "（角色不可改特征。）"
+        ]
       }
     ]
   },

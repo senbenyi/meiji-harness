@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { mount } from "../client/workbench.js";
 import { snapshotFixture } from "./fixtures/project.js";
 test("S7-12 完整面板刷新保留编辑草稿；切换拒绝旧项目；卸载拒绝晚到响应并释放 shell", async () => {
-  const dom = new JSDOM("<body></body>", { url: "http://localhost" }),
+  const dom = new JSDOM("<body></body>", { url: "http://localhost", pretendToBeVisual: true }),
     saved = {};
   for (const key of [
     "window",

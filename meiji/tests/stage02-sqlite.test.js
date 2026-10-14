@@ -69,7 +69,7 @@ function legacyTask(db, project, business = "project-summary", status = "complet
   return { taskId, stepId, groupId };
 }
 
-test("SQLite v1→v5：清理资产字段与规则，保留历史并作废旧活动资产任务", () => fixture(async root => {
+test("SQLite v1→v7：清理资产字段与规则，保留历史并作废旧活动资产任务", () => fixture(async root => {
   const p = legacyProject();
   p.剧集[0].本集资产 = { 状态: "generated", 原因: "", 角色: [] };
   p.规则 = [{ id: createId("rule"), 范围: "project", 适用业务: ["outline", "episode-characters"], 节点id: "", 类别: "其他", 约束: "参考", 内容: "保留" }];
@@ -92,7 +92,7 @@ test("SQLite v1→v5：清理资产字段与规则，保留历史并作废旧活
   } finally { await upgraded.close(); }
 }));
 
-test("SQLite v2→v5：补节点指纹并保留正文、人物图和空服装", () => fixture(async root => {
+test("SQLite v2→v7：补节点指纹并保留正文、人物图和空服装", () => fixture(async root => {
   const p = legacyProject(); delete p.项目摘要.依赖hash;
   const { db } = await legacyDatabase(root, 2, p); db.close();
   const upgraded = new ModelRepository(root);
@@ -101,13 +101,13 @@ test("SQLite v2→v5：补节点指纹并保留正文、人物图和空服装", 
     assert.equal(restored.project_summary.node_state.dependency_hash, "");
     assert.equal(restored.project_summary.body, "旧摘要");
     assert.equal(restored.character_library.characters[0].id, p.角色库.角色[0].id);
-    assert.equal(restored.character_library.characters[0].character_image.address, "original.png");
+    assert.equal(restored.character_library.characters[0].costume_images[0].address, "original.png");
     assert.deepEqual(restored.character_library.characters[0].costumes, []);
     assert.equal(restored.character_library.characters[0].costume_images[0].costume_id, "");
   } finally { await upgraded.close(); }
 }));
 
-test("SQLite v3→v5：保留终态和原始请求，移除组冗余字段，备份且只迁移一次", () => fixture(async root => {
+test("SQLite v3→v7：保留终态和原始请求，移除组冗余字段，备份且只迁移一次", () => fixture(async root => {
   const { db, project: p } = await legacyDatabase(root);
   const ids = legacyTask(db, p);
   const before = db.prepare("SELECT prompt_json,result_json FROM task_steps").get();
@@ -121,12 +121,12 @@ test("SQLite v3→v5：保留终态和原始请求，移除组冗余字段，备
   assert.equal(snapshot.groups[0].opinion, undefined);
   assert.equal(snapshot.groups[0].continued_from_group_id, undefined);
   await upgraded.close();
-  const backups = (await readdir(root)).filter(name => name.includes("before-v5"));
+  const backups = (await readdir(root)).filter(name => name.includes("before-v7"));
   assert.equal(backups.length, 1);
   const backup = new DatabaseSync(join(root, backups[0]));
   assert.equal(backup.prepare("PRAGMA user_version").get().user_version, 3); backup.close();
   const check = new DatabaseSync(join(root, "meiji.sqlite"));
-  assert.equal(check.prepare("PRAGMA user_version").get().user_version, 5);
+  assert.equal(check.prepare("PRAGMA user_version").get().user_version, 7);
   assert.deepEqual(check.prepare("PRAGMA foreign_key_check").all(), []);
   assert.deepEqual(check.prepare("SELECT prompt_json,result_json FROM task_steps").get(), before);
   assert.ok(!check.prepare("PRAGMA table_info(task_groups)").all().some(row => ["opinion", "continued_from_group_id"].includes(row.name)));
@@ -136,10 +136,10 @@ test("SQLite v3→v5：保留终态和原始请求，移除组冗余字段，备
   check.close();
   const second = new ModelRepository(root);
   await second.open(p.id); await second.close();
-  assert.equal((await readdir(root)).filter(name => name.includes("before-v5")).length, 1);
+  assert.equal((await readdir(root)).filter(name => name.includes("before-v7")).length, 1);
 }));
 
-for (const version of [1, 2, 3]) test(`SQLite v${version}→v5 校验失败整体回滚且备份保持升级前状态`, () => fixture(async root => {
+for (const version of [1, 2, 3]) test(`SQLite v${version}→v7 校验失败整体回滚且备份保持升级前状态`, () => fixture(async root => {
   const p = legacyProject();
   p.角色库.角色[0].id = p.id;
   delete p.项目摘要.依赖hash;
@@ -158,14 +158,14 @@ for (const version of [1, 2, 3]) test(`SQLite v${version}→v5 校验失败整�
   const check = new DatabaseSync(join(root, "meiji.sqlite"));
   assert.deepEqual(capture(check), before, "任一迁移步骤失败后，旧版本号、结构、项目、任务和历史均保持不变");
   check.close();
-  const backups = (await readdir(root)).filter(name => name.includes("before-v5"));
+  const backups = (await readdir(root)).filter(name => name.includes("before-v7"));
   assert.equal(backups.length, 1);
   const backup = new DatabaseSync(join(root, backups[0]));
   assert.deepEqual(capture(backup), before, "备份是升级前的完整旧版本");
   backup.close();
 }));
 
-test("SQLite v4→v5：修正累计时长和旧依赖，排队恢复不覆盖过期，终态历史不变", () => fixture(async root => {
+test("SQLite v4→v7：修正累计时长和旧依赖，排队恢复不覆盖过期，终态历史不变", () => fixture(async root => {
   const repo = new ModelRepository(root), p = projectFixture();
   const episode = p.episodes[0];
   episode.shot_list.shots[0].actual_duration_seconds = 5.2;
@@ -185,7 +185,7 @@ test("SQLite v4→v5：修正累计时长和旧依赖，排队恢复不覆盖过
   oldProject.episodes[0].actual_duration_seconds = 999;
   oldProject.episodes[0].story_outline.node_state.dependency_hash = "a".repeat(64);
   db.prepare("UPDATE projects SET data_json=? WHERE id=?").run(JSON.stringify(oldProject), p.id);
-  db.exec("DELETE FROM schema_migrations WHERE version=5; PRAGMA user_version=4");
+  db.exec("DELETE FROM schema_migrations WHERE version>=5; PRAGMA user_version=4");
   const historicalTasks = db.prepare("SELECT * FROM tasks WHERE task_status='completed'").all();
   const historicalSteps = db.prepare("SELECT * FROM task_steps WHERE task_id=?").all(completed.task_id);
   db.close();
@@ -202,22 +202,22 @@ test("SQLite v4→v5：修正累计时长和旧依赖，排队恢复不覆盖过
   assert.equal(restoredModel.read().tasks.find(t => t.id === queued.task_id).task_status, "superseded");
   await recovering.dispose(); await upgraded.close();
   const check = new DatabaseSync(path);
-  assert.equal(check.prepare("PRAGMA user_version").get().user_version, 5);
+  assert.equal(check.prepare("PRAGMA user_version").get().user_version, 7);
   assert.deepEqual(check.prepare("SELECT * FROM tasks WHERE task_status='completed'").all(), historicalTasks);
   assert.deepEqual(check.prepare("SELECT * FROM task_steps WHERE task_id=?").all(completed.task_id), historicalSteps);
   check.close();
   const once = new ModelRepository(root); await once.open(p.id); await once.close();
-  assert.equal((await readdir(root)).filter(name => name.includes("before-v5")).length, 1);
+  assert.equal((await readdir(root)).filter(name => name.includes("before-v7")).length, 1);
 }));
 
-test("SQLite v4→v5：非法项目导致整个数据修订回滚", () => fixture(async root => {
+test("SQLite v4→v7：非法项目导致整个数据修订回滚", () => fixture(async root => {
   const repo = new ModelRepository(root), p = projectFixture();
   await repo.create(p); await repo.close();
   const path = join(root, "meiji.sqlite"), db = new DatabaseSync(path);
   const bad = structuredClone(p); bad.episodes[0].id = p.id;
   const original = JSON.stringify(bad);
   db.prepare("UPDATE projects SET data_json=? WHERE id=?").run(original, p.id);
-  db.exec("DELETE FROM schema_migrations WHERE version=5; PRAGMA user_version=4");
+  db.exec("DELETE FROM schema_migrations WHERE version>=5; PRAGMA user_version=4");
   db.close();
   const broken = new ModelRepository(root);
   await assert.rejects(broken.open(p.id), /重复 ID/);
@@ -226,7 +226,7 @@ test("SQLite v4→v5：非法项目导致整个数据修订回滚", () => fixtur
   assert.equal(check.prepare("SELECT data_json FROM projects WHERE id=?").get(p.id).data_json, original);
   assert.equal(check.prepare("SELECT COUNT(*) AS n FROM schema_migrations WHERE version=5").get().n, 0);
   check.close();
-  const backups = (await readdir(root)).filter(name => name.includes("before-v5"));
+  const backups = (await readdir(root)).filter(name => name.includes("before-v7"));
   assert.equal(backups.length, 1);
   const backup = new DatabaseSync(join(root, backups[0]));
   assert.equal(backup.prepare("SELECT data_json FROM projects WHERE id=?").get(p.id).data_json, original);

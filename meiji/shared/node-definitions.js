@@ -32,7 +32,9 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     retryRounds: 2,
     precheck: "project-text",
   },
+  // 仅供历史任务识别与默认图只读定位；新命令不接受此业务。
   "character-image": {
+    retired: true,
     targetKind: "character",
     field: "character_image",
     label: "角色图",
@@ -68,7 +70,7 @@ export const NODE_DEFINITIONS = freezeDefinitions({
   outline: {
     targetKind: "episode",
     field: "story_outline",
-    label: "剧情",
+    label: "故事大纲",
     handler: "text",
     output: "text",
     programReview: true,

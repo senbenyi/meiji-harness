@@ -1,11 +1,12 @@
 {
   "baseUrl": "http://43.154.247.11/v1",
   "apiKey": "",
+  "textBaseUrl": "http://127.0.0.1:11435/v1",
   "chat": {
-    "model": "elysium-chat"
+    "model": "qwen3.5:27b"
   },
   "story": {
-    "model": "elysium-chat"
+    "model": "qwen3.5:27b"
   },
   "image": {
     "model": "elysium-image"

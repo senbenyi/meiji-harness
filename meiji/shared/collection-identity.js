@@ -4,7 +4,7 @@ import { emptyCharacterModel } from "./models/character_model.js";
 import { emptyCostumeModel } from "./models/costume_model.js";
 import { emptyCostumeImageModel } from "./models/costume_image_model.js";
 
-const characterFields = ["name", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits", "costumes"];
+const characterFields = ["name", "gender", "era", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits", "costumes"];
 const costumeFields = ["name", "color", "material", "props"];
 const shotFields = ["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"];
 
@@ -23,7 +23,9 @@ export function mergeCharacters(project, rows) {
   const seen = new Set(), new_ids = [];
   for (const row of rows) {
     assertFields(row, characterFields, "characters[]");
-    for (const key of characterFields.filter(key => key !== "costumes")) assertText(row[key], `character.${key}`);
+    for (const key of characterFields.filter(key => !["costumes", "signature_props", "immutable_traits"].includes(key))) assertText(row[key], `character.${key}`);
+    if (!row.era.trim()) invalid("character.era", "年代必填；剧本未明确时填写“未明确”");
+    if (!row.gender.trim()) invalid("character.gender", "性别必填；剧本未明确时填写“未明确”");
     if (!row.name.trim() || seen.has(row.name)) invalid("character.name", "重复或空姓名");
     seen.add(row.name);
     const matches = characters.filter(c => c.name === row.name);
@@ -38,7 +40,7 @@ export function mergeCharacters(project, rows) {
     const seenCostumes = new Set();
     for (const data of row.costumes) {
       assertFields(data, costumeFields, "costumes[]");
-      for (const key of costumeFields) assertText(data[key], `costume.${key}`);
+      for (const key of costumeFields.filter(key => key !== "props")) assertText(data[key], `costume.${key}`);
       if (!data.name.trim() || seenCostumes.has(data.name)) invalid("costume.name", "重复或空名称");
       seenCostumes.add(data.name);
       const matches = character.costumes.filter(co => co.name === data.name);
@@ -51,7 +53,8 @@ export function mergeCharacters(project, rows) {
       }
       Object.assign(costume, structuredClone(data));
     }
-    for (const key of characterFields.filter(key => key !== "costumes")) character[key] = row[key];
+    for (const key of characterFields.filter(key => key !== "costumes")) character[key] = structuredClone(row[key]);
+    if (character.costumes.length) character.costume_images = character.costume_images.filter(image => image.costume_id || image.address);
     for (const costume_id of character.costumes.length ? character.costumes.map(co => co.id) : [""])
       if (!character.costume_images.some(image => image.costume_id === costume_id))
         character.costume_images.push(emptyCostumeImageModel(costume_id));

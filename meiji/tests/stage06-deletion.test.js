@@ -15,10 +15,10 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
   try {
     const p = projectFixture(),
       raw = {
-        name: "甲", position: "主角", age_range: "青年", body_type: "", hairstyle: "", signature_props: "", immutable_traits: "",
+        name: "甲", gender: "男", era: "宋代", position: "主角", age_range: "青年", body_type: "", hairstyle: "", signature_props: [], immutable_traits: [],
         costumes: [
-          { name: "默认", color: "白", material: "", props: "" },
-          { name: "外套", color: "黑", material: "", props: "" },
+          { name: "默认", color: "白", material: "", props: [] },
+          { name: "外套", color: "黑", material: "", props: [] },
         ],
       };
     p.character_library.characters = mergeCharacters(p, [raw]).characters;

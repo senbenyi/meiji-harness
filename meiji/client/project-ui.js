@@ -1,6 +1,8 @@
+import { primaryCostumeImage } from "../shared/models/character_model.js";
 import { detailsDialog } from "./project-forms.js";
 import { element, tabs } from "./panel-dom.js";
 import { editor, readable } from "./content-forms.js";
+import { historyGroups, groupStatus } from "../shared/task-labels.js";
 const editIcon =
   '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.7 2.3 13.7 6.3 5.4 14.6H1.4v-4L9.7 2.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
 export function renderOverview(root, env) {
@@ -27,7 +29,7 @@ export function renderOverview(root, env) {
     remove = button("删除项目", () => {
       if (globalThis.window.confirm("删除这部短剧及其项目资料？"))
         return act({ type: "delete" }, true);
-    });
+    }, false);
   history.setAttribute("aria-label", "任务历史");
   history.title = "任务历史";
   history.className = "task-history-entry";
@@ -281,7 +283,13 @@ export function renderOverview(root, env) {
     );
     list.append(empty);
   }
-  const hasRoles = p.character_library.characters.length > 0,
+  const roleGroup = env.snapshot && historyGroups({ ...env.snapshot,
+      groups: env.snapshot.groups.filter(group => group.group_type === "workflow"),
+    }).find(({ tasks }) => tasks.some(task =>
+        task.business_type === "project-characters")),
+    extraction = roleGroup && groupStatus(roleGroup.tasks.filter(task => task.business_type === "project-characters")),
+    roleStatus = extraction?.status || p.character_library.node_state.status,
+    hasRoles = p.character_library.characters.length > 0,
     extract = (opinion = "") =>
       act({
         type: "submit",
@@ -292,31 +300,36 @@ export function renderOverview(root, env) {
       }),
     { c: library, actions: libraryActions } = card(
       "角色卡",
-      labels[p.character_library.node_state.status] || p.character_library.node_state.status,
+      labels[roleStatus] || ({ completed: "已通过", superseded: "已作废" })[roleStatus] || roleStatus,
     ),
     strip = element(
       "div",
       "",
       "characters-strip library-card-strip library-card-strip-characters",
     );
-  if (!["queued", "running"].includes(p.character_library.node_state.status)) libraryActions.append(
+  if (roleGroup && ["failed", "rejected", "cancelled", "superseded"].includes(roleStatus) &&
+      roleGroup.tasks.every(task => !["queued", "running"].includes(task.task_status)))
+    libraryActions.append(button("继续", () => act({ type: "continue-group", group_id: roleGroup.group.id })));
+  if (!["queued", "running"].includes(roleStatus)) libraryActions.append(
     button(hasRoles ? "重新生成" : "AI生成", () => extract()),
   );
   libraryActions.append(button("查看任务历史", () => go("history", { target_id: p.id, history_business: "project-characters" }), false));
-  if (p.character_library.node_state.reason) library.append(element("p", p.character_library.node_state.reason, "error"));
+  const roleReason = extraction ? extraction.reason : p.character_library.node_state.reason;
+  if (roleReason) library.append(element("p", roleReason, "error"));
   if (hasRoles && p.character_library.node_state.status === "rejected")
     libraryActions.append(opinionButton(extract, p.character_library.node_state.reason));
   library.append(strip);
   for (const c of p.character_library.characters) {
     const b = button("", () => go("character", { character_id: c.id }), false);
     b.className = "character-item library-card library-card-characters";
+    const primary = primaryCostumeImage(c);
     const image = element(
-      c.character_image.address ? "img" : "div",
-      c.character_image.address ? "" : c.name.slice(0, 1),
+      primary.address ? "img" : "div",
+      primary.address ? "" : c.name.slice(0, 1),
       "library-card-avatar character-image",
     );
-    if (c.character_image.address) {
-      image.src = media(c.character_image.address);
+    if (primary.address) {
+      image.src = media(primary.address);
       image.alt = c.name;
     }
     const info = element("div", "", "library-card-info");
@@ -325,7 +338,13 @@ export function renderOverview(root, env) {
       element("p", `${c.number} · ${c.position}`, "meta"),
     );
     b.append(image, info);
-    strip.append(b);
+    const card = element("article", "", "character-card");
+    const ready = c.costume_images.filter(image => c.costumes.length ? c.costumes.some(co => co.id === image.costume_id) : image.costume_id === "");
+    const regenerate = ready.length > 0 && ready.every(image => image.address);
+    const generate = button(regenerate ? "重新生成定妆照" : "生成定妆照", () => act({
+      type: "submit-costumes", target_id: c.id, action: regenerate ? "regenerate" : "generate",
+    }));
+    card.append(b, generate); strip.append(card);
   }
   root.append(view);
 }

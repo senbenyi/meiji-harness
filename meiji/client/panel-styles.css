@@ -360,3 +360,6 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .run-group-head{margin-top:12px;padding:10px 0;border-bottom:1px solid #383a41}.run-group-head strong{white-space:normal;overflow:visible}
 .run-task-head{margin-top:20px;padding-top:12px;border-top:1px solid #383a41}.run-task-head h3{margin:0;min-width:0;overflow-wrap:anywhere}.run-task-head .task-history-status{flex:none}
 .section-titles{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}.section-titles h3{margin:0}.section-titles .status-label{margin:0;flex:none;font-size:12px;font-weight:650;line-height:1.4;color:#dfc196;white-space:nowrap}
+
+.overview-page .character-card{display:flex;flex-direction:column;gap:8px;min-width:0}
+.overview-page .character-card>.library-card{width:100%;box-sizing:border-box}

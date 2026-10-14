@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { randomUUID } from 'node:crypto';
 import { mount } from '../client/workbench.js';
-import { snapshotFixture } from './fixtures/project.js';
+import { snapshotFixture, taskFixture } from './fixtures/project.js';
 
 async function until(check) {
  for(let i=0;i<100;i++){if(check())return;await new Promise(r=>setTimeout(r,5));}
  assert.fail('等待面板更新超时');
 }
 async function fixture(work) {
- const dom=new JSDOM('<body></body>',{url:'http://localhost'}), saved={};
+ const dom=new JSDOM('<body></body>',{url:'http://localhost',pretendToBeVisual:true}), saved={};
  for(const key of ['window','document','localStorage','EventSource','fetch'])saved[key]=globalThis[key];
  const sid=`session-${randomUUID()}`, s=snapshotFixture(), other=snapshotFixture(), streams=[];
  s.project.name='待删除甲';other.project.name='保留乙';
@@ -57,6 +57,17 @@ test('概要删除后空context自动回片库并关闭旧订阅',()=>fixture(as
  click('删除项目');await until(()=>app.context.read()===null&&app.shell.content.textContent.includes('保留乙'));
  assert.equal(app.view.page,'library');assert.equal(app.shell.root.querySelector('.brand').textContent,'极乐世界');assert.ok(streams.every(s=>s.closed));
 }));
+
+for (const page of ['overview', 'library'])
+ test(`运行中的项目可从 ${page} 删除`,()=>fixture(async({app,api,s,click,library})=>{
+  s.tasks.push(taskFixture(s.project, 'project-summary', s.project.id, { task_status: 'running' }));
+  s.runtime.revision++;
+  await app.refresh();
+  if (page === 'library') await library();
+  const scope=page === 'library' ? [...app.shell.content.querySelectorAll('.project-list article')].find(c=>c.textContent.includes('待删除甲')) : app.shell.content;
+  click('删除项目',scope);
+  await until(()=>api.deletes===1 && app.context.read()===null);
+ }));
 
 test('取消与失败均保留当前项目和订阅',()=>fixture(async({app,api,s,streams,click,library})=>{
  await library();const card=()=>[...app.shell.content.querySelectorAll('.project-list article')].find(c=>c.textContent.includes('待删除甲'));

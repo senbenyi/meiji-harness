@@ -104,6 +104,7 @@ export function mount() {
     shell.root.querySelector(".language").textContent = "中文";
   };
   const refresh = async () => {
+    if (disposed || document.hidden) return;
     const token = context.token(),
       result = await request(
         "context?session_id=" + encodeURIComponent(session || ""),
@@ -129,6 +130,7 @@ export function mount() {
     }
   };
   const subscribe = (projectId) => {
+    if (disposed || document.hidden) return;
     if (stream?.projectId === projectId) return;
     stream?.close();
     stream = new EventSource(
@@ -229,8 +231,9 @@ export function mount() {
       const group = element("section", "", "settings-group");
       group.append(element("h3", "网关与模型"));
       const values = {
-        网关地址: settings.baseUrl,
-        网关密钥: "",
+        语言模型地址: settings.textBaseUrl,
+        媒体网关地址: settings.baseUrl,
+        媒体网关密钥: "",
         聊天模型: settings.chat.model,
         剧情模型: settings.story.model,
         图片模型: settings.image.model,
@@ -240,7 +243,7 @@ export function mount() {
         fields = fieldsForm(values, { disabled: busy });
       form.dataset.draftKey = "models";
       form.oninput = () => (form.dataset.dirty = "true");
-      fields.box.querySelector('[name="网关密钥"]').type = "password";
+      fields.box.querySelector('[name="媒体网关密钥"]').type = "password";
       for (const grid of fields.box.querySelectorAll(".image-text-grid"))
         grid.style.gridTemplateColumns = "minmax(0,1fr)";
       fields.box.style.gridTemplateColumns = "minmax(0,1fr)";
@@ -252,7 +255,7 @@ export function mount() {
       save.disabled = busy;
       form.append(
         fields.box,
-        element("p", "密钥留空保留原值", "meta"),
+        element("p", "本地语言模型无需密钥；媒体网关密钥留空保留原值", "meta"),
         message,
         save,
       );
@@ -262,13 +265,14 @@ export function mount() {
         try {
           const v = fields.read(),
             settings = {
-              baseUrl: v.网关地址,
+              textBaseUrl: v.语言模型地址,
+              baseUrl: v.媒体网关地址,
               chat: { model: v.聊天模型 },
               story: { model: v.剧情模型 },
               image: { model: v.图片模型 },
               video: { model: v.视频模型 },
             };
-          if (v.网关密钥) settings.apiKey = v.网关密钥;
+          if (v.媒体网关密钥) settings.apiKey = v.媒体网关密钥;
           await request("models", {
             method: "POST",
             headers: {
@@ -332,6 +336,7 @@ export function mount() {
   shell.root.querySelector(".language").onclick =
     shell.root.querySelector(".settings").onclick;
   const follow = () => {
+    if (document.hidden) return;
     const next = currentSessionId();
     if (!disposed && next !== session) {
       session = next;
@@ -342,6 +347,16 @@ export function mount() {
     }
   };
   follow();
+  const visibilityChanged = () => {
+    if (document.hidden) {
+      stream?.close();
+      stream = null;
+    } else {
+      follow();
+      void refresh().catch(report);
+    }
+  };
+  document.addEventListener("visibilitychange", visibilityChanged);
   const timer = setInterval(follow, 500);
   void refresh().catch(report);
   return {
@@ -352,6 +367,7 @@ export function mount() {
     dispose() {
       disposed = true;
       clearInterval(timer);
+      document.removeEventListener("visibilitychange", visibilityChanged);
       stream?.close();
       shell.dispose();
     },

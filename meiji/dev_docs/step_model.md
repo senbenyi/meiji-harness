@@ -73,7 +73,7 @@
 | 值 | 名称 | 说明 |
 |---|---|---|
 | `single` | 单任务 | 一次独立操作默认建组。可以没有 `episode_id`，`shot_ids` 为空 |
-| `workflow` | 派生流程 | 角色提取等由既有资料派生的流程使用。派生出的摘要或图片任务按 `group_seq` 追加到同一组 |
+| `workflow` | 派生流程 | 角色提取仅提取；拆分剧集仅拆分；人物定妆照单独组按服装顺序排入图片任务 |
 | `episode-seconds` | 每秒分镜 | 只保留单项和历史任务。面板不再单独成组，每秒分镜排在成片组里 |
 | `episode-film` | 成片 | 按镜头顺序逐镜执行：每秒分镜、文生视频提示词、按生成视频类型可选的首尾帧/多模态提示词、视频。视频任务内截取尾帧。可用 `shot_id` 限定当前剧集的一镜；所选任务完成且全剧集视频有效后，在同组追加合片 |
 
@@ -103,7 +103,7 @@
 | `group_seq` | `1` | 组内顺序 |
 | `task_status` | `queued` | 任务状态 |
 | `source` | `panel` | 面板或会话 |
-| `name` | 第 1 集 · 生成剧情 | 展示名 |
+| `name` | 第 1 集 · 生成故事大纲 | 展示名 |
 | `queue_order` | `1` | 队列顺序 |
 | `end_reason` | | 终态原因 |
 | `created_at` | | 创建时间 |
@@ -131,7 +131,7 @@
 |---|---|---|
 | `id` | `st_uuid` | 步骤 id |
 | `task_id` | `t_uuid` | 所属任务 |
-| `name` | 生成剧情 | 展示名 |
+| `name` | 生成故事大纲 | 展示名 |
 | `seq` | `1` | 任务内顺序 |
 | `kind` | `generate` | 见下表 |
 | `round` | `1` | 轮次。修订、再审递增 |
@@ -183,7 +183,6 @@
 |---|---|
 | `project_summary.node_state` | 项目摘要状态。节点内容另有 `body`、`script_version` |
 | `character_library.node_state` | 角色库状态。节点内容另有 `characters[]` |
-| `character_library.characters[].character_image.node_state` | 角色图状态。节点内容另有 `address` |
 | `character_library.characters[].costume_images[].node_state` | 定妆照状态。节点内容另有 `costume_id`、`address` |
 | `episodes[].summary.node_state` | 剧集摘要状态。节点内容另有 `body` |
 | `episodes[].story_outline.node_state` | 故事大纲状态。节点内容另有 `segments[]` |

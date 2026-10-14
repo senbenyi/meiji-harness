@@ -230,6 +230,11 @@ export async function completeChat({
     model,
     messages,
     stream: false,
+    // Qwen3.5 通用非思考参数；Ollama 以 reasoning_effort 控制模板，不能用 /nothink。
+    reasoning_effort: "none",
+    temperature: 0.7,
+    top_p: 0.8,
+    presence_penalty: 1.5,
   };
   // 文本请求可重复提交：网关上游偶发 502/503/504 时自动再试，每次请求各自留痕；图片与视频不在此重试。
   let result;

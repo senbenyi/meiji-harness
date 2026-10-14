@@ -32,7 +32,7 @@ export function aiProjection(value) {
         if (["id", "node_state", "address", "reference_image", "revision_history", "new_ids", "removed_ids"].includes(key)) return [];
         if (key === "speaker_id") return [[key, ""]];
         if (key.endsWith("_id")) return [];
-        if (key === "character_image") return [["has_image", Boolean(data.address)]];
+
         return [[key, walk(data)]];
       })) : item;
   return walk(value);
@@ -94,7 +94,7 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
     if (!passed) return [];
     project.episodes = buildSplit(project.script.body, content).episodes.map(row => emptyEpisode(row));
     assertOutput(project, business, task.target_id);
-    return project.episodes.map(episode => ({ business_type: "episode-summary", target_id: episode.id, action: "generate" }));
+    return [];
   }
   const node = nodeOf(project, business, task.target_id);
   if (business === "project-characters") {
@@ -104,7 +104,7 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
       for (const costume_id of character.costumes.length ? character.costumes.map(costume => costume.id) : [""])
         if (!character.costume_images.some(image => image.costume_id === costume_id))
           character.costume_images.push(emptyCostumeImageModel(costume_id));
-  } else if (["character-image", "costume-image", "video", "tail", "assembly"].includes(business)) {
+  } else if (["costume-image", "video", "tail", "assembly"].includes(business)) {
     node.address = content.address;
     if (business === "video" && content.actual_duration_seconds !== undefined)
       locateTarget(project, business, task.target_id).object.actual_duration_seconds = content.actual_duration_seconds;
@@ -120,13 +120,5 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   if (business !== "project-characters") return [];
   // 正式资料可能已保存过拒绝候选，是否过期须与图片生成时的依赖 hash 比较。
   expireCharacterImages(snapshot);
-  const derived = [];
-  for (const character of node.characters) {
-    derived.push({ business_type: "character-image", target_id: character.id, action: character.character_image.node_state.status === "empty" ? "generate" : "regenerate" });
-    for (const costume_id of character.costumes.length ? character.costumes.map(costume => costume.id) : [""]) {
-      const image = character.costume_images.find(item => item.costume_id === costume_id);
-      derived.push({ business_type: "costume-image", target_id: costume_id || character.id, action: image.node_state.status === "empty" ? "generate" : "regenerate" });
-    }
-  }
-  return derived;
+  return [];
 }

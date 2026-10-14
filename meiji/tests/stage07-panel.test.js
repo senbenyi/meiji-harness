@@ -319,7 +319,7 @@ test("项目详情四张卡片标题旁有状态，生成按钮按内容显示",
     project.project_summary.node_state.status = "rejected";
     project.character_library.node_state.status = "rejected";
     project.character_library.node_state.reason = "未通过";
-    project.character_library.characters = [{ id: "c1", number: "C01", name: "武松", position: "好汉", character_image: { address: "" } }];
+    project.character_library.characters = [{ id: "c1", number: "C01", name: "武松", position: "好汉", costumes: [], costume_images: [{ costume_id: "", address: "" }] }];
     snapshot.tasks = [{
       id: "script-task",
       business_type: "script",

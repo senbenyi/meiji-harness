@@ -99,12 +99,6 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
       group_id: first.group_id,
     });
     assert.notEqual(next.group_id, first.group_id);
-    await runtime.tasks.command({
-      type: "start-queued",
-      project_id: p.id,
-      request_id: "start",
-      task_id: next.task_ids[0],
-    });
     await runtime.tasks.idle(p.id);
     assert.deepEqual(
       model.read().tasks.filter((t) => t.group_id === first.group_id),
