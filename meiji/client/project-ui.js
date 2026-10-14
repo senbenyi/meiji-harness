@@ -1,8 +1,38 @@
 import { primaryCostumeImage } from "../shared/models/character_model.js";
+import { nodeOf } from "../shared/task_contract.js";
 import { detailsDialog } from "./project-forms.js";
 import { element, tabs } from "./panel-dom.js";
 import { editor, readable } from "./content-forms.js";
-import { historyGroups, groupStatus } from "../shared/task-labels.js";
+import { historyGroups } from "../shared/task-labels.js";
+const groupLabels = {
+  empty: "未生成", queued: "排队中", running: "生成中", completed: "已通过",
+  failed: "失败", rejected: "未通过", cancelled: "已取消", superseded: "已作废",
+};
+function stoppedNodeMessage(project, tasks) {
+  const stopped = tasks.find((task) => ["failed", "rejected"].includes(task.task_status));
+  if (!stopped) return "";
+  const node = nodeOf(project, stopped.business_type, stopped.target_id);
+  if (stopped.task_status === "failed") return node?.node_state.fail_message || stopped.end_reason || "";
+  return node?.node_state.reason || stopped.end_reason || "";
+}
+function canResumeGroup(entry, groups) {
+  if (!entry) return false;
+  const newer = groups.some((row) => row.group.id !== entry.group.id && row.tasks.some((task) => entry.tasks.some((old) => old.business_type === task.business_type && old.target_id === task.target_id && task.queue_order > old.queue_order)));
+  return !newer && ["failed", "rejected", "cancelled", "superseded"].includes(entry.status) && entry.tasks.every((task) => !["queued", "running"].includes(task.task_status));
+}
+function groupCard(title, status, message, buttons) {
+  const card = element("section", "", "session-project"),
+    head = element("div", "", "section-head"),
+    ui = element("div", "", "task-group-ui"),
+    row = element("div", "", "workflow-generation-row");
+  head.append(element("h3", title));
+  ui.append(element("p", groupLabels[status] || status, "node-ui-status"));
+  for (const item of buttons) row.append(item);
+  ui.append(row);
+  if (message) ui.append(element("p", message, "error"));
+  card.append(head, ui);
+  return card;
+}
 const editIcon =
   '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.7 2.3 13.7 6.3 5.4 14.6H1.4v-4L9.7 2.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
 export function renderOverview(root, env) {
@@ -56,19 +86,6 @@ export function renderOverview(root, env) {
       [...(env.snapshot?.tasks || [])]
         .filter((t) => t.business_type === business && t.target_id === p.id)
         .sort((a, b) => b.queue_order - a.queue_order)[0],
-    opinionButton = (submit, reason = "") =>
-      button("按意见修改", () =>
-        editor(
-          root,
-          "按意见修改",
-          reason,
-          (opinion) => {
-            if (!opinion.trim()) throw new Error("请输入修改意见");
-            return submit(opinion.trim());
-          },
-          { json: false },
-        ),
-      ),
     card = (title, statusText) => {
       const c = element("section", "", "overview-card"),
         h = element("div", "", "overview-card-title"),
@@ -104,19 +121,7 @@ export function renderOverview(root, env) {
   summary.className = "overview-card";
   summary.querySelector("h3").textContent = "项目摘要";
   summary.querySelector(".prompt")?.classList.add("summary", "summary-preview");
-  const summaryActions = summary.querySelector(".workflow-generation-row"),
-    manual = [...summaryActions.querySelectorAll("button")].find(
-      (b) => b.textContent === "人工编辑",
-    ),
-    summaryHeading = summary.querySelector(".section-head"),
-    summaryTools = element("div", "", "overview-title-actions");
-  manual.className = "icon-edit";
-  manual.setAttribute("aria-label", "人工编辑");
-  manual.title = "人工编辑";
-  manual.innerHTML = editIcon;
-  summaryHeading.className = "overview-card-title";
-  summaryTools.append(manual);
-  summaryHeading.append(summaryTools);
+  summary.querySelector(".section-head").className = "overview-card-title";
   summary.querySelector(".json-copy-row")?.remove();
   view.append(summary);
   const scriptTask = latestTask("script"),
@@ -172,7 +177,7 @@ export function renderOverview(root, env) {
     return detailsDialog(
           root,
           "新增剧集",
-          { duration_seconds: 150, episode_requirements: "" },
+          { duration_seconds: 150 },
           (fields) => act({ type: "add-episode", fields }, true),
           { episode: true },
         );
@@ -283,42 +288,9 @@ export function renderOverview(root, env) {
     );
     list.append(empty);
   }
-  const roleGroup = env.snapshot && historyGroups({ ...env.snapshot,
-      groups: env.snapshot.groups.filter(group => group.group_type === "workflow"),
-    }).find(({ tasks }) => tasks.some(task =>
-        task.business_type === "project-characters")),
-    extraction = roleGroup && groupStatus(roleGroup.tasks.filter(task => task.business_type === "project-characters")),
-    roleStatus = extraction?.status || p.character_library.node_state.status,
-    hasRoles = p.character_library.characters.length > 0,
-    extract = (opinion = "") =>
-      act({
-        type: "submit",
-        business_type: "project-characters",
-        target_id: p.id,
-        action: hasRoles ? "regenerate" : "generate",
-        ...(opinion ? { opinion } : {}),
-      }),
-    { c: library, actions: libraryActions } = card(
-      "角色卡",
-      labels[roleStatus] || ({ queued: "排队中", completed: "已通过", superseded: "已作废" })[roleStatus] || roleStatus,
-    ),
-    strip = element(
-      "div",
-      "",
-      "characters-strip library-card-strip library-card-strip-characters",
-    );
-  if (roleGroup && ["failed", "rejected", "cancelled", "superseded"].includes(roleStatus) &&
-      roleGroup.tasks.every(task => !["queued", "running"].includes(task.task_status)))
-    libraryActions.append(button("继续", () => act({ type: "continue-group", group_id: roleGroup.group.id })));
-  if (!["queued", "running"].includes(roleStatus)) libraryActions.append(
-    button(hasRoles ? "重新生成" : "AI生成", () => extract()),
-  );
-  libraryActions.append(button("查看任务历史", () => go("history", { target_id: p.id, history_business: "project-characters" }), false));
-  const roleReason = extraction ? extraction.reason : p.character_library.node_state.reason;
-  if (roleReason) library.append(element("p", roleReason, "error"));
-  if (hasRoles && p.character_library.node_state.status === "rejected")
-    libraryActions.append(opinionButton(extract, p.character_library.node_state.reason));
-  library.append(strip);
+  const people = nodeCard("project-characters", p.id, p.character_library);
+  people.querySelector("h3").textContent = "提取人物";
+  const strip = element("div", "", "characters-strip library-card-strip library-card-strip-characters");
   for (const c of p.character_library.characters) {
     const b = button("", () => go("character", { character_id: c.id }), false);
     b.className = "character-item library-card library-card-characters";
@@ -333,19 +305,31 @@ export function renderOverview(root, env) {
       image.alt = c.name;
     }
     const info = element("div", "", "library-card-info");
-    info.append(
-      element("strong", c.name),
-      element("p", `${c.number} · ${c.position}`, "meta"),
-    );
+    info.append(element("strong", c.name), element("p", `${c.number} · ${c.position}`, "meta"));
     b.append(image, info);
-    const card = element("article", "", "character-card");
-    const ready = c.costume_images.filter(image => c.costumes.length ? c.costumes.some(co => co.id === image.costume_id) : image.costume_id === "");
-    const regenerate = ready.length > 0 && ready.every(image => image.address);
-    const generate = button(regenerate ? "重新生成定妆照" : "生成定妆照", () => act({
-      type: "submit-costumes", target_id: c.id, action: regenerate ? "regenerate" : "generate",
-    }));
-    card.append(b, generate); strip.append(card);
+    strip.append(b);
   }
+  people.append(strip);
+  view.append(people);
+  const groups = env.snapshot ? historyGroups(env.snapshot) : [];
+  const costumeGroup = groups.find((row) => row.tasks.some((task) => task.business_type === "costume-image"));
+  const costumeReady = p.character_library.characters.some((character) => character.costume_images.some((image) => image.address));
+  const costumeButtons = [];
+  const costumeBusy = costumeGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status));
+  if (!costumeBusy) costumeButtons.push(button(costumeReady ? "重新生成定妆照" : "生成定妆照", () => act({
+    type: "submit-costumes", action: costumeReady ? "regenerate" : "generate",
+  })));
+  if (canResumeGroup(costumeGroup, groups))
+    costumeButtons.push(button("继续", () => act({ type: "continue-group", group_id: costumeGroup.group.id })));
+  costumeButtons.push(button("任务历史", () => go("history", { history_business: "costume-image" }), false));
+  const costumeCurrent = costumeGroup?.tasks.find((task) => task.task_status === "running") || costumeGroup?.tasks.find((task) => task.task_status === "queued");
+  if (costumeCurrent) costumeButtons.push(button("取消", () => act({ type: "cancel", task_id: costumeCurrent.id }), false));
+  view.append(groupCard(
+    "生成定妆照",
+    costumeGroup?.status || "empty",
+    ["failed", "rejected"].includes(costumeGroup?.status) ? stoppedNodeMessage(p, costumeGroup.tasks) : "",
+    costumeButtons,
+  ));
   root.append(view);
 }
 export function stageTabs(label, entries, selected, change) {
@@ -367,7 +351,7 @@ export function backHeader(root, title, label, back) {
   root.append(bar);
 }
 export function renderEpisode(root, env, entries) {
-  const { p, state, button, act, nodeCard, go, media } = env,
+  const { p, state, button, act, nodeCard, nodeUi, go, media } = env,
     e = p.episodes.find((e) => e.id === state.episode_id);
   if (!e) return go("overview");
   if (!entries.some(([id]) => id === state.tab)) state.tab = "script";
@@ -400,11 +384,11 @@ export function renderEpisode(root, env, entries) {
     ),
   );
   body.append(
-    button("编辑本集要求", () =>
+    button("编辑时长", () =>
       detailsDialog(
         root,
-        "编辑剧集",
-        { duration_seconds: e.duration_seconds, episode_requirements: e.episode_requirements },
+        "编辑时长",
+        { duration_seconds: e.duration_seconds },
         (fields) =>
           act({ type: "edit-episode", episode_id: e.id, fields }, true),
         { episode: true },
@@ -443,19 +427,28 @@ export function renderEpisode(root, env, entries) {
   }
   if (state.tab === "assembly") body.append(nodeCard("assembly", e.id, e.assembly));
   if (["film", "shots"].includes(state.tab)) {
-    if (state.tab !== "shots")
-      body.append(
-        button(
-          e.shot_list.shots.some(shot => shot.video.address) ? "重新生成本集成片" : "生成本集成片",
-          () =>
-            act({
-              type: "submit-group",
-              group_type: "episode-film",
-              action: e.shot_list.shots.some(shot => shot.video.address) ? "regenerate" : "generate",
-              episode_id: e.id,
-            }),
-        ),
-      );
+    if (state.tab !== "shots") {
+      const listed = historyGroups(env.snapshot);
+      const filmGroup = listed.find((row) => row.group.group_type === "episode-film" && row.group.episode_id === e.id);
+      const hasVideo = e.shot_list.shots.some((shot) => shot.video.address);
+      const filmButtons = [];
+      const filmBusy = filmGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status));
+      if (!filmBusy) filmButtons.push(button(hasVideo ? "重新生成本集成片" : "生成本集成片", () => act({
+        type: "submit-group", group_type: "episode-film",
+        action: hasVideo ? "regenerate" : "generate", episode_id: e.id,
+      })));
+      if (canResumeGroup(filmGroup, listed))
+        filmButtons.push(button("继续", () => act({ type: "continue-group", group_id: filmGroup.group.id })));
+      filmButtons.push(button("任务历史", () => go("history", { history_episode: e.id }), false));
+      const filmCurrent = filmGroup?.tasks.find((task) => task.task_status === "running") || filmGroup?.tasks.find((task) => task.task_status === "queued");
+      if (filmCurrent) filmButtons.push(button("取消", () => act({ type: "cancel", task_id: filmCurrent.id }), false));
+      body.append(groupCard(
+        "逐镜头成片",
+        filmGroup?.status || "empty",
+        ["failed", "rejected"].includes(filmGroup?.status) ? stoppedNodeMessage(p, filmGroup.tasks) : "",
+        filmButtons,
+      ));
+    }
     for (const s of [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence)) {
       const card = element("article", "", "shot-card"),
         h = element("div", "", "outline-head");
@@ -471,8 +464,28 @@ export function renderEpisode(root, env, entries) {
           false,
         ),
       );
+      const shotButtons = [];
+      if (state.tab === "film") {
+        const current = env.snapshot.tasks.find((task) => task.business_type === "video" && task.target_id === s.id && ["queued", "running"].includes(task.task_status));
+        const active = s.video.node_state.status === "running" || Boolean(current);
+        if (!active) shotButtons.push(button(s.video.address ? "重新生成" : "生成", () => {
+          const text = (state.opinions?.[`video:${s.id}`] || "").trim();
+          if (text) {
+            state.opinionPending ??= {};
+            state.opinionPending[`video:${s.id}`] = true;
+          }
+          return act({
+            type: "submit-group", group_type: "episode-film",
+            action: s.video.address ? "regenerate" : "generate",
+            episode_id: e.id, shot_id: s.id, ...(text ? { opinion: text } : {}),
+          });
+        }));
+        shotButtons.push(button("任务历史", () => go("history", { history_business: "video", target_id: s.id }), false));
+        if (current) shotButtons.push(button("取消", () => act({ type: "cancel", task_id: current.id }), false));
+      }
       card.append(
         h,
+        ...(state.tab === "film" ? [nodeUi({ business: "video", id: s.id, node: s.video, buttons: shotButtons })] : []),
         ...(state.tab === "film" && s.actual_duration_seconds > 0
           ? [element("p", `实际 ${s.actual_duration_seconds} 秒`, "meta")]
           : []),

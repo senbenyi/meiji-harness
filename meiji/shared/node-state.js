@@ -7,7 +7,7 @@ export function shotDurationRange(referenceSeconds) {
   return { min: Math.max(1, referenceSeconds - SHOT_DURATION_TOLERANCE_SECONDS), max: referenceSeconds + SHOT_DURATION_TOLERANCE_SECONDS };
 }
 export { TEXT_BUSINESSES };
-export function setNodeState(node, status, reason = "") {
+export function setNodeState(node, status, reason = "", failMessage) {
   const state = node.node_state;
   const allowed = {
     empty: ["running"],
@@ -17,26 +17,34 @@ export function setNodeState(node, status, reason = "") {
   };
   if (state.status !== status && !allowed[state.status]?.includes(status))
     invalid("node_state.status", `非法转换 ${state.status} → ${status}`);
-  const needs = ["rejected", "failed", "cancelled", "expired"].includes(status);
-  if (needs !== Boolean(reason.trim())) invalid("node_state.reason", "状态与原因不一致");
+  if (failMessage === undefined) {
+    failMessage = status === "failed" ? reason : "";
+    if (status === "failed") reason = "";
+  }
+  const needsReason = ["rejected", "cancelled", "expired"].includes(status);
+  const needsFail = status === "failed";
+  if (needsReason !== Boolean(reason.trim())) invalid("node_state.reason", "状态与原因不一致");
+  if (needsFail !== Boolean(String(failMessage).trim())) invalid("node_state.fail_message", "状态与失败说明不一致");
+  if (!needsFail && String(failMessage).trim()) invalid("node_state.fail_message", "当前状态失败说明为空");
   state.status = status;
-  state.reason = reason;
+  state.reason = needsReason ? reason : "";
+  state.fail_message = needsFail ? failMessage : "";
 }
 export function enqueueNode(project, task) {
   const node = nodeOf(project, task.business_type, task.target_id);
   if (!node) { task.previous_node_state = null; return; }
-  const { status, reason } = node.node_state;
+  const { status, reason, fail_message = "" } = node.node_state;
   if (status === "running") invalid("node_state.status", "目标已占用");
-  task.previous_node_state = { status, reason };
+  task.previous_node_state = { status, reason, fail_message };
 }
 export function releaseQueuedNodeStatus(project, tasks) {
   const apply = (business, id, node) => {
     if (node?.node_state?.status !== "queued") return;
     const match = (status) => tasks.find((task) => task.business_type === business && task.target_id === id && task.task_status === status);
     const previous = match("queued")?.previous_node_state;
-    if (match("running")) Object.assign(node.node_state, { status: "running", reason: "" });
-    else if (previous && previous.status !== "queued") Object.assign(node.node_state, { status: previous.status, reason: previous.reason || "" });
-    else Object.assign(node.node_state, { status: "cancelled", reason: "排队中已从节点状态移除" });
+    if (match("running")) Object.assign(node.node_state, { status: "running", reason: "", fail_message: "" });
+    else if (previous && previous.status !== "queued") Object.assign(node.node_state, { status: previous.status, reason: previous.reason || "", fail_message: previous.fail_message || "" });
+    else Object.assign(node.node_state, { status: "cancelled", reason: "排队中已从节点状态移除", fail_message: "" });
   };
   apply("project-summary", project.id, project.project_summary);
   apply("project-characters", project.id, project.character_library);
@@ -61,7 +69,7 @@ export function releaseQueuedNodeStatus(project, tasks) {
 }
 export function restoreQueued(project, task) {
   const node = nodeOf(project, task.business_type, task.target_id);
-  if (node) setNodeState(node, task.previous_node_state.status, task.previous_node_state.reason);
+  if (node) setNodeState(node, task.previous_node_state.status, task.previous_node_state.reason || "", task.previous_node_state.fail_message || "");
 }
 export function hasNodeContent(project, business, targetId) {
   if (business === "script-split") return project.episodes.length > 0;

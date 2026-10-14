@@ -10,7 +10,7 @@ export async function syncChatModel({ settings, credentials }, routes) {
     displayName: local ? 'Qwen3.5 27B' : '模型接口', baseURL: chat.baseUrl, apiKeyEnv: ref, api: 'openai-completions',
     reasoning: 'off',
     compat: { supportsDeveloperRole: false, maxTokensField: 'max_tokens', supportsReasoningEffort: local, requiresThinkingAsText: false, requiresReasoningContentOnAssistantMessages: false },
-    models: [{ id: chat.model, name: chat.model, contextWindow: local ? 32768 : 65536, input: ['text'], ...(local ? { reasoningEfforts: { off: 'none', medium: 'medium' } } : {}) }],
+    models: [{ id: chat.model, name: chat.model, contextWindow: local ? 262144 : 65536, input: ['text'], ...(local ? { reasoningEfforts: { off: 'none', medium: 'medium' } } : {}) }],
   } }])
   await settings.update('agent-default-model', { provider, model: chat.model, reasoningEffort: 'off' })
 }

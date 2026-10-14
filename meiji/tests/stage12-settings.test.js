@@ -54,7 +54,7 @@ test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，�
       const response = await save({ ...selection, text: { model: modelName }, apiKey: 'must-not-overwrite', baseUrl: 'http://must-not-use.test' })
       assert.equal(response.status, 200)
       assert.equal(synced.at(-2), key)
-      assert.equal(synced.at(-1).models[0].contextWindow, kind === 'qwen' ? 32768 : 65536)
+      assert.equal(synced.at(-1).models[0].contextWindow, kind === 'qwen' ? 262144 : 65536)
       const p = emptyProject({ name: 'HTTP验证', creation_mode: '剧本' }); p.script.body = '阿明丢失钥匙，寻找后找回。'
       project = await runtime.repository.create(p)
       const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: modelName, business_type: 'project-summary', target_id: p.id, action: 'generate' })

@@ -182,15 +182,6 @@ export function renderHistory(root, env, snapshot) {
       row.append(
         button("取消", () => act({ type: "cancel", task_id: t.id }), false),
       );
-    if (t.task_status === "queued")
-      row.append(
-        button("开始", () => act({ type: "start-queued", task_id: t.id })),
-        button(
-          "移除",
-          () => act({ type: "remove-queued", task_id: t.id }),
-          false,
-        ),
-      );
   };
   const recordStep =
     selected && state.step_view

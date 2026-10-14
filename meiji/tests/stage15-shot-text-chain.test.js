@@ -180,14 +180,14 @@ test('镜头识别取消后晚到结果不覆盖；继续使用新任务', async
   }, async ({ task, step }) => { if (wait && task.business_type === 'shot-characters' && step.kind === 'generate') { entered(); await gate; } });
 });
 
-test('v11 新库为空；v8 明确拒绝且不修改项目、不生成迁移备份', async () => {
+test('v12 新库为空；v8 明确拒绝且不修改项目、不生成迁移备份', async () => {
   const root = await mkdtemp(join(tmpdir(), 'meiji-fresh-'));
   try {
     const repo = new ModelRepository(root);
     await repo.list();
     const path = join(root, 'meiji.sqlite');
     let db = new DatabaseSync(path);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 11);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 12);
     for (const table of ['projects', 'task_groups', 'tasks', 'task_steps']) assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n, 0);
     db.close();
     await repo.create(fixtureProject()); await repo.close();
@@ -209,7 +209,7 @@ test('v9 删除项目规则并重写已生成镜头文本指纹', async () => {
     const repo = new ModelRepository(root);
     const project = fixtureProject();
     const shot = project.episodes[0].shot_list.shots[0];
-    shot.seconds_storyboard.node_state = { status: 'generated', reason: '', dependency_hash: 'a'.repeat(64) };
+    shot.seconds_storyboard.node_state = { status: 'generated', reason: '', fail_message: '', dependency_hash: 'a'.repeat(64) };
     await repo.create(project);
     await repo.close();
     const path = join(root, 'meiji.sqlite');
@@ -218,13 +218,13 @@ test('v9 删除项目规则并重写已生成镜头文本指纹', async () => {
     const stored = JSON.parse(row.data_json);
     stored.rules = [{ id: 'r_old', scope: 'project', applicable_business_types: ['seconds'], node_id: '', category: '动作', constraint: '必须', content: '保持事实' }];
     db.prepare('UPDATE projects SET data_json=?').run(JSON.stringify(stored));
-    db.exec("DELETE FROM schema_migrations WHERE version IN (10, 11); PRAGMA user_version=9");
+    db.exec("DELETE FROM schema_migrations WHERE version IN (10, 11, 12); PRAGMA user_version=9");
     db.close();
     const store = new SQLiteStore(path);
     store.close();
     db = new DatabaseSync(path);
     const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 11);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 12);
     assert.equal(Object.hasOwn(opened, 'rules'), false);
     assert.equal(Object.hasOwn(opened, 'output_language'), false);
     assert.equal(opened.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.dependency_hash, dependencyHash({ project: opened, tasks: [], steps: [] }, 'seconds', shot.id));
@@ -239,7 +239,7 @@ test('v10 删除项目语言并重写已生成镜头文本指纹，正文保持�
     const project = fixtureProject();
     const shot = project.episodes[0].shot_list.shots[0];
     const body = shot.seconds_storyboard.storyboard[0].action;
-    shot.seconds_storyboard.node_state = { status: 'generated', reason: '', dependency_hash: 'b'.repeat(64) };
+    shot.seconds_storyboard.node_state = { status: 'generated', reason: '', fail_message: '', dependency_hash: 'b'.repeat(64) };
     await repo.create(project);
     await repo.close();
     const path = join(root, 'meiji.sqlite');
@@ -247,14 +247,14 @@ test('v10 删除项目语言并重写已生成镜头文本指纹，正文保持�
     const stored = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
     stored.output_language = 'en';
     db.prepare('UPDATE projects SET data_json=?').run(JSON.stringify(stored));
-    db.exec('DELETE FROM schema_migrations WHERE version=11; PRAGMA user_version=10');
+    db.exec('DELETE FROM schema_migrations WHERE version IN (11, 12); PRAGMA user_version=10');
     db.close();
     const store = new SQLiteStore(path);
     store.close();
     db = new DatabaseSync(path);
     const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
     const openedShot = opened.episodes[0].shot_list.shots[0];
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 11);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 12);
     assert.equal(Object.hasOwn(opened, 'output_language'), false);
     assert.equal(openedShot.seconds_storyboard.storyboard[0].action, body);
     assert.equal(openedShot.seconds_storyboard.node_state.status, 'generated');

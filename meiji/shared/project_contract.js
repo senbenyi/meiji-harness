@@ -73,16 +73,33 @@ function validateNodeState(node, path) {
     `${path}.status`,
   );
   if (typeof node.reason !== "string") invalid(`${path}.reason`, "需为文本");
+  if (typeof node.fail_message !== "string") invalid(`${path}.fail_message`, "需为文本");
   if (typeof node.dependency_hash !== "string")
     invalid(`${path}.dependency_hash`, "需为文本");
   if (node.dependency_hash && !/^[a-f0-9]{64}$/.test(node.dependency_hash))
     invalid(`${path}.dependency_hash`, "需为空或依赖指纹");
-  const needsReason = ["rejected", "failed", "cancelled", "expired"].includes(node.status);
+  const needsReason = ["rejected", "cancelled", "expired"].includes(node.status);
+  const needsFail = node.status === "failed";
   if (needsReason !== Boolean(node.reason.trim()))
     invalid(`${path}.reason`, needsReason ? "当前状态必须有原因" : "当前状态原因为空");
+  if (needsFail !== Boolean(node.fail_message.trim()))
+    invalid(`${path}.fail_message`, needsFail ? "失败必须有失败说明" : "当前状态失败说明为空");
 }
 
+function healFailureMessages(value) {
+  if (!value || typeof value !== "object") return;
+  if (value.node_state && typeof value.node_state.status === "string") {
+    const state = value.node_state;
+    if (typeof state.fail_message !== "string") state.fail_message = "";
+    if (state.status === "failed" && typeof state.reason === "string" && state.reason.trim() && !state.fail_message.trim()) {
+      state.fail_message = state.reason;
+      state.reason = "";
+    }
+  }
+  for (const child of Object.values(value)) if (child && typeof child === "object") healFailureMessages(child);
+}
 export function validateProject(project) {
+  healFailureMessages(project);
   assertModel(project, emptyProjectModel(), "project");
   const ids = new Set();
   const register = (value, path) => {

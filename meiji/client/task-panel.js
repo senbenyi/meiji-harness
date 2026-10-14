@@ -153,14 +153,43 @@ export function renderTaskPanel(root, snapshot, context) {
       } else b.onclick = () => Promise.resolve(fn()).catch(() => {});
       return b;
     };
+  const nodeUi = ({ business, id, node, buttons, readOnly = false }) => {
+    const key = `${business}:${id}`;
+    if (state.opinionPending?.[key]) {
+      const tasks = snapshot.tasks.filter((task) => task.business_type === business && task.target_id === id);
+      const latest = [...tasks].sort((a, b) => b.queue_order - a.queue_order)[0];
+      if (latest?.task_status === "completed" && !tasks.some((task) => ["queued", "running"].includes(task.task_status))) {
+        state.opinions ??= {};
+        delete state.opinions[key];
+        delete state.opinionPending[key];
+      }
+    }
+    const ui = element("div", "", "node-ui");
+    ui.append(element("p", labels[node.node_state.status] || node.node_state.status, "node-ui-status"));
+    const actions = element("div", "", "workflow-generation-row");
+    for (const item of buttons) actions.append(item);
+    ui.append(actions);
+    if (!readOnly) {
+      state.opinions ??= {};
+      const input = element("input", "", "node-ui-opinion");
+      input.placeholder = "本次执行意见";
+      input.setAttribute("aria-label", "本次执行意见");
+      input.value = state.opinions[key] || "";
+      input.oninput = () => { state.opinions[key] = input.value; };
+      ui.append(input);
+    }
+    const notice = node.node_state.status === "rejected"
+      ? node.node_state.reason
+      : node.node_state.status === "failed"
+        ? node.node_state.fail_message || ""
+        : "";
+    if (notice) ui.append(element("p", notice, "error"));
+    return ui;
+  };
   const nodeCard = (business, id, node, { readOnly = false } = {}) => {
     const card = element("section", "", "session-project");
     card.dataset.business = business;
-    card.append(
-      element("h3", names[business] || business),
-      element("span", labels[node.node_state.status] || node.node_state.status, "status-label"),
-    );
-    if (node.node_state.reason) card.append(element("p", node.node_state.reason, "error"));
+    card.append(element("h3", names[business] || business));
     if (node.address) {
       const asset = element(
         ["video", "assembly"].includes(business) ? "video" : "img",
@@ -197,7 +226,7 @@ export function renderTaskPanel(root, snapshot, context) {
           element("p", `${part.sequence}. ${part.duration_seconds}秒 ${part.body}${part.causal ? `\n因果衔接：${part.causal}` : ""}`, "prompt full"),
         );
       card.append(segments);
-    } else if (business !== "shots")
+    } else if (!["shots", "project-characters"].includes(business))
       card.append(
         element(
           "p",
@@ -210,24 +239,33 @@ export function renderTaskPanel(root, snapshot, context) {
     if (typeof node.body === "string") appendJsonCopy(card, node.body);
     const isPack = ['first-last-frame','multimodal'].includes(business);
     const hasOutput = isPack ? Boolean(node.prompt.trim()) : hasContent(node),
-      generate = (opinion = "") =>
-        act(business === "video" ? {
+      typedOpinion = () => (state.opinions?.[`${business}:${id}`] || "").trim(),
+      generate = (opinion = "") => {
+        const text = [opinion, typedOpinion()].filter(Boolean).join("\n");
+        if (text) {
+          state.opinionPending ??= {};
+          state.opinionPending[`${business}:${id}`] = true;
+        }
+        return act(business === "video" ? {
           type: "submit-group", group_type: "episode-film",
           action: hasOutput ? "regenerate" : "generate",
           episode_id: p.episodes.find(e => e.shot_list.shots.some(s => s.id === id)).id,
-          shot_id: id, ...(opinion ? { opinion } : {}),
+          shot_id: id, ...(text ? { opinion: text } : {}),
         } : {
           type: "submit",
           business_type: business,
           target_id: id,
           action: hasOutput ? "regenerate" : "generate",
-          ...(opinion ? { opinion } : {}),
+          ...(text ? { opinion: text } : {}),
         });
+      };
     const currentTask = snapshot.tasks.find((task) => task.business_type === business && task.target_id === id && ["queued", "running"].includes(task.task_status));
     const active = node.node_state.status === "running" || Boolean(currentTask);
-    if (!active && !readOnly) card.append(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
+    const quiet = ["project-summary", "episode-summary"].includes(business);
+    const buttons = [];
+    if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
     if (!active && !readOnly && hasOutput && node.node_state.status === "rejected")
-      card.append(
+      buttons.push(
         button("按意见修改", () =>
           editor(
             root,
@@ -279,7 +317,7 @@ export function renderTaskPanel(root, snapshot, context) {
       };
       card.append(upload);
     }
-    if (!readOnly && !["first-last-frame","multimodal"].includes(business)) card.append(
+    if (!active && !readOnly && !quiet && !["first-last-frame","multimodal"].includes(business)) buttons.push(
       button("人工编辑", () =>
         isMedia
           ? upload.click()
@@ -314,13 +352,13 @@ export function renderTaskPanel(root, snapshot, context) {
             ),
       ),
     );
-    if (!readOnly && node.node_state.status === "rejected")
-      card.append(
+    if (!active && !readOnly && !quiet && node.node_state.status === "rejected")
+      buttons.push(
         button("人工放行", () =>
           act({ type: "override", business_type: business, target_id: id }),
         ),
       );
-    card.append(
+    buttons.push(
       button(
         "任务历史",
         () => {
@@ -333,25 +371,14 @@ export function renderTaskPanel(root, snapshot, context) {
         false,
       ),
     );
-    if (currentTask && !readOnly) {
-      card.append(button("取消", () => act({ type: "cancel", task_id: currentTask.id }), false));
-      if (currentTask.task_status === "queued") card.append(
-        button("开始", () => act({ type: "start-queued", task_id: currentTask.id }), false),
-        button("移除", () => act({ type: "remove-queued", task_id: currentTask.id }), false),
-      );
-    }
+    if (currentTask && !readOnly)
+      buttons.push(button("取消", () => act({ type: "cancel", task_id: currentTask.id }), false));
     const head = element("div", "", "section-head"),
-      titles = element("div", "", "section-titles"),
-      actions = element("div", "", "workflow-generation-row");
-    titles.append(
-      card.querySelector("h3"),
-      card.querySelector(".status-label"),
-    );
+      titles = element("div", "", "section-titles");
+    titles.append(card.querySelector("h3"));
     head.append(titles);
     card.prepend(head);
-    for (const b of [...card.children].filter((n) => n.tagName === "BUTTON"))
-      actions.append(b);
-    card.insertBefore(actions, head.nextSibling);
+    card.insertBefore(nodeUi({ business, id, node, buttons, readOnly }), head.nextSibling);
     return card;
   };
   root.replaceChildren();
@@ -379,6 +406,7 @@ export function renderTaskPanel(root, snapshot, context) {
     button,
     act,
     nodeCard,
+    nodeUi,
     go,
     media,
     payload,

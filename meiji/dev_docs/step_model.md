@@ -109,7 +109,7 @@
 | `started_at` | | 开始时间 |
 | `ended_at` | | 结束时间 |
 | `opinion` | | 修改意见。只记在任务上，任务组不记 |
-| `previous_node_state` | `{ status, reason }` | 入队前的节点状态和原因 |
+| `previous_node_state` | `{ status, reason, fail_message }` | 入队前的节点状态、原因和失败说明 |
 
 动作：
 
@@ -162,6 +162,7 @@
 "node_state": {
   "status": "empty",
   "reason": "",
+  "fail_message": "",
   "dependency_hash": ""
 }
 ```
@@ -169,7 +170,8 @@
 | 字段 | 说明 |
 |---|---|
 | `node_state.status` | 节点状态枚举 |
-| `node_state.reason` | 与状态一起保存。`empty`、`running`、`generated` 为空；`rejected`、`failed`、`cancelled`、`expired` 非空 |
+| `node_state.reason` | 交给 AI 的原因。`rejected`、`cancelled`、`expired` 非空；其余为空。时长不合适这类程序审核写在这里 |
+| `node_state.fail_message` | 不交给 AI 的失败说明。只有 `failed` 非空 |
 | `node_state.dependency_hash` | 最近一次成功保存时按依赖资料计算的 hash；拒绝候选保存、过期和失败不覆盖它 |
 
 节点作为必需输入时，除 `generated` 和结构有效，还要求非空保存 hash 与当前依赖资料相符。依赖表指定上游 hash 时读取上游已保存值，不以递归重算代替。必需上游过期后继续传播，即使保留的正文和旧 hash 尚未改变，下游也不能维持有效。

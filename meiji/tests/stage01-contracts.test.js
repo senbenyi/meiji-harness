@@ -67,11 +67,8 @@ test("S1-01 新项目结构、七种状态及原因约束", () => {
   for (const status of NODE_STATUS) {
     const q = structuredClone(p);
     q.project_summary.node_state.status = status;
-    q.project_summary.node_state.reason = ["rejected", "failed", "cancelled", "expired"].includes(
-      status,
-    )
-      ? "原因"
-      : "";
+    q.project_summary.node_state.reason = ["rejected", "cancelled", "expired"].includes(status) ? "原因" : "";
+    q.project_summary.node_state.fail_message = status === "failed" ? "失败说明" : "";
     assert.equal(validateProject(q), q);
   }
   const bad = structuredClone(p);

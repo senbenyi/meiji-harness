@@ -145,9 +145,12 @@ export class TaskService {
         };
       }
       if (command.type === "submit-costumes") {
-        const character = s.project.character_library.characters.find(c => c.id === command.target_id);
-        if (!character) invalid("target_id", "角色不存在");
-        const ids = character.costumes.length ? character.costumes.map(c => c.id) : [character.id];
+        const characters = command.target_id
+          ? [s.project.character_library.characters.find(c => c.id === command.target_id)].filter(Boolean)
+          : s.project.character_library.characters;
+        if (command.target_id && !characters.length) invalid("target_id", "角色不存在");
+        if (!characters.length) invalid("target_id", "还没有人物");
+        const ids = characters.flatMap(character => character.costumes.length ? character.costumes.map(c => c.id) : [character.id]);
         const prospective = structuredClone(s), planned = [];
         for (const id of ids) {
           if (command.action === "generate" && isNodeCurrent(prospective, "costume-image", id)) continue;
@@ -158,7 +161,7 @@ export class TaskService {
         if (collisions.length) conflict(collisions);
         if (!planned.length) return { group_id: null, task_ids: [], message: "定妆照已生成" };
         const group = createTaskGroupModel({ project_id: s.project.id, group_type: "workflow",
-          name: `${character.name} · 定妆照`, action: command.action, source: origin.source });
+          name: characters.length === 1 ? `${characters[0].name} · 定妆照` : "定妆照", action: command.action, source: origin.source });
         s.groups.push(group);
         if (origin.source === "panel" && !s.tasks.some(unfinished)) s.runtime.queue_stopped = false;
         const tasks = planned.map((id, index) => add("costume-image", id,
@@ -441,7 +444,7 @@ export class TaskService {
     }
     if (task.business_type === 'video' && ['completed', 'rejected'].includes(status)) {
       const shot = locateTarget(s.project, 'video', task.target_id).object;
-      Object.assign(shot.last_frame.node_state, { status: status === 'completed' ? 'generated' : 'rejected', reason });
+      Object.assign(shot.last_frame.node_state, { status: status === 'completed' ? 'generated' : 'rejected', reason: status === 'completed' ? '' : reason, fail_message: '' });
     }
     for (const step of s.steps.filter(
       (st) =>

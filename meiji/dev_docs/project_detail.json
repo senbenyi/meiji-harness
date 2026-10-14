@@ -7,8 +7,9 @@
   "reference_episode_duration_seconds": "150（拆分剧集使用的参考单集时长，单位秒；各集大纲和镜头表审核读取该集 duration_seconds。）",
   "project_summary": {
     "node_state": {
-      "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-      "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+      "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，未通过原因写入 reason，失败说明写入 fail_message。排队不写入节点状态。）",
+      "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+      "fail_message": "（失败原因，不交给 AI。）",
       "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
     },
     "body": "（正文或摘要内容。）",
@@ -30,7 +31,8 @@
   "character_library": {
     "node_state": {
       "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-      "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+      "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+      "fail_message": "（失败原因，不交给 AI。）",
       "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
     },
     "characters": [
@@ -52,7 +54,8 @@
           {
             "node_state": {
               "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-              "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+              "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+              "fail_message": "（失败原因，不交给 AI。）",
               "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
             },
             "costume_id": "co_uuid（对应服装 id；角色没有明确服装时为空字符串，表示未绑定服装的定妆照。）",
@@ -97,7 +100,8 @@
       "summary": {
         "node_state": {
           "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-          "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+          "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+          "fail_message": "（失败原因，不交给 AI。）",
           "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
         },
         "body": "（正文或摘要内容。）"
@@ -105,7 +109,8 @@
       "story_outline": {
         "node_state": {
           "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-          "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+          "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+          "fail_message": "（失败原因，不交给 AI。）",
           "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
         },
         "segments": [
@@ -120,7 +125,8 @@
       "shot_list": {
         "node_state": {
           "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-          "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+          "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+          "fail_message": "（失败原因，不交给 AI。）",
           "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
         },
         "shots": [
@@ -135,7 +141,8 @@
             "seconds_storyboard": {
               "node_state": {
                 "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+                "fail_message": "（失败原因，不交给 AI。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
               "storyboard": [
@@ -160,7 +167,8 @@
             "text_to_video_prompt": {
               "node_state": {
                 "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+                "fail_message": "（失败原因，不交给 AI。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
               "integrated_multimodal_description": "（视频生成请求中的画面描述正文。）",
@@ -170,7 +178,8 @@
             "first_last_frame_prompt": {
               "node_state": {
                 "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+                "fail_message": "（失败原因，不交给 AI。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
               "model": "（调用的生成模型名称。）",
@@ -182,7 +191,8 @@
             "multimodal_prompt": {
               "node_state": {
                 "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+                "fail_message": "（失败原因，不交给 AI。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
               "model": "（调用的生成模型名称。）",
@@ -195,7 +205,8 @@
             "video": {
               "node_state": {
                 "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+                "fail_message": "（失败原因，不交给 AI。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
               "address": "（图片、视频或文件的存储地址。）"
@@ -203,7 +214,8 @@
             "last_frame": {
               "node_state": {
                 "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+                "fail_message": "（失败原因，不交给 AI。）",
                 "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
               },
               "address": "（图片、视频或文件的存储地址。）"
@@ -237,7 +249,8 @@
       "assembly": {
         "node_state": {
           "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-          "reason": "（节点未通过或失败的原因；程序审核未通过也写入此字段，并在重新提交时作为修改意见带入。）",
+          "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
+          "fail_message": "（失败原因，不交给 AI。）",
           "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
         },
         "address": "（图片、视频或文件的存储地址。）"

@@ -122,14 +122,22 @@ export function validateNode(state, path, checkHash = true) {
   assertRecord(state, path);
   assertEnum(state.status, NODE_STATUS, `${path}.status`);
   assertText(state.reason, `${path}.reason`);
+  if (typeof state.fail_message !== "string") state.fail_message = "";
+  if (state.status === "failed" && state.reason.trim() && !state.fail_message.trim()) {
+    state.fail_message = state.reason;
+    state.reason = "";
+  }
   if (checkHash) {
     assertText(state.dependency_hash, `${path}.dependency_hash`);
     if (state.dependency_hash && !/^[a-f0-9]{64}$/.test(state.dependency_hash))
       invalid(`${path}.dependency_hash`, "需为空或依赖指纹");
   }
-  const needs = ["rejected", "failed", "cancelled", "expired"].includes(state.status);
-  if (needs !== Boolean(state.reason.trim()))
-    invalid(`${path}.reason`, needs ? "当前状态必须有原因" : "当前状态原因为空");
+  const needsReason = ["rejected", "cancelled", "expired"].includes(state.status);
+  const needsFail = state.status === "failed";
+  if (needsReason !== Boolean(state.reason.trim()))
+    invalid(`${path}.reason`, needsReason ? "当前状态必须有原因" : "当前状态原因为空");
+  if (needsFail !== Boolean(state.fail_message.trim()))
+    invalid(`${path}.fail_message`, needsFail ? "失败必须有失败说明" : "当前状态失败说明为空");
   return state;
 }
 export function locateTarget(project, business, targetId) {
@@ -202,9 +210,10 @@ export function validateTask(t, p) {
   ], "task.business_type");
   if (t.episode_id !== null) assertId(t.episode_id, "task.episode_id");
   if (NODE_TYPES.includes(t.business_type) || t.business_type === "episode-characters") {
+    if (!Object.hasOwn(t.previous_node_state, "fail_message")) t.previous_node_state.fail_message = "";
     assertFields(
       t.previous_node_state,
-      ["status", "reason"],
+      ["status", "reason", "fail_message"],
       "task.previous_node_state",
     );
     validateNode(t.previous_node_state, "task.previous_node_state", false);
@@ -309,7 +318,7 @@ export const COMMANDS = Object.freeze([
 ]);
 const commandFields = {
   submit: ["business_type", "target_id", "action", "opinion"],
-  "submit-costumes": ["target_id", "action"],
+  "submit-costumes": ["action"],
   "submit-group": ["group_type", "episode_id"],
   query: ["task_id", "group_id"],
   cancel: ["task_id"],
@@ -329,6 +338,7 @@ export function validateCommand(command) {
     "project_id",
     ...commandFields[command.type],
     ...(command.type === "submit-group" ? ["shot_id", "opinion", "action"] : []),
+    ...(command.type === "submit-costumes" ? ["target_id"] : []),
     ...(command.type === "query" ? [] : ["request_id"]),
   ];
   for (const key of Object.keys(command))
@@ -367,11 +377,7 @@ export function validateCommand(command) {
     );
     if (command.business_type.endsWith("-delete"))
       invalid("command.business_type", "删除使用 delete 命令");
-    if (command.opinion !== undefined) {
-      assertText(command.opinion, "command.opinion");
-      if (command.action === "generate" && command.opinion.trim())
-        invalid("command.opinion", "首次生成不接受修改意见");
-    }
+    if (command.opinion !== undefined) assertText(command.opinion, "command.opinion");
   }
   if (command.type === "submit-group")
     assertEnum(

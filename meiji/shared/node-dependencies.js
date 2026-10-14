@@ -272,6 +272,7 @@ export function expireDownstream(
     if (node.node_state.status === "generated") {
       node.node_state.status = "expired";
       node.node_state.reason = reason;
+      node.node_state.fail_message = "";
     }
     const task = snapshot.tasks.find(
       (t) =>
@@ -280,9 +281,26 @@ export function expireDownstream(
         t.task_status === "queued",
     );
     if (task?.previous_node_state?.status === "generated")
-      task.previous_node_state = { status: "expired", reason };
+      task.previous_node_state = { status: "expired", reason, fail_message: "" };
     queue.push(...downstream(snapshot, item.business_type, item.target_id)
       .map(next => ({ ...next, force: !compare || !next.context_only })));
   }
   return [...visited];
+}
+function moveFailedReason(state) {
+  if (!state || typeof state !== "object" || typeof state.status !== "string") return;
+  if (typeof state.fail_message !== "string") state.fail_message = "";
+  if (state.status === "failed" && typeof state.reason === "string" && state.reason.trim() && !state.fail_message.trim()) {
+    state.fail_message = state.reason;
+    state.reason = "";
+  }
+}
+export function splitFailureMessages(snapshot) {
+  const visit = (value) => {
+    if (!value || typeof value !== "object") return;
+    if (value.node_state) moveFailedReason(value.node_state);
+    for (const child of Object.values(value)) if (child && typeof child === "object") visit(child);
+  };
+  visit(snapshot.project);
+  for (const task of snapshot.tasks || []) moveFailedReason(task.previous_node_state);
 }
