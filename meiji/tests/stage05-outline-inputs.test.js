@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { emptyProject, emptyEpisode } from "../shared/project_contract.js";
 import { precheck } from "../server/flow/tasks/precheck.js";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { TaskService } from "../server/flow/tasks/task-service.js";
+import { TaskService } from "../server/flow/tasks/task-manager.js";
 import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
 import { commitContent } from "../server/handlers/content.js";
@@ -49,7 +49,8 @@ for (const mode of ["剧本", "自由创作"]) {
         const repository = new ModelRepository(root), model = await repository.create(p);
         const seen = [];
         const service = new TaskService({ repository, commitOutput: commitContent,
-          execute: createHandlerRegistry({ text: createTextHandler({ chat: async ({ step, prompt }) => {
+          execute: createHandlerRegistry({ text: createTextHandler({ chat: async ({ step, messages }) => {
+    const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
             seen.push(step.kind);
             assert.ok(!prompt.includes("项目摘要"));
             assert.ok(prompt.includes(e.plot));

@@ -146,20 +146,22 @@ async function requestGatewayRaw({
     sent.push(`参数：${publicData(form ? logBody : body, apiKey)}`);
   let response;
   const startedAt = Date.now();
-  const record = (data) =>
-    recordTransfer({
-      fn,
+  const transfer = {
+    fn,
+    method,
+    path: redactJson(`${url.pathname}${url.search}`, apiKey),
+    request: {
       method,
       path: redactJson(`${url.pathname}${url.search}`, apiKey),
-      request: {
-        method,
-        path: redactJson(`${url.pathname}${url.search}`, apiKey),
-        headers: publicHeaders(headers, apiKey),
-        body: redactJson(form ? logBody : body, apiKey),
-      },
-      durationMs: Date.now() - startedAt,
-      ...data,
-    });
+      headers: publicHeaders(headers, apiKey),
+      body: redactJson(form ? logBody : body, apiKey),
+    },
+  };
+  const finish = (data, drop = false) => {
+    if (!drop) Object.assign(transfer, { durationMs: Date.now() - startedAt, ...data });
+    return recordTransfer(transfer, drop ? { drop: true } : undefined);
+  };
+  await recordTransfer(transfer);
   try {
     response = await fetchImpl(url, {
       method,
@@ -169,7 +171,7 @@ async function requestGatewayRaw({
       ...(redirect ? { redirect } : {}),
     });
   } catch (error) {
-    await record({
+    await finish({
       ok: false,
       status: null,
       error: redactJson(error?.message || "请求没有完成", apiKey),
@@ -180,31 +182,32 @@ async function requestGatewayRaw({
   try {
     if (binary && response.ok) {
       const bytes = Buffer.from(await response.arrayBuffer());
-      await record({ ok: true, status: response.status, bytes: bytes.length });
+      await finish({ ok: true, status: response.status, bytes: bytes.length });
       return bytes;
     }
     data = await readBody(response);
   } catch (error) {
-    await record({
+    await finish({
       ok: false,
       status: response.status,
       error: redactJson(error?.message || "响应读取失败", apiKey),
     });
     throw error;
   }
-  if (
+  const keep =
     !poll ||
     finalPoll ||
     !response.ok ||
     ["completed", "failed", "cancelled", "canceled", "expired"].includes(
       data?.status,
-    )
-  )
-    await record({
+    );
+  if (keep)
+    await finish({
       ok: response.ok,
       status: response.status,
       body: redactJson(data, apiKey),
     });
+  else await finish(null, true);
   if (!response.ok) {
     const message = data?.error?.message || `HTTP ${response.status}`;
     return { ok: false, response, data, durationMs: Date.now() - startedAt };

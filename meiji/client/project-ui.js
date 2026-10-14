@@ -6,7 +6,7 @@ import { editor, readable } from "./content-forms.js";
 import { historyGroups } from "../shared/task-labels.js";
 const groupLabels = {
   empty: "未生成", queued: "排队中", running: "生成中", completed: "已通过",
-  failed: "失败", rejected: "未通过", cancelled: "已取消", superseded: "已作废",
+  failed: "失败", rejected: "未通过", cancelled: "已取消", superseded: "已取消",
 };
 function stoppedNodeMessage(project, tasks) {
   const stopped = tasks.find((task) => ["failed", "rejected"].includes(task.task_status));
@@ -124,7 +124,7 @@ export function renderOverview(root, env) {
       failed: "失败",
       rejected: "未通过",
       cancelled: "已取消",
-      superseded: "已作废",
+      superseded: "已取消",
     },
     latestTask = (business) =>
       [...(env.snapshot?.tasks || [])]
@@ -204,7 +204,7 @@ export function renderOverview(root, env) {
             : latestSplitTask.task_status;
   episodeRow.append(element(
     "p",
-    splitStatus === "superseded" ? "已作废" : labels[splitStatus] || splitStatus,
+    labels[splitStatus] || splitStatus,
     "node-ui-status",
   ));
   if (splitting) {

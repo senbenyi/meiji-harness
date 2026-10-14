@@ -1,3 +1,4 @@
+import { NODE_DEFINITIONS } from '../shared/node-definitions.js';
 import { bindingNumbers } from '../shared/shot-text-inputs.js';
 import { editor, readable } from "./content-forms.js";
 import { renderOverview, renderEpisode, backHeader } from "./project-ui.js";
@@ -241,7 +242,7 @@ export function renderTaskPanel(root, snapshot, context) {
     const isPack = ["first-last-frame", "multimodal"].includes(business);
     const hasOutput = isPack ? Boolean(node.prompt.trim()) : hasContent(node),
       typedOpinion = () => (state.opinions?.[`${business}:${id}`] || "").trim(),
-      generate = (opinion = "") => {
+      generate = (opinion = "", revise = false) => {
         const text = [opinion, typedOpinion()].filter(Boolean).join("\n");
         if (text) {
           state.opinionPending ??= {};
@@ -256,7 +257,7 @@ export function renderTaskPanel(root, snapshot, context) {
           type: "submit",
           business_type: business,
           target_id: id,
-          action: hasOutput ? "regenerate" : "generate",
+          action: revise && NODE_DEFINITIONS[business]?.handler === "text" ? "revise" : hasOutput ? "regenerate" : "generate",
           ...(text ? { opinion: text } : {}),
         });
       };
@@ -265,16 +266,16 @@ export function renderTaskPanel(root, snapshot, context) {
     const quiet = ["project-summary", "episode-summary"].includes(business);
     const buttons = [];
     if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
-    if (!program && !active && !readOnly && hasOutput && node.node_state.status === "rejected")
+    if (!program && !active && !readOnly && hasOutput && (NODE_DEFINITIONS[business]?.handler === "text" || node.node_state.status === "rejected"))
       buttons.push(
-        button("按意见修改", () =>
+        button("原结果修订", () =>
           editor(
             root,
-            "按意见修改",
+            "原结果修订",
             node.node_state.reason,
             (opinion) => {
               if (!opinion.trim()) throw new Error("请输入修改意见");
-              return generate(opinion.trim());
+              return generate(opinion.trim(), true);
             },
             { json: false },
           ),

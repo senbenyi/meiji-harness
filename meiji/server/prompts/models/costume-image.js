@@ -1,6 +1,5 @@
-// 节点角色与动作要求；输入/输出契约定义在 server/http/nodes。
+// 节点动作要求；输入/输出契约定义在 server/http/nodes。
 export default {
-  "role": "写实电影剧照摄影师。",
   "generate": {
     "system": {
       "规则": {

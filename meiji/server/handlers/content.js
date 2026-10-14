@@ -70,6 +70,10 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   if (task.action === "delete") { applyDelete(snapshot, task); return []; }
   if (task.action === "override") {
     assertProgramReview(project, business, task.target_id);
+    if (business === "outline") {
+      const episode = locateTarget(project, business, task.target_id).episode;
+      episode.duration_seconds = episode.story_outline.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0);
+    }
     stampDependencyHash(snapshot, business, task.target_id);
     if (business === "project-characters") expireCharacterImages(snapshot);
     return [];
@@ -105,6 +109,10 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   validateProject(project);
   if (!passed) return [];
   assertOutput(project, business, task.target_id);
+  if (business === "outline") {
+    const episode = locateTarget(project, business, task.target_id).episode;
+    episode.duration_seconds = node.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0);
+  }
   stampDependencyHash(snapshot, business, task.target_id);
   if (business === 'video') stampDependencyHash(snapshot, 'tail', task.target_id);
   if (business !== "project-characters") return [];

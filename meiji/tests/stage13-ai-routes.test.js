@@ -21,6 +21,62 @@ const completion = content => new Response(JSON.stringify({ choices: [{ finish_r
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`)));
 const close = async server => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); };
 
+test('所有文本节点修订使用四条消息，意见只在最后，system 不再附角色', () => {
+  for (const [node, route] of Object.entries(nodeRoutes)) {
+    const contract = route.actions.regenerate;
+    if (!contract || !['文本', 'JSON'].includes(contract.output.type)) continue;
+    const input = { ...sampleInput(contract.input), opinion: '本轮意见唯一标记' };
+    const prompt = composeNodePrompt(node, 'regenerate', input, 'qwen3.5:27b');
+    assert.deepEqual(prompt.messages.map(message => message.role), ['system', 'user', 'assistant', 'user'], node);
+    assert.equal(prompt.messages[2].content, typeof input.content === 'string' ? input.content : JSON.stringify(input.content, null, 2));
+    assert.equal(prompt.messages.slice(0, 3).some(message => message.content.includes(input.opinion)), false);
+    assert.match(prompt.messages[3].content, /本轮意见唯一标记/);
+    assert.doesNotMatch(prompt.system, /^# 角色$|system 中的角色/m);
+    assert.equal(Object.hasOwn(route.promptModel, 'role'), false);
+    assert.equal(Object.values(route.promptModel).filter(Boolean).some(stage => Object.hasOwn(stage, 'role')), false);
+  }
+});
+
+test('两个文本服务实际 HTTP 原样发送并记录多轮消息，不重复原稿和意见', async () => {
+  const requests = [];
+  const server = createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    requests.push(JSON.parse(raw));
+    res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: '修改后的摘要' } }] }));
+  });
+  try {
+    const url = `${await listen(server)}/v1`;
+    for (const model of ['qwen3.5:27b', 'elysium-chat']) {
+      const ai = createAiRoutes({ readConfig: async () => ({ ...config, baseUrl: url, textBaseUrl: url, text: { model } }) });
+      let saved;
+      const { prompt } = await ai('project-summary', 'regenerate', { ...input, content: '原稿唯一标记', opinion: '意见唯一标记' }, { record: async value => { saved = structuredClone(value.prompt); } });
+      assert.deepEqual(requests.at(-1).messages, prompt.messages);
+      assert.deepEqual(saved.messages, requests.at(-1).messages);
+      assert.deepEqual(saved.transfers.at(-1).request.body.messages, prompt.messages);
+      assert.equal(JSON.stringify(prompt.messages).split('原稿唯一标记').length - 1, 1);
+      assert.equal(JSON.stringify(prompt.messages).split('意见唯一标记').length - 1, 1);
+    }
+  } finally { await close(server); }
+});
+
+test('自动修订使用本任务最近原始结果；排除审核、未来和其他任务结果', () => {
+  const snapshot = snapshotFixture(), project = snapshot.project;
+  const task = taskFixture(project, 'project-summary', project.id, { opinion: '保留结局' });
+  snapshot.steps = [
+    { task_id: task.id, kind: 'generate', step_status: 'done', seq: 1, result: '第一轮结果' },
+    { task_id: task.id, kind: 'revise', step_status: 'done', seq: 3, result: '最新原始结果' },
+    { task_id: task.id, kind: 'review', step_status: 'rejected', seq: 4, result: { 原因: '最新审核意见' } },
+    { task_id: 'other', kind: 'revise', step_status: 'done', seq: 4, result: '其他任务结果' },
+    { task_id: task.id, kind: 'revise', step_status: 'done', seq: 8, result: '未来结果' },
+  ];
+  const prompt = renderTaskPrompt(snapshot, task, { body: '已转换的候选' }, 'regenerate', { kind: 'revise', seq: 5 });
+  assert.equal(prompt.messages[2].content, '最新原始结果');
+  assert.match(prompt.messages[3].content, /最新审核意见/);
+  assert.doesNotMatch(prompt.body, /其他任务结果|未来结果|已转换的候选|第一轮结果/);
+  const manual = renderTaskPrompt(snapshot, task, { body: '当前正式内容' }, 'regenerate');
+  assert.equal(manual.messages[2].content, '当前正式内容');
+});
+
 test('同一节点 HTTP 路由四项业务输入，切换两个来源，统一返回且不写正式项目', async () => {
   const home = await mkdtemp(join(tmpdir(), 'meiji-ai-routes-')), calls = [];
   const upstream = source => createServer(async (req, res) => {
@@ -97,7 +153,8 @@ test('两次并发节点调用各读一次配置、保存自己的模型与提�
   let reads = 0, release;
   const gate = new Promise(resolve => { release = resolve; }), savedA = [], savedB = [];
   const ai = createAiRoutes({ readConfig: async () => ({ ...config, text: { model: ++reads === 1 ? 'qwen3.5:27b' : 'elysium-chat' } }), gateway: {
-    chat: async ({ prompt, model }) => { if (model === 'qwen3.5:27b') await gate; else release(); return prompt.includes('请求A') ? '结果A' : '结果B'; },
+    chat: async ({ model, messages }) => {
+    const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n'); if (model === 'qwen3.5:27b') await gate; else release(); return prompt.includes('请求A') ? '结果A' : '结果B'; },
   } });
   const [a, b] = await Promise.all([
     ai('project-summary', 'generate', { ...input, script: '请求A' }, { record: async row => savedA.push(structuredClone(row)) }),
@@ -110,15 +167,18 @@ test('两次并发节点调用各读一次配置、保存自己的模型与提�
 });
 
 for (const [name, client, model, key] of [['elysium', elysiumClient, 'elysium-chat', 'test-only-secret'], ['llm-server', llmServerClient, 'qwen3.5:27b', 'ollama']]) {
-  const options = { baseUrl: 'http://localhost/v1', apiKey: 'test-only-secret', model, system: '角色', prompt: '生成' };
+  const options = { baseUrl: 'http://localhost/v1', apiKey: 'test-only-secret', model, messages: [{ role: 'system', content: '规则' }, { role: 'user', content: '生成' }] };
   test(`${name} 单例重试留痕并脱敏，400 不重试`, async () => {
     let count = 0; const traces = [];
     const result = await withGatewayTrace(async row => traces.push(row), () => client.complete({ ...options, retryDelays: [0], fetchImpl: async (_, req) => {
       assert.equal(req.headers.Authorization, `Bearer ${key}`);
+      const pending = traces.at(-1);
+      assert.ok(pending.request); assert.equal(Object.hasOwn(pending, 'status'), false);
       if (++count === 1) return new Response('{}', { status: 503 });
       return completion('完成');
     } }));
-    assert.equal(result, '完成'); assert.equal(count, 2); assert.equal(traces.length, 2);
+    assert.equal(result, '完成'); assert.equal(count, 2); assert.equal(traces.length, 4);
+    assert.equal(traces[1].status, 503); assert.equal(traces[3].status, 200);
     assert.ok(!JSON.stringify(traces).includes(key));
     count = 0;
     await assert.rejects(client.complete({ ...options, retryDelays: [0], fetchImpl: async () => { count++; return new Response('{}', { status: 400 }); } }), /400/);
@@ -146,7 +206,7 @@ test('修订携带最新候选和对应轮次审核意见，未来/其他任务�
       { task_id: 'other', kind: 'review', step_status: 'rejected', seq: 3, result: { 原因: '其他任务' } },
     ];
     const prompt = renderTaskPrompt(snapshot, task, { marker: '最新候选' }, 'regenerate', { kind: 'revise', seq: 4 });
-    assert.match(prompt.user, /最新候选/); assert.match(prompt.user, /本轮审核/); assert.match(prompt.user, /用户要求/);
+    assert.match(prompt.messages[2].content, /最新候选/); assert.match(prompt.user, /本轮审核/); assert.match(prompt.user, /用户要求/);
     assert.doesNotMatch(prompt.user, /未来审核|其他任务/);
   }
 });

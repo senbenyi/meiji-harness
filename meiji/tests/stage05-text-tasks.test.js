@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { TaskService } from "../server/flow/tasks/task-service.js";
+import { TaskService } from "../server/flow/tasks/task-manager.js";
 import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
 import { commitContent, aiProjection, prepareContent } from "../server/handlers/content.js";
@@ -32,7 +32,8 @@ test("角色生成与修订执行器要求性别，拒绝遗漏或空白并保�
     for (const gender of [undefined, "  ", "女", "未明确"]) {
       const candidate = { ...row, gender };
       if (gender === undefined) delete candidate.gender;
-      const handler = createTextHandler({ chat: async ({ system }) => {
+      const handler = createTextHandler({ chat: async ({ messages }) => {
+    const system = messages[0].content;
         assert.match(system, /gender/);
         assert.match(system, /必须填写非空字符串/);
         assert.doesNotMatch(system, /国籍、性别、声音/);
@@ -53,7 +54,7 @@ function output(p, business) {
     "episode-summary": "新展示摘要",
     outline: { segments: episode.story_outline.segments },
     shots: { shots: episode.shot_list.shots.map(item => Object.fromEntries(fields.map(key => [key, item[key]]))) },
-    seconds: { storyboard: shot.seconds_storyboard.storyboard },
+    seconds: { end_state: shot.seconds_storyboard.end_state, pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: shot.seconds_storyboard.storyboard },
     storyboard: "integrated_multimodal_description\nA man walks.\noverall_soundscape\nFootsteps.\nnon_diegetic_music\nNone.",
   }[business];
 }
@@ -144,7 +145,8 @@ test("项目摘要拒绝保存最后正文和原因，修订收到原稿且不�
   project.project_summary.node_state.dependency_hash = oldHash;
   const repository = new ModelRepository(root), model = await repository.create(project), prompts = [];
   let round = 0;
-  const text = createTextHandler({ chat: async ({ step, prompt }) => {
+  const text = createTextHandler({ chat: async ({ step, messages }) => {
+    const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
     if (step.kind === "review") return { 是否通过: false, 原因: "遗漏明确结局" };
     prompts.push(prompt);
     return `本轮摘要${++round}`;
@@ -171,7 +173,8 @@ test("人物审核只接收本次增量，拒绝保存角色但不派生图片�
   project.character_library.node_state.dependency_hash = oldHash;
   const repository = new ModelRepository(root), model = await repository.create(project), prompts = [];
   const row = { name: "新人物", gender: "男", era: "宋代", position: "主角", age_range: "约三十岁", body_type: "高大", hairstyle: "束发", signature_props: [], immutable_traits: [], costumes: [] };
-  const text = createTextHandler({ chat: async ({ step, prompt }) => {
+  const text = createTextHandler({ chat: async ({ step, messages }) => {
+    const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
     prompts.push({ kind: step.kind, prompt });
     return step.kind === "review" ? { 是否通过: false, 原因: "人物来源有误" } : { characters: [row] };
   } });

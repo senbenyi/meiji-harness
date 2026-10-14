@@ -92,7 +92,7 @@
     {
       "id": "e_uuid（当前对象的唯一标识。）",
       "sequence": "1（剧集、故事段落或镜头在列表中的顺序号。；数值）",
-      "duration_seconds": "150（本集计划参考时长，单位秒。）",
+      "duration_seconds": "150（本集参考时长，有限正数，单位秒；初始为拆分预算，故事大纲成功保存后回写小段时长总和，保留小数，供镜头表生成与审核共用。）",
       "actual_duration_seconds": "0（当前正式镜头视频实测时长总和，单位秒；由本集各镜头 actual_duration_seconds 累加，视频生成、导入或镜头集合变化后重算，不从参考时长推算，也不被合片实测时长覆盖。）",
       "episode_requirements": "（本集额外的制作要求。）",
       "plot": "（本集剧情正文。）",
@@ -139,6 +139,10 @@
             "title": "（镜头标题。）",
             "body": "（正文或摘要内容。）",
             "seconds_storyboard": {
+              "end_state": "（镜末人物、物件与环境的已知状态。）",
+              "pending_actions": "（未完成动作及进度；无则为空。）",
+              "pending_dialogue": "（未结束对白、说话人与进度；无则为空。）",
+              "continuing_audio": "（切点仍持续的声音及声源；无则为空。）" ,
               "node_state": {
                 "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
                 "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",

@@ -15,6 +15,7 @@ export function renderTaskPrompt(snapshot, task, draft, action, step = {}) {
 export function sampleInput(schema) {
   return Object.fromEntries(Object.entries(schema).map(([key, value]) => {
     if ([value].flat().includes('undefined')) return [key, undefined];
+    if (key === 'previous' && schema.bindings) return [key, null];
     if (key === 'type') return [key, '文生'];
     if (key === 'aspectRatio') return [key, '16:9'];
     if (key === 'textPrompt') return [key, { integrated_multimodal_description: 'A scene.', overall_soundscape: 'Wind.', non_diegetic_music: 'None.' }];

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { projectFixture } from './fixtures/project.js';
 import { ModelRepository } from '../server/data/model-repository.js';
-import { TaskService } from '../server/flow/tasks/task-service.js';
+import { TaskService } from '../server/flow/tasks/task-manager.js';
 import { commitContent } from '../server/handlers/content.js';
 import { groupDetail } from '../server/data/task-store.js';
 
@@ -80,7 +80,7 @@ test('已有独立合片任务时拒绝整集成片，没有残留半组',()=>fi
 
 test('每秒审核未通过停止后序，继续保留旧终态并完整接续',()=>fixture(async({p,model,service,control,command})=>{
  control.reject=true;const first=await service.command(command);await service.idle(p.id);const old=model.read().tasks;
- assert.equal(old[0].task_status,'completed');assert.equal(old[1].task_status,'rejected');assert.ok(old.slice(2).every(t=>t.task_status==='superseded'));
+ assert.equal(old[0].task_status,'completed');assert.equal(old[1].task_status,'rejected');assert.ok(old.slice(2).every(t=>t.task_status==='cancelled'));
  control.reject=false;const next=await service.command({type:'continue-group',project_id:p.id,request_id:'continue',group_id:first.group_id});
  assert.equal(next.task_ids.length,7);await service.idle(p.id);
  assert.deepEqual(model.read().tasks.slice(0,8),old);assert.ok(model.read().tasks.slice(8).every(t=>t.task_status==='completed'));

@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { emptyProject, emptyEpisode } from "../shared/project_contract.js";
 import { precheck } from "../server/flow/tasks/precheck.js";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { TaskService } from "../server/flow/tasks/task-service.js";
+import { TaskService } from "../server/flow/tasks/task-manager.js";
 import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
 import { commitContent } from "../server/handlers/content.js";
@@ -16,6 +16,7 @@ import {
   scriptParagraphs,
   numberedScript,
   buildSplit,
+  paragraphNumber,
 } from "../server/handlers/script-split.js";
 import { renderTaskPrompt } from "./fixtures/ai.js";
 import { createAppRuntime } from "../server/runtime/app-runtime.js";
@@ -25,6 +26,7 @@ const rows = [
   { 序号: 1, 起始段落: "P001", 结束段落: "P003", 预估时长秒: 60 },
   { 序号: 2, 起始段落: "P004", 结束段落: "P006", 预估时长秒: 90 },
 ];
+const covered = (剧集) => ({ 剧集, 排除段落: [] });
 
 test("拆分段落：空行并入上一段，拼接与原文逐字一致", () => {
   const parts = scriptParagraphs(script);
@@ -32,6 +34,67 @@ test("拆分段落：空行并入上一段，拼接与原文逐字一致", () =>
   assert.equal(parts.join(""), script);
   assert.equal(scriptParagraphs("\n\n甲\n").join(""), "\n\n甲\n");
   assert.match(numberedScript(script), /^P001 第一场 酒馆\nP002 武松：店家，再来一碗！\nP003 店家/);
+});
+
+test("拆分只保留剧情：模型排除人物说明和间隔后才不写入剧集，程序不事先删除", () => {
+  const screenplay = [
+    "《武松：兄长不死》",
+    "",
+    "主要人物",
+    "武松／林峥，28岁。现代消防员林峥穿越成为武松。",
+    "武大郎，35岁。卖炊饼为生。",
+    "",
+    "==================================================",
+    "第一场：哥哥还活着",
+    "预计时长：5分钟",
+    "时间：清晨至上午",
+    "地点：现代火场／武家卧房",
+    "==================================================",
+    "",
+    "【00:00—00:40】",
+    "",
+    "林峥猛然睁眼。",
+    "",
+    "武松：哥，你还活着。",
+    "",
+    "==================================================",
+    "第二场：帘子后面的人",
+    "预计时长：5分钟",
+    "时间：当日下午",
+    "地点：王婆茶坊",
+    "==================================================",
+    "",
+    "【05:00—06:10】",
+    "",
+    "王婆把一只茶壶放在后房桌上。",
+  ].join("\n");
+  const numbered = numberedScript(screenplay);
+  assert.match(numbered, /^P001 《武松：兄长不死》/);
+  assert.match(numbered, /主要人物/);
+  assert.match(numbered, /={3,}/);
+  assert.match(numbered, /预计时长/);
+  const parts = scriptParagraphs(screenplay);
+  const at = (snippet) => parts.findIndex((part) => part.includes(snippet));
+  const ranges = [[at("第一场"), at("你还活着")], [at("第二场"), parts.length - 1]];
+  const nonPlot = (part) => /《|主要人物|穿越|武大郎|^=+$|预计时长|^时间：|^地点：|^【/.test(part.trim());
+  const raw = {
+    剧集: ranges.map(([start, end], index) => ({ 序号: index + 1, 起始段落: paragraphNumber(start), 结束段落: paragraphNumber(end), 预估时长秒: 60 })),
+    排除段落: parts.flatMap((part, index) => nonPlot(part) ? [paragraphNumber(index)] : []),
+  };
+  assert.ok(raw.排除段落.includes(paragraphNumber(at("预计时长"))));
+  assert.throws(() => buildSplit(screenplay, { 剧集: raw.剧集 }), /遗漏/);
+  const split = buildSplit(screenplay, raw);
+  const plot = split.episodes.map((episode) => episode.plot).join("");
+  assert.match(plot, /第一场：哥哥还活着/);
+  assert.match(plot, /林峥猛然睁眼/);
+  assert.match(plot, /第二场：帘子后面的人/);
+  assert.doesNotMatch(plot, /主要人物|={3,}|预计时长|【05:00/);
+  const project = emptyProject({ name: "武松", creation_mode: "剧本" });
+  project.script.body = screenplay;
+  const prompt = renderTaskPrompt({ project, steps: [] }, { business_type: "script-split", target_id: project.id, action: "generate", opinion: "" }, null, "generate");
+  assert.match(prompt.system, /程序不会事先删除或判断/);
+  assert.match(prompt.user, /主要人物/);
+  assert.match(prompt.system, /排除段落/);
 });
 
 test("拆分校验：按段落原文写入各集，遗漏、重叠、倒序、未到结尾、序号与时长错误均拒绝", () => {
@@ -61,7 +124,7 @@ test("暂停时会话拆分保持排队，面板重复拆分复用同一任务�
     const p = scriptProject(), repository = new ModelRepository(root), model = await repository.create(p);
     await model.update("pause", {}, s => { s.runtime.queue_stopped = true; });
     let calls = 0;
-    const text = createTextHandler({ chat: async ({ task, step }) => { calls++; assert.equal(task.business_type, "script-split"); return { 剧集: rows }; } });
+    const text = createTextHandler({ chat: async ({ task, step }) => { calls++; assert.equal(task.business_type, "script-split"); return covered(rows); } });
     const service = new TaskService({ repository, commitOutput: commitContent,
       execute: createHandlerRegistry({ text, media: async () => { throw new Error("不应调用媒体"); } }) });
     const command = { type: "submit", project_id: p.id, target_id: p.id, business_type: "script-split", action: "generate", request_id: "session-split" };
@@ -109,13 +172,14 @@ test("拆分剧集真实任务：失败暂停后面板再次拆分直接执行�
       seen = [];
     let failOnce = true;
     const text = createTextHandler({
-      chat: async ({ task, step, prompt }) => {
+      chat: async ({ task, step, messages }) => {
+    const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
         assert.equal(task.business_type, "script-split", "拆分不应调用剧集摘要");
         seen.push(step.kind);
         assert.ok(prompt.includes("P006 武松打虎。"));
         assert.ok(prompt.includes("150"));
         if (failOnce) { failOnce = false; throw new Error("模型返回失败"); }
-        return { 剧集: rows };
+        return covered(rows);
       },
     });
     const service = new TaskService({
@@ -185,9 +249,9 @@ test("拆分与摘要模板：占位符齐全，摘要资料来自本集剧情",
   const split = { business_type: "script-split", target_id: p.id, action: "generate", opinion: "" };
   for (const suffix of ["generate", "regenerate"]) {
     const prompt = renderTaskPrompt({ project: p, steps: [] }, { ...split, opinion: "第二集再短一点" }, null, suffix);
-    assert.ok(prompt.user.includes("P001 第一场 酒馆"));
+    assert.ok(prompt.messages[1].content.includes("P001 第一场 酒馆"));
     assert.ok(prompt.user.includes("第二集再短一点"));
-    if (suffix === "regenerate") assert.ok(prompt.user.includes("P004"));
+    if (suffix === "regenerate") assert.ok(prompt.messages[2].content.includes("P004"));
   }
   const first = renderTaskPrompt({ project: p, steps: [] }, { ...split, opinion: "" }, null, "generate");
   assert.equal(first.user.includes("修改意见"), false);
@@ -313,11 +377,12 @@ for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucc
   badRows[1].起始段落 = "P005";
   const prompts = [];
   let generations = 0;
-  const text = createTextHandler({ chat: async ({ task, step, prompt }) => {
+  const text = createTextHandler({ chat: async ({ task, step, messages }) => {
+    const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
     assert.equal(task.business_type, "script-split", "拆分不应调用剧集摘要");
     prompts.push(prompt);
     generations++;
-    return { 剧集: repairSucceeds && generations > 1 ? rows : badRows };
+    return covered(repairSucceeds && generations > 1 ? rows : badRows);
   } });
   const service = new TaskService({ repository, commitOutput: commitContent, execute: createHandlerRegistry({ text, media: () => { throw Error("不应调用图片"); } }) });
   try {
@@ -339,7 +404,7 @@ for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucc
       assert.deepEqual(snapshot.project.episodes, oldEpisodes);
       assert.equal(snapshot.tasks.length, 1);
       const last = snapshot.steps.filter(item => item.task_id === task.id && item.kind === "revise").at(-1);
-      assert.deepEqual(last.result, { 剧集: badRows });
+      assert.deepEqual(last.result, covered(badRows));
       const retried = await service.command({ type: "submit", project_id: project.id, request_id: "split-retry", business_type: "script-split", target_id: project.id, action: "regenerate" });
       await service.idle(project.id);
       const retryTask = model.read().tasks.find(item => item.id === retried.task_id);
@@ -359,7 +424,7 @@ test("拆分已经成功后带意见修改使用正式切点，不复用更早�
     steps: [{ task_id: "old-rejected", kind: "revise", step_status: "done", seq: 5, result: { 剧集: [{ ...rows[0], 起始段落: "P999" }] } }],
   };
   const values = taskNodeInput(snapshot, { id: "new", business_type: "script-split", target_id: project.id, action: "regenerate", opinion: "调整切点" }, null, "regenerate");
-  assert.deepEqual(values.content, { 剧集: rows });
+  assert.deepEqual(values.content, covered(rows));
 });
 
 test('一次报告首部、中间、尾部全部遗漏以及重叠的期望编号', () => {
@@ -382,14 +447,15 @@ test('全部覆盖问题进入同一轮修订，通过后逐字保存原文且�
   const home = await mkdtemp(join(tmpdir(), 'meiji-split-all-gaps-'));
   let runtime, calls = 0;
   try {
-    runtime = await createAppRuntime({ home, gateway: { chat: async ({ prompt }) => {
+    runtime = await createAppRuntime({ home, gateway: { chat: async ({ messages }) => {
+    const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
       calls++;
-      if (calls === 1) return { 剧集: [
+      if (calls === 1) return covered([
         { 序号: 1, 起始段落: 'P002', 结束段落: 'P002', 预估时长秒: 10 },
         { 序号: 2, 起始段落: 'P004', 结束段落: 'P005', 预估时长秒: 20 },
-      ] };
+      ]);
       for (const range of ['P001—P001', 'P003—P003', 'P006—P006']) assert.ok(prompt.includes(range), prompt);
-      return { 剧集: rows };
+      return covered(rows);
     } } });
     const project = scriptProject();
     project.episodes = [emptyEpisode({ plot: '原有剧情' })];

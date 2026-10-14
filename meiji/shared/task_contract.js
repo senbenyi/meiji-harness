@@ -1,6 +1,7 @@
 import { primaryCostumeImage } from "./models/character_model.js";
 import {
   BUSINESS_TARGET,
+  BUSINESS_DEFINITIONS,
   NODE_TYPES,
   NODE_DEFINITIONS,
 } from "./node-definitions.js";
@@ -47,6 +48,7 @@ export const STEP_KINDS = Object.freeze([
 export const ACTIONS = Object.freeze([
   "generate",
   "regenerate",
+  "revise",
   "continue",
   "manual_edit",
   "override",
@@ -372,12 +374,16 @@ export function validateCommand(command) {
   if (command.type === "submit") {
     assertEnum(
       command.action,
-      ["generate", "regenerate"],
+      ["generate", "regenerate", "revise"],
       "command.action（继续仅组合）",
     );
     if (command.business_type.endsWith("-delete"))
       invalid("command.business_type", "删除使用 delete 命令");
     if (command.opinion !== undefined) assertText(command.opinion, "command.opinion");
+    if (command.action === "revise") {
+      if (BUSINESS_DEFINITIONS[command.business_type]?.handler !== "text") invalid("command.action", "按意见修改仅支持文本节点");
+      if (!command.opinion?.trim()) invalid("command.opinion", "按意见修改需要修改意见");
+    }
   }
   if (command.type === "submit-group")
     assertEnum(

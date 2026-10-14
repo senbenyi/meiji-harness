@@ -23,14 +23,45 @@ function candidate(business, value) {
   return aiProjection(value || {});
 }
 
-function previousSplit(project) {
+function contiguousSplit(project) {
   let start = 0;
-  return { 剧集: [...project.episodes].sort((a, b) => a.sequence - b.sequence).map(episode => {
-    const count = scriptParagraphs(episode.plot).length;
-    const row = { 序号: episode.sequence, 起始段落: paragraphNumber(start), 结束段落: paragraphNumber(Math.max(start, start + count - 1)), 预估时长秒: episode.duration_seconds };
-    start += count;
-    return row;
-  }) };
+  return {
+    剧集: [...project.episodes].sort((a, b) => a.sequence - b.sequence).map(episode => {
+      const count = scriptParagraphs(episode.plot).length;
+      const row = { 序号: episode.sequence, 起始段落: paragraphNumber(start), 结束段落: paragraphNumber(Math.max(start, start + count - 1)), 预估时长秒: episode.duration_seconds };
+      start += count;
+      return row;
+    }),
+    排除段落: [],
+  };
+}
+
+// 上一版剧情是原文段落去掉排除项后的拼接。对回完整剧本时，范围内部未写入的编号也记为排除段落。
+function previousSplit(project) {
+  const paragraphs = scriptParagraphs(project.script.body);
+  const episodes = [...project.episodes].sort((a, b) => a.sequence - b.sequence);
+  if (!episodes.length) return { 剧集: [], 排除段落: [] };
+  let cursor = 0;
+  const rows = [];
+  const excluded = [];
+  for (const episode of episodes) {
+    const piece = scriptParagraphs(episode.plot);
+    if (!piece.length) return contiguousSplit(project);
+    const consumed = [];
+    let pieceAt = 0;
+    for (let i = cursor; i < paragraphs.length && pieceAt < piece.length; i++)
+      if (paragraphs[i] === piece[pieceAt]) { consumed.push(i); pieceAt++; }
+    if (pieceAt !== piece.length) return contiguousSplit(project);
+    const start = consumed[0];
+    const end = consumed[consumed.length - 1];
+    while (cursor < start) excluded.push(paragraphNumber(cursor++));
+    for (let at = start; at <= end; at++)
+      if (!consumed.includes(at)) excluded.push(paragraphNumber(at));
+    rows.push({ 序号: episode.sequence, 起始段落: paragraphNumber(start), 结束段落: paragraphNumber(end), 预估时长秒: episode.duration_seconds });
+    cursor = end + 1;
+  }
+  while (cursor < paragraphs.length) excluded.push(paragraphNumber(cursor++));
+  return { 剧集: rows, 排除段落: excluded };
 }
 
 // 各节点独立提取执行时资料；不向节点接口传入 project/snapshot。
@@ -53,6 +84,8 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
   const value = { language, requirements: project.creative_direction || '',
     ...inputs[business]({ project, ...target }) };
   if (action === 'generate' && business === 'script-split') value.opinion = task.opinion || '';
+  else if (action === 'generate' && task.opinion?.trim())
+    value.requirements = [value.requirements, task.opinion.trim()].filter(Boolean).join('\n');
   if (action !== 'generate') {
     const steps = snapshot.steps || [];
     const lastReview = steps.filter(row => row.task_id === task.id && row.kind === 'review' && row.step_status === 'rejected' && row.seq < (step.seq ?? Infinity)).sort((a, b) => b.seq - a.seq)[0];
@@ -64,6 +97,12 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
       const rejected = previous?.task_status === 'rejected' && steps.filter(row => row.task_id === previous.id && ['generate', 'revise'].includes(row.kind) && row.step_status === 'done').sort((a, b) => b.seq - a.seq)[0]?.result;
       value.content = draft || (task.opinion && rejected) || previousSplit(project);
     }
+  }
+  if (action === 'regenerate' && step.kind === 'revise') {
+    const previous = (snapshot.steps || []).filter(row => row.task_id === task.id
+      && ['generate', 'revise'].includes(row.kind) && row.step_status === 'done'
+      && row.seq < step.seq).sort((a, b) => b.seq - a.seq)[0];
+    if (previous) value.content = structuredClone(previous.result);
   }
   const { contract } = nodeAction(business, action);
   return Object.fromEntries(Object.keys(contract.input).map(key => [key, value[key]]));

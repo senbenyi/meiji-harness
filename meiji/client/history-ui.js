@@ -20,8 +20,8 @@ const nodeTypeNames = {
 const text = (value) =>
   typeof value === "string" ? value : JSON.stringify(value ?? null, null, 2);
 // 记录卡片：标题与复制按钮同一行，正文完整展示不截断。
-function copyButton(label, read) {
-  const copy = element("button", "复制", "meiji-log-copy");
+function copyButton(label, read, title = "复制") {
+  const copy = element("button", title, "meiji-log-copy");
   copy.type = "button";
   copy.setAttribute("aria-label", label);
   copy.onclick = async (event) => {
@@ -38,12 +38,12 @@ function copyButton(label, read) {
   };
   return copy;
 }
-function recordCard(title, value, { copy = true } = {}) {
+function recordCard(title, value, { copy = true, copyTitle = "复制" } = {}) {
   const card = element("section", "", "run-record-card"),
     head = element("div", "", "run-record-head"),
     body = element("pre", text(value));
   head.append(element("h4", title));
-  if (copy) head.append(copyButton(`复制${title}`, () => body.textContent));
+  if (copy) head.append(copyButton(`复制${title}`, () => body.textContent, copyTitle));
   card.append(head, body);
   return card;
 }
@@ -85,18 +85,20 @@ function renderStepRecord(view, env, task, step) {
     if (step.prompt == null)
       return page.append(element("p", "此步骤没有提示词", "meta"));
     if (!prompt) return page.append(recordCard("提示词", step.prompt));
-    const entries = ["system", "user"]
+    const entries = prompt.messages
+      ? prompt.messages.map((message, index) => [`${index + 1}. ${message.role}`, message.content])
+      : ["system", "user"]
       .filter((key) => prompt[key] != null)
       .map((key) => [key, prompt[key]]);
     if (!entries.length && prompt.body != null)
       entries.push(["提示词", prompt.body]);
     if (!entries.length)
       return page.append(element("p", "此步骤没有提示词", "meta"));
-    // 提示词页只有一个复制按钮，一次复制 system 与 user。
+    // 按实际请求顺序显示和复制全部消息。
     const bar = element("div", "", "run-record-head run-record-actions");
     bar.append(
       element("h3", "提示词"),
-      copyButton("复制 system 和 user", () =>
+      copyButton("复制全部提示词", () =>
         entries.map(([key, value]) => `${key}:\n${text(value)}`).join("\n\n"),
       ),
     );
@@ -135,10 +137,13 @@ function renderStepRecord(view, env, task, step) {
     ),
   );
   const { request, ...response } = transfer;
+  const responded = ["ok", "status", "body", "error", "bytes"].some((key) => Object.hasOwn(transfer, key));
   page.append(
     tab === "request"
       ? recordCard("请求", request)
-      : recordCard("返回", response),
+      : responded
+        ? recordCard("返回", response)
+        : element("p", "尚未返回", "meta"),
   );
 }
 const statuses = {
@@ -148,10 +153,9 @@ const statuses = {
   rejected: "未通过",
   failed: "失败",
   cancelled: "已取消",
-  superseded: "已作废",
 };
 export function renderHistory(root, env, snapshot) {
-  const { p, state, button, go, act, names } = env,
+  const { p, state, button, go, names } = env,
     groups = historyGroups(snapshot),
     selectedGroup = groups.find(row => state.task_id ? row.tasks.some(t=>t.id === state.task_id) : row.group.id === state.group_id),
     selected = selectedGroup?.tasks.find(t=>t.id === state.task_id) || selectedGroup?.tasks[0],
@@ -176,12 +180,6 @@ export function renderHistory(root, env, snapshot) {
   );
   view.append(header);
   root.append(view);
-  const controls = (row, t) => {
-    if (["running", "queued"].includes(t.task_status))
-      row.append(
-        button("取消", () => act({ type: "cancel", task_id: t.id }), false),
-      );
-  };
   const recordStep =
     selected && state.step_view
       ? snapshot.steps.find(
@@ -207,14 +205,19 @@ export function renderHistory(root, env, snapshot) {
         `${selected.source === "session" ? "会话发起" : "面板发起"} · ${selected.created_at || ""}`,
         "meta",
       ),
-      element("p", selected.end_reason || "", "error"),
     );
+    if (selected.end_reason) {
+      const reason = element("div", "", "run-step-error");
+      reason.append(element("p", selected.end_reason, "error"),
+        copyButton("复制原因", () => selected.end_reason, "复制原因"));
+      view.append(reason);
+    }
     const list = element("ol", "", "run-step-list");
     for (const step of snapshot.steps
       .filter((s) => s.task_id === selected.id)
       .sort((a, b) => a.seq - b.seq)) {
-      const item = element("details", "", "run-step-card"),
-        summary = element("summary", "", "run-step-summary");
+      const item = element("li", "", "run-step-card"),
+        summary = element("div", "", "run-step-summary");
       item.dataset.stepId = step.id;
       item.dataset.stepNumber = step.seq;
       const passed = step.result?.是否通过 ?? step.result?.通过;
@@ -222,28 +225,23 @@ export function renderHistory(root, env, snapshot) {
       const failed = step.step_status === "failed" || rejected;
       item.classList.toggle("is-failed", failed);
       const expanded = state.history_step_open ||= {};
-      item.open = expanded[step.id] ?? failed;
+      item.classList.toggle("is-expanded", expanded[step.id] ?? false);
       const heading = element("div", "", "run-step-heading");
-      const toggle = button(item.open ? "收起" : "展示", () => {}, false);
+      const toggle = button(item.classList.contains("is-expanded") ? "收起" : "展开", () => {}, false);
       toggle.onclick = (event) => {
         event.preventDefault();
-        item.open = !item.open;
-        expanded[step.id] = item.open;
-        toggle.textContent = item.open ? "收起" : "展示";
-        toggle.setAttribute("aria-expanded", String(item.open));
+        const open = item.classList.toggle("is-expanded");
+        expanded[step.id] = open;
+        toggle.textContent = open ? "收起" : "展开";
+        toggle.setAttribute("aria-expanded", String(open));
       };
       toggle.className = "run-step-toggle";
-      toggle.setAttribute("aria-expanded", String(item.open));
-      item.ontoggle = () => {
-        expanded[step.id] = item.open;
-        toggle.textContent = item.open ? "收起" : "展示";
-        toggle.setAttribute("aria-expanded", String(item.open));
-      };
+      toggle.setAttribute("aria-expanded", String(item.classList.contains("is-expanded")));
       heading.append(
         element("strong", `${step.seq}. ${stepName(step, selected)}`),
         element(
           "span",
-          rejected ? "未通过" : ({ready:"待执行",running:"执行中",done:"已完成",failed:"失败",skipped:"已跳过",cancelled:"已取消",superseded:"已作废"}[step.step_status] || step.step_status),
+          rejected ? "未通过" : ({ready:"待执行",running:"执行中",done:"已完成",failed:"失败",skipped:"已跳过",cancelled:"已取消",superseded:"已取消"}[step.step_status] || step.step_status),
           `task-history-status is-${step.step_status}`,
         ),
       );
@@ -251,9 +249,17 @@ export function renderHistory(root, env, snapshot) {
       summary.append(heading);
       item.append(summary);
       const detail = element("div", "", "run-step-detail");
-      if (step.error_reason) detail.append(element("p", step.error_reason, "error"));
+      const reason = step.error_reason || (rejected ? step.result?.原因 : '');
+      if (reason) {
+        const error = element("div", "", "run-step-error");
+        error.append(element("p", `${rejected ? '未通过原因' : failed ? '失败原因' : '原因'}：${reason}`, "error"),
+          copyButton("复制原因", () => reason, "复制原因"));
+        detail.append(error);
+      }
       detail.append(element("p", `${step.started_at || "未开始"} → ${step.ended_at || "未结束"}`, "meta"));
-      detail.append(recordCard("步骤结果", step.result));
+      const result = recordCard("步骤结果", step.result, { copyTitle: "复制结果" });
+      result.classList.add("run-step-result");
+      detail.append(result);
       const links = element("div", "", "workflow-generation-row run-record-links");
       for (const [view, title] of [["prompt", "查看提示词"], ["http", "查看 HTTP"]]) {
         const link = button(title, () =>
@@ -337,7 +343,6 @@ export function renderHistory(root, env, snapshot) {
     progress.setAttribute("aria-label","组内任务进度");
     row.append(heading,element("p",`${entry.group.source === "session" ? "会话发起" : "面板发起"} · ${entry.group.created_at || ""}`,"meta"),
       element("p",`任务完成 ${progress.value}/${progress.max}${current ? ` · 当前：${taskName(current,p)}` : ""}`,"meta"),element("p",entry.reason || "", "error"),progress);
-    if (entry.tasks.length === 1) controls(row,t);
     list.append(row);
   }
 }

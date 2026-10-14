@@ -68,15 +68,17 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
     const { signal, record = async () => {} } = context;
     signal?.throwIfAborted();
     await record({ prompt });
-    return withGatewayTrace(async transfer => {
-      prompt.transfers.push(transfer);
+    return withGatewayTrace(async (transfer, options) => {
+      const index = prompt.transfers.indexOf(transfer);
+      if (options?.drop) { if (index >= 0) prompt.transfers.splice(index, 1); }
+      else if (index < 0) prompt.transfers.push(transfer);
       await record({ prompt });
     }, async () => {
       const options = { ...context, ...connection, signal, trace: prompt, record };
       let result;
       if (kind === 'text') {
         const complete = gateway.chat || clients[textProvider(connection.model)].complete;
-        result = await complete({ ...options, system: prompt.system, prompt: prompt.user });
+        result = await complete({ ...options, messages: prompt.messages });
         signal?.throwIfAborted();
         if (contract.output.type === 'JSON' && typeof result === 'string') result = parseJsonValue(result);
         validateNodeResult(node, action, result, input);

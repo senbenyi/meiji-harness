@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { TaskService } from "../server/flow/tasks/task-service.js";
+import { TaskService } from "../server/flow/tasks/task-manager.js";
 import { commitContent } from "../server/handlers/content.js";
 import { projectFixture, taskFixture } from "./fixtures/project.js";
 import { newStep } from "../shared/task-plan.js";
@@ -30,7 +30,7 @@ test("S8-01 旧格式明确拒绝，不读取正文或迁移；仅显式删除�
   }
 });
 
-test("重启仅排队组合：全组作废并保留统一原因，节点和媒体恢复，不自动执行", async () => {
+test("重启仅排队组合：全组取消并保留统一原因，节点和媒体恢复，不自动执行", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-restart-group-"));
   try {
     const repository = new ModelRepository(root), p = projectFixture(), model = await repository.create(p);
@@ -43,8 +43,8 @@ test("重启仅排队组合：全组作废并保留统一原因，节点和媒�
     const restored = await new ModelRepository(root).open(p.id);
     await service.recover(restored);
     const s = restored.read();
-    assert.ok(s.tasks.every(t => t.task_status === "superseded" && t.end_reason === "服务重启，未完成任务已作废"));
-    assert.ok(s.steps.every(st => st.step_status === "superseded" && st.ended_at));
+    assert.ok(s.tasks.every(t => t.task_status === "cancelled" && t.end_reason === "服务重启，未完成任务已取消"));
+    assert.ok(s.steps.every(st => st.step_status === "cancelled" && st.ended_at));
     assert.deepEqual(s.project, beforeProject);
     assert.equal(s.runtime.queue_stopped, false);
     assert.equal(executed, 0);
@@ -83,7 +83,7 @@ test("启动恢复的通知等待宿主 Agent 时，runtime 仍能公布并读�
     } finally { clearTimeout(timeout); }
     await noticeEntered;
     const restored = await runtime.repository.open(p.id);
-    assert.equal(restored.read().tasks[0].task_status, "superseded");
+    assert.equal(restored.read().tasks[0].task_status, "cancelled");
     assert.equal(restored.read().runtime.queue_stopped, false);
     release();
     await runtime.notices.drain(p.id);
@@ -103,15 +103,15 @@ test("服务关闭作废运行任务，模型晚到结果不覆盖旧稿或作�
     const changed = new Promise(resolve => repository.once("change", resolve));
     const stopping = service.dispose();
     await changed;
-    assert.equal(model.read().tasks.find(t => t.id === r.task_id).task_status, "superseded");
+    assert.equal(model.read().tasks.find(t => t.id === r.task_id).task_status, "cancelled");
     release();
     await stopping;
     assert.equal(model.read().project.project_summary.body, "摘要");
     assert.equal(model.read().runtime.queue_stopped, false);
-    assert.equal(model.read().tasks.find(t => t.id === r.task_id).task_status, "superseded");
+    assert.equal(model.read().tasks.find(t => t.id === r.task_id).task_status, "cancelled");
   } finally { release(); await rm(root, { recursive: true, force: true }); }
 });
-test("S8-05 重启作废运行和排队任务，恢复快照、保留旧稿与终态，新任务直接执行", async () => {
+test("S8-05 重启把运行和排队任务都记为已取消，恢复快照、保留旧稿与终态，新任务直接执行", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-restart-"));
   try {
     const repository = new ModelRepository(root),
@@ -143,11 +143,11 @@ test("S8-05 重启作废运行和排队任务，恢复快照、保留旧稿与�
       });
     await service.recover(restored);
     const snapshot = restored.read();
-    assert.deepEqual(snapshot.tasks.map(t => t.task_status), ["superseded", "superseded", "failed"]);
-    assert.ok(snapshot.tasks.slice(0,2).every(t => /服务重启.*已作废/.test(t.end_reason) && t.ended_at));
+    assert.deepEqual(snapshot.tasks.map(t => t.task_status), ["cancelled", "cancelled", "failed"]);
+    assert.ok(snapshot.tasks.slice(0, 2).every(t => /服务重启.*已取消/.test(t.end_reason) && t.ended_at));
     assert.deepEqual(snapshot.tasks[2], terminal);
     assert.deepEqual(snapshot.steps[0], done);
-    assert.deepEqual(snapshot.steps.slice(1).map(st => st.step_status), ["superseded", "superseded"]);
+    assert.deepEqual(snapshot.steps.slice(1).map(st => st.step_status), ["cancelled", "cancelled"]);
     assert.equal(snapshot.project.project_summary.body, "摘要");
     assert.equal(snapshot.project.project_summary.node_state.status, "cancelled");
     assert.equal(snapshot.project.episodes[0].summary.body, "展示摘要");

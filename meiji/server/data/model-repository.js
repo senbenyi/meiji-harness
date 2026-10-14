@@ -111,7 +111,7 @@ export function validateSnapshot(snapshot) {
     assertEnum(group.source, ["panel", "session"], "group.source");
     assertEnum(
       group.action,
-      ["generate", "regenerate", "continue", "manual_edit", "override", "delete"],
+      ["generate", "regenerate", ...(generic ? ["revise"] : []), "continue", "manual_edit", "override", "delete"],
       "group.action",
     );
     if (!Number.isFinite(Date.parse(group.created_at)))

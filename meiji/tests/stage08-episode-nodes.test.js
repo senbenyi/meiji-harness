@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createAppRuntime } from "../server/runtime/app-runtime.js";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { TaskService } from "../server/flow/tasks/task-service.js";
+import { TaskService } from "../server/flow/tasks/task-manager.js";
 import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
 import { commitContent } from "../server/handlers/content.js";
 import { projectFixture } from "./fixtures/project.js";

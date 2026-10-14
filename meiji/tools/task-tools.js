@@ -69,7 +69,7 @@ export function taskTools(runtime) {
           request_id: { type: "string" },
           business_type: { type: "string" },
           target_id: { type: "string", description: "项目/角色/服装等对象 ID。costume-image 有明确服装使用 co_，服装数组为空使用角色 c_；submit-costumes 使用角色 c_，按服装顺序生成全部定妆照。" },
-          action: { type: "string", enum: ["generate", "regenerate"], description: "节点或成片组的执行方式：generate 补齐未有效生成的内容，regenerate 重跑所选范围；成片组缺省为 generate。" },
+          action: { type: "string", enum: ["generate", "regenerate", "revise"], description: "generate 补齐内容；regenerate 从当前资料重新生成，不带上次文本结果；revise 仅用于单个文本节点按非空 opinion 多轮修改上次结果。成片组仅支持 generate/regenerate，缺省为 generate。" },
           opinion: { type: "string" },
           group_type: {
             type: "string",

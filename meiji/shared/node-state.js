@@ -111,7 +111,10 @@ export function assertOutput(project, business, targetId) {
   }
   if (['first-last-frame', 'multimodal'].includes(business)) nonempty(node.prompt, '视频编排');
   if (business === 'video') { nonempty(object.last_frame.address, '视频尾帧'); if (!(object.actual_duration_seconds > 0)) invalid('视频时长', '缺少实测时长'); }
-  if (business === "seconds" && !node.storyboard.length) invalid("每秒分镜", "产出内容为空");
+  if (business === "seconds") {
+    if (!node.storyboard.length) invalid("每秒分镜", "产出内容为空");
+    nonempty(node.end_state, "每秒分镜.结束状态");
+  }
   if (business === "storyboard") nonempty(node.integrated_multimodal_description, "文生视频提示词");
 }
 

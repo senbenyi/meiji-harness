@@ -18,12 +18,16 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     ),
     node = nodeOf(p, task.business_type, task.target_id),
     original = task.previous_node_state?.status;
-  const requireNode = (business, id) => {
+  const requireNode = (business, id, label = business) => {
     const n = nodeOf(p, business, id);
-    if (n.node_state.status !== "generated") invalid("precheck", `${business}尚未有效生成`);
+    if (n.node_state.status !== "generated") invalid("precheck", `${label}尚未有效生成`);
     assertOutput(p, business, id);
-    if (!isNodeCurrent(snapshot, business, id)) invalid("precheck", `${business}依赖已过期，请重新生成`);
+    if (!isNodeCurrent(snapshot, business, id)) invalid("precheck", `${label}依赖已过期，请重新生成`);
   };
+  if (task.business_type === 'seconds') {
+    const previous = previousShot(episode, object);
+    if (previous) requireNode('seconds', previous.id, `前镜 ${previous.number} 每秒分镜`);
+  }
   if (task.action === "override") {
     if (
       !TEXT_BUSINESSES.includes(task.business_type) ||
@@ -56,7 +60,7 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
   }
   if (task.action === "generate" && node && hasNodeContent(p, task.business_type, task.target_id))
     invalid("precheck", "已有内容请重新生成");
-  if (task.action === "regenerate" && node && !hasNodeContent(p, task.business_type, task.target_id))
+  if (["regenerate", "revise"].includes(task.action) && node && !hasNodeContent(p, task.business_type, task.target_id))
     invalid("precheck", "未生成节点请使用生成");
   const business = task.business_type;
   if (business === "script-split") {

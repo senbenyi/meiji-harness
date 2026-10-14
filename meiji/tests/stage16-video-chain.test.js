@@ -90,7 +90,7 @@ for (const mode of ['文生','首尾帧','多模态']) test(`真实视频链 ${m
 test('有角色缺图阻断视频；改为无人后继续重新判型，不复制多模态任务',()=>fixture(async({runtime,p,episode,model,calls,submit})=>{
   const target=episode.shot_list.shots[0];
   const task=await submit(target);
-  assert.equal(task.task_status,'superseded');assert.equal(calls.length,0);
+  assert.equal(task.task_status,'cancelled');assert.equal(calls.length,0);
   const failed=model.read().tasks.find(t=>t.task_status==='failed');assert.equal(failed.business_type,'multimodal');assert.match(failed.end_reason,/costume-image/);
   const old=model.read().tasks;
   await model.update('change-binding',{},s=>{
@@ -173,7 +173,7 @@ test('排队时尚未识别，不猜文生；识别实际产出角色后插入�
   },{setup:({episode,person})=>{number=person.number;episode.shot_list.shots[0].character_binding.has_result=false;episode.shot_list.shots[0].character_binding.node_state.status='empty';},chat:({task,step})=>{
     if(step.kind==='review')return {是否通过:true,原因:''};
     if(task.business_type==='shot-characters')return {on_screen_characters:[{character_number:number,costume_number:''}]};
-    if(task.business_type==='seconds')return {storyboard:[{time_range:'0–5s',action:'甲站立',camera:'固定',space:'门口',audio:'风声',handoff:'站立',dialogue:[]}]};
+    if(task.business_type==='seconds')return {end_state:'甲站在门口，动作已结束。',pending_actions:'',pending_dialogue:'',continuing_audio:'风声',storyboard:[{time_range:'0–5s',action:'甲站立',camera:'固定',space:'门口',audio:'风声',handoff:'站立',dialogue:[]}]};
     return 'integrated_multimodal_description:\nA woman stands.\noverall_soundscape:\nWind.\nnon_diegetic_music:\nNone.';
   }});
 });

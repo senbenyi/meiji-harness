@@ -29,8 +29,8 @@
 | `completed` | 已通过 | |
 | `rejected` | 未通过 | 有产出，但程序审核或 AI 审核未通过 |
 | `failed` | 失败 | 执行出错，没有产出 |
-| `cancelled` | 已取消 | |
-| `superseded` | 已作废 | 组里前面的任务停下后，还没执行的任务；服务重启时，尚未完成的排队和进行中任务 |
+| `cancelled` | 已取消 | 用户取消、服务重启时尚未完成的任务，以及组里前面的任务停下后还没执行的任务。旧记录里的 `superseded` 同样显示已取消 |
+| `superseded` | 已取消 | 旧存储值，新结算不再写入 |
 
 任务一停就是终态。重新生成、继续、人工编辑、人工放行都新建任务。继续一组时新建任务组。
 
@@ -44,14 +44,14 @@
 | `rejected` | 未通过 | 有产出，但程序审核或 AI 审核未通过；原因记录在步骤结果 |
 | `failed` | 失败 | 接口报错、超时或输出无法解析，没有可用产出 |
 | `skipped` | 已跳过 | |
-| `cancelled` | 已取消 | |
-| `superseded` | 已作废 | |
+| `cancelled` | 已取消 | 未执行或被停止。旧记录里的 `superseded` 同样显示已取消 |
+| `superseded` | 已取消 | 旧存储值，新结算不再写入 |
 
 任务来源：`panel` 面板，`session` 会话。
 
 ## 任务组字段
 
-`status` 和 `reason` 不存储，只按本组任务计算。按 `group_seq` 排序后：先看第一个 `rejected`、`failed` 或 `cancelled`，原因用该任务的 `end_reason`；否则有 `running` 就是生成中；否则有 `queued` 就是排队中；任务非空且全部 `completed` 就是已通过；其余若有 `superseded` 则显示已作废。后来的新组、人工放行或编辑不改旧组结果。
+`status` 和 `reason` 不存储，只按本组任务计算。按 `group_seq` 排序后：先看第一个 `rejected`、`failed`、`cancelled` 或旧的 `superseded`，原因用该任务的 `end_reason`；取消和旧作废都显示已取消。否则有 `running` 就是生成中；否则有 `queued` 就是排队中；任务非空且全部 `completed` 就是已通过。后来的新组、人工放行或编辑不改旧组结果。
 
 | 字段 | 示例 | 说明 |
 |---|---|---|
@@ -116,7 +116,8 @@
 | 值 | 名称 | 说明 |
 |---|---|---|
 | `generate` | AI 生成 | 新建任务。是否可做由前置检查决定 |
-| `regenerate` | 重新生成 | 新建任务，不恢复旧任务 |
+| `regenerate` | 重新生成 | 新建任务；文本首轮只用当前资料，不带上次结果 |
+| `revise` | 原结果修订 | 单个文本节点，非空意见；通过多轮 assistant 带入上次完整结果 |
 | `continue` | 继续 | 只用于组合入口。按原组进度从断点新建任务组 |
 | `manual_edit` | 人工编辑保存 | 新建 `precheck` → `manual_edit` |
 | `override` | 人工放行 | 新建 `precheck` → `override`。结构和程序审核通过后节点写成 `generated`、原因清空。只跳过 AI 审核，旧任务保持原终态 |
@@ -202,3 +203,5 @@
 ## 视频阶段步骤
 
 `first-last-frame` 和 `multimodal` 是程序节点，步骤为 precheck→generate（执行编排）。文生不创建程序编排任务。视频为 precheck→generate→apply（文件校验、实测、截帧与图片校验）→程序review；修订为 revise→apply→程序review，最多两次。manual_edit 视频为 precheck→manual_edit→apply，不调用AI、不要求文本节点。`apply` 是已有步骤类型；视频中其含义为媒体后处理。独立tail不接受新命令，历史可读，last_frame保存视频配对产物。
+
+单项文本原结果修订的 single/workflow 组 action 可为 revise；成片/每秒组合组仍只使用原有 generate、regenerate、continue。

@@ -5,7 +5,7 @@ export function renderPrompt(model, action, values, output, provider) {
   const stage = model[action];
   if (!stage) invalid('动作', '节点不支持该动作');
   const template = { input: {
-    system: { 角色: stage.role || model.role, ...stage.system, 输出格式: { 类型: output.type, ...(output.type === "JSON" ? { 结构: output.structure } : {}), 要求: output.requirements } },
+    system: { ...stage.system, 输出格式: { 类型: output.type, ...(output.type === "JSON" ? { 结构: output.structure } : {}), 要求: output.requirements } },
     user: stage.user,
   } };
   assertRecord(values, "占位符资料");
@@ -50,10 +50,20 @@ export function renderPrompt(model, action, values, output, provider) {
       .join("\n\n");
   const system = section(input.system) + (["JSON", "文本"].includes(output.type) ? responseInstruction(provider) : "");
   const user = section(input.user);
+  const messages = [{ role: 'system', content: system }];
+  if (action === 'regenerate' && ['JSON', '文本'].includes(output.type)) {
+    const original = renderPrompt(model, 'generate', { ...values, 修改意见: '' }, output, provider);
+    messages.push({ role: 'user', content: original.user }, {
+      role: 'assistant',
+      content: typeof values.基稿 === 'string' ? values.基稿 : JSON.stringify(values.基稿, null, 2),
+    });
+  }
+  messages.push({ role: 'user', content: user });
   return {
+    messages,
     system,
     user,
-    body: [system, user].join("\n\n"),
+    body: messages.map(message => message.content).join("\n\n"),
     output: structuredClone(output),
   };
 }

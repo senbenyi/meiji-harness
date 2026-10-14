@@ -15,9 +15,9 @@ for (const suffix of ['generate', 'regenerate']) test(`镜头表${suffix}返回�
   const task = taskFixture(project, 'shots', episode.id);
   const rendered = renderTaskPrompt(snapshot, task, null, suffix);
   assert.match(rendered.system, /本集故事小段/);
-  assert.match(rendered.user, /周巡检/);
-  assert.match(rendered.user, /四十岁/);
-  assert.doesNotMatch(rendered.user, /has_image|costume_images|不参与镜头依赖/);
+  assert.match(rendered.messages[1].content, /周巡检/);
+  assert.match(rendered.messages[1].content, /四十岁/);
+  assert.doesNotMatch(rendered.messages[1].content, /has_image|costume_images|不参与镜头依赖/);
   assert.doesNotMatch(rendered.system + rendered.user, /本集资产/);
   assert.deepEqual(Object.keys(rendered.output.structure.shots[0]), fields);
   if (suffix === 'regenerate') assert.match(rendered.user, /待修订镜头表/);

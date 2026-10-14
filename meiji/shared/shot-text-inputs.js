@@ -1,3 +1,4 @@
+import { previousShot } from './video-inputs.js';
 import { invalid } from './task_contract.js';
 
 export function characterTextCatalog(project) {
@@ -15,6 +16,20 @@ export function bindingNumbers(project, binding) {
     return { character_number: person.number, costume_number: costume?.number || '' };
   }) };
 }
+// 前镜资料直接取已保存的镜末字段和完整末尾节拍，不让模型二次摘要。
+export function secondsEnding(node) {
+  return { end_state: node.end_state, pending_actions: node.pending_actions,
+    pending_dialogue: node.pending_dialogue, continuing_audio: node.continuing_audio };
+}
+export function previousSeconds(episode, shot) {
+  const previous = previousShot(episode, shot);
+  if (!previous) return null;
+  const node = previous.seconds_storyboard, beats = node.storyboard;
+  const end = beats.length ? Number(beats.at(-1).time_range.split(/[–-]/)[1].replace('s', '')) : 0;
+  return { shot_number: previous.number, ...secondsEnding(node),
+    last_beats: beats.filter(beat => Number(beat.time_range.split(/[–-]/)[1].replace('s', '')) > end - 3)
+      .map(beat => ({ ...structuredClone(beat), dialogue: beat.dialogue.map(line => ({ ...line, speaker_id: '' })) })) };
+}
 export function shotTextInputs(project, episode, shot, business) {
   const fields = ['title', 'number', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement'];
   const table = Object.fromEntries(fields.map(key => [key, structuredClone(shot[key])]));
@@ -25,9 +40,9 @@ export function shotTextInputs(project, episode, shot, business) {
     return { shot: table, characters, previous: previous?.character_binding.node_state.status === 'generated' && previous.character_binding.on_screen_characters.length > 0
       ? { shot: previous.number, ...bindingNumbers(project, previous.character_binding) } : '' };
   }
-  if (business === 'seconds') return { shot: table, characters, bindings: bindingNumbers(project, shot.character_binding).on_screen_characters };
+  if (business === 'seconds') return { shot: table, characters, previous: previousSeconds(episode, shot), bindings: bindingNumbers(project, shot.character_binding).on_screen_characters };
   const speakers = new Set(shot.seconds_storyboard.storyboard.flatMap(beat => beat.dialogue.map(line => line.speaker_name)));
   const visible = new Set(shot.character_binding.on_screen_characters.map(row => project.character_library.characters.find(person => person.id === row.character_id)?.number));
   return { duration: shot.duration_seconds, characters: characters.filter(person => speakers.has(person.name) || visible.has(person.number)),
-    storyboard: { storyboard: shot.seconds_storyboard.storyboard.map(beat => ({ ...structuredClone(beat), dialogue: beat.dialogue.map(line => ({ ...line, speaker_id: '' })) })) } };
+    storyboard: { ...secondsEnding(shot.seconds_storyboard), storyboard: shot.seconds_storyboard.storyboard.map(beat => ({ ...structuredClone(beat), dialogue: beat.dialogue.map(line => ({ ...line, speaker_id: '' })) })) } };
 }

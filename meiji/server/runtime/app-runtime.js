@@ -6,7 +6,7 @@ import { decodeImageData } from "../media/decode-image-data.js";
 import { join } from "node:path";
 import { ModelRepository } from "../data/model-repository.js";
 import { SessionBindings } from "../data/session-bindings.js";
-import { TaskService } from "../flow/tasks/task-service.js";
+import { TaskService } from "../flow/tasks/task-manager.js";
 import { createTextHandler } from "../handlers/text-handler.js";
 import { createMediaHandler } from "../handlers/media-handler.js";
 import { createHandlerRegistry } from "../handlers/handler-registry.js";

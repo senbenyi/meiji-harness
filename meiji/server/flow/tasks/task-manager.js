@@ -369,7 +369,7 @@ export class TaskService {
       : null;
     const rejectedReason = node?.node_state.status === "rejected" ? node.node_state.reason
       : previous?.task_status === "rejected" ? previous.end_reason : "";
-    if (["generate", "regenerate", "continue"].includes(action) && rejectedReason && !opinion.includes(rejectedReason))
+    if (["generate", "regenerate", "revise", "continue"].includes(action) && rejectedReason && !opinion.includes(rejectedReason))
       opinion = [rejectedReason, opinion].filter(Boolean).join("\n");
     const task = createTaskModel({
         name: "",
@@ -450,7 +450,7 @@ export class TaskService {
       (st) =>
         st.task_id === task.id && ["ready", "running"].includes(st.step_status),
     )) {
-      step.step_status = status === "cancelled" ? "cancelled" : "superseded";
+      step.step_status = "cancelled";
       step.ended_at = now();
     }
     const origin = s.runtime.outbox.find(
@@ -466,7 +466,7 @@ export class TaskService {
             t.group_seq > task.group_seq &&
             t.task_status === "queued",
         ))
-          this.#finish(s, later, "superseded", "组合前序任务已停止");
+          this.#finish(s, later, "cancelled", "组合前序任务已停止");
     }
   }
   #pump(model) {
@@ -618,7 +618,7 @@ export class TaskService {
             st.step_status = "rejected";
             st.error_reason = review.原因;
             for (const pending of s.steps.filter(x => x.task_id === id && x.step_status === "ready")) {
-              pending.step_status = "superseded";
+              pending.step_status = "cancelled";
               pending.ended_at = now();
             }
             if (step.round < BUSINESS_DEFINITIONS[t.business_type].retryRounds) {
@@ -718,15 +718,15 @@ export class TaskService {
       `restart:${createId("task")}`,
       { restart: true },
       (s) => {
-        // 从队尾结算，确保组合后序也保留重启作废原因，而非前序停止原因。
+        // 从队尾结算，避免前序停止把后序改写成另一条原因。
         for (const task of s.tasks.filter(unfinished).sort((a, b) => b.queue_order - a.queue_order))
           this.#finish(
             s,
             task,
-            "superseded",
+            "cancelled",
             task.business_type === "video" && task.task_status === "running"
-              ? "服务重启，未完成任务已作废；远端视频可能仍在运行"
-              : "服务重启，未完成任务已作废",
+              ? "服务重启，未完成任务已取消；远端视频可能仍在运行"
+              : "服务重启，未完成任务已取消",
           );
         s.runtime.queue_stopped = false;
         return {};

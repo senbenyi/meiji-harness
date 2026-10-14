@@ -83,5 +83,5 @@ CREATE INDEX group_history ON task_groups(project_id,created_at DESC,id);
 CREATE INDEX task_queue ON tasks(project_id,task_status,queue_order);
 CREATE UNIQUE INDEX one_running_task ON tasks(project_id) WHERE task_status='running';
 CREATE INDEX steps_project ON task_steps(project_id);
-INSERT INTO schema_migrations VALUES (12,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
-PRAGMA user_version=12;
+INSERT INTO schema_migrations VALUES (13,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+PRAGMA user_version=13;

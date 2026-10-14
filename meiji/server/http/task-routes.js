@@ -1,4 +1,5 @@
 import { SettingsModel } from '../../shared/models/settings_model.js';
+import { llmServerClient } from './llm-server/client.js';
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
@@ -82,6 +83,10 @@ export function createTaskHttpHandler(
         return res.end(bytes);
       }
       if (req.method === "GET") {
+        if (path === "/api/meiji/gpu") {
+          const settings = await runtime.models.read();
+          return json(res, 200, await llmServerClient.gpu({ baseUrl: settings.textBaseUrl }));
+        }
         if (path === "/api/meiji/projects")
           return json(res, 200, { projects: await runtime.repository.list() });
         if (path === "/api/meiji/context") {

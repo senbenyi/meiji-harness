@@ -14,6 +14,7 @@ export const fieldLabels = {
   character_id: "角色 ID", costume_id: "服装 ID", character_number: "角色编号", costume_number: "服装编号",
   on_screen_characters: "出镜角色", storyboard: "每秒分镜", dialogue: "对白", speaker_id: "说话人 ID",
   speaker_name: "说话人", speaker_number: "说话人编号", dialogue_text: "原话", mode: "方式", time_range: "时段",
+  end_state: "结尾状态", pending_actions: "未完成动作", pending_dialogue: "未结束对白内容", continuing_audio: "持续声音",
   action: "动作", camera: "镜头", space: "空间", audio: "声音", handoff: "交接",
   integrated_multimodal_description: "综合描述", overall_soundscape: "整体声音", non_diegetic_music: "配乐",
 };

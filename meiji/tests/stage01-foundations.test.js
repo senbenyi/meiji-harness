@@ -31,8 +31,7 @@ const png = Buffer.from(
 test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完整输出", async () => {
   const text = await elysiumClient.complete({
     ...connection, model: "elysium-chat",
-    system: "系统",
-    prompt: "用户",
+    messages: [{ role: "system", content: "系统" }, { role: "user", content: "用户" }],
     fetchImpl: async (url, options) => {
       assert.equal(url.pathname, "/v1/chat/completions");
       assert.equal(options.headers.Authorization, "Bearer test-only-key");
@@ -60,7 +59,7 @@ test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完�
   await assert.rejects(
     elysiumClient.complete({
       ...connection, model: "elysium-chat",
-      prompt: "测试",
+      messages: [{ role: "user", content: "测试" }],
       fetchImpl: async () =>
         json({
           choices: [
@@ -74,12 +73,12 @@ test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完�
 
 test("文本网关普通协议：400 不重试，非法 JSON 不因 HTTP200 变成有效结果", async () => {
   let calls = 0;
-  await assert.rejects(elysiumClient.complete({ ...connection, model: "elysium-chat", prompt: "返回 JSON", fetchImpl: async () => {
+  await assert.rejects(elysiumClient.complete({ ...connection, model: "elysium-chat", messages: [{ role: "user", content: "返回 JSON" }], fetchImpl: async () => {
     calls++;
     return new Response(JSON.stringify({ error: { message: "字段无效", code: "invalid_request" } }), { status: 400 });
   } }), /字段无效/);
   assert.equal(calls, 1);
-  const text = await elysiumClient.complete({ ...connection, model: "elysium-chat", prompt: "返回 JSON", fetchImpl: async () => json({ choices: [{ finish_reason: "stop", message: { content: "这不是JSON" } }] }) });
+  const text = await elysiumClient.complete({ ...connection, model: "elysium-chat", messages: [{ role: "user", content: "返回 JSON" }], fetchImpl: async () => json({ choices: [{ finish_reason: "stop", message: { content: "这不是JSON" } }] }) });
   assert.throws(() => parseJsonValue(text));
 });
 

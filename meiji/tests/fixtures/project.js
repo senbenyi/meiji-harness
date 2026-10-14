@@ -24,6 +24,7 @@ export function projectFixture() {
     s.character_binding.has_result = true;
     s.character_binding.node_state.status = "generated";
     s.seconds_storyboard.node_state.status = "generated";
+    s.seconds_storyboard.end_state = "人物站在原位，动作已结束，持物保持不变。";
     s.seconds_storyboard.storyboard = [{ ...emptyStoryboardBeatModel(), time_range: "0–5s", action: "动作", camera: "镜头", space: "空间", audio: "声音", handoff: "结束" }];
     s.text_to_video_prompt.node_state.status = "generated";
     s.text_to_video_prompt.integrated_multimodal_description = "动作；镜头；空间；声音；结束";

@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 const traces = new AsyncLocalStorage();
 export const withGatewayTrace = (record, run) => traces.run(record, run);
-export async function recordTransfer(data) {
+export async function recordTransfer(data, options) {
   const record = traces.getStore();
-  if (record) await record(data);
+  if (record) await record(data, options);
 }

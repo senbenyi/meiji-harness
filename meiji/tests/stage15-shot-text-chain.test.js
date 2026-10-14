@@ -40,7 +40,7 @@ async function withRuntime(run, respond = () => undefined) {
       if (result !== undefined) return result;
       if (options.step.kind === 'review') return { 是否通过: true, 原因: '' };
       if (options.task.business_type === 'shot-characters') return { on_screen_characters: [] };
-      if (options.task.business_type === 'seconds') return { storyboard: [beat('0–5s')] };
+      if (options.task.business_type === 'seconds') return { end_state: "人物位于镜末位置，动作已完成。", pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: [beat('0–5s')] };
       return text;
     } } });
     const p = fixtureProject(), model = await runtime.repository.create(p);
@@ -107,13 +107,13 @@ test('程序失败再AI失败共用两次修订；修订收到最新候选与对
   assert.deepEqual(steps.filter(step => step.kind === 'revise').map(step => step.round), [1, 2]);
   const generations = calls.filter(call => call.task.business_type === 'seconds' && call.step.kind !== 'review');
   assert.equal(generations.length, 3);
-  assert.match(generations[1].prompt, /允许误差±5秒/);
-  assert.match(generations[2].prompt, /动作缺失/);
+  assert.match(generations[1].messages.at(-1).content, /允许误差±5秒/);
+  assert.match(generations[2].messages.at(-1).content, /动作缺失/);
   assert.deepEqual(model.read().project.episodes[0].shot_list.shots[0].seconds_storyboard.storyboard, [beat('0–5s')]);
 }, ({ task, step }) => {
   if (task.business_type !== 'seconds') return;
   if (step.kind === 'review') return { 是否通过: step.round !== 1, 原因: step.round === 1 ? '动作缺失' : '' };
-  return { storyboard: [beat(step.kind === 'generate' ? '0–11s' : '0–5s')] };
+  return { end_state: "人物位于镜末位置，动作已完成。", pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: [beat(step.kind === 'generate' ? '0–11s' : '0–5s')] };
 }));
 
 test('程序审核耗尽保存最后候选为rejected，保留旧成功hash与下游', () => withRuntime(async ({ p, model, command, calls }) => {
@@ -126,7 +126,7 @@ test('程序审核耗尽保存最后候选为rejected，保留旧成功hash与�
   assert.equal(after.seconds_storyboard.node_state.dependency_hash, before.seconds_storyboard.node_state.dependency_hash);
   assert.deepEqual(after.text_to_video_prompt, before.text_to_video_prompt);
   assert.equal(calls.filter(call => call.task.business_type === 'seconds').length, 3);
-}, ({ task }) => task.business_type === 'seconds' ? { storyboard: [beat('0–11s')] } : undefined));
+}, ({ task }) => task.business_type === 'seconds' ? { end_state: "人物位于镜末位置，动作已完成。", pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: [beat('0–11s')] } : undefined));
 
 test('episode-seconds 逐镜安排识别后每秒', () => withRuntime(async ({ runtime, p, model, calls }) => {
   const group = await runtime.tasks.command({ type: 'submit-group', project_id: p.id, request_id: 'group', group_type: 'episode-seconds', action: 'regenerate', episode_id: p.episodes[0].id });
@@ -135,6 +135,13 @@ test('episode-seconds 逐镜安排识别后每秒', () => withRuntime(async ({ r
   assert.deepEqual(tasks.map(task => task.business_type), ['shot-characters', 'seconds', 'shot-characters', 'seconds']);
   assert.ok(tasks.every(task => task.task_status === 'completed'), tasks.map(task => task.end_reason).join(';'));
   assert.equal(calls.filter(call => call.task.business_type === 'shot-characters' && call.step.kind === 'generate').length, 2);
+  const seconds = calls.filter(call => call.task.business_type === 'seconds' && call.step.kind === 'generate');
+  assert.equal(seconds[0].trace.input.previous, null);
+  const savedFirst = model.read().project.episodes[0].shot_list.shots[0].seconds_storyboard;
+  assert.equal(seconds[1].trace.input.previous.end_state, savedFirst.end_state);
+  assert.deepEqual(seconds[1].trace.input.previous.last_beats, savedFirst.storyboard);
+  const firstReview = calls.findIndex(call => call.task.business_type === 'seconds' && call.task.target_id === p.episodes[0].shot_list.shots[0].id && call.step.kind === 'review');
+  assert.ok(firstReview < calls.indexOf(seconds[1]));
 }));
 
 test('输入和hash共用文本投影：图片不影响文本，声线和有效前镜穿着会影响', () => {
@@ -148,7 +155,8 @@ test('输入和hash共用文本投影：图片不影响文本，声线和有效�
   person.costume_images[0].address = 'new.png'; person.costume_images[0].node_state.status = 'generated';
   assert.deepEqual(['shot-characters', 'seconds', 'storyboard'].map(b => dependencyHash(snapshot, b, first.id)), before);
   const input = taskNodeInput(snapshot, { business_type: 'seconds', target_id: first.id }, null, 'generate');
-  assert.doesNotMatch(JSON.stringify(input), /has_image|costume_images|new.png|previous/);
+  assert.doesNotMatch(JSON.stringify(input), /has_image|costume_images|new.png/);
+  assert.equal(input.previous, null);
   assert.equal(input.bindings[0].character_number, person.number);
   person.voice = '低沉';
   assert.notEqual(dependencyHash(snapshot, 'seconds', first.id), before[1]);
@@ -180,14 +188,14 @@ test('镜头识别取消后晚到结果不覆盖；继续使用新任务', async
   }, async ({ task, step }) => { if (wait && task.business_type === 'shot-characters' && step.kind === 'generate') { entered(); await gate; } });
 });
 
-test('v12 新库为空；v8 明确拒绝且不修改项目、不生成迁移备份', async () => {
+test('v13 新库为空；v8 明确拒绝且不修改项目、不生成迁移备份', async () => {
   const root = await mkdtemp(join(tmpdir(), 'meiji-fresh-'));
   try {
     const repo = new ModelRepository(root);
     await repo.list();
     const path = join(root, 'meiji.sqlite');
     let db = new DatabaseSync(path);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 12);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 13);
     for (const table of ['projects', 'task_groups', 'tasks', 'task_steps']) assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n, 0);
     db.close();
     await repo.create(fixtureProject()); await repo.close();
@@ -218,13 +226,13 @@ test('v9 删除项目规则并重写已生成镜头文本指纹', async () => {
     const stored = JSON.parse(row.data_json);
     stored.rules = [{ id: 'r_old', scope: 'project', applicable_business_types: ['seconds'], node_id: '', category: '动作', constraint: '必须', content: '保持事实' }];
     db.prepare('UPDATE projects SET data_json=?').run(JSON.stringify(stored));
-    db.exec("DELETE FROM schema_migrations WHERE version IN (10, 11, 12); PRAGMA user_version=9");
+    db.exec("DELETE FROM schema_migrations WHERE version IN (10, 11, 12, 13); PRAGMA user_version=9");
     db.close();
     const store = new SQLiteStore(path);
     store.close();
     db = new DatabaseSync(path);
     const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 12);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 13);
     assert.equal(Object.hasOwn(opened, 'rules'), false);
     assert.equal(Object.hasOwn(opened, 'output_language'), false);
     assert.equal(opened.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.dependency_hash, dependencyHash({ project: opened, tasks: [], steps: [] }, 'seconds', shot.id));
@@ -247,17 +255,18 @@ test('v10 删除项目语言并重写已生成镜头文本指纹，正文保持�
     const stored = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
     stored.output_language = 'en';
     db.prepare('UPDATE projects SET data_json=?').run(JSON.stringify(stored));
-    db.exec('DELETE FROM schema_migrations WHERE version IN (11, 12); PRAGMA user_version=10');
+    db.exec('DELETE FROM schema_migrations WHERE version IN (11, 12, 13); PRAGMA user_version=10');
     db.close();
     const store = new SQLiteStore(path);
     store.close();
     db = new DatabaseSync(path);
     const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
     const openedShot = opened.episodes[0].shot_list.shots[0];
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 12);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 13);
     assert.equal(Object.hasOwn(opened, 'output_language'), false);
     assert.equal(openedShot.seconds_storyboard.storyboard[0].action, body);
-    assert.equal(openedShot.seconds_storyboard.node_state.status, 'generated');
+    assert.equal(openedShot.seconds_storyboard.node_state.status, 'expired');
+    assert.equal(openedShot.seconds_storyboard.end_state, '');
     assert.equal(openedShot.seconds_storyboard.node_state.dependency_hash, dependencyHash({ project: opened, tasks: [], steps: [] }, 'seconds', shot.id));
     db.close();
   } finally { await rm(root, { recursive: true, force: true }); }

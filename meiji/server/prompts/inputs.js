@@ -10,7 +10,5 @@ export function commonValues(input) {
     修改意见: input.opinion || '',
     基稿: input.content,
     待审核内容: input.content,
-    待修订镜头表: input.content,
-    上一版切分: input.content,
   };
 }

@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ModelRepository } from '../server/data/model-repository.js';
-import { TaskService } from '../server/flow/tasks/task-service.js';
+import { TaskService } from '../server/flow/tasks/task-manager.js';
 import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { createHandlerRegistry } from '../server/handlers/handler-registry.js';
 import { commitContent } from '../server/handlers/content.js';
@@ -13,7 +13,7 @@ import { primaryCostumeImage } from '../shared/models/character_model.js';
 import { projectFixture } from './fixtures/project.js';
 
 const person = {name:'甲',gender:'男',era:'宋代',position:'主角',age_range:'成年',body_type:'高大',hairstyle:'束发',signature_props:[],immutable_traits:[],costumes:['常服','礼服'].map(name=>({name,color:'蓝',material:'布',props:[]}))};
-const split = {剧集:[{序号:1,起始段落:'P001',结束段落:'P002',预估时长秒:30}]};
+const split = {剧集:[{序号:1,起始段落:'P001',结束段落:'P002',预估时长秒:30}],排除段落:[]};
 const deferred = () => { let resolve; const promise = new Promise(r=>{resolve=r;}); return {promise,resolve}; };
 async function scenario(work) {
  const root=await mkdtemp(join(tmpdir(),'meiji-state-matrix-'));
@@ -24,7 +24,7 @@ async function scenario(work) {
  const execute=createHandlerRegistry({text:createTextHandler({chat:async ctx=>{
   if(ctx.step.kind==='review')return {是否通过:mode!=='reject',原因:mode==='reject'?'角色审核拒绝':''};
   await invoke(ctx);
-  return ctx.task.business_type==='script-split' ? (mode==='reject'?{剧集:[]} : split) : {characters:[person]};
+  return ctx.task.business_type==='script-split' ? (mode==='reject'?{剧集:[],排除段落:[]} : split) : {characters:[person]};
  }}),media:async ctx=>{await invoke(ctx);return {content:{address:`${ctx.task.id}.png`}};}});
  async function invoke({signal}) {
   calls++;
@@ -57,8 +57,15 @@ for(const kind of ['script-split','project-characters','costume-image']) {
  }));
  for(const shutdown of ['late','abort']) test(`${kind} 运行中重启（${shutdown}），作废旧组且恢复后不重放`,()=>scenario(async x=>{
   const entered=x.block(shutdown);await x.service.command(x.command(kind));await entered;
+  const beforeStop=x.model.read().tasks.map(t=>({id:t.id,task_status:t.task_status}));
   const stop=x.service.dispose();if(shutdown==='late'){await new Promise(r=>setTimeout(r,10));x.release();}await stop;
-  const old=x.model.read();assert.ok(old.tasks.every(t=>t.task_status==='superseded'),old.tasks.map(t=>`${t.task_status}:${t.end_reason}`).join(','));assert.equal(old.runtime.queue_stopped,false);
+  const old=x.model.read();
+  for (const item of beforeStop) {
+    const task=old.tasks.find(t=>t.id===item.id);
+    const expected=['queued','running'].includes(item.task_status)?'cancelled':item.task_status;
+    assert.equal(task.task_status, expected, `${item.id}:${task.end_reason}`);
+  }
+  assert.equal(old.runtime.queue_stopped,false);
   const calls=x.calls;x.release();x.setMode('ok');await x.reopen();assert.equal(x.calls,calls);assert.deepEqual(x.model.read().tasks,old.tasks);
   const next=await x.service.command({type:'continue-group',project_id:x.project.id,request_id:'restart-resume',group_id:old.groups[0].id});await x.service.idle(x.project.id);
   assert.ok(x.model.read().tasks.filter(t=>t.group_id===next.group_id).every(t=>t.task_status==='completed'));
@@ -67,7 +74,7 @@ for(const kind of ['script-split','project-characters','costume-image']) {
   await x.model.update('pause',{},s=>{s.runtime.queue_stopped=true;});
   const before=x.model.read().project;await x.service.command(x.command(kind),{source:'session',session_id:'s'});await x.service.idle(x.project.id);
   assert.ok(x.model.read().tasks.every(t=>t.task_status==='queued'));assert.equal(x.calls,0);
-  await x.service.dispose();await x.reopen();assert.ok(x.model.read().tasks.every(t=>t.task_status==='superseded'));assert.deepEqual(x.model.read().project,before);
+  await x.service.dispose();await x.reopen();assert.ok(x.model.read().tasks.every(t=>t.task_status==='cancelled'&&t.end_reason==='服务重启，未完成任务已取消'));assert.deepEqual(x.model.read().project,before);
   await x.service.command(x.command(kind));await x.service.idle(x.project.id);assert.equal(x.model.read().tasks.at(-1).task_status,'completed');
  }));
 }
@@ -88,7 +95,13 @@ for(const kind of ['script-split','project-characters','costume-image']) test(`$
   const exited=once(child,'exit');child.kill('SIGKILL');await exited;
   repo=new ModelRepository(root);const model=await repo.open(project.id),before=model.read();assert.equal(before.tasks[0].task_status,'running');
   service=new TaskService({repository:repo,execute:async()=>{assert.fail('旧任务不能重放');},commitOutput:commitContent});await service.recover(model);
-  const after=model.read();assert.ok(after.tasks.every(t=>t.task_status==='superseded'));assert.ok(after.steps.every(st=>['done','superseded'].includes(st.step_status)));assert.equal(after.runtime.queue_stopped,false);
+  const after=model.read();
+  for (const item of before.tasks) {
+    const task=after.tasks.find(t=>t.id===item.id);
+    const expected=['queued','running'].includes(item.task_status)?'cancelled':item.task_status;
+    assert.equal(task.task_status, expected, task.end_reason);
+  }
+  assert.ok(after.steps.every(st=>['done','cancelled'].includes(st.step_status)));assert.equal(after.runtime.queue_stopped,false);
   assert.deepEqual(after.project.episodes,before.project.episodes);
   if(kind==='costume-image'){const c=after.project.character_library.characters[0];assert.equal(primaryCostumeImage(c).node_state.status,'cancelled');assert.equal(c.costume_images[1].node_state.status,'empty');}
   const stable=model.read();await service.recover(model);assert.deepEqual(model.read(),stable);

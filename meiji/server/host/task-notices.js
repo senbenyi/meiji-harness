@@ -5,7 +5,7 @@ const statusLabels = {
   rejected: "未通过",
   failed: "失败",
   cancelled: "已取消",
-  superseded: "已作废",
+  superseded: "已取消",
   queued: "排队中",
   running: "生成中",
 };

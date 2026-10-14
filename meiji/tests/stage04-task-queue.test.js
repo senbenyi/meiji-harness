@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { TaskService } from "../server/flow/tasks/task-service.js";
+import { TaskService } from "../server/flow/tasks/task-manager.js";
 import { commitContent } from "../server/handlers/content.js";
 import { projectFixture } from "./fixtures/project.js";
 import { nodeOf } from "../shared/task_contract.js";
@@ -313,7 +313,7 @@ test("程序审核与 AI 审核共用修订次数，程序不通过时跳过该�
     assert.equal(snapshot.tasks[0].task_status, "completed", snapshot.tasks[0].end_reason);
     assert.deepEqual(reviews, [[0,"program"],[1,"program"],[1,"ai"],[2,"program"],[2,"ai"]]);
     assert.equal(snapshot.steps.filter(s => s.kind === "revise").length, 2);
-    assert.ok(snapshot.steps.some(s => s.kind === "review" && s.round === 0 && s.name.includes("AI审核") && s.step_status === "superseded"));
+    assert.ok(snapshot.steps.some(s => s.kind === "review" && s.round === 0 && s.name.includes("AI审核") && s.step_status === "cancelled"));
   }, async ({ snapshot, task, step, reviewType }) => {
     if (step.kind === "review") {
       reviews.push([step.round, reviewType]);

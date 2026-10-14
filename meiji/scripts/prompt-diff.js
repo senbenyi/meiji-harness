@@ -12,5 +12,5 @@ const task = taskFixture(project, business, id);
 for (const action of Object.keys(nodeRoutes[business].actions)) {
   const input = taskNodeInput(snapshot, task, null, action);
   const prompt = composeNodePrompt(business, action, input, process.argv[3] || 'qwen3.5:27b');
-  process.stdout.write(JSON.stringify({ business, action, input, system: prompt.system, user: prompt.user }, null, 2) + '\n');
+  process.stdout.write(JSON.stringify({ business, action, input, messages: prompt.messages }, null, 2) + '\n');
 }

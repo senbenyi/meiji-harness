@@ -4,7 +4,7 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {ModelRepository} from '../server/data/model-repository.js';
-import {TaskService} from '../server/flow/tasks/task-service.js';
+import {TaskService} from '../server/flow/tasks/task-manager.js';
 import {commitContent,prepareContent} from '../server/handlers/content.js';
 import {projectFixture} from './fixtures/project.js';
 import {groupDetail} from '../server/data/task-store.js';
@@ -70,7 +70,7 @@ test('提取不派生图片，逐套定妆照中途失败后继续新组并保�
   assert.deepEqual(await service.command(request),pictures);
   await service.idle(p.id);const before=model.read();
   assert.equal(before.groups.length,2);
-  assert.deepEqual(before.tasks.map(t=>t.task_status),['completed','failed','superseded']);
+  assert.deepEqual(before.tasks.map(t=>t.task_status),['completed','failed','cancelled']);
   assert.equal(groupDetail(model,pictures.group_id).status,'failed');
   fail=false;const result=await service.command({type:'continue-group',project_id:p.id,request_id:'again',group_id:pictures.group_id});
   assert.notEqual(result.group_id,pictures.group_id);assert.equal(result.task_ids.length,2);

@@ -37,13 +37,13 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
         chat: async ({ task, step }) => {
           if (step.kind === "review") return { 是否通过: true, 原因: "" };
           return {
-            "script-split": { 剧集: [{ 序号: 1, 起始段落: "P001", 结束段落: "P001", 预估时长秒: 5 }] },
+            "script-split": { 剧集: [{ 序号: 1, 起始段落: "P001", 结束段落: "P001", 预估时长秒: 5 }], 排除段落: [] },
             "project-summary": "钟表静物", "episode-summary": "钟表静物",
             "project-characters": { characters: [] },
             outline: { segments: [{ sequence: 1, duration_seconds: 5, body: "秒针向前走动", causal: "" }] },
             shots: { shots: [{ title: "钟表", number: "S01", duration_seconds: 5, shot_scale: "特写", hook: "揭示", body: "秒针向前走动", continuity_transition: "", reference_anchor: { fixed_landmark: "", character_positions: "", departed_characters: "", lighting: "" }, audio_arrangement: { narration: "", dialogue: "", sound_effects: "" } }] },
             "shot-characters": { on_screen_characters: [] },
-            seconds: { storyboard: [beat] },
+            seconds: { end_state: "人物位于镜末位置，动作已完成。", pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: [beat] },
             storyboard: "integrated_multimodal_description:\n秒针走动，镜头固定，桌面有机械声，结束秒针停止。\noverall_soundscape:\n机械声\nnon_diegetic_music:\n无",
           }[task.business_type];
         },

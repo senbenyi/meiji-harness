@@ -1,6 +1,14 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { recordTransfer } from '../gateway/gateway-trace.js';
 import { publicHeaders, redactJson } from '../gateway/redact.js';
+import { getGlobalDispatcher } from 'undici';
+
+export const requestTimeoutMs = 60 * 60 * 1000;
+export const requestDispatcher = {
+  dispatch(options, handler) {
+    return getGlobalDispatcher().dispatch({ ...options, headersTimeout: requestTimeoutMs, bodyTimeout: requestTimeoutMs }, handler);
+  },
+};
 
 export async function sendChat(request, { signal, fetchImpl = fetch, retryDelays = [1000, 3000] } = {}) {
   const { url, headers, body, apiKey } = request;
@@ -9,21 +17,22 @@ export async function sendChat(request, { signal, fetchImpl = fetch, retryDelays
     signal?.throwIfAborted();
     const started = Date.now();
     let response, data;
-    const record = (result) => recordTransfer({
+    const transfer = {
       fn: 'sendChat', method: 'POST', path: url.pathname,
       request: { method: 'POST', path: url.pathname, headers: publicHeaders(headers, apiKey), body: redactJson(body, apiKey) },
-      durationMs: Date.now() - started, ...result,
-    });
+    };
+    const settle = (result) => recordTransfer(Object.assign(transfer, { durationMs: Date.now() - started, ...result }));
+    await recordTransfer(transfer);
     try {
-      const timeout = AbortSignal.timeout(15 * 60 * 1000);
-      response = await fetchImpl(url, { method: 'POST', headers, body: JSON.stringify(body), signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+      const timeout = AbortSignal.timeout(requestTimeoutMs);
+      response = await fetchImpl(url, { method: 'POST', headers, body: JSON.stringify(body), dispatcher: requestDispatcher, signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
       const text = await response.text();
       try { data = JSON.parse(text); } catch { data = text; }
     } catch (error) {
-      await record({ ok: false, status: response?.status ?? null, error: redactJson(error.message, apiKey) });
+      await settle({ ok: false, status: response?.status ?? null, error: redactJson(error.message, apiKey) });
       throw error;
     }
-    await record({ ok: response.ok, status: response.status, body: redactJson(data, apiKey) });
+    await settle({ ok: response.ok, status: response.status, body: redactJson(data, apiKey) });
     signal?.throwIfAborted();
     if (!response.ok) {
       if ([502, 503, 504].includes(response.status) && attempt < retryDelays.length) continue;

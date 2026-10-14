@@ -162,7 +162,7 @@ export function validateProject(project) {
   for (const episode of project.episodes) {
     register(episode.id, "episodes.id");
     if (!Number.isInteger(episode.sequence) || episode.sequence < 1) invalid("episodes.sequence", "需为正整数");
-    if (!Number.isInteger(episode.duration_seconds) || episode.duration_seconds < 1) invalid("episodes.duration_seconds", "需为正整数");
+    if (!Number.isFinite(episode.duration_seconds) || episode.duration_seconds <= 0) invalid("episodes.duration_seconds", "需为有限正数");
     if (!Number.isFinite(episode.actual_duration_seconds) || episode.actual_duration_seconds < 0) invalid("episodes.actual_duration_seconds", "需为非负秒数");
     for (const segment of episode.story_outline.segments) {
       if (!Number.isInteger(segment.sequence) || segment.sequence < 1) invalid("story_outline.segments.sequence", "需为正整数");

@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { TaskService } from "../server/flow/tasks/task-service.js";
+import { TaskService } from "../server/flow/tasks/task-manager.js";
 import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
 import { commitContent } from "../server/handlers/content.js";
@@ -20,7 +20,8 @@ async function runScenario({ repairDurations, invalidShape = false, episodeDurat
   episode.shot_list.node_state.dependency_hash = oldHash;
   const repository = new ModelRepository(root), model = await repository.create(project), prompts = [];
   let generationCount = 0;
-  const handler = createTextHandler({ chat: async ({ step, prompt }) => {
+  const handler = createTextHandler({ chat: async ({ step, messages }) => {
+    const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
     if (step.kind === "review") return { 是否通过: true, 原因: "" };
     prompts.push({ step, prompt });
     const durations = repairDurations[generationCount++] || [15, 5];

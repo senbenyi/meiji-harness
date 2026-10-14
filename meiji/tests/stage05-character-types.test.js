@@ -11,7 +11,8 @@ for (const kind of ['generate', 'revise']) {
       signature_props: ['哨棒', '竹篮'], immutable_traits: ['眉骨分明', '右手虎口旧疤'],
       costumes: [{ name: '短衣', color: '', material: '', props: [] }] };
     let candidate = person;
-    const handler = createTextHandler({ chat: async ({ system }) => {
+    const handler = createTextHandler({ chat: async ({ messages }) => {
+    const system = messages[0].content;
       assert.match(system, /必须为字符串数组/);
       return { characters: [candidate] };
     } });

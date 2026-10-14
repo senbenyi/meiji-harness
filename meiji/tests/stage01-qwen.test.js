@@ -82,7 +82,7 @@ test('千问：所有文本生成/审核/修订保留 system/user 分工，媒�
   let textCount = 0, mediaCount = 0
   for (const [node, route] of Object.entries(nodeRoutes)) for (const [action, contract] of Object.entries(route.actions)) {
     const prompt = composeNodePrompt(node, action, sampleInput(contract.input), 'qwen3.5:27b')
-    assert.equal(prompt.body, node === 'video' ? prompt.user : `${prompt.system}\n\n${prompt.user}`)
+    assert.equal(prompt.body, node === 'video' ? prompt.user : prompt.messages.map(message => message.content).join("\n\n"))
     assert.ok(!prompt.user.includes('# 输出格式'))
     if (node !== 'video') assert.ok(prompt.user.includes(route.promptModel[action].user.任务))
     if (['JSON', '文本'].includes(prompt.output.type)) {
@@ -143,7 +143,7 @@ test('千问：真实 runtime 经独立文本 HTTP 完成生成、审核及修�
       assert.equal(request.body.max_tokens, undefined)
       assert.ok(!JSON.stringify(request).includes('不进入下一轮提示'))
     }
-    assert.match(requests[2].body.messages[1].content, /摘要需要保留结局/)
+    assert.match(requests[2].body.messages.at(-1).content, /摘要需要保留结局/)
   } finally {
     await runtime?.dispose()
     for (const server of [api, modelServer].filter(Boolean)) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)) }

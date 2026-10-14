@@ -129,6 +129,11 @@ export function isNodeCurrent(snapshot, business, id) {
     const node = nodeOf(snapshot.project, business, id);
     if (!node || node.node_state.status !== "generated") return false;
     assertOutput(snapshot.project, business, id);
+    if (business === 'seconds') {
+      const { episode, object } = locateTarget(snapshot.project, business, id);
+      const previous = previousShot(episode, object);
+      if (previous && !isNodeCurrent(snapshot, 'seconds', previous.id)) return false;
+    }
     return recordedHash.test(node.node_state.dependency_hash) &&
       node.node_state.dependency_hash === dependencyHash(snapshot, business, id);
   } catch (error) {
@@ -217,7 +222,11 @@ export function downstream(snapshot, business, id) {
     const next = shots[shots.findIndex(shot => shot.id === id) + 1];
     return [one('seconds', id), one('first-last-frame', id), one('multimodal', id), one('video', id), ...(next ? [one('shot-characters', next.id)] : [])];
   }
-  if (business === "seconds") return [one("storyboard", id)];
+  if (business === "seconds") {
+    const shots = [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence);
+    const next = shots[shots.findIndex(shot => shot.id === id) + 1];
+    return [one("storyboard", id), ...(next ? [one('seconds', next.id)] : [])];
+  }
   if (business === 'storyboard') return [one('first-last-frame', id), one('multimodal', id), one('video', id)];
   if (['first-last-frame','multimodal'].includes(business)) return [one('video', id)];
   if (business === 'video') return [one('tail', id), ...downstream(snapshot, 'tail', id), one('assembly', e.id)];

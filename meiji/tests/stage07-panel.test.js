@@ -316,11 +316,11 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     assert.equal(outline.querySelector(".node-ui-status").textContent, "已生成");
     assert.equal(outline.querySelector(".section-titles .status-label"), null);
     assert.deepEqual(
-      labelsOf(outline).filter((label) => ["AI生成", "重新生成", "按意见修改"].includes(label)),
-      ["重新生成"],
+      labelsOf(outline).filter((label) => ["AI生成", "重新生成", "原结果修订"].includes(label)),
+      ["重新生成", "原结果修订"],
     );
     assert.deepEqual(
-      labelsOf(cardOf("剧本")).filter((label) => ["AI生成", "重新生成", "按意见修改"].includes(label)),
+      labelsOf(cardOf("剧本")).filter((label) => ["AI生成", "重新生成", "原结果修订"].includes(label)),
       [],
     );
     assert.equal(cardOf("剧本").querySelector(".status-label"), null);
@@ -373,18 +373,18 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
       false,
     );
     assert.deepEqual(
-      labelsOf(cardOf("项目摘要")).filter((label) => ["重新生成", "按意见修改"].includes(label)),
-      ["重新生成", "按意见修改"],
+      labelsOf(cardOf("项目摘要")).filter((label) => ["重新生成", "原结果修订"].includes(label)),
+      ["重新生成", "原结果修订"],
     );
     assert.equal(cardOf("剧本").querySelector(".section-titles .status-label"), null);
     assert.equal(cardOf("剧本").querySelector(".workflow-generation-row .node-ui-status").textContent, "未通过");
     assert.deepEqual(
-      labelsOf(cardOf("剧本")).filter((label) => ["重新生成", "按意见修改"].includes(label)),
+      labelsOf(cardOf("剧本")).filter((label) => ["重新生成", "原结果修订"].includes(label)),
       [],
     );
     assert.equal(titled("提取人物").querySelector(".node-ui-status").textContent, "未通过");
     assert.ok(titled("提取人物").textContent.includes("未通过"));
-    assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "按意见修改", "人工编辑", "人工放行", "任务历史"]);
+    assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "原结果修订", "人工编辑", "人工放行", "任务历史"]);
   } finally {
     globalThis.document = previous;
     dom.window.close();

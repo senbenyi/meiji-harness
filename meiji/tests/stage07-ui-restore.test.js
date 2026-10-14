@@ -259,9 +259,12 @@ test("UI-4 人物文字网格/服装详情和编号，运行冻结；不显示�
     context.paint();
     assert.ok(root.querySelector(".image-text-editor .image-text-grid"));
     assert.ok(root.querySelector(".character-wardrobe .wardrobe-name"));
+    assert.equal(root.querySelector("[data-business=costume-image]"), null);
+    assert.deepEqual([...root.querySelectorAll(".character-detail-actions button")].map((item) => item.textContent), ["生成定妆照", "上传参考图", "删除角色"]);
     assert.equal(root.textContent.includes(role.id), false);
     root.querySelector(".wardrobe-name").click();
     assert.ok(root.querySelector(".costume-detail"));
+    assert.equal(root.querySelector("[data-business=costume-image]")?.dataset.business, "costume-image");
     assert.ok(root.querySelector("[name=color]"));
     snap.tasks = [{ task_status: "running" }];
     context.paint();

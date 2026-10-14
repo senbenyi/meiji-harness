@@ -30,11 +30,13 @@ export function renderResource(root, env) {
   backHeader(view, title, costumeView ? "返回人物资料" : "返回项目概要",
     () => costumeView ? go("character", { costume_id: null }) : go("overview"));
   const card = element("article", "", "overview-card");
-  const imageCard = nodeCard("costume-image",
-    costumeView ? costume?.id || character.id : image.costume_id || character.id, image, { readOnly: historical || !costumeView });
-  imageCard.className = "character-primary-picture";
-  card.append(imageCard, element("p", costume?.number || character.number, "meta"));
-  if (historical) card.append(element("p", "此图为尚无明确服装时的历史定妆照，内容与任务历史保留。", "meta"));
+  if (costumeView) {
+    const imageCard = nodeCard("costume-image", costume?.id || character.id, image, { readOnly: historical });
+    imageCard.className = "character-primary-picture";
+    card.append(imageCard);
+    if (historical) card.append(element("p", "此图为尚无明确服装时的历史定妆照，内容与任务历史保留。", "meta"));
+  }
+  card.append(element("p", costume?.number || character.number, "meta"));
   if (!costumeView || costume) {
     const keys = costume ? ["name", "color", "material", "props"]
       : ["name", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits", "gender", "nationality", "era", "height", "facial_features", "voice", "required_appearance"];
@@ -43,41 +45,51 @@ export function renderResource(root, env) {
     const form = element("form", "", "image-text-editor");
     form.dataset.draftKey = `resource:${target.id}`;
     form.append(element("h4", "文字资料"), fields.box);
-    const label = element("label", "默认服装"), select = element("select");
-    select.name = "default_costume_id";
-    select.setAttribute("aria-label", "默认服装");
-    const none = element("option", "不指定"); none.value = ""; select.append(none);
-    for (const outfit of character.costumes) {
-      const option = element("option", `${outfit.number} ${outfit.name}`);
-      option.value = outfit.id; select.append(option);
+    if (!costume) {
+      const label = element("label", "默认服装"), select = element("select");
+      select.name = "default_costume_id";
+      select.setAttribute("aria-label", "默认服装");
+      const none = element("option", "不指定"); none.value = ""; select.append(none);
+      for (const outfit of character.costumes) {
+        const option = element("option", `${outfit.number} ${outfit.name}`);
+        option.value = outfit.id; select.append(option);
+      }
+      select.value = character.default_costume_id; select.disabled = busy;
+      label.append(select); form.append(label);
     }
-    select.value = character.default_costume_id; select.disabled = busy;
-    label.append(select); form.append(label);
-    const error = element("p", "", "error"), save = element("button", "保存", "primary");
+    const error = element("p", "", "error"), save = element("button", "保存", "primary"), footer = element("div", "", "form-save-footer");
     save.type = "submit"; save.disabled = busy;
-    form.append(error, save);
+    footer.append(save);
+    form.append(error, footer);
     form.oninput = () => { form.dataset.dirty = "true"; };
     form.onsubmit = async (event) => {
       event.preventDefault(); save.disabled = true;
       try {
+        const select = form.querySelector("[name=default_costume_id]");
         await act({ type: costume ? "edit-costume" : "edit-character", target_id: target.id,
-          fields: { ...fields.read(), ...(!costume ? { default_costume_id: select.value } : {}) } }, true);
-        if (costume && select.value !== character.default_costume_id)
-          await act({ type: "edit-character", target_id: character.id, fields: { default_costume_id: select.value } }, true);
+          fields: { ...fields.read(), ...(!costume && select ? { default_costume_id: select.value } : {}) } }, true);
         form.dataset.dirty = "false";
       } catch (cause) { error.textContent = cause.message; }
       finally { save.disabled = busy; }
     };
-    card.append(form, button(costume ? "删除服装" : "删除角色", async () => {
+    card.append(form);
+    const remove = button(costume ? "删除服装" : "删除角色", async () => {
       if (!window.confirm(`删除${target.name}？`)) return;
       await act({ type: "delete", business_type: costume ? "costume-delete" : "character-delete", target_id: target.id });
       go(costume ? "character" : "overview", { costume_id: null });
-    }));
+    });
+    remove.classList.add("delete-content");
+    if (costume) {
+      const actions = element("div", "", "workflow-generation-row character-detail-actions");
+      actions.append(remove);
+      card.append(actions);
+    } else card._remove = remove;
   }
   if (!costumeView) {
-    const portraits = character.costumes.length ? character.costumes.map(costume => character.costume_images.find(image => image.costume_id === costume.id)) : [primaryCostumeImage(character)];
-    const regenerate = portraits.every(image => image?.address);
-    card.append(button(regenerate ? "重新生成定妆照" : "生成定妆照", () => act({ type: "submit-costumes", target_id: character.id, action: regenerate ? "regenerate" : "generate" })));
+    const portraits = character.costumes.length ? character.costumes.map((outfit) => character.costume_images.find((entry) => entry.costume_id === outfit.id)) : [primaryCostumeImage(character)];
+    const regenerate = portraits.every((portrait) => portrait?.address);
+    const actions = element("div", "", "workflow-generation-row character-detail-actions");
+    actions.append(button(regenerate ? "重新生成定妆照" : "生成定妆照", () => act({ type: "submit-costumes", target_id: character.id, action: regenerate ? "regenerate" : "generate" })));
     const upload = element("input"); upload.type = "file"; upload.hidden = true;
     upload.accept = "image/png,image/jpeg,image/webp"; upload.disabled = busy;
     upload.setAttribute("aria-label", "上传角色参考图");
@@ -91,10 +103,15 @@ export function renderResource(root, env) {
         await act({ type: "reference-image", target_id: character.id, data }, true);
       } catch (cause) { env.onError(cause.message); }
     };
-    card.append(upload, button("上传参考图", () => upload.click()));
+    actions.append(upload, button("上传参考图", () => upload.click()), card._remove);
+    delete card._remove;
+    const meta = [...card.children].find((node) => node.matches("p.meta"));
+    card.prepend(actions);
+    if (meta) card.insertBefore(meta, actions);
     if (character.reference_image.address) {
+      const preview = element("figure", "", "reference-preview");
       const img = element("img"); img.src = media(character.reference_image.address);
-      img.alt = "角色参考图"; img.style.maxWidth = "100%"; card.append(img);
+      img.alt = "角色参考图"; preview.append(img); card.insertBefore(preview, card.querySelector("form"));
     }
     const wardrobe = element("section", "", "character-wardrobe"), head = element("div", "", "image-text-head");
     head.append(element("h4", "定妆照与服装"), button("＋ 添加服装", () =>

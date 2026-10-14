@@ -1,6 +1,6 @@
 // 独立进程在真实 SQLite 已保存 running/queued 后等待父测试 SIGKILL。
 import { ModelRepository } from '../../server/data/model-repository.js';
-import { TaskService } from '../../server/flow/tasks/task-service.js';
+import { TaskService } from '../../server/flow/tasks/task-manager.js';
 import { commitContent } from '../../server/handlers/content.js';
 const [root,id,kind]=process.argv.slice(2);
 const repo=new ModelRepository(root),model=await repo.open(id);

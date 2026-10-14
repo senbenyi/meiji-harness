@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { TaskService } from "../server/flow/tasks/task-service.js";
+import { TaskService } from "../server/flow/tasks/task-manager.js";
 import { commitContent } from "../server/handlers/content.js";
 import { projectFixture } from "./fixtures/project.js";
 import { nodeOf } from "../shared/task_contract.js";
@@ -42,7 +42,7 @@ test("S4-04/05/06 组内停止作废后序，继续新组从停点接续，旧�
     await service.idle(p.id);
     const before = model.read();
     assert.equal(before.tasks[0].task_status, "rejected");
-    assert.equal(before.tasks[1].task_status, "superseded");
+    assert.equal(before.tasks[1].task_status, "cancelled");
     assert.equal(
       before.project.episodes[0].shot_list.shots[1].seconds_storyboard.node_state.status,
       "generated",

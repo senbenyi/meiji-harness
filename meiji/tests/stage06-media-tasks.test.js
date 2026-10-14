@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { TaskService } from "../server/flow/tasks/task-service.js";
+import { TaskService } from "../server/flow/tasks/task-manager.js";
 import { createTestMediaHandler as createMediaHandler } from "./fixtures/ai.js";
 import { commitContent } from "../server/handlers/content.js";
 import { MediaStore } from "../server/media/media-store.js";
@@ -283,7 +283,7 @@ test("合片缺失、损坏、跨项目或依赖过期的视频在前置失败�
         assert.equal(task.task_status, "failed", kind);
         assert.equal(steps[0].kind, "precheck");
         assert.equal(steps[0].step_status, "failed", kind);
-        assert.equal(steps[1].step_status, "superseded", kind);
+        assert.equal(steps[1].step_status, "cancelled", kind);
         assert.equal(calls.includes("generate"), false, kind);
         assert.equal(after.project.episodes[0].assembly.address, old.address);
         assert.equal(after.project.episodes[0].assembly.node_state.status, "failed");
