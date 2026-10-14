@@ -305,8 +305,6 @@ test("S1-04 所有命令共享严格白名单，组/人工/删除/队列协议�
       business_type: "character-delete",
       target_id: p.character_library.characters[0].id,
     },
-    { type: "start-queued", task_id: taskId },
-    { type: "remove-queued", task_id: taskId },
   ])
     assert.equal(validateCommand({ ...base, ...data }).type, data.type);
   assert.equal(

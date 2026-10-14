@@ -58,7 +58,6 @@ test("S6-05/06 人工编辑与放行均两步，AI 不调用；非法内容保�
       s.project.project_summary.node_state.status = "rejected";
       s.project.project_summary.node_state.reason = "审核不通过";
       s.project.project_summary.node_state.fail_message = "";
-      s.runtime.queue_stopped = false;
       return {};
     });
     await service.command({
@@ -107,7 +106,6 @@ for (const business of ["outline", "shots"])
           if (business === "outline") current.segments[0].duration_seconds = 137.5;
           else current.shots[0].duration_seconds = 4;
         }
-        snapshot.runtime.queue_stopped = false;
         return {};
       });
       await reject("mark-rejected", false);

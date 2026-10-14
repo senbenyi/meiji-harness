@@ -59,5 +59,5 @@ export function taskFixture(p, business = "seconds", target = p.episodes[0].shot
 }
 export const snapshotFixture = () => ({
   project: projectFixture(), tasks: [], steps: [], groups: [],
-  runtime: { revision: 1, requests: [], queue_stopped: false, outbox: [] },
+  runtime: { revision: 1, requests: [], outbox: [] },
 });

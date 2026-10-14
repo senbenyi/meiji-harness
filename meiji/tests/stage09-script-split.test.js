@@ -118,49 +118,27 @@ function scriptProject() {
   return p;
 }
 
-test("暂停时会话拆分保持排队，面板重复拆分复用同一任务并执行", async () => {
+test("会话拆分自动启动，执行中面板重复提交复用同一任务", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-split-start-"));
+  let release, enter;
+  const gate = new Promise(r=>release=r), entered = new Promise(r=>enter=r);
+  let service;
   try {
     const p = scriptProject(), repository = new ModelRepository(root), model = await repository.create(p);
-    await model.update("pause", {}, s => { s.runtime.queue_stopped = true; });
     let calls = 0;
-    const text = createTextHandler({ chat: async ({ task, step }) => { calls++; assert.equal(task.business_type, "script-split"); return covered(rows); } });
-    const service = new TaskService({ repository, commitOutput: commitContent,
-      execute: createHandlerRegistry({ text, media: async () => { throw new Error("不应调用媒体"); } }) });
-    const command = { type: "submit", project_id: p.id, target_id: p.id, business_type: "script-split", action: "generate", request_id: "session-split" };
-    const queued = await service.command(command, { source: "session", session_id: "s" });
-    await service.idle(p.id);
-    assert.equal(model.read().runtime.queue_stopped, true);
-    assert.equal(model.read().tasks[0].task_status, "queued");
-    assert.equal(calls, 0);
-    const started = await service.command({ ...command, request_id: "panel-split" });
-    assert.equal(started.task_id, queued.task_id);
-    await service.idle(p.id);
-    assert.equal(model.read().tasks.length, 1);
-    assert.ok(model.read().tasks.every(task => task.task_status === "completed"));
-    assert.equal(new Set(model.read().tasks.map(task => task.group_id)).size, 1);
-    assert.equal(calls, 1);
-    assert.equal((await new ModelRepository(root).open(p.id)).read().project.episodes.length, 2);
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test("暂停队列有其他业务时拒绝直接拆分，不恢复其他任务、不新增拆分", async () => {
-  const root = await mkdtemp(join(tmpdir(), "meiji-split-conflict-"));
-  try {
-    const p = scriptProject(), repository = new ModelRepository(root), model = await repository.create(p);
-    await model.update("pause", {}, s => { s.runtime.queue_stopped = true; });
-    let calls = 0;
-    const service = new TaskService({ repository, commitOutput: commitContent, execute: async () => { calls++; throw new Error("不应执行"); } });
-    const command = { type: "submit", project_id: p.id, target_id: p.id, business_type: "project-summary", action: "generate", request_id: "summary" };
-    const queued = await service.command(command);
-    await service.idle(p.id);
-    assert.equal(model.read().runtime.queue_stopped, true);
-    await assert.rejects(service.command({ ...command, business_type: "script-split", request_id: "split" }), e => e.code === "TASK_CONFLICT" && e.conflicts[0].task_id === queued.task_id);
-    assert.equal(model.read().tasks.length, 1);
-    assert.equal(model.read().tasks[0].task_status, "queued");
-    assert.equal(model.read().runtime.queue_stopped, true);
-    assert.equal(calls, 0);
-  } finally { await rm(root, { recursive: true, force: true }); }
+    const text = createTextHandler({ chat: async () => { calls++; enter(); await gate; return covered(rows); } });
+    service = new TaskService({ repository, commitOutput: commitContent,
+      execute: createHandlerRegistry({ text, media: async () => { throw Error("不应调用媒体"); } }) });
+    const command = { type:"submit",project_id:p.id,target_id:p.id,business_type:"script-split",action:"generate",request_id:"session-split" };
+    const first = await service.command(command,{source:"session",session_id:"s"});
+    await entered;
+    const duplicate = await service.command({...command,request_id:"panel-split"});
+    assert.equal(first.task_id,duplicate.task_id);
+    release(); await service.idle(p.id);
+    assert.equal(model.read().tasks.length,1);
+    assert.equal(model.read().tasks[0].task_status,"completed");
+    assert.equal(calls,1);
+  } finally { release(); await service?.dispose(); await rm(root,{recursive:true,force:true}); }
 });
 
 test("拆分剧集真实任务：失败暂停后面板再次拆分直接执行，旧失败保留，成功写入剧情与磁盘", async () => {
@@ -198,7 +176,7 @@ test("拆分剧集真实任务：失败暂停后面板再次拆分直接执行�
     const first = await service.command(command);
     await service.idle(p.id);
     assert.equal(model.read().tasks.find(t => t.id === first.task_id).task_status, "failed");
-    assert.equal(model.read().runtime.queue_stopped, true);
+
     const r = await service.command({ ...command, request_id: "split-again" });
     await service.idle(p.id);
     const s = model.read(),

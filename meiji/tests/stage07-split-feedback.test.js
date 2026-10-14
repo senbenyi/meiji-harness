@@ -11,7 +11,6 @@ for (const status of ['queued', 'running', 'failed', 'completed', 'cancelled', '
       globalThis.document = dom.window.document;
       const s = snapshotFixture(), root = document.querySelector('main');
       s.project.creation_mode = '剧本';
-      s.runtime.queue_stopped = true;
       s.tasks = [
         { id: 'old', business_type: 'script-split', target_id: s.project.id, task_status: 'failed', end_reason: '旧错误', queue_order: 1 },
         { id: 'new', business_type: 'script-split', target_id: s.project.id, task_status: status, end_reason: status === 'failed' ? '模型没有返回有效JSON' : '', queue_order: 2 },

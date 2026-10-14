@@ -85,37 +85,23 @@ test("S4-01/02 同节点去重与项目串行，可控 Promise 确認实际时�
     },
   );
 });
-test("S4-03 rejected 停住队列，原任务终态不可复活，面板显式开始下一项", async () => {
-  let first = true;
-  await withService(
-    async ({ p, model, service }) => {
-      await service.command(submit(p));
-      await service.command(submit(p, "project-summary", p.id, "next"));
-      await service.idle(p.id);
-      const [old, next] = model.read().tasks;
-      assert.equal(old.task_status, "rejected");
-      assert.equal(next.task_status, "queued");
-      assert.equal(model.read().runtime.queue_stopped, true);
-      first = false;
-      await service.command({
-        type: "start-queued",
-        project_id: p.id,
-        request_id: "start",
-        task_id: next.id,
-      });
-      await service.idle(p.id);
-      assert.equal(model.read().tasks[0].task_status, "rejected");
-      assert.equal(
-        model.read().tasks[1].task_status,
-        "completed",
-        model.read().tasks[1].end_reason,
-      );
-    },
-    async ({ step }) =>
-      step.kind === "review"
-        ? { result: { 是否通过: !first, 原因: first ? "剧情未通过" : "" } }
-        : { content: { body: "新摘要" } },
-  );
+test("审核未通过取消跨组排队，新提交自动运行且旧终态不变", async () => {
+  const entered = deferred(), gate = deferred(); let reject = true;
+  await withService(async ({p,model,service}) => {
+    await service.command(submit(p)); await entered.promise;
+    await service.command(submit(p,"project-summary",p.id,"next"));
+    gate.resolve(); await service.idle(p.id);
+    const old = model.read().tasks;
+    assert.deepEqual(old.map(t=>t.task_status),["rejected","cancelled"]);
+    reject=false;
+    await service.command(submit(p,"project-summary",p.id,"fresh"));
+    await service.idle(p.id);
+    assert.deepEqual(model.read().tasks.slice(0,2),old);
+    assert.equal(model.read().tasks[2].task_status,"completed");
+  },async ({step}) => {
+    entered.resolve(); await gate.promise;
+    return step.kind === "review" ? {result:{是否通过:!reject,原因:reject?"未通过":""}} : {content:{body:"摘要"}};
+  });
 });
 test("面板重试同一失败节点直接启动新任务并保留失败历史", async () => {
   let failReview = true;
@@ -125,13 +111,13 @@ test("面板重试同一失败节点直接启动新任务并保留失败历史",
       await service.idle(p.id);
       assert.equal(model.read().tasks[0].task_status, "failed");
       assert.equal(model.read().project.episodes[0].summary.node_state.status, "failed");
-      assert.equal(model.read().runtime.queue_stopped, true);
+
 
       const retry = submit(p, "episode-summary", p.episodes[0].id, "retry");
       retry.action = "generate";
       const retried = await service.command(retry);
       assert.notEqual(retried.task_id, failed.task_id);
-      assert.equal(model.read().runtime.queue_stopped, false);
+
       await service.idle(p.id);
 
       assert.equal(model.read().tasks[0].task_status, "failed");
@@ -139,14 +125,12 @@ test("面板重试同一失败节点直接启动新任务并保留失败历史",
       assert.equal(model.read().tasks[1].action, "regenerate");
       assert.equal(model.read().project.episodes[0].summary.node_state.status, "generated");
 
-      await model.update("pause-after-retry", {}, (s) => {
-        s.runtime.queue_stopped = true;
-      });
       const later = submit(p, "episode-summary", p.episodes[0].id, "ordinary-after-retry");
       later.action = "generate";
       const ordinary = await service.command(later);
+      await service.idle(p.id);
       assert.equal(model.read().tasks.find((task) => task.id === ordinary.task_id).action, "generate");
-      assert.equal(model.read().runtime.queue_stopped, true);
+
     },
     async ({ step }) => {
       if (step.kind === "review") {
@@ -160,82 +144,20 @@ test("面板重试同一失败节点直接启动新任务并保留失败历史",
     },
   );
 });
-test("失败节点重试遇到其他等待任务时冲突，会话重试仍保持暂停", async () => {
-  await withService(
-    async ({ p, model, service }) => {
-      await service.command(submit(p));
-      await service.idle(p.id);
-      await service.command(
-        submit(p, "project-summary", p.id, "session-next"),
-        { source: "session", session_id: "session-test" },
-      );
-      await service.idle(p.id);
-      assert.equal(model.read().tasks[1].task_status, "queued");
-      assert.equal(model.read().runtime.queue_stopped, true);
-
-      const retry = submit(
-        p,
-        "episode-summary",
-        p.episodes[0].id,
-        "retry-conflict",
-      );
-      retry.action = "generate";
-      await assert.rejects(
-        service.command(retry),
-        (error) =>
-          error.code === "TASK_CONFLICT" &&
-          error.conflicts.some((task) => task.task_id === model.read().tasks[1].id),
-      );
-      assert.equal(model.read().runtime.queue_stopped, true);
-      assert.equal(model.read().tasks.length, 2);
-    },
-    async ({ step }) => {
-      if (step.kind === "review") throw new Error("解析失败");
-      return { content: { body: "内容" } };
-    },
-  );
+test("失败后会话跨节点提交自动执行，无需面板恢复", async () => {
+  let fail = true;
+  await withService(async ({p,model,service}) => {
+    await service.command(submit(p)); await service.idle(p.id);
+    assert.equal(model.read().tasks[0].task_status,"failed"); fail=false;
+    await service.command(submit(p,"project-summary",p.id,"session-next"),{source:"session",session_id:"session-test"});
+    await service.idle(p.id);
+    assert.equal(model.read().tasks[1].task_status,"completed");
+  },async ({step}) => {
+    if(fail)throw Error("模拟HTTP断连");
+    return step.kind === "review" ? {result:{是否通过:true,原因:""}} : {content:{body:"摘要"}};
+  });
 });
-test("面板重试已排队的同节点请求时复用并校正为重新生成", async () => {
-  let failReview = true;
-  await withService(
-    async ({ p, model, service }) => {
-      await service.command(submit(p));
-      await service.idle(p.id);
-      const pending = submit(p, "episode-summary", p.episodes[0].id, "session-retry");
-      pending.action = "generate";
-      const queued = await service.command(pending, {
-        source: "session",
-        session_id: "session-test",
-      });
-      await service.idle(p.id);
-      assert.equal(model.read().tasks[1].task_status, "queued");
-      assert.equal(model.read().runtime.queue_stopped, true);
-
-      const retry = submit(p, "episode-summary", p.episodes[0].id, "panel-retry");
-      retry.action = "generate";
-      const started = await service.command(retry);
-      assert.equal(started.task_id, queued.task_id);
-      await service.idle(p.id);
-
-      assert.equal(model.read().tasks.length, 2);
-      assert.equal(model.read().tasks[0].task_status, "failed");
-      assert.equal(model.read().tasks[1].task_status, "completed");
-      assert.equal(model.read().tasks[1].action, "regenerate");
-      assert.equal(model.read().project.episodes[0].summary.node_state.status, "generated");
-    },
-    async ({ step }) => {
-      if (step.kind === "review") {
-        if (failReview) {
-          failReview = false;
-          throw new Error("JSON 解析失败");
-        }
-        return { result: { 是否通过: true, 原因: "" } };
-      }
-      return { content: { body: "重试后摘要" } };
-    },
-  );
-});
-test("S4-07 运行取消后晚到模型不写内容，队列不自动继续", async () => {
+test("S4-07 运行取消后晚到模型不写内容，剩余任务全部取消", async () => {
   const entered = deferred(),
     gate = deferred();
   await withService(
@@ -253,7 +175,7 @@ test("S4-07 运行取消后晚到模型不写内容，队列不自动继续", as
       await service.idle(p.id);
       assert.equal(model.read().tasks[0].task_status, "cancelled");
       assert.equal(model.read().project.episodes[0].summary.body, "展示摘要");
-      assert.equal(model.read().tasks[1].task_status, "queued");
+      assert.equal(model.read().tasks[1].task_status, "cancelled");
     },
     async () => {
       entered.resolve();
@@ -345,4 +267,55 @@ test("首次无内容解析失败后，AI生成创建新任务并直接执行", 
     if (fail) throw new Error("输出无法解析");
     return step.kind === "review" ? { result: { 是否通过: true, 原因: "" } } : { content: { body: "新摘要" } };
   });
+});
+
+test("从排队节点取消全项目；旧请求退出前新提交等待，迟到结果隔离且跨项目不取消", async () => {
+  const entered=deferred(), gate=deferred(), otherEntered=deferred(), otherGate=deferred();
+  let otherId, oldSignal, calls=0;
+  await withService(async ({p,model,service,repository}) => {
+    const other=projectFixture(), otherModel=await repository.create(other); otherId=other.id;
+    assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
+    await service.command(submit(p));
+    await entered.promise;
+    await service.command(submit(other)); await otherEntered.promise;
+    const queued=await service.command(submit(p,'project-summary',p.id,'next'));
+    assert.equal(service.current(model).status,'running');
+    const cancel={type:'cancel',project_id:p.id,request_id:'cancel-project',task_id:queued.task_id};
+    await service.command(cancel);
+    assert.equal(oldSignal.aborted,true);
+    assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
+    assert.equal(otherModel.read().tasks[0].task_status,'running');
+    const cancelled=model.read().tasks;
+    assert.ok(cancelled.every(t=>t.task_status==='cancelled' && t.ended_at));
+    const fresh=await service.command(submit(p,'project-summary',p.id,'fresh'));
+    assert.equal(service.current(model).status,'queued');
+    assert.equal(calls,1,'旧请求清理结束前不得发起新请求');
+    await service.command(cancel); // 幂等重放不得影响新任务。
+    gate.resolve(); await service.idle(p.id);
+    assert.equal(model.read().tasks.find(t=>t.id===fresh.task_id).task_status,'completed');
+    assert.deepEqual(model.read().tasks.slice(0,2),cancelled);
+    assert.equal(model.read().project.episodes[0].summary.body,p.episodes[0].summary.body);
+    assert.equal(model.read().project.project_summary.body,'新任务结果');
+    assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
+    otherGate.resolve(); await service.idle(other.id);
+    assert.equal(otherModel.read().tasks[0].task_status,'completed');
+  },async ({task,step,signal}) => {
+    if(step.kind==='review')return {result:{是否通过:true,原因:''}};
+    if(task.project_id===otherId){otherEntered.resolve();await otherGate.promise;return {content:{body:'其他项目'}};}
+    calls++;
+    if(calls===1){oldSignal=signal;entered.resolve();await gate.promise;return {content:{body:'取消后的迟到内容'}};}
+    return {content:{body:'新任务结果'}};
+  });
+});
+
+test("HTTP执行失败清空跨组待执行队列并保存失败原因", async () => {
+  const entered=deferred(), gate=deferred();
+  await withService(async ({p,model,service}) => {
+    await service.command(submit(p));await entered.promise;
+    await service.command(submit(p,'project-summary',p.id,'other-group'));
+    gate.resolve();await service.idle(p.id);
+    assert.deepEqual(model.read().tasks.map(t=>t.task_status),['failed','cancelled']);
+    assert.equal(model.read().tasks[0].end_reason,'HTTP连接已断开');
+    assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
+  },async()=>{entered.resolve();await gate.promise;throw Error('HTTP连接已断开');});
 });

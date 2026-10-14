@@ -1,3 +1,4 @@
+import { seedQueuedTasks } from './fixtures/queued-tasks.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -16,7 +17,6 @@ import { precheck } from '../server/flow/tasks/precheck.js';
 import { ModelRepository } from '../server/data/model-repository.js';
 import { migrateSecondsContinuity } from '../server/data/seconds-continuity-migration.js';
 import { SQLiteStore } from '../server/data/sqlite-store.js';
-import { TaskService } from '../server/flow/tasks/task-manager.js';
 import { fieldsForm, readable } from '../client/content-forms.js';
 
 function chain() {
@@ -133,16 +133,14 @@ test('v12迁移保留正文/历史/任务终态，过期节点与排队快照且
   try {
     const repo = new ModelRepository(home), { s } = chain(), p = s.project;
     const model = await repo.create(p);
-    await model.update('pause', {}, snapshot => { snapshot.runtime.queue_stopped = true; });
-    const service = new TaskService({ repository: repo, execute: async () => { throw Error('不应执行'); } });
-    await service.command({ type: 'submit-group', project_id: p.id, request_id: 'queued', group_type: 'episode-film', episode_id: p.episodes[0].id, action: 'regenerate' });
+    await seedQueuedTasks(model, p.episodes[0].shot_list.shots.map(shot => ['seconds',shot.id]));
     await repo.close();
     const path = join(home, 'meiji.sqlite');
     let db = new DatabaseSync(path);
     const stored = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
     for (const shot of stored.episodes[0].shot_list.shots) for (const key of ['end_state', 'pending_actions', 'pending_dialogue', 'continuing_audio']) delete shot.seconds_storyboard[key];
     db.prepare('UPDATE projects SET data_json=?').run(JSON.stringify(stored));
-    db.exec('DELETE FROM schema_migrations WHERE version=13; PRAGMA user_version=12');
+    db.exec('ALTER TABLE projects ADD COLUMN queue_stopped INTEGER NOT NULL DEFAULT 0 CHECK(queue_stopped IN (0,1)); DELETE FROM schema_migrations WHERE version>=13; PRAGMA user_version=12');
     const steps = db.prepare('SELECT * FROM task_steps').all();
     const tasks = db.prepare('SELECT id,task_status FROM tasks').all();
     db.close();
@@ -159,7 +157,7 @@ test('v12迁移保留正文/历史/任务终态，过期节点与排队快照且
     db = new DatabaseSync(path);
     assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(), steps);
     assert.deepEqual(db.prepare('SELECT id,task_status FROM tasks').all(), tasks);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 13);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 14);
     assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
     db.close();
     store = new SQLiteStore(path);
@@ -175,7 +173,7 @@ test('v13迁移遇到非法项目完整回滚，不提交新增字段或版本�
     const project = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
     project.unknown_field = true;
     db.prepare('UPDATE projects SET data_json=?').run(JSON.stringify(project));
-    db.exec('DELETE FROM schema_migrations WHERE version=13; PRAGMA user_version=12');
+    db.exec('ALTER TABLE projects ADD COLUMN queue_stopped INTEGER NOT NULL DEFAULT 0 CHECK(queue_stopped IN (0,1)); DELETE FROM schema_migrations WHERE version>=13; PRAGMA user_version=12');
     const before = db.prepare('SELECT * FROM projects').all(); db.close();
     assert.throws(() => new SQLiteStore(path), /unknown_field|未知|未定义/);
     db = new DatabaseSync(path);

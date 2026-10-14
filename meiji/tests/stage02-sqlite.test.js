@@ -1,12 +1,12 @@
+import { seedQueuedTasks } from './fixtures/queued-tasks.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { ModelRepository } from "../server/data/model-repository.js";
-import { TaskService } from "../server/flow/tasks/task-manager.js";
 import { projectFixture } from "./fixtures/project.js";
 
 async function fixture(work) {
@@ -16,9 +16,8 @@ async function fixture(work) {
 test("SQLite：七表、外键、组内顺序与项目运行唯一约束", () => fixture(async root => {
   const repo = new ModelRepository(root), p = projectFixture(), q = projectFixture();
   const model = await repo.create(p); await repo.create(q);
-  const service = new TaskService({ repository: repo, execute: async () => { throw new Error("不应执行"); } });
-  await model.update("pause", {}, s => { s.runtime.queue_stopped = true; });
-  const result = await service.command({ type: "submit-group", project_id: p.id, request_id: "group", group_type: "episode-film", episode_id: p.episodes[0].id, action: "regenerate" });
+  await seedQueuedTasks(model, [["project-summary",p.id],["episode-summary",p.episodes[0].id]]);
+  const result = {group_id:model.read().tasks[0].group_id};
   const db = new DatabaseSync(join(root, "meiji.sqlite")); db.exec("PRAGMA foreign_keys=ON");
   try {
     assert.deepEqual(db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map(r => r.name), ["command_requests", "notification_outbox", "projects", "schema_migrations", "task_groups", "task_steps", "tasks"]);
@@ -27,7 +26,7 @@ test("SQLite：七表、外键、组内顺序与项目运行唯一约束", () =>
     assert.throws(() => db.prepare("UPDATE tasks SET group_id='missing' WHERE id=?").run(a.id), /FOREIGN KEY/);
     assert.throws(() => db.prepare("UPDATE tasks SET project_id=? WHERE id=?").run(q.id, a.id), /FOREIGN KEY/);
     assert.throws(() => db.prepare("UPDATE tasks SET group_id=NULL WHERE id=?").run(a.id), /NOT NULL/);
-    assert.throws(() => db.prepare("UPDATE tasks SET group_seq=? WHERE id=?").run(a.group_seq, b.id), /UNIQUE/);
+    assert.throws(() => db.prepare("UPDATE tasks SET group_id=?,group_seq=? WHERE id=?").run(a.group_id,a.group_seq, b.id), /UNIQUE/);
     db.prepare("UPDATE tasks SET task_status='running' WHERE id=?").run(a.id);
     assert.throws(() => db.prepare("UPDATE tasks SET task_status='running' WHERE id=?").run(b.id), /UNIQUE/);
     const steps = db.prepare("SELECT * FROM task_steps WHERE task_id=? ORDER BY seq").all(a.id);
@@ -60,7 +59,28 @@ for (const point of ["after-tasks", "after-commit"]) test(`SQLite：真实进程
   try {
     const model = await restored.open(p.id), s = model.read();
     assert.equal(s.project.name, point === "after-commit" ? "进程提交" : p.name);
+    assert.deepEqual(JSON.parse(await readFile(join(root, p.id, "project.json"), "utf8")), s.project);
     assert.equal(s.runtime.requests.length, point === "after-commit" ? 1 : 0);
     if (point === "after-commit") assert.equal((await model.update("crash", {}, () => { throw Error("重复执行"); })).saved, true);
   } finally { await restored.close(); }
+}));
+
+test("v13迁移删除暂停列，完整保留项目、队列、历史与幂等记录", () => fixture(async root => {
+  let repo=new ModelRepository(root);const p=projectFixture(),model=await repo.create(p);
+  await seedQueuedTasks(model, [['project-summary',p.id],['episode-summary',p.episodes[0].id]]);
+  const before=model.read();await repo.close();
+  let db=new DatabaseSync(join(root,'meiji.sqlite'));
+  db.exec('ALTER TABLE projects ADD COLUMN queue_stopped INTEGER NOT NULL DEFAULT 1 CHECK(queue_stopped IN (0,1)); DELETE FROM schema_migrations WHERE version=14; PRAGMA user_version=13');
+  db.close();repo=new ModelRepository(root);
+  try {
+    const restored=await repo.open(p.id);
+    assert.deepEqual(restored.read(),before);
+    assert.equal('queue_stopped' in restored.read().runtime,false);
+    db=new DatabaseSync(join(root,'meiji.sqlite'));
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version,14);
+    assert.equal(db.prepare('PRAGMA table_info(projects)').all().some(c=>c.name==='queue_stopped'),false);
+    assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+    assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
+    db.close();
+  } finally {await repo.close();}
 }));

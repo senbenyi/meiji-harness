@@ -315,8 +315,6 @@ export const COMMANDS = Object.freeze([
   "manual-edit",
   "override",
   "delete",
-  "start-queued",
-  "remove-queued",
 ]);
 const commandFields = {
   submit: ["business_type", "target_id", "action", "opinion"],
@@ -328,8 +326,6 @@ const commandFields = {
   "manual-edit": ["business_type", "target_id", "content"],
   override: ["business_type", "target_id"],
   delete: ["business_type", "target_id"],
-  "start-queued": ["task_id"],
-  "remove-queued": ["task_id"],
 };
 export function validateCommand(command) {
   assertRecord(command, "command");

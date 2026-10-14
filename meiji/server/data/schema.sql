@@ -6,7 +6,6 @@ CREATE TABLE projects (
   id TEXT PRIMARY KEY NOT NULL,
   data_json TEXT NOT NULL CHECK(json_valid(data_json)),
   revision INTEGER NOT NULL CHECK(revision >= 1),
-  queue_stopped INTEGER NOT NULL CHECK(queue_stopped IN (0,1)),
   CHECK(json_extract(data_json, '$.id') = id)
 ) STRICT;
 CREATE TABLE task_groups (
@@ -83,5 +82,5 @@ CREATE INDEX group_history ON task_groups(project_id,created_at DESC,id);
 CREATE INDEX task_queue ON tasks(project_id,task_status,queue_order);
 CREATE UNIQUE INDEX one_running_task ON tasks(project_id) WHERE task_status='running';
 CREATE INDEX steps_project ON task_steps(project_id);
-INSERT INTO schema_migrations VALUES (13,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
-PRAGMA user_version=13;
+INSERT INTO schema_migrations VALUES (14,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+PRAGMA user_version=14;

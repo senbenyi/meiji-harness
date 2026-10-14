@@ -52,17 +52,6 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
         business_type: b,
         target_id: id,
       });
-      if (
-        model.read().tasks.find((t) => t.id === result.task_id).task_status ===
-          "queued" &&
-        model.read().runtime.queue_stopped
-      )
-        await service.command({
-          type: "start-queued",
-          project_id: p.id,
-          request_id: crypto.randomUUID(),
-          task_id: result.task_id,
-        });
       await service.idle(p.id);
       return model.read().tasks.find((t) => t.id === result.task_id);
     };

@@ -27,7 +27,7 @@ const output0 = {
       }
     ]
   },
-  "requirements": "1. 只返回上述JSON结构；字段只能为 title、number、duration_seconds、shot_scale、hook、body、continuity_transition、reference_anchor、audio_arrangement 及其规定子字段。\n2. shots 必须为非空数组。每镜及两个嵌套对象的所有规定字段必须齐全；除 duration_seconds 为整数外，各叶字段一律为字符串，不能返回数组、对象或null。不得返回id、sequence、角色ID或小段编号等额外字段。\n3. duration_seconds 为4至15秒整数；镜头总时长尽量接近本集参考时长。\n4. 钩子使用规则规定的枚举；无旁白、对白或音效时对应值为空字符串。\n5. 只返回完整镜头表，不附解释或Markdown代码围栏。"
+  "requirements": "1. 只返回上述JSON结构；字段只能为 title、number、duration_seconds、shot_scale、hook、body、continuity_transition、reference_anchor、audio_arrangement 及其规定子字段。\n2. shots 必须为非空数组。每镜及两个嵌套对象的所有规定字段必须齐全；除 duration_seconds 为整数外，各叶字段一律为字符串，不能返回数组、对象或null。不得返回id、sequence、角色ID或小段编号等额外字段。\n3. duration_seconds 为4至15秒整数；每段镜头时长合计等于按规则统一分配的该段整数预算，整集合计等于原始小段总时长四舍五入；先锁定镜头骨架和时长，再填写其余字段。\n4. 钩子使用规则规定的枚举；无旁白、对白或音效时对应值为空字符串。\n5. 只返回完整镜头表，不附解释或Markdown代码围栏。"
 };
 
 const output1 = {

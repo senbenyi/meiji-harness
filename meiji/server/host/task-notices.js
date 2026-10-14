@@ -15,8 +15,6 @@ const eventLabels = {
   "manual-edit": "人工编辑已受理",
   override: "人工放行已受理",
   delete: "删除已受理",
-  "start-queued": "排队项已开始",
-  "remove-queued": "排队项已移除",
 };
 
 export function noticeText(notice) {

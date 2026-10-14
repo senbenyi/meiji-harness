@@ -33,7 +33,7 @@ function groupButtons(button, act, { ready, busy, resume, tasks, onPrimary, onRe
   items.push(button("任务历史", onHistory, false));
   const pending = unfinishedGroupTasks(tasks);
   if (pending.length) items.push(button("取消", async () => {
-    for (const task of pending) await act({ type: "cancel", task_id: task.id });
+    await act({ type: "cancel", task_id: pending[0].id });
   }, false));
   return items;
 }

@@ -7,6 +7,8 @@ import {
   realpath,
   readdir,
   rm,
+  writeFile,
+  rename,
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { ProjectModel } from "../model/project_transaction_model.js";
@@ -140,12 +142,10 @@ export function validateSnapshot(snapshot) {
   }
   assertFields(
     snapshot.runtime,
-    ["revision", "requests", "queue_stopped", "outbox"],
+    ["revision", "requests", "outbox"],
     "runtime",
   );
   assertNumber(snapshot.runtime.revision, "runtime.revision", 1);
-  if (typeof snapshot.runtime.queue_stopped !== "boolean")
-    invalid("runtime.queue_stopped", "需布尔值");
   if (
     !Array.isArray(snapshot.runtime.requests) ||
     !Array.isArray(snapshot.runtime.outbox)
@@ -228,7 +228,26 @@ export class ModelRepository extends EventEmitter {
         }
       }
       this.#store = new SQLiteStore(databasePath);
+      try {
+        for (const id of this.#store.list()) await this.#syncProjectJSON(this.#store.read(id));
+      } catch (error) {
+        this.#store.close();
+        throw error;
+      }
     })();
+  }
+  async #syncProjectJSON(snapshot) {
+    const dir = join(this.#root, snapshot.project.id), file = join(dir, "project.json"), temp = file + ".tmp";
+    try {
+      await mkdir(dir, { recursive: true });
+      await writeFile(temp, JSON.stringify(snapshot.project, null, 2) + "\n", { mode: 0o600 });
+      await rename(temp, file);
+    } catch (cause) {
+      await rm(temp, { force: true }).catch(() => {});
+      throw Object.assign(new Error(`项目已保存到数据库，但本地JSON同步失败：${file}（${cause.code || cause.message}）`), {
+        code: "PROJECT_JSON_SYNC_FAILED", committed: true, cause,
+      });
+    }
   }
   async #serial(id, work) {
     assertId(id, "project_id");
@@ -262,23 +281,25 @@ export class ModelRepository extends EventEmitter {
         runtime: {
           revision: 1,
           requests: [],
-          queue_stopped: false,
           outbox: [],
         },
       };
       try {
         this.#store.write(validateSnapshot(snapshot), null, this.#hook);
-        return this.#install(snapshot);
       } catch (error) {
         if (error.committed) {
           const saved = await this.#read(project.id);
           const model = this.#install(saved);
+          await this.#syncProjectJSON(saved);
           this.#notify(project.id, saved.runtime.revision);
           return model;
         }
         await rm(dir, { recursive: true, force: true });
         throw error;
       }
+      const model = this.#install(snapshot);
+      await this.#syncProjectJSON(snapshot);
+      return model;
     });
   }
   open(id) {
@@ -378,6 +399,7 @@ export class ModelRepository extends EventEmitter {
       if (previous) {
         if (previous.input_hash !== inputHash)
           fail("IDEMPOTENCY_CONFLICT", "幂等键已用于不同输入", 409);
+        await this.#syncProjectJSON(before);
         return structuredClone(previous.result);
       }
       const next = structuredClone(before);
@@ -395,18 +417,20 @@ export class ModelRepository extends EventEmitter {
       });
       validateSnapshot(next);
       checkHistory(before, next);
+      let storageWarning;
+      let committed = next;
       try {
         this.#store.write(next, before, this.#hook);
       } catch (error) {
         if (!error.committed) throw error;
-        const saved = await this.#read(id);
-        this.#install(saved);
-        this.#notify(id, saved.runtime.revision);
-        return { ...accepted, storage_warning: error.message };
+        committed = await this.#read(id);
+        storageWarning = error.message;
       }
-      this.#install(next);
-      this.#notify(id, next.runtime.revision);
-      return structuredClone(accepted);
+      try { await this.#syncProjectJSON(committed); }
+      catch (error) { storageWarning = [storageWarning, error.message].filter(Boolean).join("\n"); }
+      this.#install(committed);
+      this.#notify(id, committed.runtime.revision);
+      return structuredClone({ ...accepted, ...(storageWarning ? { storage_warning: storageWarning } : {}) });
     });
   }
   #notify(projectId, revision) {

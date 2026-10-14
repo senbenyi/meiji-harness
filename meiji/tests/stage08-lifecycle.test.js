@@ -1,3 +1,4 @@
+import { seedQueuedTasks } from './fixtures/queued-tasks.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
@@ -34,11 +35,11 @@ test("重启仅排队组合：全组取消并保留统一原因，节点和媒�
   const root = await mkdtemp(join(tmpdir(), "meiji-restart-group-"));
   try {
     const repository = new ModelRepository(root), p = projectFixture(), model = await repository.create(p);
-    await model.update("pause", {}, s => { s.runtime.queue_stopped = true; s.project.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.status = "expired"; s.project.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.reason = "之前过期"; });
+    await model.update("pause", {}, s => { s.project.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.status = "expired"; s.project.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.reason = "之前过期"; });
     const beforeProject = model.read().project;
     let executed = 0;
     const service = new TaskService({ repository, commitOutput: commitContent, execute: async () => { executed++; throw new Error("旧组合不应执行"); } });
-    await service.command({ type: "submit-group", project_id: p.id, request_id: "group", group_type: "episode-film", episode_id: p.episodes[0].id, action: "regenerate" });
+    await seedQueuedTasks(model, p.episodes[0].shot_list.shots.flatMap(shot => ['shot-characters','seconds','storyboard','video'].map(b => [b,shot.id])));
     assert.equal(model.read().tasks.length, 8);
     const restored = await new ModelRepository(root).open(p.id);
     await service.recover(restored);
@@ -46,20 +47,19 @@ test("重启仅排队组合：全组取消并保留统一原因，节点和媒�
     assert.ok(s.tasks.every(t => t.task_status === "cancelled" && t.end_reason === "服务重启，未完成任务已取消"));
     assert.ok(s.steps.every(st => st.step_status === "cancelled" && st.ended_at));
     assert.deepEqual(s.project, beforeProject);
-    assert.equal(s.runtime.queue_stopped, false);
+
     assert.equal(executed, 0);
     assert.deepEqual((await new ModelRepository(root).open(p.id)).read(), s);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("重启没有未完成任务仍解除旧暂停，新任务无需点击开始", async () => {
+test("重启没有未完成任务保持空闲，新任务无需点击开始", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-restart-paused-"));
   try {
     const repository = new ModelRepository(root), p = projectFixture(), model = await repository.create(p);
-    await model.update("pause", {}, s => { s.runtime.queue_stopped = true; });
     const service = new TaskService({ repository, commitOutput: commitContent, execute: async ({ step }) => step.kind === "review" ? { result: { 是否通过: true, 原因: "" } } : { content: { body: "新摘要" } } });
     await service.recover(model);
-    assert.equal(model.read().runtime.queue_stopped, false);
+
     const r = await service.command({ type: "submit", project_id: p.id, request_id: "new", business_type: "project-summary", target_id: p.id, action: "regenerate" });
     await service.idle(p.id);
     assert.equal(model.read().tasks.find(t => t.id === r.task_id).task_status, "completed");
@@ -74,8 +74,7 @@ test("启动恢复的通知等待宿主 Agent 时，runtime 仍能公布并读�
     const repository = new ModelRepository(join(home, "storages", "meiji", "projects"), { databasePath: join(home, "storages", "meiji", "meiji.sqlite") }), p = projectFixture(), model = await repository.create(p);
     const pending = taskFixture(p, "project-summary", p.id, { episode_id: null });
     await model.update("setup", {}, s => {
-      s.groups = [singleGroup(pending)]; s.tasks = [pending]; s.runtime.queue_stopped = true;
-      s.runtime.outbox.push({ id: "restart-notice", project_id: p.id, task_id: pending.id, group_id: null, session_id: "session-test", event: "submitted", status: "queued", reason: "", delivery_status: "pending", error: "" });
+      s.groups = [singleGroup(pending)]; s.tasks = [pending]; s.runtime.outbox.push({ id: "restart-notice", project_id: p.id, task_id: pending.id, group_id: null, session_id: "session-test", event: "submitted", status: "queued", reason: "", delivery_status: "pending", error: "" });
     });
     const creating = createAppRuntime({ home, sessionController: { resolveAgent: async () => { entered(); await gate; return { agent: { session: { append: async () => {} } } }; } } });
     try {
@@ -84,7 +83,7 @@ test("启动恢复的通知等待宿主 Agent 时，runtime 仍能公布并读�
     await noticeEntered;
     const restored = await runtime.repository.open(p.id);
     assert.equal(restored.read().tasks[0].task_status, "cancelled");
-    assert.equal(restored.read().runtime.queue_stopped, false);
+
     release();
     await runtime.notices.drain(p.id);
     assert.ok(restored.read().runtime.outbox.every(n => n.delivery_status === "delivered"));
@@ -107,7 +106,7 @@ test("服务关闭作废运行任务，模型晚到结果不覆盖旧稿或作�
     release();
     await stopping;
     assert.equal(model.read().project.project_summary.body, "摘要");
-    assert.equal(model.read().runtime.queue_stopped, false);
+
     assert.equal(model.read().tasks.find(t => t.id === r.task_id).task_status, "cancelled");
   } finally { release(); await rm(root, { recursive: true, force: true }); }
 });
@@ -131,7 +130,6 @@ test("S8-05 重启把运行和排队任务都记为已取消，恢复快照、�
       s.tasks = [task, queued, terminal];
       s.steps = [done, running, newStep(queued, 1, "precheck")];
       s.project.project_summary.node_state.status = "running";
-      s.runtime.queue_stopped = true;
       return {};
     });
     const freshRepository = new ModelRepository(root),
@@ -153,7 +151,7 @@ test("S8-05 重启把运行和排队任务都记为已取消，恢复快照、�
     assert.equal(snapshot.project.episodes[0].summary.body, "展示摘要");
     assert.equal(snapshot.project.episodes[0].summary.node_state.status, "expired");
     assert.equal(snapshot.project.episodes[0].summary.node_state.reason, "上游已变化");
-    assert.equal(snapshot.runtime.queue_stopped, false);
+
     assert.deepEqual((await new ModelRepository(root).open(p.id)).read(), snapshot);
     await service.recover(restored);
     assert.deepEqual(restored.read(), snapshot, "重复恢复不产生新的变更");

@@ -205,3 +205,7 @@
 `first-last-frame` 和 `multimodal` 是程序节点，步骤为 precheck→generate（执行编排）。文生不创建程序编排任务。视频为 precheck→generate→apply（文件校验、实测、截帧与图片校验）→程序review；修订为 revise→apply→程序review，最多两次。manual_edit 视频为 precheck→manual_edit→apply，不调用AI、不要求文本节点。`apply` 是已有步骤类型；视频中其含义为媒体后处理。独立tail不接受新命令，历史可读，last_frame保存视频配对产物。
 
 单项文本原结果修订的 single/workflow 组 action 可为 revise；成片/每秒组合组仍只使用原有 generate、regenerate、continue。
+
+## 当前队列与项目取消
+
+任务记录保留完整历史。当前任务数组由任务管理器筛选 queued/running，取消当前项目时将全部当前任务及未结束步骤结算为 cancelled，数组自然清空。执行失败或未通过会取消本项目剩余排队任务。没有项目暂停字段；新任务自动调度，旧请求清理完成前保持串行。项目运行状态由当前数组推导，不额外保存。

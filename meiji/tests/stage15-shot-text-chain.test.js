@@ -46,7 +46,7 @@ async function withRuntime(run, respond = () => undefined) {
     const p = fixtureProject(), model = await runtime.repository.create(p);
     const command = async (business, action = 'generate', target = p.episodes[0].shot_list.shots[0].id, extra = {}) => {
       const result = await runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: crypto.randomUUID(), business_type: business, target_id: target, action, ...extra });
-      if (model.read().runtime.queue_stopped) await runtime.tasks.command({ type: 'start-queued', project_id: p.id, request_id: crypto.randomUUID(), task_id: result.task_id });
+
       await runtime.tasks.idle(p.id);
       return model.read().tasks.find(task => task.id === result.task_id);
     };
@@ -188,14 +188,14 @@ test('镜头识别取消后晚到结果不覆盖；继续使用新任务', async
   }, async ({ task, step }) => { if (wait && task.business_type === 'shot-characters' && step.kind === 'generate') { entered(); await gate; } });
 });
 
-test('v13 新库为空；v8 明确拒绝且不修改项目、不生成迁移备份', async () => {
+test('v14 新库为空；v8 明确拒绝且不修改项目、不生成迁移备份', async () => {
   const root = await mkdtemp(join(tmpdir(), 'meiji-fresh-'));
   try {
     const repo = new ModelRepository(root);
     await repo.list();
     const path = join(root, 'meiji.sqlite');
     let db = new DatabaseSync(path);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 13);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 14);
     for (const table of ['projects', 'task_groups', 'tasks', 'task_steps']) assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n, 0);
     db.close();
     await repo.create(fixtureProject()); await repo.close();
@@ -226,13 +226,13 @@ test('v9 删除项目规则并重写已生成镜头文本指纹', async () => {
     const stored = JSON.parse(row.data_json);
     stored.rules = [{ id: 'r_old', scope: 'project', applicable_business_types: ['seconds'], node_id: '', category: '动作', constraint: '必须', content: '保持事实' }];
     db.prepare('UPDATE projects SET data_json=?').run(JSON.stringify(stored));
-    db.exec("DELETE FROM schema_migrations WHERE version IN (10, 11, 12, 13); PRAGMA user_version=9");
+    db.exec("ALTER TABLE projects ADD COLUMN queue_stopped INTEGER NOT NULL DEFAULT 0; DELETE FROM schema_migrations WHERE version>=10; PRAGMA user_version=9");
     db.close();
     const store = new SQLiteStore(path);
     store.close();
     db = new DatabaseSync(path);
     const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 13);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 14);
     assert.equal(Object.hasOwn(opened, 'rules'), false);
     assert.equal(Object.hasOwn(opened, 'output_language'), false);
     assert.equal(opened.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.dependency_hash, dependencyHash({ project: opened, tasks: [], steps: [] }, 'seconds', shot.id));
@@ -255,14 +255,14 @@ test('v10 删除项目语言并重写已生成镜头文本指纹，正文保持�
     const stored = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
     stored.output_language = 'en';
     db.prepare('UPDATE projects SET data_json=?').run(JSON.stringify(stored));
-    db.exec('DELETE FROM schema_migrations WHERE version IN (11, 12, 13); PRAGMA user_version=10');
+    db.exec('ALTER TABLE projects ADD COLUMN queue_stopped INTEGER NOT NULL DEFAULT 0; DELETE FROM schema_migrations WHERE version>=11; PRAGMA user_version=10');
     db.close();
     const store = new SQLiteStore(path);
     store.close();
     db = new DatabaseSync(path);
     const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
     const openedShot = opened.episodes[0].shot_list.shots[0];
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 13);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 14);
     assert.equal(Object.hasOwn(opened, 'output_language'), false);
     assert.equal(openedShot.seconds_storyboard.storyboard[0].action, body);
     assert.equal(openedShot.seconds_storyboard.node_state.status, 'expired');

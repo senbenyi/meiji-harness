@@ -16,9 +16,10 @@ async function fixture(work) {
 }
 const row={name:'武松',gender:'男',era:'宋代',position:'主角',age_range:'青年',body_type:'强壮',hairstyle:'束发',signature_props: [],immutable_traits: [],costumes:[{name:'常服',color:'白',material:'布',props: []}]};
 
-test('角色提取未通过后面板继续带原因自动重试，有其他排队任务则拒绝',()=>fixture(async({p,repository,model})=>{
- let reject=true;const opinions=[];
+test('角色提取继续可排队，项目取消后再次继续保留原因和历史',()=>fixture(async({p,repository,model})=>{
+ let reject=true;const opinions=[]; let release,enter; const gate=new Promise(r=>release=r),entered=new Promise(r=>enter=r);
  const service=new TaskService({repository,commitOutput:commitContent,execute:async({snapshot,task,step})=>{
+  if(task.business_type==='project-summary'){enter();await gate;return {content:{body:'摘要'}};}
   if(step.kind==='review')return{result:{是否通过:!reject,原因:reject?'遗漏角色':''}};
   if(task.business_type==='project-characters'){opinions.push(task.opinion);return{content:prepareContent(snapshot,task,{characters:[row]})};}
   return{content:{address:'image.png'}};
@@ -28,16 +29,19 @@ test('角色提取未通过后面板继续带原因自动重试，有其他排�
   await service.idle(p.id);const before=model.read(),original=before.groups[0];
   assert.equal(before.tasks[0].task_status,'rejected');
   const waiting=await service.command({type:'submit',project_id:p.id,request_id:'other',business_type:'project-summary',target_id:p.id,action:'regenerate'},{source:'session',session_id:'s'});
-  await assert.rejects(service.command({type:'continue-group',project_id:p.id,request_id:'conflict',group_id:original.id}),/未结束任务/);
-  assert.equal(model.read().runtime.queue_stopped,true);assert.equal(model.read().groups.length,2);
-  await service.command({type:'remove-queued',project_id:p.id,request_id:'remove',task_id:waiting.task_id});
+  await entered;
+  const pending=await service.command({type:'continue-group',project_id:p.id,request_id:'waiting-resume',group_id:original.id});
+  assert.ok(model.read().tasks.filter(t=>t.group_id===pending.group_id).every(t=>t.task_status==='queued'));
+  assert.equal(model.read().groups.length,3);
+  await service.command({type:'cancel',project_id:p.id,request_id:'remove',task_id:waiting.task_id});
+  release(); await service.idle(p.id);
   reject=false;
   const next=await service.command({type:'continue-group',project_id:p.id,request_id:'resume',group_id:original.id});
   await service.idle(p.id);
   assert.equal(groupDetail(model,next.group_id).status,'completed');
   assert.equal(opinions.at(-1),'遗漏角色');
   assert.deepEqual(model.read().tasks[0],before.tasks[0]);
- } finally {await service.dispose();}
+ } finally {release();await service.dispose();}
 }));
 
 test('独立任务持久化单组及三级名称，重命名项目不改历史名称',()=>fixture(async({p,repository,model,root})=>{
@@ -84,7 +88,7 @@ test('提取不派生图片，逐套定妆照中途失败后继续新组并保�
 test('逐套组与已有定妆照任务冲突时整组拒绝，旧角色图命令拒绝',()=>fixture(async({p,repository,model})=>{
  const {emptyCharacterModel}=await import('../shared/models/character_model.js');
  const character=emptyCharacterModel({number:'C01',name:'武松'});
- await model.update('role',{},s=>{s.project.character_library.characters=[character];s.runtime.queue_stopped=true;});
+ await model.update('role',{},s=>{s.project.character_library.characters=[character];});
  const service=new TaskService({repository,commitOutput:commitContent,execute:async()=>{throw Error('不应执行');}});
  try{
   const cmd={type:'submit',project_id:p.id,request_id:'one',business_type:'costume-image',target_id:character.id,action:'generate'};

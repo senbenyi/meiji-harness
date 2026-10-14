@@ -74,7 +74,7 @@ test("生成定妆照组显示停止原因和继续，完成和执行中不显�
       paint(); assert.equal(next(), undefined, status);
     }
   }));
-test("逐镜头成片的取消会取消组内全部未结束任务", () =>
+test("逐镜头成片取消只提交一次项目取消命令", () =>
   domTest(async (root) => {
     const snap = snapshotFixture(), commands = [];
     const episode = snap.project.episodes[0];
@@ -92,7 +92,7 @@ test("逐镜头成片的取消会取消组内全部未结束任务", () =>
     assert.equal([...card.querySelectorAll("button")].some((button) => button.textContent === "一键生成"), false);
     [...card.querySelectorAll("button")].find((button) => button.textContent === "取消").click();
     await tick(); await tick();
-    assert.deepEqual(commands.map((command) => command.task_id), ["run", "wait"]);
+    assert.deepEqual(commands.map((command) => command.task_id), ["run"]);
     assert.ok(commands.every((command) => command.type === "cancel"));
   }));
 test("UI-1 原创建表单默认剧本；本地导入、移除和自由模式提交新契约", () =>

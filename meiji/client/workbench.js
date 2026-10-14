@@ -155,7 +155,7 @@ export function mount() {
     // 重新加载不承接旧执行；并发的首次刷新共用一次服务端取消。
     if (!initialized) {
       recovery ??= (async () => {
-        const task = result.snapshot?.tasks.find((t) => t.task_status === "running");
+        const task = result.snapshot?.tasks.find((t) => ["running", "queued"].includes(t.task_status));
         if (!task) return false;
         await sendCommand(session, {
           type: "cancel", project_id: result.project_id,

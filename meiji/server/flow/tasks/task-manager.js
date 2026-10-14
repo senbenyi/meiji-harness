@@ -63,7 +63,7 @@ export class TaskService {
       if (command.group_id) return groupDetail(model, command.group_id);
       return model.read();
     }
-    let cancelId = null;
+    let cancelling = null;
     const result = await model.update(command.request_id, command, (s) => {
       if (this.#deleting.has(command.project_id)) invalid("project", "项目正在删除");
       const active = s.tasks.find((t) => t.task_status === "running");
@@ -87,15 +87,6 @@ export class TaskService {
           command.type === "manual-edit" ? command.content : null,
         );
       if (command.type === "submit") {
-        // 面板拆分是明确的执行动作；只恢复拆分本身，不带起其他暂停任务。
-        if (command.business_type === "script-split" && origin.source === "panel") {
-          const others = s.tasks.filter(
-            (t) => unfinished(t) &&
-              !(t.business_type === "script-split" && t.target_id === command.target_id),
-          );
-          if (others.length) conflict(others);
-          s.runtime.queue_stopped = false;
-        }
         const related = s.tasks
             .filter(
               (t) =>
@@ -110,19 +101,7 @@ export class TaskService {
           latest = related[0],
           retrying =
             origin.source === "panel" &&
-            (retryable(latest) ||
-              (latest?.task_status === "queued" &&
-                related.slice(1).some(retryable)));
-        if (retrying) {
-          const others = s.tasks.filter(
-            (t) =>
-              unfinished(t) &&
-              (t.business_type !== command.business_type ||
-                t.target_id !== command.target_id),
-          );
-          if (others.length) conflict(others);
-          s.runtime.queue_stopped = false;
-        }
+            retryable(latest);
         const old = s.tasks.find(
           (t) =>
             unfinished(t) &&
@@ -130,8 +109,6 @@ export class TaskService {
             t.target_id === command.target_id,
         );
         if (old) {
-          if (retrying && old.task_status === "queued" && old.action === "generate")
-            old.action = hasNodeContent(s.project, command.business_type, command.target_id) ? "regenerate" : "generate";
           return { task_id: old.id };
         }
         return {
@@ -163,7 +140,6 @@ export class TaskService {
         const group = createTaskGroupModel({ project_id: s.project.id, group_type: "workflow",
           name: characters.length === 1 ? `${characters[0].name} · 定妆照` : "定妆照", action: command.action, source: origin.source });
         s.groups.push(group);
-        if (origin.source === "panel" && !s.tasks.some(unfinished)) s.runtime.queue_stopped = false;
         const tasks = planned.map((id, index) => add("costume-image", id,
           hasNodeContent(s.project, "costume-image", id) ? "regenerate" : "generate", group.id, index + 1));
         return { group_id: group.id, task_ids: tasks.map(t => t.id) };
@@ -205,11 +181,6 @@ export class TaskService {
           if (remaining.some(t => (!BUSINESS_DEFINITIONS[t.business_type] || BUSINESS_DEFINITIONS[t.business_type].retired) || ["manual_edit", "override", "delete"].includes(t.action)))
             invalid("group", "历史已移除业务、人工与删除任务不能继续，请从对应入口重新操作");
           if (!remaining.length) return { group_id: null, task_ids: [], message: "当前范围无需继续" };
-          if (origin.source === "panel") {
-            const waiting = s.tasks.filter(unfinished);
-            if (waiting.length) conflict(waiting);
-            s.runtime.queue_stopped = false;
-          }
           const conflicts = s.tasks.filter(t => unfinished(t) && remaining.some(x => x.business_type === t.business_type && x.target_id === t.target_id));
           if (conflicts.length) conflict(conflicts);
           const group = createTaskGroupModel({ ...original, id: createId("group"), name: `${original.name || groupName(original, members, s.project)} · 继续`, created_at: now(), source: origin.source, action: "continue" });
@@ -282,43 +253,20 @@ export class TaskService {
       }
       const task = s.tasks.find((t) => t.id === command.task_id);
       if (!task) invalid("task_id", "任务不存在");
-      if (command.type === "start-queued") {
-        if (origin.source !== "panel") invalid("source", "排队控制只允许面板");
-        if (task.task_status !== "queued")
-          invalid("task_status", "只能开始排队任务");
-        if (active) conflict([active]);
-        s.runtime.queue_stopped = false;
-        const queue = s.tasks
-          .filter((t) => t.task_status === "queued")
-          .sort((a, b) => a.queue_order - b.queue_order);
-        if (queue[0]?.id !== task.id) invalid("queue_order", "只能从队首开始");
-        return { task_id: task.id };
-      }
-      if (["cancel", "remove-queued"].includes(command.type)) {
-        if (
-          command.type === "remove-queued" &&
-          (origin.source !== "panel" || task.task_status !== "queued")
-        )
-          invalid("task_status", "只能从面板移除排队任务");
-        if (!unfinished(task))
-          return { task_id: task.id, already_terminal: true };
-        if (task.task_status === "running") cancelId = task.id;
-        this.#finish(
-          s,
-          task,
-          "cancelled",
-          task.business_type === "video" && task.task_status === "running"
-            ? "用户取消；仅停止本地等待，远端视频可能仍在运行"
-            : "用户取消",
-        );
+      if (command.type === "cancel") {
+        if (!unfinished(task)) return { task_id: task.id, already_terminal: true };
+        if (active) cancelling = this.#active.get(command.project_id);
+        // 一次事务结算当前项目全部任务；后续提交不属于此次取消范围。
+        for (const pending of s.tasks.filter(unfinished).sort((a, b) => b.queue_order - a.queue_order))
+          this.#finish(s, pending, "cancelled",
+            pending.business_type === "video" && pending.task_status === "running"
+              ? "用户取消；仅停止本地等待，远端视频可能仍在运行"
+              : "用户取消项目全部任务");
         return { task_id: task.id };
       }
       invalid("command", "未实现命令");
     });
-    if (cancelId)
-      this.#active
-        .get(command.project_id)
-        ?.controller.abort(new Error("用户取消"));
+    cancelling?.controller.abort(new Error("用户取消"));
     this.#pump(model);
     return result;
   }
@@ -457,24 +405,20 @@ export class TaskService {
       (n) => n.task_id === task.id && n.event === "submitted",
     );
     this.#notice(s, task, status, status, reason, origin?.session_id || null);
-    if (status !== "completed") {
-      s.runtime.queue_stopped = true;
-      if (task.group_id)
-        for (const later of s.tasks.filter(
-          (t) =>
-            t.group_id === task.group_id &&
-            t.group_seq > task.group_seq &&
-            t.task_status === "queued",
-        ))
-          this.#finish(s, later, "cancelled", "组合前序任务已停止");
-    }
+    if (["failed", "rejected"].includes(status))
+      for (const pending of s.tasks.filter(t => t.task_status === "queued").sort((a,b) => b.queue_order-a.queue_order))
+        this.#finish(s, pending, "cancelled", "项目前序任务失败或未通过，取消剩余任务");
+  }
+
+  current(model) {
+    const tasks = model.read().tasks.filter(unfinished).sort((a,b) => a.queue_order-b.queue_order);
+    return { status: tasks.some(t => t.task_status === "running") ? "running" : tasks.length ? "queued" : "idle", tasks };
   }
   #pump(model) {
     if (
       this.#disposed ||
       this.#deleting.has(model.id) ||
-      this.#active.has(model.id) ||
-      model.read().runtime.queue_stopped
+      this.#active.has(model.id)
     )
       return;
     const controller = new AbortController(),
@@ -488,8 +432,7 @@ export class TaskService {
         this.#active.delete(model.id);
         if (
           !this.#disposed &&
-          !model.read().runtime.queue_stopped &&
-          model.read().tasks.some((t) => t.task_status === "queued")
+          this.current(model).tasks.some(t => t.task_status === "queued")
         )
           this.#pump(model);
       });
@@ -497,10 +440,7 @@ export class TaskService {
   async #loop(model, signal) {
     while (!this.#disposed && !signal.aborted) {
       const before = model.read();
-      if (before.runtime.queue_stopped) return;
-      const task = before.tasks
-        .filter((t) => t.task_status === "queued")
-        .sort((a, b) => a.queue_order - b.queue_order)[0];
+      const task = this.current(model).tasks.find(t => t.task_status === "queued");
       if (!task) return;
       if (task.business_type === 'video' && !['manual_edit','override'].includes(task.action)) {
         const inserted = await model.update(`prepare-video:${task.id}:${before.runtime.revision}`, { prepareVideo: task.id }, s => {
@@ -692,7 +632,6 @@ export class TaskService {
     try {
       const model = await this.#repository.open(projectId);
       await model.update(`delete-project:${createId("task")}`, { deleteProject: true }, s => {
-        s.runtime.queue_stopped = true;
         for (const task of s.tasks.filter(unfinished).sort((a, b) => b.queue_order - a.queue_order))
           this.#finish(s, task, "cancelled", "删除项目，取消未完成任务");
         return {};
@@ -713,7 +652,7 @@ export class TaskService {
   }
   async recover(model) {
     const snapshot = model.read();
-    if (!snapshot.tasks.some(unfinished) && !snapshot.runtime.queue_stopped) return;
+    if (!snapshot.tasks.some(unfinished)) return;
     await model.update(
       `restart:${createId("task")}`,
       { restart: true },
@@ -728,7 +667,6 @@ export class TaskService {
               ? "服务重启，未完成任务已取消；远端视频可能仍在运行"
               : "服务重启，未完成任务已取消",
           );
-        s.runtime.queue_stopped = false;
         return {};
       },
     );

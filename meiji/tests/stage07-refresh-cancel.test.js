@@ -68,8 +68,8 @@ test("重新加载取消真实运行任务，Model 保存后渲染，abort 后�
       assert.equal(signal.aborted, true);
       const saved = model.read();
       assert.equal(saved.tasks[0].task_status, "cancelled");
-      assert.equal(saved.tasks[1].task_status, "queued");
-      assert.equal(saved.runtime.queue_stopped, true);
+      assert.equal(saved.tasks[1].task_status, "cancelled");
+
       assert.equal(saved.project.episodes[0].summary.node_state.status, "cancelled");
       assert.ok(saved.steps.filter(s => s.task_id === first.task_id).every(s => ["done", "cancelled"].includes(s.step_status)));
       Object.assign(app.view, { page: "episode", episode_id: p.episodes[0].id, tab: "script" });
@@ -89,12 +89,12 @@ test("重新加载取消真实运行任务，Model 保存后渲染，abort 后�
   }
 });
 
-test("首次无运行任务保留排队/终态，后续普通刷新、事件与恢复可见不取消新任务", async () => {
+test("首次仅排队也取消，后续普通刷新、事件与恢复可见不取消新任务", async () => {
   const snapshot = snapshotFixture();
   snapshot.tasks = [{ id: "queued", business_type: "episode-summary", target_id: snapshot.project.episodes[0].id, task_status: "queued" }];
-  await withPanel(() => structuredClone(snapshot), () => assert.fail("不应取消"), async ({ app, commands, streams, dom }) => {
+  await withPanel(() => structuredClone(snapshot), () => { snapshot.tasks[0].task_status = "cancelled"; return {}; }, async ({ app, commands, streams, dom }) => {
     await app.refresh();
-    assert.equal(app.context.read().tasks[0].task_status, "queued");
+    assert.equal(app.context.read().tasks[0].task_status, "cancelled");
     snapshot.runtime.revision++;
     snapshot.tasks[0].task_status = "running";
     snapshot.project.episodes[0].summary.node_state.status = "running";
@@ -102,7 +102,7 @@ test("首次无运行任务保留排队/终态，后续普通刷新、事件与�
     streams[0].onmessage({ data: JSON.stringify({ project_id: snapshot.project.id, revision: snapshot.runtime.revision }) });
     document.dispatchEvent(new dom.window.Event("visibilitychange"));
     await app.refresh();
-    assert.equal(commands.length, 0);
+    assert.equal(commands.length, 1);
     assert.equal(app.context.read().project.episodes[0].summary.node_state.status, "running");
   });
 });

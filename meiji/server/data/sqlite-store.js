@@ -29,7 +29,7 @@ export class SQLiteStore {
         try {
           this.#db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
           this.#db.exec("COMMIT");
-          version = 13;
+          version = 14;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
       }
       if (version === 9) {
@@ -125,7 +125,16 @@ export class SQLiteStore {
           version = 13;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
       }
-      if (version !== 13) throw new Error(`不支持的数据库版本：${version}`);
+      if (version === 13) {
+        this.#db.exec("BEGIN IMMEDIATE");
+        try {
+          this.#db.exec("ALTER TABLE projects DROP COLUMN queue_stopped");
+          this.#db.prepare("INSERT INTO schema_migrations VALUES (14, strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec("PRAGMA user_version=14; COMMIT");
+          version = 14;
+        } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
+      }
+      if (version !== 14) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => f !== "id").map(f => `${f}=excluded.${f}`).join(",")}`));
       }
@@ -156,7 +165,7 @@ export class SQLiteStore {
         tasks: rows("tasks").map(r => decode(r)),
         steps: rows("task_steps").map(r => decode(r, true)),
         runtime: {
-          revision: p.revision, queue_stopped: Boolean(p.queue_stopped),
+          revision: p.revision,
           requests: rows("command_requests").map(r => ({ id: r.id, input_hash: r.input_hash, result: JSON.parse(r.result_json) })),
           outbox: rows("notification_outbox").map(r => JSON.parse(r.data_json)),
         },
@@ -170,8 +179,8 @@ export class SQLiteStore {
     try {
       const existing = this.#db.prepare("SELECT revision FROM projects WHERE id=?").get(id);
       if ((existing?.revision ?? 0) !== (before?.runtime.revision ?? 0)) throw conflict();
-      this.#db.prepare("INSERT INTO projects VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json,revision=excluded.revision,queue_stopped=excluded.queue_stopped")
-        .run(id, JSON.stringify(snapshot.project), snapshot.runtime.revision, Number(snapshot.runtime.queue_stopped));
+      this.#db.prepare("INSERT INTO projects (id,data_json,revision) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json,revision=excluded.revision")
+        .run(id, JSON.stringify(snapshot.project), snapshot.runtime.revision);
       checkpoint("after-project", snapshot);
       for (const [table, key] of [["task_groups", "groups"], ["tasks", "tasks"], ["task_steps", "steps"]]) {
         const old = new Map((before?.[key] || []).map((r, i) => [r.id, { row: r, position: i }]));

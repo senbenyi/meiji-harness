@@ -1,3 +1,4 @@
+import { seedQueuedTasks } from './fixtures/queued-tasks.js';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -30,8 +31,8 @@ for (const state of ['idle', 'queued', 'running']) {
     const submit = request_id => runtime.tasks.command({ type: 'submit', project_id: project.id,
       request_id, business_type: 'project-summary', target_id: project.id, action: 'regenerate' });
     try {
-      if (state === 'queued') await model.update('pause', {}, s => { s.runtime.queue_stopped = true; return {}; });
-      if (state !== 'idle') await submit('before-delete');
+      if (state === 'queued') await seedQueuedTasks(model, [['project-summary',project.id]]);
+      if (state === 'running') await submit('before-delete');
       if (state === 'running') await entered;
       const deletion = runtime.projectCommand({ type: 'delete', project_id: project.id }, session);
       if (state === 'running') {

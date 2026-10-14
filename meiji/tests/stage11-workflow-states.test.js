@@ -1,3 +1,4 @@
+import { seedQueuedTasks } from './fixtures/queued-tasks.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -40,7 +41,7 @@ async function scenario(work) {
 for(const kind of ['script-split','project-characters','costume-image']) {
  test(`${kind} 失败后继续，旧终态不变且无额外派生`,()=>scenario(async x=>{
   x.setMode('fail');await x.service.command(x.command(kind));await x.service.idle(x.project.id);
-  const before=x.model.read();assert.equal(before.tasks[0].task_status,'failed');assert.equal(before.runtime.queue_stopped,true);
+  const before=x.model.read();assert.equal(before.tasks[0].task_status,'failed');
   x.setMode('ok');const next=await x.service.command({type:'continue-group',project_id:x.project.id,request_id:'continue',group_id:before.groups[0].id});await x.service.idle(x.project.id);
   const after=x.model.read();assert.deepEqual(after.tasks.slice(0,before.tasks.length),before.tasks);
   const current=after.tasks.filter(t=>t.group_id===next.group_id);assert.ok(current.every(t=>t.task_status==='completed'),current.map(t=>t.end_reason).join(','));assert.equal(current.length,kind==='costume-image'?2:1);
@@ -65,14 +66,14 @@ for(const kind of ['script-split','project-characters','costume-image']) {
     const expected=['queued','running'].includes(item.task_status)?'cancelled':item.task_status;
     assert.equal(task.task_status, expected, `${item.id}:${task.end_reason}`);
   }
-  assert.equal(old.runtime.queue_stopped,false);
+
   const calls=x.calls;x.release();x.setMode('ok');await x.reopen();assert.equal(x.calls,calls);assert.deepEqual(x.model.read().tasks,old.tasks);
   const next=await x.service.command({type:'continue-group',project_id:x.project.id,request_id:'restart-resume',group_id:old.groups[0].id});await x.service.idle(x.project.id);
   assert.ok(x.model.read().tasks.filter(t=>t.group_id===next.group_id).every(t=>t.task_status==='completed'));
  }));
- test(`${kind} 暂停排队时重启，恢复原节点并允许新提交`,()=>scenario(async x=>{
-  await x.model.update('pause',{},s=>{s.runtime.queue_stopped=true;});
-  const before=x.model.read().project;await x.service.command(x.command(kind),{source:'session',session_id:'s'});await x.service.idle(x.project.id);
+ test(`${kind} 尚未调度时重启，恢复原节点并允许新提交`,()=>scenario(async x=>{
+  const before=x.model.read().project;
+  await seedQueuedTasks(x.model, [[kind,kind==='costume-image'?x.project.character_library.characters[0].costumes[0].id:x.project.id]]);
   assert.ok(x.model.read().tasks.every(t=>t.task_status==='queued'));assert.equal(x.calls,0);
   await x.service.dispose();await x.reopen();assert.ok(x.model.read().tasks.every(t=>t.task_status==='cancelled'&&t.end_reason==='服务重启，未完成任务已取消'));assert.deepEqual(x.model.read().project,before);
   await x.service.command(x.command(kind));await x.service.idle(x.project.id);assert.equal(x.model.read().tasks.at(-1).task_status,'completed');
@@ -101,7 +102,7 @@ for(const kind of ['script-split','project-characters','costume-image']) test(`$
     const expected=['queued','running'].includes(item.task_status)?'cancelled':item.task_status;
     assert.equal(task.task_status, expected, task.end_reason);
   }
-  assert.ok(after.steps.every(st=>['done','cancelled'].includes(st.step_status)));assert.equal(after.runtime.queue_stopped,false);
+  assert.ok(after.steps.every(st=>['done','cancelled'].includes(st.step_status)));
   assert.deepEqual(after.project.episodes,before.project.episodes);
   if(kind==='costume-image'){const c=after.project.character_library.characters[0];assert.equal(primaryCostumeImage(c).node_state.status,'cancelled');assert.equal(c.costume_images[1].node_state.status,'empty');}
   const stable=model.read();await service.recover(model);assert.deepEqual(model.read(),stable);
