@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, readdir } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:http'
@@ -8,7 +8,8 @@ import { defaults, normalizeModels, modelRoute } from '../models/model-config.js
 import { modelStore } from '../server/data/model-settings.js'
 import { migrateSettingsModel } from '../scripts/migrate-settings-model.js'
 import { syncChatModel } from '../server/host/harness-chat-model.js'
-import { loadTemplate, renderTemplate } from '../server/prompts/yaml-prompts.js'
+import { nodeRoutes, composeNodePrompt } from '../server/http/ai-routes.js'
+import { sampleInput } from './fixtures/ai.js'
 import { createAppRuntime } from '../server/runtime/app-runtime.js'
 import { createTaskHttpHandler } from '../server/http/task-routes.js'
 import { emptyProject } from '../shared/project_contract.js'
@@ -76,17 +77,12 @@ test('千问：聊天通过公开服务同步，不依赖媒体密钥，正确�
 })
 
 test('千问：所有文本生成/审核/修订保留 system/user 分工，媒体不追加文本约定', async () => {
-  const files = await readdir(new URL('../dev_docs/in_puts/', import.meta.url))
   let textCount = 0, mediaCount = 0
-  for (const file of files.filter(name => name.endsWith('.yaml'))) {
-    const template = await loadTemplate(file.slice(0, -5))
-    const keys = [...JSON.stringify(template.input).matchAll(/\{\{([^{}]+)\}\}/g)].map(match => match[1])
-    const values = Object.fromEntries(keys.map(key => [key, `资料-${key}-{{保持原文}}`]))
-    const prompt = renderTemplate(template, values)
-    assert.ok(!prompt.system.includes(template.mark))
-    assert.equal(prompt.body, `${prompt.system}\n\n${prompt.user}`)
+  for (const [node, route] of Object.entries(nodeRoutes)) for (const [action, contract] of Object.entries(route.actions)) {
+    const prompt = composeNodePrompt(node, action, sampleInput(contract.input), 'qwen3.5:27b')
+    assert.equal(prompt.body, node === 'video' ? prompt.user : `${prompt.system}\n\n${prompt.user}`)
     assert.ok(!prompt.user.includes('# 输出格式'))
-    assert.ok(prompt.user.includes(template.input.user.任务))
+    if (node !== 'video') assert.ok(prompt.user.includes(route.promptModel[action].user.任务))
     if (['JSON', '文本'].includes(prompt.output.type)) {
       textCount++
       assert.match(prompt.system, /# 响应约定/)
@@ -97,7 +93,7 @@ test('千问：所有文本生成/审核/修订保留 system/user 分工，媒�
       assert.ok(!prompt.body.includes('# 响应约定'))
     }
   }
-  assert.equal(textCount, 23)
+  assert.equal(textCount, 26)
   assert.equal(mediaCount, 4)
 })
 

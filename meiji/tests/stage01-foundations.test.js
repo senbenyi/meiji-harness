@@ -1,3 +1,5 @@
+import { elysiumClient } from '../server/http/elysium/client.js';
+import { parseJsonValue } from '../server/prompts/parse-json.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -5,11 +7,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
-  completeChat,
   generateGatewayImage,
   submitGatewayVideo,
   retrieveGatewayVideo,
-  parseJsonValue,
 } from "../server/gateway/model-gateway.js";
 import { decodeImageData } from "../server/media/decode-image-data.js";
 import { saveLastFrame } from "../server/media/extract-video-tail.js";
@@ -29,8 +29,8 @@ const png = Buffer.from(
 );
 
 test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完整输出", async () => {
-  const text = await completeChat({
-    ...connection,
+  const text = await elysiumClient.complete({
+    ...connection, model: "elysium-chat",
     system: "系统",
     prompt: "用户",
     fetchImpl: async (url, options) => {
@@ -47,7 +47,7 @@ test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完�
       assert.equal(body.presence_penalty, undefined);
       assert.equal(body.max_tokens, undefined);
       assert.equal(body.response_format, undefined);
-      assert.equal(body.model, "mock-model");
+      assert.equal(body.model, "elysium-chat");
       assert.equal(body.stream, false);
       return json({
         choices: [
@@ -58,8 +58,8 @@ test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完�
   });
   assert.deepEqual(parseJsonValue(text), { 正文: "完成" });
   await assert.rejects(
-    completeChat({
-      ...connection,
+    elysiumClient.complete({
+      ...connection, model: "elysium-chat",
       prompt: "测试",
       fetchImpl: async () =>
         json({
@@ -74,12 +74,12 @@ test("S1-06 文本网关请求分离 system/user，解析内容并拒绝非完�
 
 test("文本网关普通协议：400 不重试，非法 JSON 不因 HTTP200 变成有效结果", async () => {
   let calls = 0;
-  await assert.rejects(completeChat({ ...connection, prompt: "返回 JSON", fetchImpl: async () => {
+  await assert.rejects(elysiumClient.complete({ ...connection, model: "elysium-chat", prompt: "返回 JSON", fetchImpl: async () => {
     calls++;
     return new Response(JSON.stringify({ error: { message: "字段无效", code: "invalid_request" } }), { status: 400 });
   } }), /字段无效/);
   assert.equal(calls, 1);
-  const text = await completeChat({ ...connection, prompt: "返回 JSON", fetchImpl: async () => json({ choices: [{ finish_reason: "stop", message: { content: "这不是JSON" } }] }) });
+  const text = await elysiumClient.complete({ ...connection, model: "elysium-chat", prompt: "返回 JSON", fetchImpl: async () => json({ choices: [{ finish_reason: "stop", message: { content: "这不是JSON" } }] }) });
   assert.throws(() => parseJsonValue(text));
 });
 

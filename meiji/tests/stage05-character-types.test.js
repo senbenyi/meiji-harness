@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTextHandler } from '../server/handlers/text-handler.js';
+import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { snapshotFixture, taskFixture } from './fixtures/project.js';
 
 for (const kind of ['generate', 'revise']) {

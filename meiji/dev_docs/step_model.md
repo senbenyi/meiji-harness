@@ -73,8 +73,8 @@
 |---|---|---|
 | `single` | 单任务 | 一次独立操作默认建组。可以没有 `episode_id`，`shot_ids` 为空 |
 | `workflow` | 派生流程 | 角色提取仅提取；拆分剧集仅拆分；人物定妆照单独组按服装顺序排入图片任务 |
-| `episode-seconds` | 每秒分镜 | 只保留单项和历史任务。面板不再单独成组，每秒分镜排在成片组里 |
-| `episode-film` | 成片 | 按镜头顺序逐镜执行：每秒分镜、文生视频提示词、按生成视频类型可选的首尾帧/多模态提示词、视频。视频任务内截取尾帧。可用 `shot_id` 限定当前剧集的一镜；所选任务完成且全剧集视频有效后，在同组追加合片 |
+| `episode-seconds` | 每秒分镜 | 接口逐镜识别→每秒分镜；面板通过成片组执行 |
+| `episode-film` | 成片 | 按镜头顺序逐镜执行：角色与服装识别、每秒分镜、文生视频提示词、按生成视频类型可选的首尾帧/多模态提示词、视频。视频任务内截取尾帧。可用 `shot_id` 限定当前剧集的一镜；所选任务完成且全剧集视频有效后，在同组追加合片 |
 
 组里任一任务失败、未通过或取消，后面还没执行的任务作废，节点恢复 `previous_node_state`。旧组、旧任务、旧步骤保持不动。
 
@@ -186,6 +186,7 @@
 | `episodes[].summary.node_state` | 剧集摘要状态。节点内容另有 `body` |
 | `episodes[].story_outline.node_state` | 故事大纲状态。节点内容另有 `segments[]` |
 | `episodes[].shot_list.node_state` | 镜头表状态。节点内容另有 `shots[]` |
+| `episodes[].shot_list.shots[].character_binding.node_state` | 角色与服装识别状态（has_result 区分未识别与确认无人） |
 | `episodes[].shot_list.shots[].seconds_storyboard.node_state` | 每秒分镜状态 |
 | `episodes[].shot_list.shots[].text_to_video_prompt.node_state` | 文生视频提示词状态 |
 | `episodes[].shot_list.shots[].first_last_frame_prompt.node_state` | 首尾帧提示词状态 |

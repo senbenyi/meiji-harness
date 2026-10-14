@@ -1,9 +1,9 @@
+import { applicableRules } from '../server/handlers/node-inputs.js';
 import test from "node:test";
 import { emptyCharacterModel } from "../shared/models/character_model.js";
 import { emptyCostumeModel } from "../shared/models/costume_model.js";
 import { emptyCostumeImageModel } from "../shared/models/costume_image_model.js";
 import assert from "node:assert/strict";
-import { readdir } from "node:fs/promises";
 import {
   createId,
   NODE_STATUS,
@@ -22,12 +22,10 @@ import {
   emptyShot,
   validateProject,
 } from "../shared/project_contract.js";
-import {
-  loadTemplate,
-  renderTemplate,
-  ruleInputs,
-  validateTemplate,
-} from "../server/prompts/yaml-prompts.js";
+import { ruleInputs } from '../server/prompts/inputs.js';
+import { nodeRoutes, composeNodePrompt, nodeAction } from '../server/http/ai-routes.js';
+import { sampleInput } from './fixtures/ai.js';
+
 import { deliverTaskNotice } from "../server/host/task-notices.js";
 
 const projectFixture = () => {
@@ -40,7 +38,7 @@ const projectFixture = () => {
   p.character_library.characters = [c];
   const e = emptyEpisode({ sequence: 1 });
   const s = emptyShot({ sequence: 1, number: "S01" });
-  s.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
+  s.character_binding.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
   e.shot_list.shots = [s];
   p.episodes = [e];
   return p;
@@ -137,7 +135,7 @@ test("S1-03 AI 资料与编号引用不泄漏内部 ID，未知与重复编号�
   assert.throws(() => translateNumbers({ 角色编号: "C99" }, p), /未知/);
   assert.throws(() => translateNumbers({ 角色编号: "C01-01" }, p), /类型/);
   assert.equal(catalog.characters[0].默认服装编号, "C01-01");
-  assert.equal(catalog.shots[0].on_screen_characters[0].角色编号, "C01");
+  assert.equal(catalog.shots[0].character_binding.on_screen_characters[0].角色编号, "C01");
   p.character_library.characters.push({ ...p.character_library.characters[0], id: createId("character") });
   assert.throws(() => projectNumberCatalog(p), /重复/);
 });
@@ -216,35 +214,23 @@ test("S1-04 任务目标归属和字段协议严格校验，剧本无状态", ()
   ]);
   assert.equal(BUSINESS_TARGET["costume-delete"], "costume");
 });
-for (const file of await readdir(
-  new URL("../dev_docs/in_puts/", import.meta.url),
-)) {
-  if (!file.endsWith(".yaml")) continue;
-  test(`S1-05 ${file} 可加载并替换所有占位符`, async () => {
-    const template = await loadTemplate(file.replace(".yaml", ""));
-    const input = JSON.stringify(template.input);
-    const values = Object.fromEntries(
-      [...input.matchAll(/\{\{([^{}]+)\}\}/g)].map((m) => [m[1], "测试资料"]),
-    );
-    const rendered = renderTemplate(template, values);
-    assert.ok(rendered.system);
+for (const [node, route] of Object.entries(nodeRoutes)) {
+  for (const [action, contract] of Object.entries(route.actions)) test(`S1-05 ${node}/${action} 路由参数填充节点提示词`, () => {
+    const input = sampleInput(contract.input);
+    const rendered = composeNodePrompt(node, action, input, 'qwen3.5:27b');
+    if (node !== 'video') assert.ok(rendered.system);
+    else assert.equal(rendered.system, '');
     assert.ok(rendered.user);
-    assert.ok(!JSON.stringify(rendered).includes("{{"));
-    assert.equal(rendered.output.type, template.input.system.输出格式.类型);
-    assert.throws(() => renderTemplate(template, {}), /占位符/);
+    assert.deepEqual(rendered.output, contract.output);
+    assert.throws(() => composeNodePrompt(node, action, {}, 'qwen3.5:27b'), /输入/);
+    if (node === 'video') assert.equal(Object.hasOwn(route, 'promptModel'), false);
+    else assert.ok(!Object.hasOwn(route.promptModel[action].system, '输出格式'));
   });
 }
-test("S1-05 用户资料中的占位符、ID 和 mark 不改变模板结构", async () => {
-  const template = await loadTemplate("project-summary-generate");
-  const values = Object.fromEntries(
-    [...JSON.stringify(template.input).matchAll(/\{\{([^{}]+)\}\}/g)].map(
-      (m) => [m[1], "原样资料{{不是模板}}"],
-    ),
-  );
-  const rendered = renderTemplate(template, values);
-  assert.ok(rendered.user.includes("{{不是模板}}"));
-  assert.ok(!rendered.system.includes(template.mark));
-  await assert.rejects(loadTemplate("../step_model"), /模板/);
+test('S1-05 用户资料中的占位符不二次展开，未定义路由不加载任何文件', () => {
+  const rendered = composeNodePrompt('project-summary', 'generate', { script: '原样资料{{不是模板}}', language: 'zh-CN', rules: [], requirements: '' }, 'qwen3.5:27b');
+  assert.ok(rendered.user.includes('{{不是模板}}'));
+  assert.throws(() => nodeAction('../step_model', 'generate'), /不存在/);
 });
 test("S1-05 项目/节点规则顺序和参考素材分开，无资料不保留空段", () => {
   const rules = [
@@ -273,10 +259,10 @@ test("S1-05 项目/节点规则顺序和参考素材分开，无资料不保留�
       category: "动作",
     },
   ];
-  const v = ruleInputs(rules, "seconds", "target");
+  const v = ruleInputs(applicableRules({ rules }, "seconds", "target"));
   assert.ok(v.补充规则.indexOf("项目规则") < v.补充规则.indexOf("节点规则"));
   assert.ok(v.指导素材.includes("参考动作"));
-  assert.equal(ruleInputs(rules, "shots", "target").指导素材, "");
+  assert.equal(ruleInputs(applicableRules({ rules }, "shots", "target")).指导素材, "");
 });
 test("通知预检：只在会话显示提示卡，不唤醒 AI、不进入模型上下文", async () => {
   const events = [];
@@ -397,18 +383,11 @@ test("S1-04 所有命令共享严格白名单，组/人工/删除/队列协议�
   );
 });
 
-test("S1-05 输出格式不能放 user，空嵌套资料整段省略", () => {
-  const template = {
-    mark: "不进入正文",
-    input: {
-      system: {
-        角色: "测试",
-        输出格式: { 类型: "JSON", 结构: { 正文: "正文内容" } },
-      },
-      user: { 任务: "执行测试", 背景信息: { 资料: "{{资料}}" } },
-    },
-  };
-  assert.ok(!renderTemplate(template, { 资料: "" }).user.includes("背景信息"));
-  template.input.user.输出格式 = { 类型: "JSON", 结构: {} };
-  assert.throws(() => validateTemplate(template), /只允许/);
+test('S1-05 输出格式只在 system，空资料段省略且请求不能覆盖输出格式', () => {
+  const input = { script: '', language: 'zh-CN', rules: [], requirements: '' };
+  const prompt = composeNodePrompt('project-summary', 'generate', input, 'qwen3.5:27b');
+  assert.ok(!prompt.user.includes('背景信息'));
+  assert.ok(!prompt.user.includes('输出格式'));
+  assert.match(prompt.system, /输出格式/);
+  assert.throws(() => composeNodePrompt('project-summary', 'generate', { ...input, output: {} }, 'qwen3.5:27b'), /未定义参数/);
 });

@@ -276,6 +276,7 @@ test("项目详情四张卡片标题旁有状态，生成按钮按内容显示",
         [...card.querySelectorAll(".overview-title-actions button, .workflow-generation-row button")].map(
           (button) => button.textContent,
         );
+    project.character_library.node_state.status = "empty";
     const paint = () =>
       renderTaskPanel(root, snapshot, {
         session_id: "session-test",

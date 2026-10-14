@@ -1,8 +1,8 @@
 // 设置 Model：浏览器与服务端共用的可选模型及严格校验。
 export const modelOptions = {
-  text: [{ value: 'elysium-chat', label: '接口' }, { value: 'qwen3.5:27b', label: 'Qwen3.5 27B' }],
-  image: [{ value: 'elysium-image', label: '接口' }],
-  video: [{ value: 'elysium-video', label: '接口' }],
+  text: [{ value: 'elysium-chat', label: 'elysium-chat' }, { value: 'qwen3.5:27b', label: 'Qwen3.5 27B' }],
+  image: [{ value: 'elysium-image', label: 'elysium-image' }],
+  video: [{ value: 'elysium-video', label: 'elysium-video' }],
 }
 export class SettingsModel {
   constructor(value) {

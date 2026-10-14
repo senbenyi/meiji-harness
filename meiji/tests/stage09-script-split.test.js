@@ -1,3 +1,4 @@
+import { taskNodeInput } from '../server/handlers/node-inputs.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -8,7 +9,7 @@ import { emptyProject, emptyEpisode } from "../shared/project_contract.js";
 import { precheck } from "../server/flow/tasks/precheck.js";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
-import { createTextHandler, promptValues } from "../server/handlers/text-handler.js";
+import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
 import { commitContent } from "../server/handlers/content.js";
 import {
@@ -16,7 +17,7 @@ import {
   numberedScript,
   buildSplit,
 } from "../server/handlers/script-split.js";
-import { loadTemplate, renderTemplate } from "../server/prompts/yaml-prompts.js";
+import { renderTaskPrompt } from "./fixtures/ai.js";
 import { createAppRuntime } from "../server/runtime/app-runtime.js";
 
 const script = "第一场 酒馆\n武松：店家，再来一碗！\n\n店家：客官，三碗不过冈。\n第二场 景阳冈\n武松上冈，遇虎。\n武松打虎。";
@@ -183,18 +184,12 @@ test("拆分与摘要模板：占位符齐全，摘要资料来自本集剧情",
   p.episodes = buildSplit(script, { 剧集: rows }).episodes.map((e) => emptyEpisode(e));
   const split = { business_type: "script-split", target_id: p.id, action: "generate", opinion: "" };
   for (const suffix of ["generate", "regenerate"]) {
-    const prompt = renderTemplate(
-      await loadTemplate(`script-split-${suffix}`),
-      promptValues({ project: p, steps: [] }, { ...split, opinion: "第二集再短一点" }, null, "generate"),
-    );
+    const prompt = renderTaskPrompt({ project: p, steps: [] }, { ...split, opinion: "第二集再短一点" }, null, suffix);
     assert.ok(prompt.user.includes("P001 第一场 酒馆"));
     if (suffix === "regenerate") assert.ok(prompt.user.includes("P004"));
   }
   const e = p.episodes[1],
-    summary = renderTemplate(
-      await loadTemplate("episode-summary-generate"),
-      promptValues({ project: p, steps: [] }, { business_type: "episode-summary", target_id: e.id, action: "generate", opinion: "" }, null, "generate"),
-    );
+    summary = renderTaskPrompt({ project: p, steps: [] }, { business_type: "episode-summary", target_id: e.id, action: "generate", opinion: "" }, null, "generate");
   assert.ok(summary.user.includes("武松打虎。"));
   assert.ok(!summary.user.includes("故事小段"));
 });
@@ -354,6 +349,6 @@ test("拆分已经成功后带意见修改使用正式切点，不复用更早�
     tasks: [{ id: "old-rejected", business_type: "script-split", task_status: "rejected", queue_order: 1 }, { id: "latest-passed", business_type: "script-split", task_status: "completed", queue_order: 2 }],
     steps: [{ task_id: "old-rejected", kind: "revise", step_status: "done", seq: 5, result: { 剧集: [{ ...rows[0], 起始段落: "P999" }] } }],
   };
-  const values = promptValues(snapshot, { id: "new", business_type: "script-split", target_id: project.id, action: "regenerate", opinion: "调整切点" }, null, "generate");
-  assert.deepEqual(values.上一版切分, { 剧集: rows });
+  const values = taskNodeInput(snapshot, { id: "new", business_type: "script-split", target_id: project.id, action: "regenerate", opinion: "调整切点" }, null, "regenerate");
+  assert.deepEqual(values.content, { 剧集: rows });
 });

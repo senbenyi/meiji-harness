@@ -11,15 +11,8 @@ import { createMediaHandler } from "../handlers/media-handler.js";
 import { createHandlerRegistry } from "../handlers/handler-registry.js";
 import { commitContent } from "../handlers/content.js";
 import { MediaStore } from "../media/media-store.js";
-import {
-  completeChat,
-  generateGatewayImage,
-  submitGatewayVideo,
-  retrieveGatewayVideo,
-} from "../gateway/model-gateway.js";
-import { withGatewayTrace } from "../gateway/gateway-trace.js";
+import { createAiRoutes } from '../http/ai-routes.js';
 import { modelStore } from "../data/model-settings.js";
-import { modelRoute } from "../../models/model-config.js";
 import { NotificationOutbox } from "../host/notification-outbox.js";
 import { emptyProject, emptyEpisode } from "../../shared/project_contract.js";
 import { invalid, createId } from "../../shared/task_contract.js";
@@ -37,40 +30,9 @@ export async function createAppRuntime({
     media = new MediaStore(join(root, "media")),
     models = modelStore(home),
     library = new LibraryStore(join(root, "assets"));
-  const route = async (purpose) => {
-    const config = await models.read();
-    return modelRoute(config, purpose);
-  };
-  const trace = async (options, work) => {
-    const transfers = [];
-    return withGatewayTrace(async (data) => {
-      transfers.push(data);
-      if (options.trace && options.record) {
-        options.trace.transfers = transfers;
-        await options.record({ prompt: options.trace });
-      }
-    }, work);
-  };
-  const gateway = injected || {
-    chat: async (options) =>
-      trace(options, async () =>
-        completeChat({ ...(await route("story")), ...options }),
-      ),
-    image: async (options) =>
-      trace(options, async () =>
-        generateGatewayImage({ ...(await route("image")), ...options }),
-      ),
-    submitVideo: async (options) =>
-      trace(options, async () =>
-        submitGatewayVideo({ ...(await route("video")), ...options }),
-      ),
-    retrieveVideo: async (options) =>
-      trace(options, async () =>
-        retrieveGatewayVideo({ ...(await route("video")), ...options }),
-      ),
-  };
-  const text = createTextHandler({ chat: gateway.chat }),
-    mediaHandler = createMediaHandler({ media, gateway }),
+  const ai = createAiRoutes({ readConfig: () => models.read(), gateway: injected });
+  const text = createTextHandler({ ai }),
+    mediaHandler = createMediaHandler({ media, ai }),
     execute = createHandlerRegistry({ text, media: mediaHandler }),
     tasks = new TaskService({
       repository,
@@ -102,6 +64,7 @@ export async function createAppRuntime({
     media,
     models,
     library,
+    ai,
     tasks,
     notices,
     async command(command, sessionId, source = "panel") {

@@ -1,3 +1,4 @@
+import { shotTextInputs } from './shot-text-inputs.js';
 import { primaryCostumeImage } from "./models/character_model.js";
 import { createHash } from "node:crypto";
 import { nodeOf, locateTarget } from "./task_contract.js";
@@ -79,24 +80,13 @@ function dependencyMaterial(snapshot, business, id) {
       上游: upstream("outline", episode.id),
     };
   }
-  if (business === "seconds") {
-    const located = locateTarget(project, business, id);
-    return {
-      标题: located.object.title,
-      编号: located.object.number,
-      时长秒: located.object.duration_seconds,
-      正文: located.object.body,
-      景别: located.object.shot_scale,
-      钩子: located.object.hook,
-      连续性衔接: located.object.continuity_transition,
-      参考锚点: located.object.reference_anchor,
-      音频安排: located.object.audio_arrangement,
-      上游: upstream("shots", located.episode.id),
-    };
-  }
-  if (business === "storyboard") {
-    const shot = locateTarget(project, business, id).object;
-    return { 分镜: body(shot.seconds_storyboard), 上游: upstream("seconds", shot.id) };
+  if (['shot-characters', 'seconds', 'storyboard'].includes(business)) {
+    const { episode, object } = locateTarget(project, business, id);
+    const rules = project.rules.filter(rule => rule.applicable_business_types.includes(business) && (rule.scope === 'project' || rule.node_id === id));
+    const orderedRules = [...rules.filter(rule => rule.scope === 'project'), ...rules.filter(rule => rule.scope === 'node')].map(({ constraint, category, content }) => ({ constraint, category, content }));
+    return { ...shotTextInputs(project, episode, object, business), language: project.output_language, requirements: project.creative_direction,
+      rules: orderedRules, upstream: business === 'shot-characters' ? upstream('shots', episode.id)
+        : business === 'seconds' ? upstream('shot-characters', id) : upstream('seconds', id) };
   }
   if (business === "video") {
     const located = locateTarget(project, business, id),
@@ -157,7 +147,7 @@ function referencedImages(snapshot, shot) {
     : null;
   const ids = Array.isArray(recorded)
     ? recorded
-    : (shot.on_screen_characters || []).map((row) => row.costume_id || row.character_id);
+    : (shot.character_binding.on_screen_characters || []).map((row) => row.costume_id || row.character_id);
   return ids.filter(Boolean).map((imageId) => {
     for (const character of snapshot.project.character_library.characters) {
       if (character.id === imageId)
@@ -220,7 +210,10 @@ export function downstream(snapshot, business, id) {
     e = t.episode,
     s = t.object;
   const one = (b, target) => ({ business_type: b, target_id: target });
-  const roleContext = () => p.episodes.map(episode => ({ ...one("shots", episode.id), context_only: true }));
+  const roleContext = () => p.episodes.flatMap(episode => [
+    { ...one("shots", episode.id), context_only: true },
+    ...episode.shot_list.shots.flatMap(shot => ['shot-characters', 'seconds', 'storyboard'].map(business => ({ ...one(business, shot.id), context_only: true }))),
+  ]);
   if (business === "script") return [one("project-summary", p.id), one("project-characters", p.id)];
   // 剧集剧情（剧本原文）不是节点：拆分写入或人工编辑使摘要与故事大纲过期；
   // 自由创作剧本更新回写剧情时，故事大纲是剧情的来源，只使摘要过期。
@@ -233,11 +226,16 @@ export function downstream(snapshot, business, id) {
   if (business === "outline") return [one("shots", id)];
   if (business === "shots")
     return [
-      ...e.shot_list.shots.map((x) => one("seconds", x.id)),
+      ...e.shot_list.shots.map((x) => one("shot-characters", x.id)),
       // 集合顺序也影响前镜尾帧和合片，不能依赖每秒分镜变化才触达。
       ...e.shot_list.shots.map((x) => one("video", x.id)),
       one("assembly", e.id),
     ];
+  if (business === 'shot-characters') {
+    const shots = [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence);
+    const next = shots[shots.findIndex(shot => shot.id === id) + 1];
+    return [one('seconds', id), ...(next ? [one('shot-characters', next.id)] : [])];
+  }
   if (business === "seconds") return [one("storyboard", id)];
   if (business === "storyboard") return [one("video", id)];
   if (business === "video") return [one("tail", id), one("assembly", e.id)];
@@ -278,7 +276,7 @@ export function downstream(snapshot, business, id) {
           : null;
         const used = refs
           ? refs.includes(id) || (isPrimary && refs.includes(character.id))
-          : shot.on_screen_characters.some((r) =>
+          : shot.character_binding.on_screen_characters.some((r) =>
               business === "costume-image"
                 ? (r.costume_id === id || (isPrimary && r.character_id === character.id && !r.costume_id))
                 : r.character_id === id && !r.costume_id,

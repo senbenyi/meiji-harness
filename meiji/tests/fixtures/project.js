@@ -6,6 +6,7 @@ import { stampDependencyHash } from "../../shared/node-dependencies.js";
 export function projectFixture() {
   const p = emptyProject({ name: "新契约测试", creative_direction: "方向" });
   p.script.body = "完整剧本";
+  p.character_library.node_state.status = "generated";
   p.project_summary.body = "摘要";
   p.project_summary.node_state.status = "generated";
   const e = emptyEpisode({ duration_seconds: 10, plot: "本集剧情原文" });
@@ -20,6 +21,8 @@ export function projectFixture() {
   for (let n = 1; n <= 2; n++) {
     const s = emptyShot({ sequence: n, number: `S0${n}`, duration_seconds: 5, body: "剧情" });
     s.continuity_transition = "尾帧衔接";
+    s.character_binding.has_result = true;
+    s.character_binding.node_state.status = "generated";
     s.seconds_storyboard.node_state.status = "generated";
     s.seconds_storyboard.storyboard = [{ ...emptyStoryboardBeatModel(), time_range: "0–5s", action: "动作", camera: "镜头", space: "空间", audio: "声音", handoff: "结束" }];
     s.text_to_video_prompt.node_state.status = "generated";
@@ -32,10 +35,11 @@ export function projectFixture() {
   }
   const snapshot = { project: p, tasks: [], steps: [] };
   stampDependencyHash(snapshot, "project-summary", p.id);
+  stampDependencyHash(snapshot, "project-characters", p.id);
   for (const business of ["episode-summary", "outline", "shots"])
     stampDependencyHash(snapshot, business, e.id);
   for (const shot of e.shot_list.shots)
-    for (const business of ["seconds", "storyboard", "video", "tail"])
+    for (const business of ["shot-characters", "seconds", "storyboard", "video", "tail"])
       stampDependencyHash(snapshot, business, shot.id);
   stampDependencyHash(snapshot, "assembly", e.id);
   return p;

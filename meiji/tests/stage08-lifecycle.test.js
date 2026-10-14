@@ -39,7 +39,7 @@ test("重启仅排队组合：全组作废并保留统一原因，节点和媒�
     let executed = 0;
     const service = new TaskService({ repository, commitOutput: commitContent, execute: async () => { executed++; throw new Error("旧组合不应执行"); } });
     await service.command({ type: "submit-group", project_id: p.id, request_id: "group", group_type: "episode-film", episode_id: p.episodes[0].id, action: "regenerate" });
-    assert.equal(model.read().tasks.length, 8);
+    assert.equal(model.read().tasks.length, 10);
     const restored = await new ModelRepository(root).open(p.id);
     await service.recover(restored);
     const s = restored.read();

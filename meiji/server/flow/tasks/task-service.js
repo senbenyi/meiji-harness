@@ -233,8 +233,8 @@ export class TaskService {
             expireDownstream(prospective, task.business_type, task.target_id, "队列前序即将重新生成", { compareHash: false });
         for (const id of scope)
           for (const business of type === "episode-seconds"
-             ? ["seconds"]
-             : ["seconds", "storyboard", "video", "tail"]) {
+             ? ["shot-characters", "seconds"]
+             : ["shot-characters", "seconds", "storyboard", "video", "tail"]) {
             if (action === "generate" && isNodeCurrent(prospective, business, id)) continue;
             planned.push({ business, id });
             expireDownstream(prospective, business, id, "本组前序即将重新生成", { compareHash: false });

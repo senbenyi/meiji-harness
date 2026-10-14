@@ -27,7 +27,7 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
       e = p.episodes[0],
       shot = e.shot_list.shots[0];
     c.default_costume_id = c.costumes[0].id;
-    shot.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
+    shot.character_binding.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
     const repo = new ModelRepository(root),
       model = await repo.create(p);
     let refs = [];
@@ -78,7 +78,7 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
     const next = model.read();
     assert.equal(next.project.character_library.characters[0].costumes.length, 1);
     assert.equal(
-      next.project.episodes[0].shot_list.shots[0].on_screen_characters[0].costume_id,
+      next.project.episodes[0].shot_list.shots[0].character_binding.on_screen_characters[0].costume_id,
       c.default_costume_id,
     );
     assert.equal(next.project.episodes[0].shot_list.shots[0].video.node_state.status, "expired");

@@ -5,20 +5,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
-import { createTextHandler } from "../server/handlers/text-handler.js";
+import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
 import { commitContent, aiProjection, prepareContent } from "../server/handlers/content.js";
 import { dependencyHash, stampDependencyHash } from "../shared/node-dependencies.js";
-import {
-  loadTemplate,
-  renderTemplate,
-} from "../server/prompts/yaml-prompts.js";
+import { renderTaskPrompt } from "./fixtures/ai.js";
 import {
   projectFixture,
   taskFixture,
   snapshotFixture,
 } from "./fixtures/project.js";
-import { promptValues } from "../server/handlers/text-handler.js";
 const cases = [
   "project-summary",
   "project-characters",
@@ -134,16 +130,7 @@ test("S5-01 所有文本模板占位符均从真实项目资料构建，不暴�
           : p.episodes[0].id,
       t = taskFixture(p, business, target);
     for (const suffix of ["generate", "regenerate", "review"]) {
-      const template = await loadTemplate(`${business}-${suffix}`),
-        prompt = renderTemplate(
-          template,
-          promptValues(
-            snapshot,
-            t,
-            null,
-            suffix === "review" ? "review" : "generate",
-          ),
-        );
+      const prompt = renderTaskPrompt(snapshot, t, null, suffix);
       assert.ok(!prompt.system.includes(p.id));
       assert.ok(!prompt.user.includes(p.id));
     }

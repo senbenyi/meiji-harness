@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
-import { createMediaHandler } from "../server/handlers/media-handler.js";
+import { createTestMediaHandler as createMediaHandler } from "./fixtures/ai.js";
 import { commitContent } from "../server/handlers/content.js";
 import { MediaStore } from "../server/media/media-store.js";
 import { mergeCharacters } from "../shared/collection-identity.js";
@@ -58,7 +58,9 @@ test("S6-01/02/03/04 仅姓名角色通过前置，真实媒体经过图片、�
     const c = p.character_library.characters[0],
       co = c.costumes[0],
       s = e.shot_list.shots[0];
-    s.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
+    s.text_to_video_prompt.overall_soundscape = "Natural ambience.";
+    s.text_to_video_prompt.non_diegetic_music = "None.";
+    s.character_binding.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
     const snapshot = { project: p, tasks: [], steps: [] };
     for (const business of ["episode-summary", "outline", "shots"])
       stampDependencyHash(snapshot, business, e.id);
@@ -133,7 +135,7 @@ test("S6-01/02/03/04 仅姓名角色通过前置，真实媒体经过图片、�
 
 test("图片提示词的人物资料组装为一句话，省略编号、必出与缺失值", async () => {
   const { personSentence } = await import("../server/handlers/media-handler.js");
-  const { loadTemplate, renderTemplate } = await import("../server/prompts/yaml-prompts.js");
+  const { composeNodePrompt } = await import("../server/http/ai-routes.js");
   const sentence = personSentence({
     number: "C6",
     name: "郓哥",
@@ -153,16 +155,12 @@ test("图片提示词的人物资料组装为一句话，省略编号、必出�
     sentence,
     "郓哥；男；古代（架空）；水果贩；18岁；身材瘦削；不可改特征受过武大郎照顾，愿意冒险相助。",
   );
-  const prompt = renderTemplate(await loadTemplate("costume-image-generate"), {
-    输出语言: "zh-CN",
-    人物资料: sentence,
-    本套服装描述: "",
-    参考图片说明: "",
-    补充规则: "",
-  });
+  const prompt = composeNodePrompt("costume-image", "generate", {
+    language: "zh-CN", person: sentence, costume: "", referenceDescription: "", rules: [], requirements: "", aspectRatio: "16:9", references: [],
+  }, "elysium-image");
   assert.match(prompt.user, /## 人物资料\n郓哥；男；古代/);
   assert.doesNotMatch(prompt.user, /### |编号|必出|有图|资料未提供/);
-  const { languageName } = await import("../server/prompts/yaml-prompts.js");
+  const { languageName } = await import("../server/prompts/inputs.js");
   assert.equal(languageName("zh-CN"), "简体中文");
   assert.equal(languageName("en"), "English（英文）");
 });
@@ -296,12 +294,13 @@ test("合片缺失、损坏、跨项目或依赖过期的视频在前置失败�
 });
 
 test("定妆照提示词精简重复规则，保留参考图、补充规则与修改意见", async () => {
-  const { loadTemplate, renderTemplate } = await import("../server/prompts/yaml-prompts.js");
+  const { composeNodePrompt } = await import("../server/http/ai-routes.js");
   for (const kind of ["generate", "regenerate"]) {
-    const prompt = renderTemplate(await loadTemplate(`costume-image-${kind}`), {
-      人物资料: "甲；成年；身材健壮。", 本套服装描述: "蓝色常服", 参考图片说明: "参考图仅用于面相。",
-      补充规则: "保留左眉疤痕。", 修改意见: "调整发型。",
-    });
+    const prompt = composeNodePrompt("costume-image", kind, {
+      person: "甲；成年；身材健壮。", costume: "蓝色常服", referenceDescription: "参考图仅用于面相。",
+      rules: [{ constraint: "必须", content: "保留左眉疤痕。" }], ...(kind === "regenerate" ? { opinion: "调整发型。" } : {}),
+      language: "zh-CN", requirements: "", aspectRatio: "16:9", references: [],
+    }, "elysium-image");
     assert.equal(prompt.output.type, "图片");
     assert.ok(prompt.body.length < 550, prompt.body.length);
     assert.doesNotMatch(prompt.body, /裸露/);

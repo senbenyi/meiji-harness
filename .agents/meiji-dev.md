@@ -30,7 +30,9 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 | `server/data/task-store.js` | 任务与组合任务只读视图 |
 | `server/flow/tasks/task-service.js`、`precheck.js` | 项目串行、组合顺序、按节点重试轮次修订、取消/中断/继续及执行时前置核验 |
 | `server/handlers/` | 文本、媒体、人工、删除业务；返回内容，不自行结算任务 |
-| `server/prompts/yaml-prompts.js` | 唯一 YAML 加载、结构校验、占位资料替换和自然语言渲染 |
+| `server/http/nodes/`、`server/http/ai-routes.js` | 唯一节点输入/输出契约、节点参数编排和统一 AI 执行入口 |
+| `server/prompts/models/`、`inputs.js`、`render.js` | 节点提示要求、公共输入映射和自然语言渲染 |
+| `server/http/elysium/`、`llm-server/` | 两个文本来源的 HTTP 单例与独立参数组装 |
 | `server/gateway/` | HTTP 协议、下载/轮询、纯请求记录及脱敏；不操作项目状态 |
 | `server/media/` | 项目范围媒体路径、FFprobe/FFmpeg 校验、尾帧与合片 |
 | `server/data/session-bindings.js` | 会话不可改绑；面板跨项目复用目标会话或新建目标工作区会话；不读取旧绑定 |
@@ -46,11 +48,11 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 唯一数据库为 `$DSH_HOME/storages/meiji/meiji.sqlite`，使用 Node 内置 `node:sqlite`（^22.19.0 或 >=24）。`schema.sql` 定义 projects、task_groups、tasks、task_steps、command_requests、notification_outbox、schema_migrations 七表；任务必须归组，步骤必须归任务，顺序唯一且同项目最多一个 running 任务。`sqlite-store.js` 使用 WAL/foreign_keys/FULL、短同步事务及 revision 条件校验，变化记录增量写入；不在持锁期间调用模型或等待异步工作。ProjectModel 的写接口只允许 repository 提供的事务闭包，项目内容/任务/步骤/幂等/通知一起提交，事件发生在持久化后。卸载时等待任务和通知结束，再关闭连接。
 
-`projects/<p_UUID>/` 仅作为宿主工作区目录。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 的固定英文字段和 `node_state.{status,reason,dependency_hash}`；字段或数据语义变更通过明确版本迁移执行，不重建项目或改写已结束任务历史。当前 schema 为 v8；支持的 v1–v7 升级前用 SQLite 快照备份。v3→v4 转换英文项目、节点快照、任务组列和步骤 rejected 枚举；v4→v5 不增表或字段，重算剧集实测时长，并将与新依赖规则不符的旧 generated 节点及下游标 expired，保留正文/媒体/原成功 hash，同步未结束排队任务的恢复快照。v5→v6 将角色 signature_props、immutable_traits 和服装 props 统一为字符串数组：空白旧文本变 []，非空旧文本原样保留为单元素数组，不猜测分隔符；按新数组依赖使受影响节点及排队恢复快照过期，保留正文、媒体和旧 hash。v6→v7 移除独立 character_image 字段，将旧角色图保留为未绑定服装的历史定妆照，默认角色图读取第一套定妆照；作废未结束独立角色图任务，按新依赖使定妆照过期，保留媒体、旧 hash 和历史。v7→v8 去掉节点状态 queued：有运行任务的节点改为 running，有排队任务的节点恢复 previous_node_state，其余改为 cancelled 并写原因；任务排队状态保留。所有过渡在同一事务内，失败整体回滚，不改历史 prompt/result。首次启动自动创建数据库；发现未清理的 CURRENT 分代数据时明确拒绝启用。独立素材库和模型配置保留。
+`projects/<p_UUID>/` 仅作为宿主工作区目录。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 固定字段及 `node_state.{status,reason,dependency_hash}`。当前 schema v9；本轮按用户要求清空旧项目、任务及关联文件，不迁移。首次启动建新库；旧版本明确拒绝，不在运行时自动删除或兼容。模型配置和独立素材库保留。
 
 项目、剧集、角色、服装、镜头、规则、任务、组和步骤使用创建时生成的带前缀 UUID。AI 输入输出及资料界面使用编号，引用转换由程序核对唯一性和归属。重生成保留同一对象 ID，不按列表位置重建身份、不无声删除引用对象。独立素材继续使用原 `assets/<category>/<UUID>/metadata.json` 和 `original.<ext>` 文件格式；场景、道具及指导素材入口退出，但磁盘数据不会在启动时被删除。
 
-旧格式项目/旧会话不迁移、不适配。旧项目目录名称可以出现在片库拒绝提示中，不读取旧正文；只允许用户显式删除。受支持 SQLite schema 的项目仅执行明确版本迁移；历史任务保留原 ID 和执行时资料，不能按当前项目资料重建历史请求。
+旧格式项目/旧会话不迁移、不适配。旧项目目录名称可以出现在片库拒绝提示中，不读取旧正文；只允许用户显式删除。历史任务保留原 ID 和执行时资料，不能按当前项目资料重建历史请求。
 
 ## 状态、前置和任务
 
@@ -65,7 +67,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - 项目内执行串行；完成后自动下一项；failed/rejected/cancelled 停止队列。面板再次生成最新任务为失败、未通过、取消或作废的同一节点时，创建新任务并保留旧终态；有内容时 `generate` 按 `regenerate` 受理；首次无内容失败仍允许 `generate`。若该重试已排队则复用；无其他未结束任务时直接启动；有其他等待/运行任务时明确冲突，不误启动其他任务。开始/移除排队项、人工操作与删除只能从面板发起。
 - 服务重启把所有 queued/running 旧任务统一结算为 superseded（已作废），未完成步骤同样作废，已完成步骤与历史终态保留；排队节点恢复快照，运行节点结算 cancelled 并保留内容。重启清除 queue_stopped，旧任务不重放，新任务可直接执行；晚到结果不得覆盖作废任务。
 - 面板提交拆分剧集会直接恢复并执行该拆分（已有排队拆分复用）；存在其他未结束任务时明确拒绝，不带起其他暂停任务。面板同节点重试遵循相同直启规则；会话提交和其他普通提交仍遵循暂停队列规则。
-- 成片使用 episode-film；当前逐镜任务为每秒分镜→分镜提示词→视频→尾帧，镜头级类型分支及尾帧并入视频仍待对齐。submit-group 的 action=generate 补齐无效节点，action=regenerate 重跑所选镜头；跳过有效节点前计算本次及已排队上游任务将造成的下游过期。可选 shot_id 限定单镜，镜头必须属于指定剧集，opinion 保存到组内任务且要求 regenerate。同集成片队列结束、本集全部视频有效时，最后完成组追加唯一合片；单镜组不代生成其他镜头，合片失败后继续只创建合片。episode-seconds 保留单项及历史契约，不再有独立标签入口。组合整组受理，冲突整组拒绝；停止后后序 superseded，继续新建组并保留旧终态。
+- 成片使用 episode-film；当前逐镜任务为角色与服装识别→每秒分镜→分镜提示词→视频→尾帧，镜头级类型分支及尾帧并入视频仍待对齐。submit-group 的 action=generate 补齐无效节点，action=regenerate 重跑所选镜头；跳过有效节点前计算本次及已排队上游任务将造成的下游过期。可选 shot_id 限定单镜，镜头必须属于指定剧集，opinion 保存到组内任务且要求 regenerate。同集成片队列结束、本集全部视频有效时，最后完成组追加唯一合片；单镜组不代生成其他镜头，合片失败后继续只创建合片。episode-seconds 保留单项及历史契约，不再有独立标签入口。组合整组受理，冲突整组拒绝；停止后后序 superseded，继续新建组并保留旧终态。
 - 每镜视频完成后记录 FFprobe 实测的实际时长秒（保留一位小数），人工导入视频同样测量；写回视频或替换镜头集合时，剧集实际时长立即累加各镜实测值。合片文件的实测值留步骤结果，不覆盖该累计值；参考预算不变。现有未测量的镜头暂不展示实际时长，不追溯重写已有媒体。
 - 每次独立操作创建 single 组；角色提取、拆分剧集创建 workflow 组。角色提取只存资料；人物卡 submit-costumes 单独创建 workflow 组，按服装顺序生成全部定妆照，无服装生成一张；拆分剧集只包含拆分任务，写入各集剧情后完成，不自动派生每集摘要。父任务已完成不因子任务失败被改写。task/group/step 创建时保存 name，后续资料改名不改历史；已有记录缺名称时只读补显；持久化任务必须有父组，运行时不创建虚拟组。
 - 删除整个项目不受制作进度限制，概要与片库的删除入口不随运行任务冻结。TaskService 删除入口先封闭该项目新增任务、暂停队列并取消未结束任务，abort 当前执行并等待本地清理完成，再串行删除项目及清除绑定；不等待项目制作完成，不影响其他项目。远端视频取消能力沿用网关现状。
@@ -78,11 +80,11 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 ## 提示词与网关
 
-业务与输出结构以制作工作流、step_model、project_detail 和 dots 为开发依据；代码 Model/节点定义写定字段和审核配置，运行时由 `dev_docs/in_puts/*.yaml` 渲染生成、审核、修订正文。`mark` 不进入请求，输出格式只在 system，user 的任务是模板固定正文。占位符缺失直接失败；注入资料不二次展开。规则以范围、适用业务、类别、必须/参考组织，配置变更不追溯改写历史。
+业务与输出结构以制作工作流、step_model、project_detail 和 dots 为开发依据；`server/http/nodes/` 按节点和动作定义业务输入与输出格式，提示词渲染、模型返回校验及人工编辑共用输出契约。`server/prompts/models/` 保存角色和生成、审核、按意见重新生成要求，节点文件的 `compose` 编排该节点业务参数；视频使用 `http/video-request.js` 直接编排已审核三段，无 PromptModel，`render.js` 渲染正文。输出格式只在 system，user 的任务是 Model 固定正文。占位符缺失直接失败；注入资料不二次展开。规则以范围、适用业务、类别、必须/参考组织，配置变更不追溯改写历史。
 
 文本按对应节点声明解析：项目/剧集摘要为纯文本，人物和切点等按 JSON 结构校验；分镜提示词保留其既定段落协议。JSON 结构不可用时 failed 并保留旧内容；可用候选的业务审核未通过时按节点轮次修订，耗尽后将最后内容及 rejected 原因存正式节点，不刷新 hash、不传播、不派生。拆分只做程序审核，拒绝候选留任务历史且不替换剧集。定妆照的姓名、性别、年代、定位、年龄段、身材、发型、签名道具、不可改特征任一项去除首尾空白后非空即可生成；全部为空时拒绝。首套可有或没有用户参考图；后续定妆照固定且唯一地引用首套定妆照，所有生成/修订动作一致。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图，后续镜头使用前镜尾帧及交接资料；远端 ID 在提交后记录。
 
-文本由 `shared/models/settings_model.js` 的 SettingsModel 选择：接口 `elysium-chat` 或独立 llm-server 提供的 `qwen3.5:27b`。选择 Qwen 时，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 system/user、stream=false；Qwen 的 reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5 默认参数已迁到独立 llm-server；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由 YAML 提示词要求和本地校验保证。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../meiji/README.md)。
+文本由 `shared/models/settings_model.js` 的 SettingsModel 选择：`elysium-chat` 或独立 llm-server 提供的 `qwen3.5:27b`。图片、视频选项名分别为 `elysium-image`、`elysium-video`。选择 Qwen 时，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 system/user、stream=false；Qwen 的 reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5 默认参数已迁到独立 llm-server；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由节点路由契约注入提示词，并按同一契约进行本地校验。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../meiji/README.md)。
 
 当前网关图片协议为 `images/generations` 或 multipart `images/edits`；视频为 `videos` 提交、状态轮询与 content 下载；文本使用 chat/completions。沿用实际网关的地址和参数，不依赖旧 README 所述异步图片取消协议。网关不提供远端视频取消接口：取消停止本地等待并阻止晚到结果提交，如实保留远端可能继续运行的原因。新增视频/合片在本地保持比例缩放并填充到项目画幅的像素尺寸，保留音轨；网关请求仍使用兼容尺寸，旧媒体不追溯改写。生成文件须通过 FFprobe 及 FFmpeg 完整解码；不能只根据扩展名或 HTTP 成功判为有效。
 
@@ -90,11 +92,11 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 ## 双端与通知
 
-三个工具为 meiji-context-query、meiji-project-command、meiji-task-command。HTTP 使用 `/api/meiji/` 的 context、project-command、task-command、events、media、library、models；写入校验宿主登录、同源标记和会话/项目绑定。不存在旧 run/operation 端点。
+三个工具为 meiji-context-query、meiji-project-command、meiji-task-command。HTTP 使用 `/api/meiji/` 的 context、project-command、task-command、events、media、library、models；写入校验宿主登录、同源标记和会话/项目绑定。AI 节点使用同一套 `/api/meiji/ai/<node>/<action>` 路由，query 的 session_id/project_id 通过绑定校验，正文只包含节点业务参数；返回候选，不直接写正式项目。任务 Handler 在进程内调用相同节点执行函数。不存在旧 run/operation 端点。
 
 通知以稳定消息 ID 保存 outbox，并使用公开 `sessionController.resolveAgent` 和 `session.append(command/run、command/done)` 显示提示卡；不进入模型上下文、不唤醒 AI。会话断开/通知失败不撤销业务受理，返回 task/group ID 与独立通知错误，之后恢复时重试同一消息。投递期间新增通知继续在同次 drain 中处理。
 
-面板上下文按 epoch、session、project、revision 拒绝晚到和乱序响应。后台标签页关闭 Meiji EventSource 并暂停刷新；重新可见时获取最新数据、恢复唯一订阅，卸载移除可见性监听。切换不取消后台任务，卸载关闭订阅与计时器。状态直接读取 Model；运行中冻结编辑与生成，查看及取消仍可用。保留项目概要、角色与服装、设置、历史、素材库；剧集四个标签为剧情、镜头表、成片、合成。镜头表直接读取项目角色库，不设本集人物资产节点。成片镜头详情顺序展示每秒分镜、文本提示词、视频、尾帧，视频生成/重新生成按钮提交单镜完整成片组。删除场景、道具、技能、预览授权及续旧任务入口。
+面板上下文按 epoch、session、project、revision 拒绝晚到和乱序响应。后台标签页关闭 Meiji EventSource 并暂停刷新；重新可见时获取最新数据、恢复唯一订阅，卸载移除可见性监听。切换不取消后台任务，卸载关闭订阅与计时器。状态直接读取 Model；运行中冻结编辑与生成，查看及取消仍可用。保留项目概要、角色与服装、设置、历史、素材库；剧集四个标签为剧情、镜头表、成片、合成。镜头表直接读取项目角色库，不设本集人物资产节点。成片镜头详情顺序展示角色与服装识别、每秒分镜、文本提示词、视频、尾帧，视频生成/重新生成按钮提交单镜完整成片组。删除场景、道具、技能、预览授权及续旧任务入口。
 
 ## 验证与运行
 
@@ -102,3 +104,5 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - 测试从本次八阶段设计重新创建。HTTP/DOM/生命周期使用隔离 home；网关协议使用 mock，FFmpeg 使用真实临时文件。生产网关和真实 Harness 走查证据单独记录，不能混称自动测试全部覆盖生产模型质量。
 - 收尾执行 `git diff --check`、入口依赖/旧文件检查、必要 shell 语法检查，再更新图谱。
 - `configure-harness.sh` 链接插件并启动；`restart-harness.sh` 验证进程归属、停止旧实例并确认端口释放后启动。SQLite schema 升级由数据库启动事务自动执行；端口被非预期进程占用或旧进程不退出则拒绝启动新实例。
+
+逐镜文本：`shot-characters` 保存到 `shot.character_binding`，`has_result` 区分未识别与合法空绑定；编号由服务映射 ID。识别、每秒分镜及文生提示词要求有效角色库，不要求定妆照。`episode-seconds` 每镜依次识别→每秒分镜。文本输入与依赖 hash 共用 `shared/shot-text-inputs.js`，图片不影响文本。seconds 程序审核从 0 连续、正向、无重叠，末端误差 ±5 秒；与 AI 共用两次修订。

@@ -8,7 +8,7 @@ export function applyDelete(snapshot, task) {
   else {
     for (const e of p.episodes)
       for (const s of e.shot_list.shots)
-        for (const r of s.on_screen_characters)
+        for (const r of s.character_binding.on_screen_characters)
           if (r.costume_id === object.id) {
             r.costume_id = character.default_costume_id;
             const node = nodeOf(p, "video", s.id);

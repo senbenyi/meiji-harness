@@ -382,6 +382,7 @@ export function renderEpisode(root, env, entries) {
   if (shot) {
     body.append(
         element("p", `参考 ${shot.duration_seconds} 秒${shot.actual_duration_seconds > 0 ? ` · 实际 ${shot.actual_duration_seconds} 秒` : ""}`, "meta"),
+        nodeCard("shot-characters", shot.id, shot.character_binding),
         nodeCard("seconds", shot.id, shot.seconds_storyboard),
         nodeCard("storyboard", shot.id, shot.text_to_video_prompt),
         nodeCard("video", shot.id, shot.video),
@@ -483,7 +484,7 @@ export function renderEpisode(root, env, entries) {
         card.append(
           element(
             "p",
-            `每秒分镜：${env.labels[s.seconds_storyboard.node_state.status]} · 文本提示词：${env.labels[s.text_to_video_prompt.node_state.status]} · 视频：${env.labels[s.video.node_state.status]} · 尾帧：${env.labels[s.last_frame.node_state.status]}`,
+            `角色识别：${env.labels[s.character_binding.node_state.status]} · 每秒分镜：${env.labels[s.seconds_storyboard.node_state.status]} · 文本提示词：${env.labels[s.text_to_video_prompt.node_state.status]} · 视频：${env.labels[s.video.node_state.status]} · 尾帧：${env.labels[s.last_frame.node_state.status]}`,
             "meta",
           ),
         );

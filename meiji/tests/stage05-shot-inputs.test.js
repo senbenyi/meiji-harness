@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTemplate, renderTemplate } from '../server/prompts/yaml-prompts.js';
-import { promptValues } from '../server/handlers/text-handler.js';
+import { renderTaskPrompt } from "./fixtures/ai.js";
 import { prepareContent } from '../server/handlers/content.js';
 import { emptyCharacterModel } from '../shared/models/character_model.js';
 import { snapshotFixture, taskFixture } from './fixtures/project.js';
@@ -14,7 +13,7 @@ for (const suffix of ['generate', 'regenerate']) test(`镜头表${suffix}返回�
   character.costume_images[0].node_state.status = 'generated';
   project.character_library.characters = [character];
   const task = taskFixture(project, 'shots', episode.id);
-  const rendered = renderTemplate(await loadTemplate(`shots-${suffix}`), promptValues(snapshot, task, null, 'generate'));
+  const rendered = renderTaskPrompt(snapshot, task, null, suffix);
   assert.match(rendered.system, /本集故事小段/);
   assert.match(rendered.user, /周巡检/);
   assert.match(rendered.user, /四十岁/);

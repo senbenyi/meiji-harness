@@ -41,7 +41,7 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
         if (
           e.shot_list.shots.some(
             (s) =>
-              s.on_screen_characters.some((r) => r.character_id === object.id) ||
+              s.character_binding.on_screen_characters.some((r) => r.character_id === object.id) ||
               s.seconds_storyboard.storyboard.some((b) =>
                 b.dialogue.some((d) => d.speaker_id === object.id),
               ),
@@ -88,15 +88,25 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
         invalid("precheck", "本集剧情为空，请先填写剧情或拆分剧集");
     },
     shots: () => requireNode("outline", episode.id),
-    "shots-input": () => requireNode("shots", episode.id),
+    "shot-characters": () => {
+      requireNode("shots", episode.id);
+      requireNode("project-characters", p.id);
+    },
+    seconds: () => {
+      requireNode("shots", episode.id);
+      requireNode("project-characters", p.id);
+      requireNode("shot-characters", object.id);
+    },
     storyboard: () => {
+      requireNode("project-characters", p.id);
+      requireNode("shot-characters", object.id);
       requireNode("shots", episode.id);
       requireNode("seconds", object.id);
     },
     video: () => {
       requireNode("shots", episode.id);
       requireNode("storyboard", object.id);
-      for (const row of object.on_screen_characters) {
+      for (const row of object.character_binding.on_screen_characters) {
         const c = p.character_library.characters.find((c) => c.id === row.character_id);
         requireNode(
           row.costume_id ? "costume-image" : "character-image",

@@ -11,6 +11,7 @@ const nodeTypeNames = {
   outline: "故事大纲",
   "episode-characters": "已移除的历史任务",
   shots: "镜头表",
+  "shot-characters": "镜头角色与服装",
   seconds: "每秒分镜",
   storyboard: "文本提示词",
   video: "视频",

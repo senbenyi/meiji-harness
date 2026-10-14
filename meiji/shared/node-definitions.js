@@ -89,16 +89,21 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     retryRounds: 2,
     precheck: "shots",
   },
+  "shot-characters": {
+    targetKind: "shot", field: "character_binding", label: "镜头角色与服装",
+    handler: "text", output: "text", programReview: true, aiReview: true,
+    retryRounds: 2, precheck: "shot-characters",
+  },
   seconds: {
     targetKind: "shot",
     field: "seconds_storyboard",
     label: "每秒分镜",
     handler: "text",
     output: "text",
-    programReview: false,
+    programReview: true,
     aiReview: true,
     retryRounds: 2,
-    precheck: "shots-input",
+    precheck: "seconds",
   },
   storyboard: {
     targetKind: "shot",

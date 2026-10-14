@@ -20,12 +20,13 @@ async function fixture(work, configure = () => {}) {
     if(control.gate)await control.gate;
     events.push([task.target_id,task.business_type,step.kind]);
     if(step.kind==='precheck')return {result:{passed:true}};
-    if(step.kind==='review') {const fail=control.reject||(control.revise&&task.business_type==='seconds'&&step.round===0);return {result:{是否通过:!fail,原因:fail?'需要修订':''}};}
+    if(step.kind==='review') {const fail=(control.reject&&task.business_type==='seconds')||(control.revise&&task.business_type==='seconds'&&step.round===0);return {result:{是否通过:!fail,原因:fail?'需要修订':''}};}
     if(task.business_type==='assembly') {
      if(control.failAssembly)throw new Error('合片失败');
      return {content:{address:'film-new.mp4'},result:{duration:10.4}};
     }
    const shot=originals.find(s=>s.id===task.target_id);
+   if(task.business_type==='shot-characters')return {content:{has_result:true,on_screen_characters:[]}};
    if(task.business_type==='seconds')return {content:{storyboard:shot.seconds_storyboard.storyboard}};
    if(task.business_type==='storyboard')return {content:{integrated_multimodal_description:shot.text_to_video_prompt.integrated_multimodal_description,overall_soundscape:'',non_diegetic_music:''}};
    return {content:{address:task.business_type==='video'?'test.mp4':'tail.png',...(task.business_type==='video'?{actual_duration_seconds:5.2}:{})}};
@@ -38,10 +39,10 @@ async function fixture(work, configure = () => {}) {
 test('本集成片逐镜完整链：每秒审核通过后提示词/视频/尾帧，再下一镜',()=>fixture(async({p,model,service,events,control,command})=>{
  control.revise=true;const group=await service.command(command);await service.idle(p.id);
  const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id);
-  assert.deepEqual(tasks.map(t=>t.business_type),['seconds','storyboard','video','tail','seconds','storyboard','video','tail','assembly']);
+  assert.deepEqual(tasks.map(t=>t.business_type),['shot-characters','seconds','storyboard','video','tail','shot-characters','seconds','storyboard','video','tail','assembly']);
  assert.ok(tasks.every(t=>t.task_status==='completed'));
  const first=p.episodes[0].shot_list.shots[0].id;
- assert.deepEqual(events.filter(e=>e[0]===first).map(e=>e.slice(1)),[['seconds','generate'],['seconds','review'],['seconds','revise'],['seconds','review'],['storyboard','generate'],['storyboard','review'],['video','generate'],['tail','generate']]);
+ assert.deepEqual(events.filter(e=>e[0]===first).map(e=>e.slice(1)),[['shot-characters','generate'],['shot-characters','review'],['shot-characters','review'],['seconds','generate'],['seconds','review'],['seconds','revise'],['seconds','review'],['seconds','review'],['storyboard','generate'],['storyboard','review'],['video','generate'],['tail','generate']]);
  assert.equal(model.read().project.episodes[0].shot_list.shots[0].actual_duration_seconds,5.2);assert.equal(model.read().project.episodes[0].shot_list.shots[0].duration_seconds,5);
 }));
 
@@ -78,15 +79,15 @@ test('已有独立合片任务时拒绝整集成片，没有残留半组',()=>fi
 
 test('每秒审核未通过停止后序，继续保留旧终态并完整接续',()=>fixture(async({p,model,service,control,command})=>{
  control.reject=true;const first=await service.command(command);await service.idle(p.id);const old=model.read().tasks;
- assert.equal(old[0].task_status,'rejected');assert.ok(old.slice(1).every(t=>t.task_status==='superseded'));
+ assert.equal(old[0].task_status,'completed');assert.equal(old[1].task_status,'rejected');assert.ok(old.slice(2).every(t=>t.task_status==='superseded'));
  control.reject=false;const next=await service.command({type:'continue-group',project_id:p.id,request_id:'continue',group_id:first.group_id});
- assert.equal(next.task_ids.length,8);await service.idle(p.id);
- assert.deepEqual(model.read().tasks.slice(0,8),old);assert.ok(model.read().tasks.slice(8).every(t=>t.task_status==='completed'));
+ assert.equal(next.task_ids.length,9);await service.idle(p.id);
+ assert.deepEqual(model.read().tasks.slice(0,10),old);assert.ok(model.read().tasks.slice(10).every(t=>t.task_status==='completed'));
 }));
 
 test('单镜成片范围/意见及跨集拒绝，无其他镜头任务',()=>fixture(async({p,model,service,command})=>{
  const shot=p.episodes[0].shot_list.shots[0];const group=await service.command({...command,shot_id:shot.id,opinion:'强调动作'});await service.idle(p.id);
- const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id);assert.equal(tasks.length,4);assert.ok(tasks.every(t=>t.target_id===shot.id&&t.opinion==='强调动作'));
+ const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id);assert.equal(tasks.length,5);assert.ok(tasks.every(t=>t.target_id===shot.id&&t.opinion==='强调动作'));
  assert.deepEqual(model.read().groups[0].shot_ids,[shot.id]);
  await assert.rejects(service.command({...command,request_id:'invalid',shot_id:p.id}),/不属于当前剧集/);
 }));
@@ -114,7 +115,7 @@ test('单镜重做后其他视频已有效则追加合片，不代生成其他�
  const shot=p.episodes[0].shot_list.shots[1];
  const group=await service.command({...command,shot_id:shot.id});await service.idle(p.id);
  const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id);
- assert.deepEqual(tasks.map(t=>t.business_type),['seconds','storyboard','video','tail','assembly']);
+ assert.deepEqual(tasks.map(t=>t.business_type),['shot-characters','seconds','storyboard','video','tail','assembly']);
  assert.ok(tasks.slice(0,-1).every(t=>t.target_id===shot.id));
  assert.ok(tasks.every(t=>t.task_status==='completed'),tasks.map(t=>t.end_reason).join(';'));
 },allCurrent));

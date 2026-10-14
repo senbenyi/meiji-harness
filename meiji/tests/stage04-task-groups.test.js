@@ -30,7 +30,7 @@ test("S4-04/05/06 组内停止作废后序，继续新组从停点接续，旧�
         execute: async ({ snapshot, task, step }) =>
           step.kind === "review"
             ? { result: { 是否通过: !fail, 原因: fail ? "审核失败" : "" } }
-            : {
+            : task.business_type === "shot-characters" ? { content: { has_result: true, on_screen_characters: [] } } : {
                 content: {
                   storyboard: structuredClone(
                     nodeOf(snapshot.project, "seconds", task.target_id).storyboard,
@@ -55,7 +55,7 @@ test("S4-04/05/06 组内停止作废后序，继续新组从停点接续，旧�
       group_id: result.group_id,
     });
     assert.notEqual(next.group_id, result.group_id);
-    assert.equal(next.task_ids.length, 2);
+    assert.equal(next.task_ids.length, 4);
     const task = next.task_ids[0];
     assert.equal(
       model.read().tasks.find((t) => t.id === task).action,
@@ -63,9 +63,9 @@ test("S4-04/05/06 组内停止作废后序，继续新组从停点接续，旧�
     );
     // 面板继续直接执行新组，无需再次点击开始。
     await service.idle(p.id);
-    assert.deepEqual(model.read().tasks.slice(0, 2), before.tasks);
+    assert.deepEqual(model.read().tasks.slice(0, 4), before.tasks);
     assert.deepEqual(model.read().groups[0], before.groups[0]);
-    assert.equal(model.read().tasks[2].task_status, "completed");
+    assert.equal(model.read().tasks[4].task_status, "completed");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -95,7 +95,7 @@ test("S4-10 重叠整组拒绝，幂等返回原组，无部分状态写入", as
       { code: "TASK_CONFLICT" },
     );
     assert.equal(model.read().groups.length, before);
-    assert.equal(model.read().tasks.length, 2);
+    assert.equal(model.read().tasks.length, 4);
     release();
     await service.idle(p.id);
   } finally {
@@ -114,7 +114,7 @@ test("S4-11 继续组重做上游时，将即将过期的已生成视频/尾帧�
     const snapshot = { project: p, tasks: [], steps: [] };
     for (const business of ["outline", "shots"])
       stampDependencyHash(snapshot, business, p.episodes[0].id);
-    for (const business of ["seconds", "storyboard", "video", "tail"])
+    for (const business of ["shot-characters", "seconds", "storyboard", "video", "tail"])
       stampDependencyHash(snapshot, business, p.episodes[0].shot_list.shots[0].id);
     const repository = new ModelRepository(root),
       model = await repository.create(p);
@@ -150,7 +150,7 @@ test("S4-11 继续组重做上游时，将即将过期的已生成视频/尾帧�
         .read()
         .tasks.filter((t) => next.task_ids.includes(t.id))
         .map((t) => t.business_type),
-      ["seconds", "storyboard", "video", "tail"],
+      ["shot-characters", "seconds", "storyboard", "video", "tail"],
     );
   } finally {
     await service?.dispose();
@@ -165,7 +165,7 @@ test("继续只给停点任务带拒绝原因，组不保存意见或来源组",
     const repository = new ModelRepository(root), p = projectFixture(), model = await repository.create(p);
     service = new TaskService({ repository, commitOutput: commitContent, execute: async ({ snapshot, task, step }) =>
       step.kind === "review" ? { result: { 是否通过: false, 原因: "停点审核拒绝" } }
-        : { content: { storyboard: structuredClone(nodeOf(snapshot.project, "seconds", task.target_id).storyboard) } } });
+        : task.business_type === "shot-characters" ? { content: { has_result: true, on_screen_characters: [] } } : { content: { storyboard: structuredClone(nodeOf(snapshot.project, "seconds", task.target_id).storyboard) } } });
     const first = await service.command({ ...group(p), opinion: "旧组意见" });
     await service.idle(p.id);
     const before = model.read();
@@ -173,9 +173,9 @@ test("继续只给停点任务带拒绝原因，组不保存意见或来源组",
     const current = model.read(), tasks = current.tasks.filter(t => t.group_id === continued.group_id), nextGroup = current.groups.find(g => g.id === continued.group_id);
     assert.equal(tasks[0].opinion, "停点审核拒绝");
     assert.equal(tasks[1].opinion, "");
-    assert.deepEqual(tasks.map(t => t.group_seq), [1,2]);
+    assert.deepEqual(tasks.map(t => t.group_seq), [1,2,3,4]);
     assert.equal("opinion" in nextGroup, false);
     assert.equal("continued_from_group_id" in nextGroup, false);
-    assert.deepEqual(current.tasks.slice(0,2), before.tasks);
+    assert.deepEqual(current.tasks.slice(0,4), before.tasks);
   } finally { await service?.dispose(); await rm(root, { recursive: true, force: true }); }
 });

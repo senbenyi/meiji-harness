@@ -42,6 +42,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
             "project-characters": { characters: [] },
             outline: { segments: [{ sequence: 1, duration_seconds: 5, body: "秒针向前走动", causal: "" }] },
             shots: { shots: [{ title: "钟表", number: "S01", duration_seconds: 5, shot_scale: "特写", hook: "揭示", body: "秒针向前走动", continuity_transition: "", reference_anchor: { fixed_landmark: "", character_positions: "", departed_characters: "", lighting: "" }, audio_arrangement: { narration: "", dialogue: "", sound_effects: "" } }] },
+            "shot-characters": { on_screen_characters: [] },
             seconds: { storyboard: [beat] },
             storyboard: "integrated_multimodal_description:\n秒针走动，镜头固定，桌面有机械声，结束秒针停止。\noverall_soundscape:\n机械声\nnon_diegetic_music:\n无",
           }[task.business_type];
@@ -89,7 +90,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
       old = before.tasks.filter((t) => t.group_id === first.group_id);
     assert.deepEqual(
       old.map((t) => t.task_status),
-      ["completed", "completed", "failed", "superseded"],
+      ["completed", "completed", "completed", "failed", "superseded"],
     );
     failVideo = false;
     const next = await runtime.tasks.command({

@@ -7,11 +7,10 @@ import { emptyProject, emptyEpisode } from "../shared/project_contract.js";
 import { precheck } from "../server/flow/tasks/precheck.js";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
-import { createTextHandler } from "../server/handlers/text-handler.js";
+import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
 import { commitContent } from "../server/handlers/content.js";
-import { loadTemplate, renderTemplate } from "../server/prompts/yaml-prompts.js";
-import { promptValues } from "../server/handlers/text-handler.js";
+import { renderTaskPrompt } from "./fixtures/ai.js";
 import { stampDependencyHash } from "../shared/node-dependencies.js";
 
 function fixture(mode, action = "generate") {
@@ -83,7 +82,7 @@ for (const mode of ["剧本", "自由创作"]) {
     p.project_summary.body = "摘要哨兵内容禁止进入剧情资料";
     const snapshot = { project: p, steps: [] };
     for (const suffix of ["generate", "regenerate", "review"]) {
-      const prompt = renderTemplate(await loadTemplate(`outline-${suffix}`), promptValues(snapshot, task, {}, suffix));
+      const prompt = renderTaskPrompt(snapshot, task, {}, suffix);
       assert.ok(!prompt.user.includes("摘要哨兵内容"));
       assert.ok(!prompt.user.includes("项目摘要"));
     }

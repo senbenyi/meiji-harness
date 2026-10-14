@@ -5,10 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
-import { createTextHandler, promptValues } from "../server/handlers/text-handler.js";
+import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
 import { commitContent } from "../server/handlers/content.js";
-import { loadTemplate, renderTemplate } from "../server/prompts/yaml-prompts.js";
+import { renderTaskPrompt } from "./fixtures/ai.js";
 import { projectFixture, taskFixture, snapshotFixture } from "./fixtures/project.js";
 
 const story = '雨夜，武松缓慢扶起颤抖的兄长，红色粗布袖口滴着水。他低声说：“别怕。”门外响起沉闷的脚步声。';
@@ -101,14 +101,14 @@ test("摘要和大纲修订注入候选；大纲三种模板均有参考值，�
     const marker = `${business}待修订标记`, draft = business === "outline"
       ? { segments: [{ sequence: 1, duration_seconds: 138, body: marker, causal: "承接" }] }
       : { body: marker };
-    const revised = renderTemplate(await loadTemplate(`${business}-regenerate`), promptValues(snapshot, task, draft, "revise"));
+    const revised = renderTaskPrompt(snapshot, task, draft, "regenerate", { kind: "revise" });
     assert.ok(revised.user.includes(marker));
     assert.match(revised.user, /保留红色粗布/);
     assert.ok(revised.user.includes(story));
   }
   for (const suffix of ["generate", "regenerate", "review"]) {
     const task = taskFixture(project, "outline", episode.id);
-    const rendered = renderTemplate(await loadTemplate(`outline-${suffix}`), promptValues(snapshot, task, episode.story_outline, suffix));
+    const rendered = renderTaskPrompt(snapshot, task, episode.story_outline, suffix);
     assert.match(rendered.user, /本集参考时长秒\n137/);
     assert.doesNotMatch(rendered.system, /±30|上下30|允许\s*107/);
   }

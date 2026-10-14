@@ -16,9 +16,6 @@
     ".": "./index.js",
     "./session": "./session.js"
   },
-  "dependencies": {
-    "yaml": "^2.9.1"
-  },
   "devDependencies": {
     "jsdom": "^30.1.2",
     "playwright": "^1.64.0"

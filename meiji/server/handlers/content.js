@@ -1,3 +1,5 @@
+import storyboardRoute from '../http/nodes/storyboard.js';
+import { parseSections } from '../prompts/parse-sections.js';
 import { expireDownstream, stampDependencyHash } from "../../shared/node-dependencies.js";
 import { applyDelete } from "./deletion-handler.js";
 import { nodeOf, locateTarget, invalid } from "../../shared/task_contract.js";
@@ -8,23 +10,6 @@ import { emptyCostumeImageModel } from "../../shared/models/costume_image_model.
 import { updateEpisodeActualDuration } from "../../shared/models/episode_model.js";
 import { buildSplit } from "./script-split.js";
 
-export function validateShape(value, shape, path = "响应") {
-  if (Array.isArray(shape)) {
-    if (!Array.isArray(value)) invalid(path, "需为数组");
-    for (const row of value) validateShape(row, shape[0], path + "[]");
-    return;
-  }
-  if (shape && typeof shape === "object") {
-    if (!value || typeof value !== "object" || Array.isArray(value)) invalid(path, "需为对象");
-    for (const key of Object.keys(value)) if (!Object.hasOwn(shape, key)) invalid(path + "." + key, "未定义字段");
-    for (const key of Object.keys(shape)) {
-      if (!Object.hasOwn(value, key)) invalid(path + "." + key, "缺少字段");
-      validateShape(value[key], shape[key], path + "." + key);
-    }
-    return;
-  }
-  if (typeof value !== typeof shape) invalid(path, `需为 ${typeof shape}`);
-}
 
 export function aiProjection(value) {
   const walk = (item) => Array.isArray(item) ? item.map(walk) : item && typeof item === "object"
@@ -38,14 +23,6 @@ export function aiProjection(value) {
   return walk(value);
 }
 
-function textPrompt(raw) {
-  const keys = ["integrated_multimodal_description", "overall_soundscape", "non_diegetic_music"];
-  const matches = [...raw.matchAll(/^(?:#{1,6}[ \t]*)?(integrated_multimodal_description|overall_soundscape|non_diegetic_music)[ \t]*[:：]?[ \t]*/gm)];
-  if (matches.length !== 3 || matches.some((match, index) => match[1] !== keys[index]))
-    invalid("文生视频提示词", "需依次包含规定的三个段落标题");
-  return Object.fromEntries(matches.map((match, index) => [match[1], raw.slice(match.index + match[0].length, matches[index + 1]?.index ?? raw.length).trim()]));
-}
-
 export function prepareContent(snapshot, task, raw) {
   const project = snapshot.project, business = task.business_type;
   const target = locateTarget(project, business, task.target_id);
@@ -53,11 +30,18 @@ export function prepareContent(snapshot, task, raw) {
   let content;
   if (business === "project-characters") {
     content = { ...mergeCharacters(project, raw.characters), changes: structuredClone(raw.characters) };
-  } else if (["project-summary", "episode-summary"].includes(business)) {
+  } else if (business === "shot-characters") {
+    content = { has_result: true, on_screen_characters: raw.on_screen_characters.map(row => {
+      const person = project.character_library.characters.find(person => person.number === row.character_number);
+      if (!person) invalid("镜头角色识别", "未知角色编号");
+      const costume = person.costumes.find(costume => costume.number === row.costume_number);
+      if (row.costume_number && !costume || person.costumes.length && !costume) invalid("镜头角色识别", "需指定该人物的有效服装编号");
+      return { character_id: person.id, costume_id: costume?.id || '' };
+    }) };  } else if (["project-summary", "episode-summary"].includes(business)) {
     if (typeof raw !== "string" || !raw.trim()) invalid(business, "摘要内容为空");
     content = { body: raw.trim() };
   } else if (business === "storyboard") {
-    content = textPrompt(raw);
+    content = parseSections(raw, storyboardRoute.actions.generate.output.sections);
   } else if (business === "shots") {
     content = replaceShots(project, target.episode.id, raw.shots, snapshot.tasks);
   } else {

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-service.js";
-import { createTextHandler } from "../server/handlers/text-handler.js";
+import { createTestTextHandler as createTextHandler } from "./fixtures/ai.js";
 import { createHandlerRegistry } from "../server/handlers/handler-registry.js";
 import { commitContent } from "../server/handlers/content.js";
 import { projectFixture } from "./fixtures/project.js";

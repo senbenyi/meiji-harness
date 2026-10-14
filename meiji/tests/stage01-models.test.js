@@ -30,7 +30,7 @@ test("项目模型的每个嵌套数组项都由独立模型构造并通过完�
   const episode = emptyEpisodeModel();
   episode.story_outline.segments.push(emptyStorySegmentModel());
   const shot = emptyShotModel();
-  shot.on_screen_characters.push(emptyOnScreenCharacterModel({ character_id: character.id, costume_id: costume.id }));
+  shot.character_binding.on_screen_characters.push(emptyOnScreenCharacterModel({ character_id: character.id, costume_id: costume.id }));
   const beat = emptyStoryboardBeatModel();
   beat.time_range = "0–1s";
   beat.dialogue.push(emptyDialogueModel());

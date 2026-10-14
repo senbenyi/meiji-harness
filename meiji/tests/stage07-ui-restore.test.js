@@ -453,7 +453,9 @@ test("UI-6 设置选项自动保存、刷新恢复、失败回退，运行中冻
       assert.equal(content.querySelectorAll("input, textarea").length, 0);
       assert.ok(![...content.querySelectorAll("button")].some(b => b.textContent === "保存"));
       let language = content.querySelector("[name=output_language]"), model = content.querySelector("[name=text]");
-      assert.deepEqual([...model.options].map(o => o.textContent), ["接口", "Qwen3.5 27B"]);
+      assert.deepEqual([...model.options].map(o => o.textContent), ["elysium-chat", "Qwen3.5 27B"]);
+      assert.deepEqual([...content.querySelector("[name=image]").options].map(o => o.textContent), ["elysium-image"]);
+      assert.deepEqual([...content.querySelector("[name=video]").options].map(o => o.textContent), ["elysium-video"]);
       model.value = "elysium-chat";
       await model.onchange();
       assert.equal(settings.text.model, "elysium-chat");

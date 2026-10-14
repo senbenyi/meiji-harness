@@ -1,3 +1,4 @@
+import { videoParameters } from '../http/elysium/video-params.js';
 import { recordTransfer } from "./gateway-trace.js";
 import { publicHeaders, publicData, redactJson } from "./redact.js";
 export { publicData } from "./redact.js";
@@ -211,78 +212,6 @@ async function requestGatewayRaw({
   return { ok: true, response, data, durationMs: Date.now() - startedAt };
 }
 
-// 上游偶发错误的重试间隔（毫秒）；测试可改为更短或清空。
-export const chatRetry = { delays: [1000, 3000] };
-
-export async function completeChat({
-  baseUrl,
-  apiKey,
-  model,
-  system,
-  prompt,
-  fetchImpl = fetch,
-  signal,
-}) {
-  const messages = [];
-  if (system) messages.push({ role: "system", content: system });
-  messages.push({ role: "user", content: prompt });
-  const payload = {
-    model,
-    messages,
-    stream: false,
-    // CloudGPU/Qwen 的部署参数由独立 llm-server 统一补齐。
-  };
-  // 文本请求可重复提交：网关上游偶发 502/503/504 时自动再试，每次请求各自留痕；图片与视频不在此重试。
-  let result;
-  for (const [attempt, delay] of [0, ...chatRetry.delays].entries()) {
-    if (attempt)
-      await new Promise((resolve, reject) => {
-        const abort = () => {
-            clearTimeout(timer);
-            reject(signal.reason);
-          },
-          timer = setTimeout(() => {
-            signal?.removeEventListener("abort", abort);
-            resolve();
-          }, delay);
-        if (signal?.aborted) abort();
-        else signal?.addEventListener("abort", abort, { once: true });
-      });
-    result = await requestGateway({
-      baseUrl,
-      path: "chat/completions",
-      method: "POST",
-      apiKey,
-      fetchImpl,
-      signal,
-      fn: "completeChat",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: payload,
-    });
-    if (result.ok || ![502, 503, 504].includes(result.response.status)) break;
-  }
-  if (!result.ok)
-    fail(
-      result.response,
-      result.data,
-      `文本生成失败：HTTP ${result.response.status}`,
-    );
-  const finish = result.data?.choices?.[0]?.finish_reason;
-  if (finish && finish !== "stop")
-    throw Object.assign(new Error(`模型输出未正常完成：${finish}`), {
-      status: 502,
-      code: "INCOMPLETE_MODEL_OUTPUT",
-    });
-  const content = result.data?.choices?.[0]?.message?.content;
-  const text = typeof content === "string" ? content.trim() : "";
-  if (!text)
-    throw Object.assign(new Error("模型没有返回文本"), { status: 502 });
-  return text;
-}
-
 // 下载响应 URL；网关媒体需要原密钥，外部地址不携带密钥。
 async function downloadImageBytes({ baseUrl, url, apiKey, fetchImpl, signal }) {
   signal?.throwIfAborted();
@@ -473,35 +402,7 @@ export async function submitGatewayVideo({
   signal,
 }) {
   signal?.throwIfAborted();
-  const seconds = String(Math.round(Number(duration) || 5));
-  const body = {
-    model: model,
-    prompt,
-    seconds,
-    size: gatewayVideoSize(aspectRatio),
-  };
-  const images = (referenceImages || [])
-    .map((item) => String(item || "").trim())
-    .filter(Boolean);
-  if (images.length > 9)
-    throw Object.assign(new Error("参考图最多 9 张"), { status: 409 });
-  if (
-    images.some((item) => !/^data:image\/(?:png|jpeg|webp);base64,/.test(item))
-  )
-    throw Object.assign(
-      new Error("参考图需为 PNG、JPG 或 WebP 的 base64 data URL"),
-      { status: 409 },
-    );
-  const kind = ["text", "first_frame", "reference"].includes(mode)
-    ? mode
-    : images.length
-      ? "reference"
-      : inputReference
-        ? "first_frame"
-        : "text";
-  if (kind === "reference") body.reference_images = images;
-  else if (kind === "first_frame" && inputReference)
-    body.input_reference = inputReference;
+  const body = videoParameters({ model, prompt, duration, aspectRatio, mode, inputReference, referenceImages });
   const size = Buffer.byteLength(JSON.stringify(body));
   if (size > requestByteLimit)
     throw Object.assign(
@@ -534,7 +435,7 @@ export async function submitGatewayVideo({
   if (!result.data?.id)
     throw Object.assign(new Error("网关未返回视频任务"), { status: 502 });
   if (signal?.aborted) throw notCancelled(result.data.id);
-  return { id: result.data.id, seconds, size: body.size };
+  return { id: result.data.id, seconds: body.seconds, size: body.size };
 }
 
 const wait = (ms, signal) => delay(ms, undefined, { signal });
@@ -646,33 +547,5 @@ export async function retrieveGatewayVideo({
         { status: 504 },
       );
     throw error;
-  }
-}
-
-export function parseJsonValue(text) {
-  const source = String(text || "").trim();
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(source);
-  const body = (fenced ? fenced[1] : source).trim();
-  const start = ["[", "{"].reduce((found, mark) => {
-    const index = body.indexOf(mark);
-    return index >= 0 && index < found ? index : found;
-  }, Infinity);
-  if (!Number.isFinite(start))
-    throw Object.assign(new Error("模型没有返回 JSON"), {
-      status: 502,
-      code: "INVALID_MODEL_JSON",
-    });
-  try {
-    return JSON.parse(body.slice(start));
-  } catch (error) {
-    const location = /position \d+(?: \(line \d+ column \d+\))?/.exec(
-      error.message,
-    )?.[0];
-    throw Object.assign(
-      new Error(
-        `JSON 无法解析${location ? `（${location}）` : ""}：请检查对象括号、逗号及字符串转义，返回完整合法 JSON`,
-      ),
-      { status: 502, code: "INVALID_MODEL_JSON" },
-    );
   }
 }

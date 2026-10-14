@@ -1,3 +1,4 @@
+import { bindingNumbers } from '../shared/shot-text-inputs.js';
 import { editor, readable } from "./content-forms.js";
 import { renderOverview, renderEpisode, backHeader } from "./project-ui.js";
 import { renderResource, blankCharacter } from "./resource-ui.js";
@@ -42,6 +43,7 @@ const names = {
   outline: "故事大纲",
   "script-split": "拆分剧集",
   shots: "镜头表",
+  "shot-characters": "镜头角色与服装",
   seconds: "每秒分镜",
   storyboard: "文本提示词",
   video: "视频",
@@ -58,6 +60,7 @@ function payload(node) {
   return walk(node);
 }
 function hasContent(value) {
+  if (value?.has_result === true) return true;
   if (typeof value === "string") return Boolean(value.trim());
   if (Array.isArray(value)) return value.some(hasContent);
   if (!value || typeof value !== "object") return false;
@@ -145,6 +148,10 @@ export function renderTaskPanel(root, snapshot, context) {
         };
       }
       card.append(asset);
+    } else if (business === 'shot-characters') {
+      card.append(element('p', !node.has_result ? '尚未识别' : !node.on_screen_characters.length
+        ? (node.node_state.status === 'generated' ? '已确认无人出镜' : '候选：无人出镜')
+        : readable(bindingNumbers(p, node)), 'prompt full'));
     } else if (business === "outline") {
       const segments = element("div", "", "outline-segments");
       for (const part of [...(node.segments || [])].sort((a, b) => a.sequence - b.sequence))
@@ -244,6 +251,8 @@ export function renderTaskPanel(root, snapshot, context) {
                 ? node.body
                 : business === "storyboard"
                   ? `integrated_multimodal_description:\n${node.integrated_multimodal_description}\noverall_soundscape:\n${node.overall_soundscape}\nnon_diegetic_music:\n${node.non_diegetic_music}`
+                : business === "shot-characters"
+                  ? bindingNumbers(p, node)
                 : business === "shots"
                   ? { shots: node.shots.map((shot) => Object.fromEntries(["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"].map((key) => [key, structuredClone(shot[key])]))) }
                 : business === "project-characters"

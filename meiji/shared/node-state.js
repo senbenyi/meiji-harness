@@ -49,6 +49,7 @@ export function releaseQueuedNodeStatus(project, tasks) {
     apply("shots", episode.id, episode.shot_list);
     apply("assembly", episode.id, episode.assembly);
     for (const shot of episode.shot_list?.shots || []) {
+      apply("shot-characters", shot.id, shot.character_binding);
       apply("seconds", shot.id, shot.seconds_storyboard);
       apply("storyboard", shot.id, shot.text_to_video_prompt);
       apply("first-last-frame", shot.id, shot.first_last_frame_prompt);
@@ -69,6 +70,7 @@ export function hasNodeContent(project, business, targetId) {
   if (business === "project-characters") return node.characters.length > 0;
   if (business === "outline") return node.segments.length > 0;
   if (business === "shots") return node.shots.length > 0;
+  if (business === "shot-characters") return node.has_result;
   if (business === "seconds") return node.storyboard.length > 0;
   if (business === "storyboard") return Boolean(node.integrated_multimodal_description.trim());
   return Boolean((node.body ?? node.address ?? "").trim());
@@ -92,16 +94,14 @@ export function assertOutput(project, business, targetId) {
     for (const part of node.segments) nonempty(part.body, "故事大纲");
   }
   if (business === "shots" && !node.shots.length) invalid("镜头表", "产出内容为空");
-  if (business === "seconds") {
-    let end = 0;
-    if (!node.storyboard.length) invalid("每秒分镜", "产出内容为空");
-    for (const beat of node.storyboard) {
-      const range = beat.time_range.match(/^(\d+(?:\.\d+)?)[–-](\d+(?:\.\d+)?)s$/);
-      if (!range || Number(range[1]) !== end) invalid("时段", "必须连续覆盖本镜");
-      end = Number(range[2]);
+  if (business === "shot-characters") {
+    if (!node.has_result) invalid("镜头角色识别", "尚未识别");
+    for (const row of node.on_screen_characters) {
+      const person = project.character_library.characters.find(person => person.id === row.character_id);
+      if (person.costumes.length && !row.costume_id) invalid("镜头角色识别", "需明确本镜服装");
     }
-    if (end !== object.duration_seconds) invalid("时段", "必须完整覆盖本镜");
   }
+  if (business === "seconds" && !node.storyboard.length) invalid("每秒分镜", "产出内容为空");
   if (business === "storyboard") nonempty(node.integrated_multimodal_description, "文生视频提示词");
 }
 
@@ -109,6 +109,17 @@ export function assertOutput(project, business, targetId) {
 export function assertProgramReview(project, business, targetId) {
   assertOutput(project, business, targetId);
   const { object } = locateTarget(project, business, targetId), node = nodeOf(project, business, targetId);
+  if (business === "seconds") {
+    let end = 0;
+    for (const beat of node.storyboard) {
+      const range = beat.time_range.match(/^(\d+(?:\.\d+)?)[–-](\d+(?:\.\d+)?)s$/);
+      const start = Number(range[1]), next = Number(range[2]);
+      if (Math.abs(start - end) > 1e-9 || next <= start) invalid("时段", "必须从0开始连续覆盖，不能重叠、倒序或留空隙");
+      end = next;
+    }
+    if (Math.abs(end - object.duration_seconds) > 5 + 1e-9)
+      invalid("每秒分镜", `总时长 ${end} 秒超出本镜参考 ${object.duration_seconds} 秒允许误差±5秒`);
+  }
   if (business === "outline") {
     const total = node.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0);
     if (Math.abs(total - object.duration_seconds) > 30)

@@ -151,6 +151,26 @@ export function createTaskHttpHandler(
         return json(res, 403, { message: "跨站请求已拒绝" });
       const input = await body(req),
         { session_id, command } = input;
+      if (path.startsWith('/api/meiji/ai/')) {
+        const match = /^\/api\/meiji\/ai\/([a-z]+(?:-[a-z]+)*)\/(generate|review|regenerate)$/.exec(path);
+        if (!match) return json(res, 404, { message: 'AI 节点或动作不存在' });
+        // 身份上下文通过 query 传入，JSON 正文只包含节点声明的业务参数。
+        const sessionId = url.searchParams.get('session_id'), projectId = url.searchParams.get('project_id');
+        if (!sessionId || !projectId) return json(res, 403, { message: '需要会话与项目绑定' });
+        await runtime.bindings.require(sessionId, projectId);
+        const controller = new AbortController();
+        const abort = () => controller.abort(new Error('请求连接已关闭'));
+        req.once('aborted', abort);
+        const close = () => { if (!res.writableEnded) abort(); };
+        res.once('close', close);
+        try {
+          const { result } = await runtime.ai(match[1], match[2], input, { signal: controller.signal });
+          return json(res, 200, { result });
+        } finally {
+          req.off('aborted', abort);
+          res.off('close', close);
+        }
+      }
       if (path === "/api/meiji/library") {
         if (["reference", "unreference"].includes(input.type))
           await runtime.bindings.require(input.session_id, input.project_id);

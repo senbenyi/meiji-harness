@@ -99,7 +99,7 @@ test('组列表只显示一张卡片，详情排列全部任务步骤，二级�
   ['','全部对象'],['project-summary','项目摘要'],['project-characters','剧本重要角色'],
   ['character-image','角色图片'],['costume-image','角色定妆照'],['episode-summary','展示摘要'],
   ['outline','故事大纲'],['shots','镜头表'],
-  ['seconds','每秒分镜'],['storyboard','文本提示词'],['video','视频'],['tail','尾帧'],['assembly','合片']]);
+  ['shot-characters','镜头角色与服装'],['seconds','每秒分镜'],['storyboard','文本提示词'],['video','视频'],['tail','尾帧'],['assembly','合片']]);
  state.history_business='character-image';paint();assert.equal(root.querySelectorAll('.run-list-row').length,1);
  state.history_business='shots';paint();assert.equal(root.querySelectorAll('.run-list-row').length,0);
  state.history_business='';paint();

@@ -3,12 +3,7 @@ import { dataUrl } from "../gateway/model-gateway.js";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import {
-  loadTemplate,
-  renderTemplate,
-  ruleInputs,
-  languageName,
-} from "../prompts/yaml-prompts.js";
+import { applicableRules } from './node-inputs.js';
 import { nodeOf, locateTarget, invalid } from "../../shared/task_contract.js";
 import { aiProjection } from "./content.js";
 import { saveLastFrame } from "../media/extract-video-tail.js";
@@ -31,7 +26,7 @@ export function personSentence(person) {
   ].filter(Boolean);
   return parts.length ? `${parts.join("；")}。` : "";
 }
-export function createMediaHandler({ media, gateway }) {
+export function createMediaHandler({ media, ai }) {
   return async ({ snapshot, task, step, signal, record }) => {
     const p = snapshot.project,
       { object, episode, character } = locateTarget(
@@ -98,56 +93,33 @@ export function createMediaHandler({ media, gateway }) {
         await rm(temp, { recursive: true, force: true });
       }
     } else if (business === "costume-image") {
-      const hasOriginal = Boolean(node.address),
-        modify = hasOriginal && Boolean(task.opinion.trim()),
-        template = await loadTemplate(
-          `${business}-${modify ? "regenerate" : "generate"}`,
-        );
-      const person = character, identity = personSentence(person);
-      const primary = primaryCostumeImage(person);
-      const first = primary.costume_id === (object?.id || "");
+      const modify = Boolean(node.address) && Boolean(task.opinion.trim());
+      const person = character, primary = primaryCostumeImage(person);
+      const first = primary.costume_id === (object?.id || '');
       const reference = first ? person.reference_image.address : primary.address;
-      prompt = renderTemplate(template, {
-        输出语言: languageName(p.output_language),
-        人物资料: identity,
-        本套服装描述: object
-          ? [object.name, object.color, object.material, ...object.props].filter(Boolean).join("，")
-          : "",
-        参考图片说明: reference
-          ? first ? "参考图用于人物身份和面相，服装按本次资料。" : "参考图为第一套定妆照，保持人物身份、面相和体型，服装按本次资料。"
-          : "",
-        修改意见: task.opinion,
-        ...ruleInputs(p.rules, business, task.target_id),
-      });
       const references = [];
       if (reference) {
-        await media.validate(reference, p.id, "image");
-        references.push({
-          mime: reference.endsWith(".webp")
-            ? "image/webp"
-            : reference.endsWith(".jpg")
-              ? "image/jpeg"
-              : "image/png",
-          bytes: await media.read(reference, p.id),
-        });
+        await media.validate(reference, p.id, 'image');
+        references.push(dataUrl(await media.read(reference, p.id), reference.endsWith('.webp') ? 'image/webp' : reference.endsWith('.jpg') ? 'image/jpeg' : 'image/png'));
       }
-      prompt.parameters = {
-        reference_count: references.length,
-        reference_address: reference || null,
-        aspectRatio: p.aspect_ratio,
-      };
-      await record({ prompt });
-      bytes = await gateway.image({
-        prompt: prompt.body,
+      const response = await ai(business, modify ? 'regenerate' : 'generate', {
+        language: p.output_language,
+        rules: applicableRules(p, business, task.target_id),
+        requirements: '',
+        person: personSentence(person),
+        costume: object ? [object.name, object.color, object.material, ...object.props].filter(Boolean).join('，') : '',
+        referenceDescription: reference ? first ? '参考图用于人物身份和面相，服装按本次资料。' : '参考图为第一套定妆照，保持人物身份、面相和体型，服装按本次资料。' : '',
         aspectRatio: p.aspect_ratio,
         references,
-        signal,
-        trace: prompt,
-        record,
-      });
+        ...(modify ? { opinion: task.opinion } : {}),
+      }, { signal, record, task, step });
+      bytes = Buffer.from(response.result.data, 'base64');
+      prompt = response.prompt;
+      prompt.parameters = { reference_count: references.length, reference_address: reference || null, aspectRatio: p.aspect_ratio };
+      await record({ prompt });
     } else if (business === "video") {
       const refs = [];
-      for (const row of object.on_screen_characters) {
+      for (const row of object.character_binding.on_screen_characters) {
         const c = p.character_library.characters.find((c) => c.id === row.character_id),
           co = c.costumes.find((co) => co.id === row.costume_id),
           chosen = co
@@ -167,54 +139,28 @@ export function createMediaHandler({ media, gateway }) {
       const shots = [...episode.shot_list.shots].sort((a, b) => a.sequence - b.sequence),
         prev = shots[shots.findIndex((s) => s.id === object.id) - 1];
       let firstFrame;
-      if (prev) {
+      if (prev && !refs.length) {
         await media.validate(prev.last_frame.address, p.id, "image");
         firstFrame = dataUrl(
           await media.read(prev.last_frame.address, p.id),
           "image/png",
         );
       }
-      const template = await loadTemplate(
-        `video-${task.opinion.trim() ? "regenerate" : "generate"}`,
-      );
-      prompt = renderTemplate(template, {
-        输出语言: languageName(p.output_language),
-        文本提示词: aiProjection(object.text_to_video_prompt, p),
-        本镜参考时长秒: object.duration_seconds,
-        参考图片用途说明: referenceIds.map(
-          (id, i) =>
-            `Picture ${i + 1}：${p.character_library.characters.find((c) => c.id === id)?.name || p.character_library.characters.flatMap((c) => c.costumes).find((co) => co.id === id)?.name}`,
-        ),
-        开场衔接: prev ? aiProjection(prev.seconds_storyboard, p) : "首镜，无上一镜",
-        修改意见: task.opinion,
-        ...ruleInputs(p.rules, business, task.target_id),
-      });
-      prompt.parameters = {
+      const modify = Boolean(task.opinion.trim());
+      const response = await ai(business, modify ? 'regenerate' : 'generate', {
+        type: refs.length ? '多模态' : firstFrame ? '首尾帧' : '文生',
+        textPrompt: aiProjection(object.text_to_video_prompt),
         duration: object.duration_seconds,
         aspectRatio: p.aspect_ratio,
-        reference_ids: referenceIds,
-        first_frame: prev?.last_frame.address || null,
-      };
+        ...(refs.length ? {
+          referenceImages: refs,
+        } : firstFrame ? { firstFrame } : {}),
+        ...(modify ? { opinion: task.opinion } : {}),
+      }, { signal, record, task, step });
+      bytes = Buffer.from(response.result.data, 'base64');
+      prompt = response.prompt;
+      prompt.parameters = { ...prompt.parameters, duration: object.duration_seconds, aspectRatio: p.aspect_ratio, reference_ids: referenceIds, first_frame: firstFrame ? prev.last_frame.address : null };
       await record({ prompt });
-      const remote = await gateway.submitVideo({
-        prompt: prompt.body,
-        duration: object.duration_seconds,
-        aspectRatio: p.aspect_ratio,
-        mode: refs.length ? "reference" : firstFrame ? "first_frame" : "text",
-        inputReference: firstFrame,
-        referenceImages: refs,
-        signal,
-        trace: prompt,
-        record,
-      });
-      await record({ result: { remote_id: remote.id } });
-      bytes = await gateway.retrieveVideo({
-        promptId: remote.id,
-        signal,
-        trace: prompt,
-        record,
-      });
-      prompt.parameters.remote_id = remote.id;
     } else invalid("媒体", "未知业务");
     if (["video", "assembly"].includes(business) && task.action !== "manual_edit")
       bytes = await normalizeVideo(bytes, p.aspect_ratio, signal);
