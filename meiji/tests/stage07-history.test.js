@@ -120,3 +120,17 @@ test('组筛选按聚合状态，部分完成加作废显示作废，原组与�
  state.history_status='superseded';paint();assert.equal(root.querySelectorAll('.run-list-row').length,1);assert.match(root.textContent,/原组.*已作废/s);
  root.querySelector('.run-list-row').click();paint();assert.equal([...root.querySelectorAll('button')].some(b=>b.textContent==='继续'),false);
 }));
+
+test('任务历史卡片和详情都不放继续',()=>fixture(({s,root,state,paint})=>{
+ s.tasks[0].task_status='cancelled';s.tasks[0].end_reason='用户取消';s.tasks[0].action='generate';s.tasks[0].business_type='outline';
+ s.steps=[{id:'s',task_id:'t',seq:1,kind:'generate',step_status:'cancelled',result:'结果',prompt:{system:'系统',user:'用户'}}];
+ paint();
+ const card=root.querySelector('.run-list-row');
+ assert.equal([...card.querySelectorAll('button')].some(b=>b.textContent==='继续'),false);
+ assert.match(card.textContent,/用户取消/);
+ card.click();paint();
+ const labels=[...root.querySelectorAll('.run-detail-page button')].map(b=>b.textContent);
+ assert.equal(labels.includes('继续'),false);
+ assert.equal(labels.includes('取消'),false);
+ assert.ok(labels.includes('查看提示词')&&labels.includes('查看 HTTP')&&labels.includes('复制'));
+}));

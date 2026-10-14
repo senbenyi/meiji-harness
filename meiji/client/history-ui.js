@@ -1,4 +1,3 @@
-import { BUSINESS_DEFINITIONS } from "../shared/node-definitions.js";
 import { historyGroups, taskName, stepName } from "../shared/task-labels.js";
 import { NODE_TYPES } from "../shared/task_contract.js";
 import { element } from "./panel-dom.js";
@@ -193,17 +192,10 @@ export function renderHistory(root, env, snapshot) {
     header.remove();
     return renderStepRecord(view, env, selectedGroup.tasks.find(t=>t.id === recordStep.task_id), recordStep);
   }
-  const canContinue = entry =>
-    !groups.some(row => row.group.id !== entry.group.id && row.tasks.some(task => entry.tasks.some(old => old.business_type === task.business_type && old.target_id === task.target_id && task.queue_order > old.queue_order))) &&
-    ["failed","rejected","cancelled","superseded"].includes(entry.status) &&
-    entry.tasks.every(t=>!["queued","running"].includes(t.task_status)) &&
-    entry.tasks.every(t=>!["manual_edit","override","delete"].includes(t.action) && !BUSINESS_DEFINITIONS[t.business_type]?.retired);
   if (selected) {
     const groupHead = element("div", "", "run-group-head run-list-heading");
     groupHead.append(element("strong", selectedGroup.name), element("span", statuses[selectedGroup.status], `task-history-status is-${selectedGroup.status}`));
     view.append(groupHead, element("p", `任务完成 ${selectedGroup.tasks.filter(t=>t.task_status === "completed").length}/${selectedGroup.tasks.length}`, "meta"));
-    if (canContinue(selectedGroup))
-      view.append(button("继续", () => act({type:"continue-group",group_id:selectedGroup.group.id})));
     for (const selected of selectedGroup.tasks) {
     const taskHead = element("div", "", "run-task-head run-list-heading");
     taskHead.dataset.taskId = selected.id;
@@ -217,7 +209,6 @@ export function renderHistory(root, env, snapshot) {
       ),
       element("p", selected.end_reason || "", "error"),
     );
-    controls(view, selected);
     const list = element("ol", "", "run-step-list");
     for (const step of snapshot.steps
       .filter((s) => s.task_id === selected.id)
@@ -346,13 +337,6 @@ export function renderHistory(root, env, snapshot) {
     progress.setAttribute("aria-label","组内任务进度");
     row.append(heading,element("p",`${entry.group.source === "session" ? "会话发起" : "面板发起"} · ${entry.group.created_at || ""}`,"meta"),
       element("p",`任务完成 ${progress.value}/${progress.max}${current ? ` · 当前：${taskName(current,p)}` : ""}`,"meta"),element("p",entry.reason || "", "error"),progress);
-    if (canContinue(entry)) {
-      const notice = element("div", "", "notice workflow-generation-row");
-      // 原因仍放在此卡片内，继续只作用于没有续作组的最新组。
-      notice.append(element("span", entry.reason || statuses[entry.status]),button("继续",()=>act({type:"continue-group",group_id:entry.group.id})));
-      row.querySelector(".error").remove();
-      row.append(notice);
-    }
     if (entry.tasks.length === 1) controls(row,t);
     list.append(row);
   }
