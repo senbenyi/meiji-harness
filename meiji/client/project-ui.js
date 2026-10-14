@@ -11,7 +11,8 @@ const groupLabels = {
 function stoppedNodeMessage(project, tasks) {
   const stopped = tasks.find((task) => ["failed", "rejected"].includes(task.task_status));
   if (!stopped) return "";
-  const node = nodeOf(project, stopped.business_type, stopped.target_id);
+  let node = null;
+  try { node = nodeOf(project, stopped.business_type, stopped.target_id); } catch { node = null; }
   if (stopped.task_status === "failed") return node?.node_state.fail_message || stopped.end_reason || "";
   return node?.node_state.reason || stopped.end_reason || "";
 }
@@ -20,13 +21,56 @@ function canResumeGroup(entry, groups) {
   const newer = groups.some((row) => row.group.id !== entry.group.id && row.tasks.some((task) => entry.tasks.some((old) => old.business_type === task.business_type && old.target_id === task.target_id && task.queue_order > old.queue_order)));
   return !newer && ["failed", "rejected", "cancelled", "superseded"].includes(entry.status) && entry.tasks.every((task) => !["queued", "running"].includes(task.task_status));
 }
+function unfinishedGroupTasks(tasks) {
+  return (tasks || [])
+    .filter((task) => ["queued", "running"].includes(task.task_status))
+    .sort((a, b) => (a.group_seq ?? 0) - (b.group_seq ?? 0) || (a.queue_order ?? 0) - (b.queue_order ?? 0));
+}
+function groupButtons(button, act, { ready, busy, resume, tasks, onPrimary, onResume, onHistory }) {
+  const items = [];
+  if (!busy) items.push(button(ready ? "重新生成" : "一键生成", onPrimary));
+  if (resume) items.push(button("继续", onResume));
+  items.push(button("任务历史", onHistory, false));
+  const pending = unfinishedGroupTasks(tasks);
+  if (pending.length) items.push(button("取消", async () => {
+    for (const task of pending) await act({ type: "cancel", task_id: task.id });
+  }, false));
+  return items;
+}
+function tailStep(shot, { button, act, media }) {
+  const frame = shot.last_frame;
+  const step = element("section", "", "tail-step");
+  const labels = {
+    empty: "未生成", running: "生成中", generated: "已生成", rejected: "未通过",
+    failed: "失败", cancelled: "已取消", expired: "已过期",
+  };
+  step.dataset.business = "tail";
+  step.append(element("p", `尾帧 · ${labels[frame.node_state.status] || frame.node_state.status}`, "meta"));
+  if (frame.address) {
+    const image = element("img");
+    image.src = media(frame.address);
+    image.alt = "尾帧";
+    image.style.maxWidth = "100%";
+    step.append(image);
+  }
+  if (frame.node_state.status === "failed") {
+    if (frame.node_state.fail_message) step.append(element("p", frame.node_state.fail_message, "error"));
+    step.append(button("重新提取", () => act({
+      type: "manual-edit",
+      business_type: "video",
+      target_id: shot.id,
+      content: { address: shot.video.address },
+    })));
+  }
+  return step;
+}
 function groupCard(title, status, message, buttons) {
   const card = element("section", "", "session-project"),
     head = element("div", "", "section-head"),
     ui = element("div", "", "task-group-ui"),
     row = element("div", "", "workflow-generation-row");
   head.append(element("h3", title));
-  ui.append(element("p", groupLabels[status] || status, "node-ui-status"));
+  row.append(element("p", groupLabels[status] || status, "node-ui-status"));
   for (const item of buttons) row.append(item);
   ui.append(row);
   if (message) ui.append(element("p", message, "error"));
@@ -36,7 +80,7 @@ function groupCard(title, status, message, buttons) {
 const editIcon =
   '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.7 2.3 13.7 6.3 5.4 14.6H1.4v-4L9.7 2.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
 export function renderOverview(root, env) {
-  const { p, button, act, nodeCard, go, media, labels } = env;
+  const { p, button, act, nodeCard, go, media, labels, state } = env;
   const view = element("section", "", "project-overview overview-page"),
     heading = element("div", "", "title-with-edit"),
     edit = button("✎", () =>
@@ -92,10 +136,9 @@ export function renderOverview(root, env) {
         titles = element("div", "", "section-titles"),
         actions = element("div", "", "overview-title-actions");
       titles.append(element("h3", title));
-      if (statusText)
-        titles.append(element("span", statusText, "status-label"));
       h.append(titles);
       actions.className = "workflow-generation-row";
+      if (statusText) actions.append(element("p", statusText, "node-ui-status"));
       c.append(h, actions);
       view.append(c);
       return { c, h, actions };
@@ -162,12 +205,19 @@ export function renderOverview(root, env) {
           { reference_episode_duration_seconds: p.reference_episode_duration_seconds },
           async (fields) => {
             dialog.close();
+            const key = `script-split:${p.id}`;
+            const text = (state.opinions?.[key] || "").trim();
+            if (text) {
+              state.opinionPending ??= {};
+              state.opinionPending[key] = true;
+            }
             await act({ type: "edit", fields }, true);
             await act({
               type: "submit",
               business_type: "script-split",
               target_id: p.id,
               action: p.episodes.length ? "regenerate" : "generate",
+              ...(text ? { opinion: text } : {}),
             });
           },
           { episode: true },
@@ -189,6 +239,27 @@ export function renderOverview(root, env) {
         .sort((a, b) => b.queue_order - a.queue_order)[0]
     : null;
   if (splitting) {
+    const opinionKey = `script-split:${p.id}`;
+    if (
+      state.opinionPending?.[opinionKey] &&
+      latestSplitTask?.task_status === "completed" &&
+      !(env.snapshot?.tasks || []).some((task) =>
+        task.business_type === "script-split" &&
+        task.target_id === p.id &&
+        ["queued", "running"].includes(task.task_status),
+      )
+    ) {
+      state.opinions ??= {};
+      delete state.opinions[opinionKey];
+      delete state.opinionPending[opinionKey];
+    }
+    state.opinions ??= {};
+    const opinion = element("input", "", "node-ui-opinion");
+    opinion.placeholder = "本次执行意见";
+    opinion.setAttribute("aria-label", "本次执行意见");
+    opinion.value = state.opinions[opinionKey] || "";
+    opinion.oninput = () => { state.opinions[opinionKey] = opinion.value; };
+    episodes.append(opinion);
     if (latestSplitTask?.end_reason) {
       const feedback = element("div", "", "split-task-feedback");
       feedback.setAttribute("aria-live", "polite");
@@ -314,16 +385,16 @@ export function renderOverview(root, env) {
   const groups = env.snapshot ? historyGroups(env.snapshot) : [];
   const costumeGroup = groups.find((row) => row.tasks.some((task) => task.business_type === "costume-image"));
   const costumeReady = p.character_library.characters.some((character) => character.costume_images.some((image) => image.address));
-  const costumeButtons = [];
   const costumeBusy = costumeGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status));
-  if (!costumeBusy) costumeButtons.push(button(costumeReady ? "重新生成定妆照" : "生成定妆照", () => act({
-    type: "submit-costumes", action: costumeReady ? "regenerate" : "generate",
-  })));
-  if (canResumeGroup(costumeGroup, groups))
-    costumeButtons.push(button("继续", () => act({ type: "continue-group", group_id: costumeGroup.group.id })));
-  costumeButtons.push(button("任务历史", () => go("history", { history_business: "costume-image" }), false));
-  const costumeCurrent = costumeGroup?.tasks.find((task) => task.task_status === "running") || costumeGroup?.tasks.find((task) => task.task_status === "queued");
-  if (costumeCurrent) costumeButtons.push(button("取消", () => act({ type: "cancel", task_id: costumeCurrent.id }), false));
+  const costumeButtons = groupButtons(button, act, {
+    ready: costumeReady,
+    busy: costumeBusy,
+    resume: canResumeGroup(costumeGroup, groups),
+    tasks: costumeGroup?.tasks,
+    onPrimary: () => act({ type: "submit-costumes", action: costumeReady ? "regenerate" : "generate" }),
+    onResume: () => act({ type: "continue-group", group_id: costumeGroup.group.id }),
+    onHistory: () => go("history", { history_business: "costume-image" }),
+  });
   view.append(groupCard(
     "生成定妆照",
     costumeGroup?.status || "empty",
@@ -365,7 +436,7 @@ export function renderEpisode(root, env, entries) {
   const body = element("div", "", "session-body");
   if (shot) {
     const video = nodeCard('video', shot.id, shot.video);
-    video.append(nodeCard('tail', shot.id, shot.last_frame, { readOnly: true }));
+    video.append(tailStep(shot, { button, act, media }));
     body.append(
         element("p", `参考 ${shot.duration_seconds} 秒${shot.actual_duration_seconds > 0 ? ` · 实际 ${shot.actual_duration_seconds} 秒` : ""}`, "meta"),
         nodeCard("shot-characters", shot.id, shot.character_binding),
@@ -381,18 +452,6 @@ export function renderEpisode(root, env, entries) {
   root.append(
     stageTabs("剧集制作", entries, state.tab, (id) =>
       go("episode", { tab: id, shot_id: null, shotTab: null }),
-    ),
-  );
-  body.append(
-    button("编辑时长", () =>
-      detailsDialog(
-        root,
-        "编辑时长",
-        { duration_seconds: e.duration_seconds },
-        (fields) =>
-          act({ type: "edit-episode", episode_id: e.id, fields }, true),
-        { episode: true },
-      ),
     ),
   );
   if (state.tab === "script") {
@@ -431,17 +490,19 @@ export function renderEpisode(root, env, entries) {
       const listed = historyGroups(env.snapshot);
       const filmGroup = listed.find((row) => row.group.group_type === "episode-film" && row.group.episode_id === e.id);
       const hasVideo = e.shot_list.shots.some((shot) => shot.video.address);
-      const filmButtons = [];
       const filmBusy = filmGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status));
-      if (!filmBusy) filmButtons.push(button(hasVideo ? "重新生成本集成片" : "生成本集成片", () => act({
-        type: "submit-group", group_type: "episode-film",
-        action: hasVideo ? "regenerate" : "generate", episode_id: e.id,
-      })));
-      if (canResumeGroup(filmGroup, listed))
-        filmButtons.push(button("继续", () => act({ type: "continue-group", group_id: filmGroup.group.id })));
-      filmButtons.push(button("任务历史", () => go("history", { history_episode: e.id }), false));
-      const filmCurrent = filmGroup?.tasks.find((task) => task.task_status === "running") || filmGroup?.tasks.find((task) => task.task_status === "queued");
-      if (filmCurrent) filmButtons.push(button("取消", () => act({ type: "cancel", task_id: filmCurrent.id }), false));
+      const filmButtons = groupButtons(button, act, {
+        ready: hasVideo,
+        busy: filmBusy,
+        resume: canResumeGroup(filmGroup, listed),
+        tasks: filmGroup?.tasks,
+        onPrimary: () => act({
+          type: "submit-group", group_type: "episode-film",
+          action: hasVideo ? "regenerate" : "generate", episode_id: e.id,
+        }),
+        onResume: () => act({ type: "continue-group", group_id: filmGroup.group.id }),
+        onHistory: () => go("history", { history_episode: e.id }),
+      });
       body.append(groupCard(
         "逐镜头成片",
         filmGroup?.status || "empty",

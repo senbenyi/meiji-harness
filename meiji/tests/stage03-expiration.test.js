@@ -283,7 +283,7 @@ test("修改剧集参考时长使大纲、镜头及排队快照过期，摘要�
   assert.equal(e.story_outline.node_state.dependency_hash, oldHash);
   assert.equal(e.shot_list.node_state.status, "expired");
   assert.equal(s.video.node_state.status, "expired");
-  assert.deepEqual(queued.previous_node_state, { status: "expired", reason: "参考时长已修改" });
+  assert.deepEqual(queued.previous_node_state, { status: "expired", reason: "参考时长已修改", fail_message: "" });
   assert.equal(e.assembly.node_state.status, "expired");
 });
 

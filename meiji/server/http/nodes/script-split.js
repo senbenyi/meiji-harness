@@ -28,7 +28,7 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","requirements":"string","script":"string","duration":"number"},
+      input: {"language":"string","requirements":"string","script":"string","duration":"number","opinion":"string"},
       output: output0,
     },
     regenerate: {

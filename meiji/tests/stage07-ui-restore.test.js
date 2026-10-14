@@ -37,14 +37,13 @@ const submit = (form, dom) =>
   form.dispatchEvent(
     new dom.window.Event("submit", { bubbles: true, cancelable: true }),
   );
-test("角色卡按任务组显示停止状态，继续最新续作组，完成和执行中不显示继续", () =>
+test("生成定妆照组显示停止原因和继续，完成和执行中不显示继续", () =>
   domTest(async (root) => {
     const snap = snapshotFixture(), commands = [];
     snap.project.character_library.node_state.status = "generated";
     snap.groups = [{ id: "roles", group_type: "workflow" }];
     snap.tasks = [
-      { id: "extract", group_id: "roles", group_seq: 1, queue_order: 1, business_type: "project-characters", task_status: "completed" },
-      { id: "image", group_id: "roles", group_seq: 2, queue_order: 2, business_type: "project-characters", task_status: "failed", end_reason: "图片失败" },
+      { id: "image", group_id: "roles", group_seq: 1, queue_order: 1, business_type: "costume-image", target_id: "portrait", task_status: "failed", end_reason: "图片失败" },
     ];
     globalThis.fetch = async (_url, options) => {
       commands.push(JSON.parse(options.body).command);
@@ -52,21 +51,49 @@ test("角色卡按任务组显示停止状态，继续最新续作组，完成�
     };
     const context = { session_id: "s", view: { page: "overview" }, refresh: async () => {}, onError: assert.fail };
     const paint = () => renderTaskPanel(root, snap, context);
-    const next = () => [...root.querySelectorAll("button")].find(b => b.textContent === "继续");
+    const card = () => [...root.querySelectorAll("section")].find((item) => item.querySelector("h3")?.textContent === "生成定妆照");
+    const next = () => [...card().querySelectorAll("button")].find(b => b.textContent === "继续");
     for (const status of ["failed", "rejected", "cancelled", "superseded"]) {
-      snap.tasks[1].task_status = status;
-      paint(); assert.ok(next(), status);
+      snap.tasks[0].task_status = status;
+      paint();
+      assert.ok(next(), status);
+      assert.equal(card().querySelector("input"), null);
     }
+    snap.tasks[0].task_status = "failed";
+    paint();
+    assert.match(card().textContent, /图片失败/);
+    assert.equal([...root.querySelector('[data-business="project-characters"]').querySelectorAll("button")].some((b) => b.textContent === "继续"), false);
     next().click(); await tick();
     assert.equal(commands[0].type, "continue-group"); assert.equal(commands[0].group_id, "roles");
     snap.groups.push({ id: "next", group_type: "workflow", action: "continue" });
-    snap.tasks.push({ ...snap.tasks[1], id: "retry", group_id: "next", group_seq: 1, queue_order: 3, task_status: "rejected", end_reason: "续作未通过" });
-    paint(); assert.match(root.textContent, /续作未通过/); next().click(); await tick();
+    snap.tasks.push({ ...snap.tasks[0], id: "retry", group_id: "next", group_seq: 1, queue_order: 2, task_status: "rejected", end_reason: "续作未通过" });
+    paint(); assert.match(card().textContent, /续作未通过/); next().click(); await tick();
     assert.equal(commands[1].group_id, "next");
     for (const status of ["completed", "queued", "running"]) {
-      snap.tasks[2].task_status = status;
+      snap.tasks[1].task_status = status;
       paint(); assert.equal(next(), undefined, status);
     }
+  }));
+test("逐镜头成片的取消会取消组内全部未结束任务", () =>
+  domTest(async (root) => {
+    const snap = snapshotFixture(), commands = [];
+    const episode = snap.project.episodes[0];
+    snap.groups = [{ id: "film", group_type: "episode-film", episode_id: episode.id }];
+    snap.tasks = [
+      { id: "run", group_id: "film", group_seq: 1, queue_order: 1, business_type: "video", target_id: episode.shot_list.shots[0].id, task_status: "running" },
+      { id: "wait", group_id: "film", group_seq: 2, queue_order: 2, business_type: "video", target_id: episode.shot_list.shots[1].id, task_status: "queued" },
+    ];
+    globalThis.fetch = async (_url, options) => {
+      commands.push(JSON.parse(options.body).command);
+      return { ok: true, json: async () => ({}) };
+    };
+    renderTaskPanel(root, snap, { session_id: "s", view: { page: "episode", episode_id: episode.id, tab: "film" }, refresh: async () => {}, onError: assert.fail });
+    const card = [...root.querySelectorAll("section")].find((item) => item.querySelector("h3")?.textContent === "逐镜头成片");
+    assert.equal([...card.querySelectorAll("button")].some((button) => button.textContent === "一键生成"), false);
+    [...card.querySelectorAll("button")].find((button) => button.textContent === "取消").click();
+    await tick(); await tick();
+    assert.deepEqual(commands.map((command) => command.task_id), ["run", "wait"]);
+    assert.ok(commands.every((command) => command.type === "cancel"));
   }));
 test("UI-1 原创建表单默认剧本；本地导入、移除和自由模式提交新契约", () =>
   domTest(async (root, dom) => {
@@ -520,14 +547,19 @@ test("每个人物卡独立提交全部服装，默认头像取首套定妆照",
   globalThis.fetch = async (_url, options) => { calls.push(JSON.parse(options.body).command); return {ok:true,json:async()=>({})}; };
   const context = {session_id:'s',view:{page:'overview'},refresh:async()=>{},onError:assert.fail};
   renderTaskPanel(root,snapshot,context);
-  root.querySelector('.character-card').querySelectorAll('button')[1].click(); await tick();
-  assert.equal(calls[0].type,'submit-costumes'); assert.equal(calls[0].target_id,character.id); assert.equal(calls[0].action,'generate');
+  const costumeCard = () => [...root.querySelectorAll('section')].find((card) => card.querySelector('h3')?.textContent === '生成定妆照');
+  costumeCard().querySelectorAll('button')[0].click(); await tick();
+  assert.equal(calls[0].type,'submit-costumes'); assert.equal(calls[0].target_id, undefined); assert.equal(calls[0].action,'generate');
   character.costume_images.forEach((image,index)=>{image.address=`portrait-${index}.png`;image.node_state.status='generated';});
   renderTaskPanel(root,snapshot,context);
-  assert.match(root.querySelector('.character-card img').src,/portrait-0.png\?/);
-  const generate = root.querySelector('.character-card').querySelectorAll('button')[1];
-  assert.equal(generate.textContent,'重新生成定妆照'); generate.click(); await tick();
+  assert.match(root.querySelector('.character-item img').src,/portrait-0.png\?/);
+  const generate = [...costumeCard().querySelectorAll('button')].find((button) => button.textContent === '重新生成');
+  assert.ok(generate); generate.click(); await tick();
   assert.equal(calls[1].action,'regenerate');
+  context.view.page = 'character'; context.view.character_id = character.id;
+  renderTaskPanel(root,snapshot,context);
+  [...root.querySelectorAll('button')].find((button) => button.textContent === '重新生成定妆照').click(); await tick();
+  assert.equal(calls[2].target_id, character.id);
 }));
 
 test('旧提取组内图片失败不冒充提取失败，也不显示已移除流程的继续',()=>domTest(async root=>{
@@ -535,6 +567,8 @@ test('旧提取组内图片失败不冒充提取失败，也不显示已移除�
  snapshot.groups=[{id:'legacy',group_type:'workflow'}];
  snapshot.tasks=[{id:'extract',group_id:'legacy',group_seq:1,business_type:'project-characters',task_status:'completed',queue_order:1},{id:'old-image',group_id:'legacy',group_seq:2,business_type:'character-image',task_status:'failed',end_reason:'旧角色图失败',queue_order:2}];
  renderTaskPanel(root,snapshot,{session_id:'s',view:{page:'overview'},refresh:async()=>{},onError:assert.fail});
- const card=[...root.querySelectorAll('.overview-card')].find(card=>card.querySelector('h3')?.textContent==='角色卡');assert.ok(card);
- assert.match(card.textContent,/已通过/);assert.doesNotMatch(card.textContent,/旧角色图失败/);assert.equal([...card.querySelectorAll('button')].some(b=>b.textContent==='继续'),false);
+ const card=[...root.querySelectorAll('section')].find(card=>card.querySelector('h3')?.textContent==='提取人物');assert.ok(card);
+ assert.match(card.textContent,/已生成/);assert.doesNotMatch(card.textContent,/旧角色图失败/);assert.equal([...card.querySelectorAll('button')].some(b=>b.textContent==='继续'),false);
+ const costumes=[...root.querySelectorAll('section')].find(card=>card.querySelector('h3')?.textContent==='生成定妆照');
+ assert.doesNotMatch(costumes.textContent,/旧角色图失败/);assert.equal([...costumes.querySelectorAll('button')].some(b=>b.textContent==='继续'),false);
 }));

@@ -20,6 +20,7 @@ test("S7-12 完整面板刷新保留编辑草稿；切换拒绝旧项目；卸�
     a = snapshotFixture(),
     b = snapshotFixture();
   a.project.name = "项目甲";
+  a.project.creation_mode = "自由创作";
   b.project.name = "项目乙";
   let deferred, resolve, app;
   try {
@@ -61,13 +62,7 @@ test("S7-12 完整面板刷新保留编辑草稿；切换拒绝旧项目；卸�
     app = mount();
     await app.refresh();
     const content = app.shell.content;
-    [
-      ...content
-        .querySelector('[data-business="project-summary"]')
-        .querySelectorAll("button"),
-    ]
-      .find((n) => n.getAttribute("aria-label") === "人工编辑")
-      .click();
+    content.querySelector("[aria-label=编辑创作方向]").click();
     const area = content.querySelector("dialog textarea");
     area.value = "草稿不丢";
     a.runtime.revision++;

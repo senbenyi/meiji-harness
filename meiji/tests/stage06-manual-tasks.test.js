@@ -57,6 +57,7 @@ test("S6-05/06 人工编辑与放行均两步，AI 不调用；非法内容保�
     await model.update("set-rejected", {}, (s) => {
       s.project.project_summary.node_state.status = "rejected";
       s.project.project_summary.node_state.reason = "审核不通过";
+      s.project.project_summary.node_state.fail_message = "";
       s.runtime.queue_stopped = false;
       return {};
     });
@@ -98,6 +99,7 @@ for (const business of ["outline", "shots"])
         const current = node(snapshot);
         current.node_state.status = "rejected";
         current.node_state.reason = "尚有待处理意见";
+        current.node_state.fail_message = "";
         if (repair) {
           if (business === "outline") current.segments[0].duration_seconds = 137.5;
           else current.shots[0].duration_seconds = 4;

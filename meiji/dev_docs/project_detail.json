@@ -238,6 +238,7 @@
               "node_state": {
                 "status": "empty",
                 "reason": "",
+                "fail_message": "",
                 "dependency_hash": ""
               },
               "has_result": false,

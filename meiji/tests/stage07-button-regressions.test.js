@@ -19,17 +19,19 @@ test('整集成片按现有视频选择生成或重新生成，合片按钮独�
   const context={session_id:'session-test',view:{page:'episode',episode_id:episode.id,tab:'film'},refresh:async()=>{},paint:()=>{},onError:()=>{}};
   const click=async label=>{const button=[...root.querySelectorAll('button')].find(button=>button.textContent===label);assert.ok(button,label);button.click();await new Promise(resolve=>setTimeout(resolve,0));};
   renderTaskPanel(root,snapshot,context);
-  assert.equal([...root.querySelectorAll('button')].filter(button=>button.textContent==='生成本集成片').length,0);
-  await click('重新生成本集成片');
+  assert.equal([...root.querySelectorAll('button')].filter(button=>button.textContent==='一键生成').length,0);
+  await click('重新生成');
   assert.equal(requests[0].type,'submit-group');assert.equal(requests[0].group_type,'episode-film');assert.equal(requests[0].action,'regenerate');assert.equal(requests[0].episode_id,episode.id);assert.equal(requests[0].shot_id,undefined);
   for(const shot of episode.shot_list.shots){shot.video.address='';shot.video.node_state.status='empty';}
   renderTaskPanel(root,snapshot,context);
-  assert.equal([...root.querySelectorAll('button')].filter(button=>button.textContent==='重新生成本集成片').length,0);
-  await click('生成本集成片');
+  assert.equal([...root.querySelectorAll('button')].filter(button=>button.textContent==='重新生成').length,0);
+  await click('一键生成');
   assert.equal(requests[1].type,'submit-group');assert.equal(requests[1].group_type,'episode-film');assert.equal(requests[1].action,'generate');assert.equal(requests[1].episode_id,episode.id);
   context.view.tab='assembly';episode.assembly.address='';episode.assembly.node_state.status='empty';
   renderTaskPanel(root,snapshot,context);
   assert.equal([...root.querySelectorAll('button')].filter(button=>button.textContent==='AI生成').length,0);
+  assert.equal(root.querySelector('[data-business=assembly] input'), null);
+  assert.deepEqual([...root.querySelector('[data-business=assembly]').querySelectorAll('button')].map(button=>button.textContent), ['生成合片','任务历史']);
   await click('生成合片');
   assert.equal(requests[2].type,'submit');assert.equal(requests[2].business_type,'assembly');assert.equal(requests[2].action,'generate');assert.equal(requests[2].target_id,episode.id);
  } finally {globalThis.document=previous.document;globalThis.fetch=previous.fetch;dom.window.close();}

@@ -201,14 +201,26 @@ test('依赖按实际类型传播：多模态不依赖前尾帧，首尾帧不�
   assert.notEqual(dependencyHash(snapshot,'video',second.id),firstFrameHash);
 });
 
-test('界面显示适用程序编排；尾帧位于视频卡内只读，没有独立生成/导入入口',()=>{
-  const dom=new JSDOM('<main></main>'),previous=globalThis.document;globalThis.document=dom.window.document;
+test('界面显示适用程序编排；尾帧是视频内步骤，失败时可重新提取',async()=>{
+  const dom=new JSDOM('<main></main>'),previous={document:globalThis.document,fetch:globalThis.fetch};globalThis.document=dom.window.document;
   try{
     const snapshot=snapshotFixture(),episode=snapshot.project.episodes[0],shot=episode.shot_list.shots[1];
     shot.first_last_frame_prompt.prompt='';shot.first_last_frame_prompt.node_state.status='empty';
     const root=document.querySelector('main');renderTaskPanel(root,snapshot,{session_id:'test',view:{page:'episode',episode_id:episode.id,shot_id:shot.id,tab:'film'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
     const pack=root.querySelector('[data-business="first-last-frame"]'),video=root.querySelector('[data-business="video"]'),tail=video.querySelector('[data-business="tail"]');
-    assert.ok(pack);assert.match(pack.textContent,/执行编排/);assert.doesNotMatch(pack.textContent,/AI生成|人工编辑/);
-    assert.ok(tail);assert.deepEqual([...tail.querySelectorAll('button')].map(button=>button.textContent),['任务历史']);assert.equal(tail.querySelectorAll('input').length,0);assert.match(root.textContent,/视频类型：首尾帧/);
-  }finally{globalThis.document=previous;dom.window.close();}
+    assert.ok(pack);assert.deepEqual([...pack.querySelectorAll('button')].map(button=>button.textContent),['执行编排','任务历史']);
+    assert.equal(pack.querySelector('input'),null);
+    assert.ok(tail);assert.equal(tail.querySelector('.node-ui'),null);assert.equal(tail.querySelector('button'),null);
+    shot.last_frame.node_state.status='failed';shot.last_frame.node_state.fail_message='截帧失败';shot.last_frame.node_state.reason='';
+    renderTaskPanel(root,snapshot,{session_id:'test',view:{page:'episode',episode_id:episode.id,shot_id:shot.id,tab:'film'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
+    const failed=root.querySelector('[data-business="video"] [data-business="tail"]');
+    assert.equal(failed.querySelector('.node-ui'),null);
+    assert.deepEqual([...failed.querySelectorAll('button')].map(button=>button.textContent),['重新提取']);
+    assert.match(failed.textContent,/截帧失败/);assert.match(root.textContent,/视频类型：首尾帧/);
+    const calls=[];
+    globalThis.fetch=async(_url,options)=>{calls.push(JSON.parse(options.body).command);return {ok:true,json:async()=>({})};};
+    failed.querySelector('button').click();
+    await new Promise(resolve=>setTimeout(resolve,0));
+    assert.equal(calls[0].type,'manual-edit');assert.equal(calls[0].business_type,'video');assert.equal(calls[0].target_id,shot.id);assert.equal(calls[0].content.address,shot.video.address);
+  }finally{globalThis.document=previous.document;globalThis.fetch=previous.fetch;dom.window.close();}
 });

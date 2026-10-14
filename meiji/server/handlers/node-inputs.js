@@ -52,6 +52,7 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
   const target = locateTarget(project, business, task.target_id);
   const value = { language, requirements: project.creative_direction || '',
     ...inputs[business]({ project, ...target }) };
+  if (action === 'generate' && business === 'script-split') value.opinion = task.opinion || '';
   if (action !== 'generate') {
     const steps = snapshot.steps || [];
     const lastReview = steps.filter(row => row.task_id === task.id && row.kind === 'review' && row.step_status === 'rejected' && row.seq < (step.seq ?? Infinity)).sort((a, b) => b.seq - a.seq)[0];

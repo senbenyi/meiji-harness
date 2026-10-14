@@ -71,7 +71,7 @@ test('千问：聊天通过公开服务同步，不依赖媒体密钥，正确�
   assert.equal(provider.reasoning, 'off')
   assert.equal(provider.compat.supportsDeveloperRole, false)
   assert.equal(provider.compat.requiresThinkingAsText, false)
-  assert.equal(provider.models[0].contextWindow, 32768)
+  assert.equal(provider.models[0].contextWindow, 262144)
   assert.equal(provider.models[0].maxTokens, undefined)
   assert.deepEqual(provider.models[0].reasoningEfforts, { off: 'none', medium: 'medium' })
   assert.deepEqual(calls[2], ['update', 'agent-default-model', { provider: 'meiji-gateway', model: 'qwen3.5:27b', reasoningEffort: 'off' }])

@@ -153,7 +153,7 @@ export function renderTaskPanel(root, snapshot, context) {
       } else b.onclick = () => Promise.resolve(fn()).catch(() => {});
       return b;
     };
-  const nodeUi = ({ business, id, node, buttons, readOnly = false }) => {
+  const nodeUi = ({ business, id, node, buttons, readOnly = false, opinion = !readOnly }) => {
     const key = `${business}:${id}`;
     if (state.opinionPending?.[key]) {
       const tasks = snapshot.tasks.filter((task) => task.business_type === business && task.target_id === id);
@@ -165,11 +165,11 @@ export function renderTaskPanel(root, snapshot, context) {
       }
     }
     const ui = element("div", "", "node-ui");
-    ui.append(element("p", labels[node.node_state.status] || node.node_state.status, "node-ui-status"));
     const actions = element("div", "", "workflow-generation-row");
+    actions.append(element("p", labels[node.node_state.status] || node.node_state.status, "node-ui-status"));
     for (const item of buttons) actions.append(item);
     ui.append(actions);
-    if (!readOnly) {
+    if (opinion) {
       state.opinions ??= {};
       const input = element("input", "", "node-ui-opinion");
       input.placeholder = "本次执行意见";
@@ -237,7 +237,8 @@ export function renderTaskPanel(root, snapshot, context) {
         ),
       );
     if (typeof node.body === "string") appendJsonCopy(card, node.body);
-    const isPack = ['first-last-frame','multimodal'].includes(business);
+    const program = ["first-last-frame", "multimodal", "assembly"].includes(business);
+    const isPack = ["first-last-frame", "multimodal"].includes(business);
     const hasOutput = isPack ? Boolean(node.prompt.trim()) : hasContent(node),
       typedOpinion = () => (state.opinions?.[`${business}:${id}`] || "").trim(),
       generate = (opinion = "") => {
@@ -264,7 +265,7 @@ export function renderTaskPanel(root, snapshot, context) {
     const quiet = ["project-summary", "episode-summary"].includes(business);
     const buttons = [];
     if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
-    if (!active && !readOnly && hasOutput && node.node_state.status === "rejected")
+    if (!program && !active && !readOnly && hasOutput && node.node_state.status === "rejected")
       buttons.push(
         button("按意见修改", () =>
           editor(
@@ -287,7 +288,7 @@ export function renderTaskPanel(root, snapshot, context) {
       "assembly",
     ].includes(business);
     const upload = element("input");
-    if (isMedia && !readOnly) {
+    if (isMedia && !readOnly && !program) {
       upload.type = "file";
       upload.accept = ["video", "assembly"].includes(business)
         ? "video/mp4"
@@ -317,7 +318,7 @@ export function renderTaskPanel(root, snapshot, context) {
       };
       card.append(upload);
     }
-    if (!active && !readOnly && !quiet && !["first-last-frame","multimodal"].includes(business)) buttons.push(
+    if (!program && !active && !readOnly && !quiet) buttons.push(
       button("人工编辑", () =>
         isMedia
           ? upload.click()
@@ -352,7 +353,7 @@ export function renderTaskPanel(root, snapshot, context) {
             ),
       ),
     );
-    if (!active && !readOnly && !quiet && node.node_state.status === "rejected")
+    if (!program && !active && !readOnly && !quiet && node.node_state.status === "rejected")
       buttons.push(
         button("人工放行", () =>
           act({ type: "override", business_type: business, target_id: id }),
@@ -371,14 +372,14 @@ export function renderTaskPanel(root, snapshot, context) {
         false,
       ),
     );
-    if (currentTask && !readOnly)
+    if (!program && currentTask && !readOnly)
       buttons.push(button("取消", () => act({ type: "cancel", task_id: currentTask.id }), false));
     const head = element("div", "", "section-head"),
       titles = element("div", "", "section-titles");
     titles.append(card.querySelector("h3"));
     head.append(titles);
     card.prepend(head);
-    card.insertBefore(nodeUi({ business, id, node, buttons, readOnly }), head.nextSibling);
+    card.insertBefore(nodeUi({ business, id, node, buttons, readOnly, opinion: !readOnly && !program }), head.nextSibling);
     return card;
   };
   root.replaceChildren();

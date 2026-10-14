@@ -40,7 +40,7 @@ test("S3-01/02 状态和原因一起转换，未开始取消恢复快照，非�
     node = p.episodes[0].shot_list.shots[0].seconds_storyboard;
   enqueueNode(p, t);
   assert.equal(node.node_state.status, "generated");
-  assert.deepEqual(t.previous_node_state, { status: "generated", reason: "" });
+  assert.deepEqual(t.previous_node_state, { status: "generated", reason: "", fail_message: "" });
   restoreQueued(p, t);
   assert.equal(node.node_state.status, "generated");
   assert.equal(node.storyboard[0].action, "动作");

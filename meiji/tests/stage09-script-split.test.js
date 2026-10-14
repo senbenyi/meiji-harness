@@ -186,8 +186,11 @@ test("拆分与摘要模板：占位符齐全，摘要资料来自本集剧情",
   for (const suffix of ["generate", "regenerate"]) {
     const prompt = renderTaskPrompt({ project: p, steps: [] }, { ...split, opinion: "第二集再短一点" }, null, suffix);
     assert.ok(prompt.user.includes("P001 第一场 酒馆"));
+    assert.ok(prompt.user.includes("第二集再短一点"));
     if (suffix === "regenerate") assert.ok(prompt.user.includes("P004"));
   }
+  const first = renderTaskPrompt({ project: p, steps: [] }, { ...split, opinion: "" }, null, "generate");
+  assert.equal(first.user.includes("修改意见"), false);
   const e = p.episodes[1],
     summary = renderTaskPrompt({ project: p, steps: [] }, { business_type: "episode-summary", target_id: e.id, action: "generate", opinion: "" }, null, "generate");
   assert.ok(summary.user.includes("武松打虎。"));
@@ -254,6 +257,11 @@ test("面板：剧本创作方式显示拆分剧集弹窗并依次提交时长�
     snap.project.creation_mode = "剧本";
     context.paint();
     assert.equal(root.querySelector("[aria-label=新增剧集]"), null);
+    const episodeCard = [...root.querySelectorAll("section")].find((card) => card.querySelector("h3")?.textContent === "剧集");
+    const opinion = episodeCard.querySelector("[aria-label=本次执行意见]");
+    assert.equal(opinion.placeholder, "本次执行意见");
+    opinion.value = "第二集再短一点";
+    opinion.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
     root.querySelector("[aria-label=重新拆分剧集]").click();
     const dialog = root.querySelector("dialog");
     assert.match(dialog.textContent, /参考单集时长（秒）/);
@@ -268,6 +276,7 @@ test("面板：剧本创作方式显示拆分剧集弹窗并依次提交时长�
     assert.deepEqual(calls[0].body.command.fields, { reference_episode_duration_seconds: 120 });
     assert.equal(calls[1].body.command.business_type, "script-split");
     assert.equal(calls[1].body.command.action, "regenerate");
+    assert.equal(calls[1].body.command.opinion, "第二集再短一点");
     for (const path of ["/api/meiji/project-command", "/api/meiji/task-command"]) {
       failPath = path;
       const before = calls.length;
