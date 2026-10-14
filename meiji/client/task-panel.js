@@ -47,7 +47,7 @@ const names = {
   seconds: "每秒分镜",
   storyboard: "文本提示词",
   video: "视频",
-  tail: "尾帧",
+  tail: "尾帧", 'first-last-frame': '首尾帧参数编排', multimodal: '多模态参数编排',
   assembly: "合片",
   "character-image": "角色图片",
   "costume-image": "角色定妆照",
@@ -66,6 +66,44 @@ function hasContent(value) {
   if (!value || typeof value !== "object") return false;
   return Object.entries(value).some(([key, child]) =>
     !["id", "node_state", "script_version", "number", "sequence", "duration_seconds", "actual_duration_seconds", "costume_id"].includes(key) && hasContent(child));
+}
+export function renderSettings(root, { busy = false, settings, saveSettings, back }) {
+  const page = element("section", "", "settings-page"),
+    backButton = element("button", "← 返回"),
+    group = element("section", "", "settings-group"),
+    language = element("select"),
+    label = element("label", "生成语言", "settings-option"),
+    message = element("p", "", "error settings-error");
+  backButton.type = "button";
+  backButton.onclick = back;
+  message.setAttribute("role", "status");
+  language.name = "output_language";
+  language.setAttribute("aria-label", "生成语言");
+  for (const [value, text] of [["zh-CN", "简体中文"], ["en", "English（英文）"]]) {
+    const option = element("option", text);
+    option.value = value;
+    language.append(option);
+  }
+  language.value = settings?.output_language || "zh-CN";
+  language.dataset.saved = language.value;
+  language.disabled = busy || !settings;
+  language.onchange = async () => {
+    const previous = language.dataset.saved;
+    language.disabled = true;
+    message.textContent = "";
+    try {
+      await saveSettings?.({ output_language: language.value });
+      language.dataset.saved = language.value;
+    } catch (error) {
+      language.value = previous;
+      message.textContent = error.message;
+    } finally { language.disabled = busy; }
+  };
+  label.append(language);
+  group.append(element("h3", "语言"), label, message);
+  page.append(backButton, element("h2", "设置"), group);
+  root.append(page);
+  return page;
 }
 export function renderTaskPanel(root, snapshot, context) {
   const p = snapshot.project,
@@ -170,7 +208,8 @@ export function renderTaskPanel(root, snapshot, context) {
         ),
       );
     if (typeof node.body === "string") appendJsonCopy(card, node.body);
-    const hasOutput = hasContent(node),
+    const isPack = ['first-last-frame','multimodal'].includes(business);
+    const hasOutput = isPack ? Boolean(node.prompt.trim()) : hasContent(node),
       generate = (opinion = "") =>
         act(business === "video" ? {
           type: "submit-group", group_type: "episode-film",
@@ -186,7 +225,7 @@ export function renderTaskPanel(root, snapshot, context) {
         });
     const currentTask = snapshot.tasks.find((task) => task.business_type === business && task.target_id === id && ["queued", "running"].includes(task.task_status));
     const active = node.node_state.status === "running" || Boolean(currentTask);
-    if (!active && !readOnly) card.append(button(hasOutput ? "重新生成" : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
+    if (!active && !readOnly) card.append(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
     if (!active && !readOnly && hasOutput && node.node_state.status === "rejected")
       card.append(
         button("按意见修改", () =>
@@ -240,7 +279,7 @@ export function renderTaskPanel(root, snapshot, context) {
       };
       card.append(upload);
     }
-    if (!readOnly) card.append(
+    if (!readOnly && !["first-last-frame","multimodal"].includes(business)) card.append(
       button("人工编辑", () =>
         isMedia
           ? upload.click()
@@ -366,65 +405,13 @@ export function renderTaskPanel(root, snapshot, context) {
     appendJsonCopy(card, p.script.body);
     root.append(card);
   } else if (state.page === "settings") {
-    const page = element("section", "", "settings-page");
-    page.append(
-      button("← 返回项目", () => go("overview"), false),
-      element("h2", "设置"),
-      element("p", p.name, "meta"),
-    );
-    const group = element("section", "", "settings-group"),
-      language = element("select"),
-      label = element("label", "生成语言", "settings-option"),
-      message = element("p", "", "error settings-error");
-    message.setAttribute("role", "status");
-    language.name = "output_language";
-    language.setAttribute("aria-label", "生成语言");
-    for (const [v, text] of [["zh-CN", "简体中文"], ["en", "English（英文）"]]) {
-      const option = element("option", text);
-      option.value = v;
-      language.append(option);
-    }
-    language.value = p.output_language;
-    language.disabled = busy;
-    language.onchange = async () => {
-      language.disabled = true;
-      message.textContent = "";
-      try {
-        await act({ type: "edit", fields: { output_language: language.value } }, true);
-      } catch (error) {
-        language.value = p.output_language;
-        message.textContent = error.message;
-      } finally { language.disabled = busy; }
-    };
-    label.append(language);
-    group.append(element("h3", "语言"), label, message);
-    page.append(group);
-    const rulesGroup = element("section", "", "settings-group"),
-      targets = new Map([[p.id, "项目"]]);
-    for (const c of p.character_library.characters) {
-      targets.set(c.id, c.number);
-      for (const co of c.costumes) targets.set(co.id, co.number);
-    }
-    for (const e of p.episodes) {
-      targets.set(e.id, `第${e.sequence}集`);
-      for (const s of e.shot_list.shots)
-        targets.set(s.id, `第${e.sequence}集/${s.number}`);
-    }
-    const rules = p.rules.map(({ id, node_id, ...row }) => ({
-      ...row,
-      node_number: node_id ? targets.get(node_id) : "",
-    }));
-    rulesGroup.append(
-      element("h3", "规则"),
-      button("编辑规则", () =>
-        editor(root, "规则列表", { rules: rules }, ({ rules }) =>
-          act({ type: "edit", fields: { rules } }, true),
-        ),
-      ),
-    );
-    page.append(rulesGroup);
+    const page = renderSettings(root, {
+      busy,
+      settings: context.settings,
+      saveSettings: context.saveSettings,
+      back: () => go("overview"),
+    });
     context.renderModels?.(page, busy);
-    root.append(page);
   } else if (state.page === "library") context.renderLibrary?.(root);
   return root;
 }

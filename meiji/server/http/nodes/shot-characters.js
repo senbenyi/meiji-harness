@@ -3,7 +3,7 @@ import { commonValues } from '../../prompts/inputs.js';
 import { invalid, assertRecord } from '../../../shared/task_contract.js';
 import { validateShape } from '../validate-shape.js';
 
-const input = { language: 'string', rules: 'array', requirements: 'string', shot: 'object', characters: 'array', previous: ['object', 'string'] };
+const input = { language: 'string', requirements: 'string', shot: 'object', characters: 'array', previous: ['object', 'string'] };
 const output = { type: 'JSON', structure: { on_screen_characters: [{ character_number: '', costume_number: '' }] },
   requirements: '只返回本镜实际出镜的人物及服装编号。编号来自输入目录；未出镜、仅声音或仅提及的人物排除。确认无人时返回空数组。人物无服装目录时 costume_number 为空字符串，有服装目录时必须确定一套已有服装；不得用空值代替未确定。' };
 const review = { type: 'JSON', structure: { 是否通过: true, 原因: '' }, requirements: '通过时原因为空字符串，不通过时写明具体问题。' };

@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, chmodSync, lstatSync } from "node:fs";
 import { validateProject } from "../../shared/project_contract.js";
+import { detachOutputLanguage, removeProjectRules } from "../../shared/node-dependencies.js";
 
 const columns = {
   task_groups: "id project_id episode_id name group_type action source shot_ids_json created_at position".split(" "),
@@ -27,10 +28,57 @@ export class SQLiteStore {
         try {
           this.#db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
           this.#db.exec("COMMIT");
-          version = 9;
+          version = 11;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
       }
-      if (version !== 9) throw new Error(`不支持的数据库版本：${version}`);
+      if (version === 9) {
+        this.#db.exec("BEGIN IMMEDIATE");
+        try {
+          const projects = this.#db.prepare("SELECT id, data_json FROM projects").all();
+          const taskRows = this.#db.prepare("SELECT id, project_id, business_type, target_id, previous_node_state_json FROM tasks").all();
+          const updateProject = this.#db.prepare("UPDATE projects SET data_json=? WHERE id=?");
+          const updateTask = this.#db.prepare("UPDATE tasks SET previous_node_state_json=? WHERE id=?");
+          for (const row of projects) {
+            const project = JSON.parse(row.data_json);
+            const tasks = taskRows.filter(task => task.project_id === row.id).map(task => ({
+              id: task.id, business_type: task.business_type, target_id: task.target_id,
+              previous_node_state: task.previous_node_state_json ? JSON.parse(task.previous_node_state_json) : null,
+            }));
+            removeProjectRules({ project, tasks, steps: [] });
+            updateProject.run(JSON.stringify(project), row.id);
+            for (const task of tasks) if (task.previous_node_state) updateTask.run(JSON.stringify(task.previous_node_state), task.id);
+          }
+          this.#db.prepare("INSERT INTO schema_migrations VALUES (10, strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec("PRAGMA user_version=10");
+          this.#db.exec("COMMIT");
+          version = 10;
+        } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
+      }
+      if (version === 10) {
+        this.#db.exec("BEGIN IMMEDIATE");
+        try {
+          const projects = this.#db.prepare("SELECT id, data_json FROM projects").all();
+          const taskRows = this.#db.prepare("SELECT id, project_id, business_type, target_id, previous_node_state_json FROM tasks").all();
+          const updateProject = this.#db.prepare("UPDATE projects SET data_json=? WHERE id=?");
+          const updateTask = this.#db.prepare("UPDATE tasks SET previous_node_state_json=? WHERE id=?");
+          for (const row of projects) {
+            const project = JSON.parse(row.data_json);
+            const tasks = taskRows.filter(task => task.project_id === row.id).map(task => ({
+              id: task.id, business_type: task.business_type, target_id: task.target_id,
+              previous_node_state: task.previous_node_state_json ? JSON.parse(task.previous_node_state_json) : null,
+            }));
+            detachOutputLanguage({ project, tasks, steps: [] });
+            validateProject(project);
+            updateProject.run(JSON.stringify(project), row.id);
+            for (const task of tasks) if (task.previous_node_state) updateTask.run(JSON.stringify(task.previous_node_state), task.id);
+          }
+          this.#db.prepare("INSERT INTO schema_migrations VALUES (11, strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec("PRAGMA user_version=11");
+          this.#db.exec("COMMIT");
+          version = 11;
+        } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
+      }
+      if (version !== 11) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => f !== "id").map(f => `${f}=excluded.${f}`).join(",")}`));
       }
@@ -80,6 +128,12 @@ export class SQLiteStore {
       checkpoint("after-project", snapshot);
       for (const [table, key] of [["task_groups", "groups"], ["tasks", "tasks"], ["task_steps", "steps"]]) {
         const old = new Map((before?.[key] || []).map((r, i) => [r.id, { row: r, position: i }]));
+        if (table === 'tasks') {
+          // 动态插入编排先腾开被移动任务的位置，避免逐行 upsert 撞组内唯一序号。
+          const moved = snapshot.tasks.filter(row => old.has(row.id) && old.get(row.id).row.group_seq !== row.group_seq);
+          const offset = Math.max(0, ...snapshot.tasks.map(row => row.group_seq), ...(before?.tasks || []).map(row => row.group_seq)) + 1;
+          for (const row of moved) this.#db.prepare('UPDATE tasks SET group_seq=group_seq+? WHERE id=?').run(offset, row.id);
+        }
         snapshot[key].forEach((row, position) => {
           const previous = old.get(row.id);
           if (previous?.position === position && JSON.stringify(previous.row) === JSON.stringify(row)) return;

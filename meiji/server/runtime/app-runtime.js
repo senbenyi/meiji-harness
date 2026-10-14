@@ -1,3 +1,4 @@
+import { createVideoPromptHandler } from '../handlers/video-prompt-handler.js';
 import { LibraryStore } from "../data/library-store.js";
 import { locateTarget } from "../../shared/task_contract.js";
 import { expireDownstream } from "../../shared/node-dependencies.js";
@@ -13,9 +14,10 @@ import { commitContent } from "../handlers/content.js";
 import { MediaStore } from "../media/media-store.js";
 import { createAiRoutes } from '../http/ai-routes.js';
 import { modelStore } from "../data/model-settings.js";
+import { SettingsModel } from "../../shared/models/settings_model.js";
 import { NotificationOutbox } from "../host/notification-outbox.js";
 import { emptyProject, emptyEpisode } from "../../shared/project_contract.js";
-import { invalid, createId } from "../../shared/task_contract.js";
+import { invalid } from "../../shared/task_contract.js";
 
 export async function createAppRuntime({
   home,
@@ -30,10 +32,11 @@ export async function createAppRuntime({
     media = new MediaStore(join(root, "media")),
     models = modelStore(home),
     library = new LibraryStore(join(root, "assets"));
+  const readLanguage = async () => new SettingsModel(await models.read()).output_language;
   const ai = createAiRoutes({ readConfig: () => models.read(), gateway: injected });
-  const text = createTextHandler({ ai }),
-    mediaHandler = createMediaHandler({ media, ai }),
-    execute = createHandlerRegistry({ text, media: mediaHandler }),
+  const text = createTextHandler({ ai, readLanguage }),
+    mediaHandler = createMediaHandler({ media, ai, readLanguage }),
+    execute = createHandlerRegistry({ text, media: mediaHandler, videoPrompt: createVideoPromptHandler({ media }) }),
     tasks = new TaskService({
       repository,
       execute,
@@ -99,9 +102,7 @@ export async function createAppRuntime({
               "creation_mode",
               "aspect_ratio",
               "creative_direction",
-              "output_language",
               "reference_episode_duration_seconds",
-              "rules",
               "script",
             ].includes(key)
           )
@@ -296,45 +297,12 @@ export async function createAppRuntime({
           const allowed = [
             "name",
             "creative_direction",
-            "output_language",
             "aspect_ratio",
             "reference_episode_duration_seconds",
-            "rules",
           ];
           for (const [key, value] of Object.entries(command.fields || {})) {
             if (!allowed.includes(key)) invalid(key, "未定义项目配置");
-            if (key === "rules") {
-              if (!Array.isArray(value)) invalid("rules", "需为数组");
-              const targets = new Map([["项目", s.project.id]]);
-              for (const c of s.project.character_library.characters) {
-                targets.set(c.number, c.id);
-                for (const co of c.costumes) targets.set(co.number, co.id);
-              }
-              for (const e of s.project.episodes) {
-                targets.set(`第${e.sequence}集`, e.id);
-                for (const shot of e.shot_list.shots)
-                  targets.set(`第${e.sequence}集/${shot.number}`, shot.id);
-              }
-              s.project.rules = value.map((row, index) => {
-                const { node_number, ...fields } = row;
-                if (
-                  Object.keys(fields).some(
-                    (k) =>
-                      !["scope", "applicable_business_types", "category", "constraint", "content"].includes(k),
-                  )
-                )
-                  invalid("rules", "未定义规则字段");
-                const node =
-                  fields.scope === "project" ? "" : targets.get(node_number);
-                if (node === undefined)
-                  invalid("node_number", "规则目标编号不存在");
-                return {
-                  id: s.project.rules[index]?.id || createId("rule"),
-                  ...fields,
-                  node_id: node,
-                };
-              });
-            } else s.project[key] = value;
+            s.project[key] = value;
           }
           return {};
         });

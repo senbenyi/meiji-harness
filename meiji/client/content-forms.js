@@ -9,9 +9,8 @@ export const fieldLabels = {
   shot_scale: "景别", hook: "钩子", continuity_transition: "连续性衔接", reference_anchor: "参考锚点",
   fixed_landmark: "固定地标", character_positions: "人物位置", departed_characters: "离场角色", lighting: "光位",
   audio_arrangement: "音频安排", narration: "旁白", sound_effects: "音效",
-  aspect_ratio: "画幅", output_language: "输出语言", creative_direction: "创作方向", episode_requirements: "本集要求",
-  reference_episode_duration_seconds: "参考单集时长（秒）", rules: "规则", scope: "范围", category: "类别",
-  constraint: "约束", content: "内容", node_number: "节点编号", applicable_business_types: "适用业务",
+  aspect_ratio: "画幅", creative_direction: "创作方向", episode_requirements: "本集要求",
+  reference_episode_duration_seconds: "参考单集时长（秒）", content: "内容",
   character_id: "角色 ID", costume_id: "服装 ID", character_number: "角色编号", costume_number: "服装编号",
   on_screen_characters: "出镜角色", storyboard: "每秒分镜", dialogue: "对白", speaker_id: "说话人 ID",
   speaker_name: "说话人", speaker_number: "说话人编号", dialogue_text: "原话", mode: "方式", time_range: "时段",
@@ -26,8 +25,6 @@ const templates = {
   on_screen_characters: { character_number: "", costume_number: "" },
   storyboard: { time_range: "0–1s", action: "", camera: "", space: "", audio: "", handoff: "", dialogue: [] },
   dialogue: { speaker_number: "", speaker_name: "", mode: "画内", dialogue_text: "" },
-  applicable_business_types: "",
-  rules: { scope: "project", applicable_business_types: [], node_number: "", category: "其他", constraint: "参考", content: "" },
 };
 export function fieldsForm(
   value,
@@ -81,7 +78,6 @@ export function fieldsForm(
       caption = element("span", fieldLabels[key] || key, "image-text-key");
     const options = {
       aspect_ratio: ["1344x768", "768x1344"],
-      output_language: ["zh-CN", "en"],
       scope: ["project", "node"],
       category: ["动作", "表情", "武术", "特效", "声音", "对白", "配乐", "其他"],
       constraint: ["必须", "参考"],

@@ -12,7 +12,7 @@ const sections = { integrated_multimodal_description: 'A woman opens the door. {
 const text = Object.entries(sections).map(([k, v]) => `${k}:\n${v}`).join('\n\n');
 const video = { type: '文生', textPrompt: text, duration: 5, aspectRatio: '16:9' };
 const image = 'data:image/png;base64,aW1hZ2U=';
-const common = { language: 'zh-CN', rules: [], requirements: '' };
+const common = { language: 'zh-CN', requirements: '' };
 const binding = { ...common, shot: { body: '甲穿白衣走进门。' }, previous: '', characters: [{ number: 'C1', name: '甲', costumes: [{ number: 'C1F1', name: '白衣' }] }, { number: 'C2', name: '乙', costumes: [] }] };
 
 test('视频三种类型实际发出互斥协议，生成三段原文不被系统正文包裹', async () => {

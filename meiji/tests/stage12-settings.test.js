@@ -12,7 +12,7 @@ import { createTaskHttpHandler } from '../server/http/task-routes.js'
 import { syncChatModel } from '../server/host/harness-chat-model.js'
 import { emptyProject } from '../shared/project_contract.js'
 
-const selection = { text: { model: 'qwen3.5:27b' }, image: { model: 'elysium-image' }, video: { model: 'elysium-video' } }
+const selection = { output_language: 'zh-CN', text: { model: 'qwen3.5:27b' }, image: { model: 'elysium-image' }, video: { model: 'elysium-video' } }
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}/v1`)))
 
 test('设置 Model 拒绝未知选项、图片冒用文本，聊天和制作同源', () => {
@@ -48,6 +48,7 @@ test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，�
     const save = settings => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Meiji-Request': '1' }, body: JSON.stringify({ settings }) })
     const publicConfig = await (await fetch(url)).json()
     assert.deepEqual(publicConfig.settings, selection)
+    let project
     for (const [modelName, kind, key] of [['elysium-chat', 'gateway', 'gateway-secret'], ['qwen3.5:27b', 'qwen', 'ollama']]) {
       const before = requests.length
       const response = await save({ ...selection, text: { model: modelName }, apiKey: 'must-not-overwrite', baseUrl: 'http://must-not-use.test' })
@@ -55,7 +56,7 @@ test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，�
       assert.equal(synced.at(-2), key)
       assert.equal(synced.at(-1).models[0].contextWindow, kind === 'qwen' ? 32768 : 65536)
       const p = emptyProject({ name: 'HTTP验证', creation_mode: '剧本' }); p.script.body = '阿明丢失钥匙，寻找后找回。'
-      const project = await runtime.repository.create(p)
+      project = await runtime.repository.create(p)
       const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: modelName, business_type: 'project-summary', target_id: p.id, action: 'generate' })
       await runtime.tasks.idle(p.id)
       const task = project.read().tasks.find(t => t.id === submitted.task_id)
@@ -67,6 +68,18 @@ test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，�
         assert.equal(req.body.reasoning_effort, undefined) // Qwen 默认参数由 llm-server 补齐
       }
     }
+    const kept = project.read().project.project_summary.body
+    assert.equal((await save({ ...selection, output_language: 'en' })).status, 200)
+    assert.equal(project.read().project.project_summary.body, kept)
+    assert.equal(Object.hasOwn(project.read().project, 'output_language'), false)
+    const fresh = emptyProject({ name: '语言验证', creation_mode: '剧本' }); fresh.script.body = '阿明丢失钥匙，寻找后找回。'
+    await runtime.repository.create(fresh)
+    const beforeLanguage = requests.length
+    await runtime.tasks.command({ type: 'submit', project_id: fresh.id, request_id: 'lang', business_type: 'project-summary', target_id: fresh.id, action: 'generate' })
+    await runtime.tasks.idle(fresh.id)
+    const languageCalls = requests.slice(beforeLanguage).map(item => JSON.stringify(item.body)).join('\n')
+    assert.match(languageCalls, /English（英文）/)
+    assert.doesNotMatch(languageCalls, /简体中文/)
     const persisted = await runtime.models.read()
     assert.deepEqual(persisted.concurrency, { text: 4 })
     assert.equal(persisted.apiKey, 'gateway-secret')

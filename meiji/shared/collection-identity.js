@@ -79,8 +79,6 @@ export function replaceShots(project, episodeId, rows, tasks = []) {
   for (const shot of removed) {
     if (tasks.some(task => task.target_id === shot.id && ["queued", "running"].includes(task.task_status)))
       invalid("shots", "被移除镜头仍有未结束任务");
-    if (draft.rules.some(rule => rule.scope === "node" && rule.node_id === shot.id))
-      invalid("shots", "被移除镜头仍有节点规则引用");
   }
   episode.shot_list.shots = next;
   validateProject(draft);

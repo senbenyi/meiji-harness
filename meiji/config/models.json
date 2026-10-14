@@ -15,5 +15,6 @@
   },
   "text": {
     "model": "qwen3.5:27b"
-  }
+  },
+  "output_language": "zh-CN"
 }

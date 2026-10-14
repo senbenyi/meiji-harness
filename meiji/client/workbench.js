@@ -9,7 +9,7 @@ import {
   sendCommand,
   currentSessionId,
 } from "./task-client.js";
-import { renderTaskPanel, editor } from "./task-panel.js";
+import { renderTaskPanel, renderSettings, editor } from "./task-panel.js";
 export function mount() {
   const shell = createShell(),
     context = new PanelContext(),
@@ -21,14 +21,48 @@ export function mount() {
     session = null,
     disposed = false,
     paintedContext = "",
-    paintVersion = 0;
+    paintVersion = 0,
+    selection = null;
+  const showLanguage = () => {
+    shell.root.querySelector(".language").textContent =
+      selection?.output_language === "en" ? "English" : "中文";
+  };
+  const saveSettings = async (patch) => {
+    if (!selection) throw new Error("设置尚未加载");
+    const next = { ...selection, ...patch };
+    await request("models", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Meiji-Request": "1" },
+      body: JSON.stringify({ settings: next }),
+    });
+    selection = next;
+    showLanguage();
+  };
+  const loadSelection = async () => {
+    const { settings } = await request("models");
+    selection = { output_language: "zh-CN", ...settings };
+    showLanguage();
+  };
   const paint = () => {
     paintVersion++;
     const snapshot = context.read();
+    if (view.page === "settings" && !snapshot) {
+      shell.content.replaceChildren();
+      const page = renderSettings(shell.content, {
+        settings: selection,
+        saveSettings,
+        back: () => {
+          view.page = "library";
+          catalog().catch(report);
+        },
+      });
+      void renderModels(page, false);
+      showLanguage();
+      return;
+    }
     if (!snapshot) return catalog();
     shell.root.querySelector(".brand").textContent = snapshot.project.name;
-    shell.root.querySelector(".language").textContent =
-      snapshot.project.output_language === "en" ? "English" : "中文";
+    showLanguage();
     const key = JSON.stringify([
       context.token(),
       view.page,
@@ -63,6 +97,8 @@ export function mount() {
       paint,
       onError: report,
       renderLibrary: (root) => renderLibrary(root),
+      settings: selection,
+      saveSettings,
       renderModels: (root, busy) => renderModels(root, busy),
     });
     shell.content.append(...editors);
@@ -97,10 +133,11 @@ export function mount() {
     });
     paintedContext = "";
     shell.root.querySelector(".brand").textContent = emptyBrand;
-    shell.root.querySelector(".language").textContent = "中文";
+    showLanguage();
   };
   const refresh = async () => {
     if (disposed || document.hidden) return;
+    await loadSelection().catch(report);
     const token = context.token(),
       result = await request(
         "context?session_id=" + encodeURIComponent(session || ""),
@@ -224,6 +261,14 @@ export function mount() {
         view.page !== "settings"
       )
         return;
+      selection = { output_language: "zh-CN", ...settings };
+      showLanguage();
+      const language = root.querySelector("[name=output_language]");
+      if (language) {
+        language.value = selection.output_language;
+        language.dataset.saved = selection.output_language;
+        language.disabled = busy;
+      }
       const group = element("section", "", "settings-group");
       group.append(element("h3", "模型"));
       const message = element("p", "", "error settings-error");
@@ -243,17 +288,12 @@ export function mount() {
         selects.push(select);
         select.onchange = async () => {
           const previous = settings[kind].model;
-          settings[kind] = { model: select.value };
           selects.forEach(item => item.disabled = true);
           message.textContent = "";
           try {
-            await request("models", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "X-Meiji-Request": "1" },
-              body: JSON.stringify({ settings }),
-            });
+            await saveSettings({ [kind]: { model: select.value } });
+            settings[kind] = { model: select.value };
           } catch (error) {
-            settings[kind] = { model: previous };
             select.value = previous;
             message.textContent = error.message;
           } finally {

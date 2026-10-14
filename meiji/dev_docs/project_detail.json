@@ -4,22 +4,7 @@
   "creation_mode": "剧本（项目的创作模式。）",
   "aspect_ratio": "1344x768（项目画面的宽高尺寸。）",
   "creative_direction": "（项目整体创作方向。）",
-  "output_language": "zh-CN（生成内容使用的语言代码。）",
   "reference_episode_duration_seconds": "150（拆分剧集使用的参考单集时长，单位秒；各集大纲和镜头表审核读取该集 duration_seconds。）",
-  "rules": [
-    {
-      "id": "r_uuid（当前对象的唯一标识。）",
-      "scope": "project|node（规则生效范围。）",
-      "applicable_business_types": [
-        "seconds",
-        "storyboard"
-      ],
-      "node_id": "（规则限定到的节点标识；不限定时为空。）",
-      "category": "动作|表情|武术|特效|声音|对白|配乐|其他（规则所属的约束类别。）",
-      "constraint": "必须|参考（约束强度。）",
-      "content": "（规则或节点中的具体内容。）"
-    }
-  ],
   "project_summary": {
     "node_state": {
       "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",

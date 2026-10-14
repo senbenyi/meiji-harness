@@ -201,7 +201,7 @@ test("S7-11 独立素材沿用现有目录格式，引用阻止删除，不读�
   }
 });
 
-test("S7-13 规则 ID 程序创建与编号定位；语言/画幅/规则/声音/默认服装不追溯过期", async () => {
+test("S7-13 画幅、声音和默认服装不追溯过期，项目不再接受语言或规则", async () => {
   const home = await mkdtemp(join(tmpdir(), "meiji-config-"));
   let runtime;
   try {
@@ -226,20 +226,7 @@ test("S7-13 规则 ID 程序创建与编号定位；语言/画幅/规则/声音/
         type: "edit",
         project_id: p.id,
         request_id: "settings",
-        fields: {
-          output_language: "en",
-          aspect_ratio: "768x1344",
-          rules: [
-            {
-              scope: "node",
-              applicable_business_types: ["seconds"],
-              node_number: "第1集/S01",
-              category: "动作",
-              constraint: "必须",
-              content: "保持事实",
-            },
-          ],
-        },
+        fields: { aspect_ratio: "768x1344" },
       },
       sid,
     );
@@ -254,8 +241,8 @@ test("S7-13 规则 ID 程序创建与编号定位；语言/画幅/规则/声音/
       sid,
     );
     const after = model.read().project;
-    assert.match(after.rules[0].id, /^r_/);
-    assert.equal(after.rules[0].node_id, p.episodes[0].shot_list.shots[0].id);
+    assert.equal(Object.hasOwn(after, "rules"), false);
+    assert.equal(Object.hasOwn(after, "output_language"), false);
     assert.deepEqual(after.episodes, p.episodes);
     assert.deepEqual(after.character_library.characters[0].costume_images[0], c.costume_images[0]);
     assert.deepEqual(after.character_library.characters[0].costumes, c.costumes);
@@ -265,22 +252,18 @@ test("S7-13 规则 ID 程序创建与编号定位；语言/画幅/规则/声音/
           type: "edit",
           project_id: p.id,
           request_id: "bad-rule",
-          fields: {
-            rules: [
-              {
-                scope: "node",
-                applicable_business_types: ["seconds"],
-                node_number: "不存在",
-                category: "动作",
-                constraint: "必须",
-                content: "规则",
-              },
-            ],
-          },
+          fields: { rules: [] },
         },
         sid,
       ),
-      /不存在/,
+      /未定义项目配置/,
+    );
+    await assert.rejects(
+      runtime.projectCommand(
+        { type: "edit", project_id: p.id, request_id: "bad-language", fields: { output_language: "en" } },
+        sid,
+      ),
+      /未定义项目配置/,
     );
   } finally {
     await runtime?.dispose();

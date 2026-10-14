@@ -6,7 +6,6 @@ import {
   invalid,
 } from "./task_contract.js";
 import { emptyProjectModel } from "./models/project_model.js";
-import { emptyRuleModel } from "./models/rule_model.js";
 import { emptyScriptRevisionModel } from "./models/script_revision_model.js";
 import { emptyCharacterModel } from "./models/character_model.js";
 import { emptyCostumeImageModel } from "./models/costume_image_model.js";
@@ -26,7 +25,6 @@ export const emptyShot = (fields = {}) =>
   emptyShotModel(fields.sequence ?? 1, fields);
 
 const arrayModels = {
-  "project.rules": emptyRuleModel,
   "project.script.revision_history": emptyScriptRevisionModel,
   "project.character_library.characters": emptyCharacterModel,
   "project.character_library.characters[].costume_images": () => emptyCostumeImageModel(),
@@ -40,7 +38,6 @@ const arrayModels = {
   "project.episodes[].shot_list.shots[].multimodal_prompt.reference_images": emptyReferenceImageModel,
 };
 const stringArrays = new Set([
-  "project.rules[].applicable_business_types",
   "project.character_library.characters[].signature_props",
   "project.character_library.characters[].immutable_traits",
   "project.character_library.characters[].costumes[].props",
@@ -96,7 +93,6 @@ export function validateProject(project) {
   register(project.id, "project.id");
   if (!/^\d+x\d+$/.test(project.aspect_ratio)) invalid("project.aspect_ratio", "需为分辨率");
   assertEnum(project.creation_mode, ["剧本", "自由创作"], "project.creation_mode");
-  assertEnum(project.output_language, ["zh-CN", "en"], "project.output_language");
   if (!Number.isInteger(project.reference_episode_duration_seconds) || project.reference_episode_duration_seconds < 1)
     invalid("project.reference_episode_duration_seconds", "需为正整数");
 
@@ -117,14 +113,6 @@ export function validateProject(project) {
   collect(project);
   for (const [node, path] of nodes) validateNodeState(node, path);
 
-  for (const rule of project.rules) {
-    register(rule.id, "rules.id");
-    assertEnum(rule.scope, ["project", "node"], "rules.scope");
-    assertEnum(rule.constraint, ["必须", "参考"], "rules.constraint");
-    assertEnum(rule.category, ["动作", "表情", "武术", "特效", "声音", "对白", "配乐", "其他"], "rules.category");
-    if (rule.scope === "node" && !rule.node_id) invalid("rules.node_id", "节点规则需指定节点");
-    if (rule.scope === "project" && rule.node_id) invalid("rules.node_id", "项目规则不指定节点");
-  }
   for (const character of project.character_library.characters) {
     register(character.id, "character_library.characters.id");
     numbered(character.number, "character_library.characters.number");

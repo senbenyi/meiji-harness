@@ -17,9 +17,10 @@ export function reviewType(step) {
 }
 export function stepKinds(task) {
   if (task.action === "delete") return ["precheck", "impact", "apply"];
+  if (task.business_type === 'video' && task.action === 'manual_edit') return ['precheck', 'manual_edit', 'apply'];
   if (["manual_edit", "override"].includes(task.action))
     return ["precheck", task.action];
-  return ["precheck", "generate", ...reviewTypes(task).map(() => "review")];
+  return ["precheck", "generate", ...(task.business_type === 'video' ? ['apply'] : []), ...reviewTypes(task).map(() => "review")];
 }
 export function newStep(task, seq, kind, round = 0, reviewer = null) {
   return createStepModel({

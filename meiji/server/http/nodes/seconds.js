@@ -47,15 +47,15 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","rules":"array","requirements":"string","shot":"object","characters":"array","bindings":"array"},
+      input: {"language":"string","requirements":"string","shot":"object","characters":"array","bindings":"array"},
       output: output0,
     },
     regenerate: {
-      input: {"language":"string","rules":"array","requirements":"string","shot":"object","characters":"array","bindings":"array","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","shot":"object","characters":"array","bindings":"array","opinion":"string","content":"object"},
       output: output0,
     },
     review: {
-      input: {"language":"string","rules":"array","requirements":"string","shot":"object","characters":"array","bindings":"array","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","shot":"object","characters":"array","bindings":"array","opinion":"string","content":"object"},
       output: output1,
     },
   },

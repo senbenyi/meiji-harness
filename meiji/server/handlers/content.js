@@ -90,10 +90,15 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
           character.costume_images.push(emptyCostumeImageModel(costume_id));
   } else if (["costume-image", "video", "tail", "assembly"].includes(business)) {
     node.address = content.address;
-    if (business === "video" && content.actual_duration_seconds !== undefined)
-      locateTarget(project, business, task.target_id).object.actual_duration_seconds = content.actual_duration_seconds;
+    if (business === 'video') {
+      const shot = locateTarget(project, business, task.target_id).object;
+      if (!content.last_frame?.address) invalid('视频', '缺少配对尾帧');
+      shot.actual_duration_seconds = content.actual_duration_seconds;
+      shot.last_frame.address = content.last_frame.address;
+    }
   } else if (business === "shots") node.shots = structuredClone(content.shots);
   else Object.assign(node, structuredClone(content));
+  if (['first-last-frame','multimodal'].includes(business)) locateTarget(project, business, task.target_id).object.video_generation_type = business === 'multimodal' ? '多模态' : '首尾帧';
   if (business === "project-summary") node.script_version = project.script.version;
   if (["video", "shots"].includes(business))
     updateEpisodeActualDuration(locateTarget(project, business, task.target_id).episode);
@@ -101,6 +106,7 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   if (!passed) return [];
   assertOutput(project, business, task.target_id);
   stampDependencyHash(snapshot, business, task.target_id);
+  if (business === 'video') stampDependencyHash(snapshot, 'tail', task.target_id);
   if (business !== "project-characters") return [];
   // 正式资料可能已保存过拒绝候选，是否过期须与图片生成时的依赖 hash 比较。
   expireCharacterImages(snapshot);

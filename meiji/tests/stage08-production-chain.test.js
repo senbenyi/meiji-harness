@@ -21,7 +21,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
       "-f",
       "lavfi",
       "-i",
-      "color=c=blue:s=32x32:d=0.2",
+      "color=c=blue:s=32x32:d=4",
       "-c:v",
       "libx264",
       "-pix_fmt",
@@ -90,7 +90,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
       old = before.tasks.filter((t) => t.group_id === first.group_id);
     assert.deepEqual(
       old.map((t) => t.task_status),
-      ["completed", "completed", "completed", "failed", "superseded"],
+      ["completed", "completed", "completed", "failed"],
     );
     failVideo = false;
     const next = await runtime.tasks.command({

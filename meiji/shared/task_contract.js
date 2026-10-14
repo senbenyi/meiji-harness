@@ -354,6 +354,8 @@ export function validateCommand(command) {
       Object.keys(BUSINESS_TARGET),
       "command.business_type",
     );
+  if (command.business_type === 'tail' && command.type !== 'query') invalid('business_type', '尾帧已并入视频任务');
+  if (['first-last-frame', 'multimodal'].includes(command.business_type) && !['query','submit'].includes(command.type)) invalid('business_type', '程序编排只支持执行或查询');
   if (command.business_type === "character-image" && command.type !== "query")
     invalid("business_type", "独立角色图已移除，请生成人物定妆照");
   if (command.type === "submit-costumes") assertEnum(command.action, ["generate", "regenerate"], "command.action");

@@ -3,5 +3,5 @@ import { createId } from "../task_contract.js";
 import { emptyProjectSummaryModel } from "./project_summary_model.js";
 import { emptyScriptModel } from "./script_model.js";
 import { emptyCharacterLibraryModel } from "./character_library_model.js";
-export const emptyProjectModel = (fields = {}) => ({ id: createId("project"), name: "", creation_mode: "剧本", aspect_ratio: "1344x768", creative_direction: "", output_language: "zh-CN", reference_episode_duration_seconds: 150, rules: [], project_summary: emptyProjectSummaryModel(), script: emptyScriptModel(), character_library: emptyCharacterLibraryModel(), episodes: [], ...fields });
+export const emptyProjectModel = (fields = {}) => ({ id: createId("project"), name: "", creation_mode: "剧本", aspect_ratio: "1344x768", creative_direction: "", reference_episode_duration_seconds: 150, project_summary: emptyProjectSummaryModel(), script: emptyScriptModel(), character_library: emptyCharacterLibraryModel(), episodes: [], ...fields });
 export { emptyProjectSummaryModel, emptyScriptModel, emptyCharacterLibraryModel };

@@ -5,11 +5,11 @@ import { prepareContent, commitContent } from "./content.js";
 import { taskNodeInput } from './node-inputs.js';
 import { buildSplit } from "./script-split.js";
 
-export function createHandlerRegistry({ text, media }) {
+export function createHandlerRegistry({ text, media, videoPrompt }) {
   return async (context) => {
     const { snapshot, task, step, draft, reviewType } = context;
     const project = snapshot.project, business = task.business_type;
-    if (step.kind === "review" && reviewType === "program" && TEXT_BUSINESSES.includes(business)) {
+    if (step.kind === "review" && reviewType === "program" && (TEXT_BUSINESSES.includes(business) || business === "video")) {
       try {
         if (business === "script-split") buildSplit(project.script.body, draft);
         else {
@@ -41,6 +41,7 @@ export function createHandlerRegistry({ text, media }) {
       const content = prepareContent(snapshot, task, raw);
       return { content, result: raw };
     }
+    if (['first-last-frame', 'multimodal'].includes(business)) return videoPrompt(context);
     return TEXT_BUSINESSES.includes(business) ? text(context) : media(context);
   };
 }

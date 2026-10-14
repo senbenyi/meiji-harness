@@ -1,3 +1,4 @@
+import { videoType, videoPack } from '../../../shared/video-inputs.js';
 import { taskName, groupName } from "../../../shared/task-labels.js";
 import {
   createId,
@@ -196,7 +197,8 @@ export class TaskService {
           const members = s.tasks.filter(t => t.group_id === original.id).sort((a,b)=>a.group_seq-b.group_seq);
           if (members.some(unfinished)) conflict(members.filter(unfinished));
           const stoppedAt = members.findIndex(t => t.task_status !== "completed");
-          const remaining = stoppedAt < 0 ? [] : members.slice(stoppedAt);
+          const rest = stoppedAt < 0 ? [] : members.slice(stoppedAt);
+          const remaining = rest.filter(t => !['first-last-frame','multimodal'].includes(t.business_type) || !rest.some(next => next.business_type === 'video' && next.target_id === t.target_id));
           if (remaining.some(t => (!BUSINESS_DEFINITIONS[t.business_type] || BUSINESS_DEFINITIONS[t.business_type].retired) || ["manual_edit", "override", "delete"].includes(t.action)))
             invalid("group", "历史已移除业务、人工与删除任务不能继续，请从对应入口重新操作");
           if (!remaining.length) return { group_id: null, task_ids: [], message: "当前范围无需继续" };
@@ -234,7 +236,7 @@ export class TaskService {
         for (const id of scope)
           for (const business of type === "episode-seconds"
              ? ["shot-characters", "seconds"]
-             : ["shot-characters", "seconds", "storyboard", "video", "tail"]) {
+             : ["shot-characters", "seconds", "storyboard", "video"]) {
             if (action === "generate" && isNodeCurrent(prospective, business, id)) continue;
             planned.push({ business, id });
             expireDownstream(prospective, business, id, "本组前序即将重新生成", { compareHash: false });
@@ -346,6 +348,11 @@ export class TaskService {
     content = null,
   ) {
     const target = locateTarget(s.project, business, id);
+    const family = ['video', 'first-last-frame', 'multimodal'];
+    if (family.includes(business)) {
+      const occupied = s.tasks.filter(task => unfinished(task) && task.target_id === id && family.includes(task.business_type) && task.group_id !== group);
+      if (occupied.length) conflict(occupied);
+    }
     if (business === "assembly") {
       const producing = s.tasks.filter(task => unfinished(task) && task.group_id !== group && task.episode_id === id &&
         s.groups.some(item => item.id === task.group_id && item.group_type === "episode-film"));
@@ -432,6 +439,10 @@ export class TaskService {
           reason,
         );
     }
+    if (task.business_type === 'video' && ['completed', 'rejected'].includes(status)) {
+      const shot = locateTarget(s.project, 'video', task.target_id).object;
+      Object.assign(shot.last_frame.node_state, { status: status === 'completed' ? 'generated' : 'rejected', reason });
+    }
     for (const step of s.steps.filter(
       (st) =>
         st.task_id === task.id && ["ready", "running"].includes(st.step_status),
@@ -488,14 +499,39 @@ export class TaskService {
         .filter((t) => t.task_status === "queued")
         .sort((a, b) => a.queue_order - b.queue_order)[0];
       if (!task) return;
-      await model.update(`start:${task.id}`, { start: task.id }, (s) => {
+      if (task.business_type === 'video' && !['manual_edit','override'].includes(task.action)) {
+        const inserted = await model.update(`prepare-video:${task.id}:${before.runtime.revision}`, { prepareVideo: task.id }, s => {
+          const t = s.tasks.find(item => item.id === task.id);
+          if (t.task_status !== 'queued') return { inserted: false };
+          const { object: shot, episode } = locateTarget(s.project, 'video', t.target_id);
+          if (!isNodeCurrent(s, 'shot-characters', shot.id) || !isNodeCurrent(s, 'storyboard', shot.id)) return { inserted: false };
+          const type = videoType(episode, shot), business = videoPack(type);
+          shot.video_generation_type = type;
+          if (!business || isNodeCurrent(s, business, shot.id)) return { inserted: false };
+          const order = t.queue_order, seq = t.group_seq;
+          // 新编排插到待生成视频之前；只调整尚未开始的队列和本组顺序。
+          for (const row of s.tasks.filter(item => item.task_status === 'queued')) {
+            if (row.queue_order >= order) row.queue_order++;
+            if (row.group_id === t.group_id && row.group_seq >= seq) row.group_seq++;
+          }
+          const pack = this.#add(s, business, shot.id, hasNodeContent(s.project, business, shot.id) ? 'regenerate' : 'generate',
+            { source: t.source, session_id: null }, t.group_id, seq);
+          pack.queue_order = order;
+          return { inserted: true };
+        });
+        if (inserted.inserted) continue;
+      }
+      if (signal.aborted) return;
+      const started = await model.update(`start:${task.id}`, { start: task.id }, (s) => {
         const t = s.tasks.find((t) => t.id === task.id);
+        if (t.task_status !== "queued") return { started: false };
         t.task_status = "running";
         t.started_at = now();
         const n = nodeOf(s.project, t.business_type, t.target_id);
         if (n) setNodeState(n, "running");
-        return {};
+        return { started: true };
       });
+      if (!started.started) continue;
       try {
         await this.#run(model, task.id, signal);
       } catch (error) {
@@ -562,7 +598,7 @@ export class TaskService {
           output = await this.#execute(context);
       } else output = await this.#execute(context);
       if (signal.aborted || model.read().tasks.find(t => t.id === id).task_status !== "running") return;
-      if (["generate", "revise"].includes(step.kind) || (step.kind === "review" && output.content !== undefined)) draft = output.content;
+      if (["generate", "revise", "manual_edit", "apply"].includes(step.kind) || (step.kind === "review" && output.content !== undefined)) draft = output.content;
       await model.update(`step-end:${step.id}`, { step: step.id }, s => {
         const t = s.tasks.find(x => x.id === id), st = s.steps.find(x => x.id === step.id);
         if (t.task_status !== "running") return {};
@@ -586,6 +622,7 @@ export class TaskService {
               const round = step.round + 1;
               let seq = Math.max(...s.steps.filter(x => x.task_id === id).map(x => x.seq));
               s.steps.push(newStep(t, ++seq, "revise", round));
+              if (t.business_type === 'video') s.steps.push(newStep(t, ++seq, 'apply', round));
               for (const reviewer of reviewTypes(t)) s.steps.push(newStep(t, ++seq, "review", round, reviewer));
               return {};
             }
@@ -595,7 +632,7 @@ export class TaskService {
           }
         }
         if (!s.steps.some(x => x.task_id === id && x.step_status === "ready")) {
-          const content = ["generate", "revise", "review"].includes(step.kind) ? draft
+          const content = ["generate", "revise", "review", "apply"].includes(step.kind) ? draft
             : step.kind === "override" ? null : output.content;
           const derived = this.#commitOutput(s, t, content, { passed: true });
           if (task.action !== "delete") expireDownstream(s, t.business_type, t.target_id);

@@ -2,8 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mergeCharacters, replaceShots } from "../shared/collection-identity.js";
 import { emptyProject, emptyEpisode, emptyShot } from "../shared/project_contract.js";
-import { emptyRuleModel } from "../shared/models/rule_model.js";
-
 const character = (name = "甲", costumes = [{ name: "常服", color: "蓝", material: "布", props: [] }]) => ({ name, gender: "男", era: "宋代", position: "主角", age_range: "三十来岁", body_type: "高大", hairstyle: "束发", signature_props: [], immutable_traits: [], costumes });
 const shot = (number = "S01") => {
   const value = emptyShot({ number, title: "镜头", body: "剧情", duration_seconds: 5 });
@@ -72,7 +70,7 @@ test("S2-07 无服装资料保留空数组并建立一个未绑定定妆照槽�
   assert.ok(!Object.hasOwn(result, "clothing_color"));
 });
 
-test("S2-07 镜头重生成保留身份与资源，移除受占用和规则保护", () => {
+test("S2-07 镜头重生成保留身份与资源，移除受占用镜头", () => {
   const p = emptyProject(), e = emptyEpisode();
   p.episodes = [e];
   e.shot_list.shots = replaceShots(p, e.id, [shot()]).shots;
@@ -84,6 +82,4 @@ test("S2-07 镜头重生成保留身份与资源，移除受占用和规则保�
   assert.notEqual(replaced.shots[1].id, id);
   assert.throws(() => replaceShots(p, e.id, [], [{ target_id: id, task_status: "running" }]), /未结束/);
   assert.deepEqual(replaceShots(p, e.id, [], [{ target_id: id, task_status: "completed" }]).removed_ids, [id]);
-  p.rules = [emptyRuleModel({ scope: "node", node_id: id, applicable_business_types: ["video"], category: "动作", constraint: "必须", content: "规则" })];
-  assert.throws(() => replaceShots(p, e.id, []), /规则引用/);
 });

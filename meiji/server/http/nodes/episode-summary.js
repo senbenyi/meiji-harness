@@ -25,15 +25,15 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","rules":"array","requirements":"string","plot":"string"},
+      input: {"language":"string","requirements":"string","plot":"string"},
       output: output0,
     },
     regenerate: {
-      input: {"language":"string","rules":"array","requirements":"string","plot":"string","opinion":"string","content":"string"},
+      input: {"language":"string","requirements":"string","plot":"string","opinion":"string","content":"string"},
       output: output0,
     },
     review: {
-      input: {"language":"string","rules":"array","requirements":"string","plot":"string","opinion":"string","content":"string"},
+      input: {"language":"string","requirements":"string","plot":"string","opinion":"string","content":"string"},
       output: output1,
     },
   },

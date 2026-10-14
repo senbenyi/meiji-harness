@@ -28,15 +28,15 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","rules":"array","requirements":"string","storyboard":"object","duration":"number","characters":"array"},
+      input: {"language":"string","requirements":"string","storyboard":"object","duration":"number","characters":"array"},
       output: output0,
     },
     regenerate: {
-      input: {"language":"string","rules":"array","requirements":"string","storyboard":"object","duration":"number","characters":"array","opinion":"string","content":["object","string"]},
+      input: {"language":"string","requirements":"string","storyboard":"object","duration":"number","characters":"array","opinion":"string","content":["object","string"]},
       output: output0,
     },
     review: {
-      input: {"language":"string","rules":"array","requirements":"string","storyboard":"object","duration":"number","characters":"array","opinion":"string","content":["object","string"]},
+      input: {"language":"string","requirements":"string","storyboard":"object","duration":"number","characters":"array","opinion":"string","content":["object","string"]},
       output: output1,
     },
   },

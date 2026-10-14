@@ -31,11 +31,11 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","rules":"array","requirements":"string","person":"string","costume":"string","referenceDescription":"string","aspectRatio":"string","references":"array"},
+      input: {"language":"string","requirements":"string","person":"string","costume":"string","referenceDescription":"string","aspectRatio":"string","references":"array"},
       output: output0,
     },
     regenerate: {
-      input: {"language":"string","rules":"array","requirements":"string","person":"string","costume":"string","referenceDescription":"string","opinion":"string","aspectRatio":"string","references":"array"},
+      input: {"language":"string","requirements":"string","person":"string","costume":"string","referenceDescription":"string","opinion":"string","aspectRatio":"string","references":"array"},
       output: output0,
     },
   },

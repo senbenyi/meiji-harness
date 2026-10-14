@@ -37,15 +37,15 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","rules":"array","requirements":"string","plot":"string","duration":"number"},
+      input: {"language":"string","requirements":"string","plot":"string","duration":"number"},
       output: output0,
     },
     regenerate: {
-      input: {"language":"string","rules":"array","requirements":"string","plot":"string","duration":"number","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","plot":"string","duration":"number","opinion":"string","content":"object"},
       output: output0,
     },
     review: {
-      input: {"language":"string","rules":"array","requirements":"string","plot":"string","duration":"number","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","plot":"string","duration":"number","opinion":"string","content":"object"},
       output: output1,
     },
   },

@@ -19,6 +19,7 @@ const config = {
   textBaseUrl: 'http://127.0.0.1:11435/v1',
   text: { model: 'qwen3.5:27b' },
   image: { model: 'elysium-image' }, video: { model: 'elysium-video' },
+  output_language: 'zh-CN',
 }
 
 test('千问：文本路由和媒体凭据隔离，配置保存不丢失独立地址', async () => {
@@ -52,6 +53,7 @@ test('千问：显式迁移先备份，媒体、额外设置及原备份不变�
     assert.equal(after.chat, undefined)
     assert.equal(after.story, undefined)
     assert.equal(after.textBaseUrl, config.textBaseUrl)
+    assert.equal(after.output_language, 'zh-CN')
     assert.deepEqual(await migrateSettingsModel(home), { changed: false })
     assert.equal(await readFile(migrated.backup, 'utf8'), before)
   } finally { await rm(home, { recursive: true, force: true }) }
@@ -120,7 +122,7 @@ test('千问：真实 runtime 经独立文本 HTTP 完成生成、审核及修�
     await new Promise(resolve => api.listen(0, '127.0.0.1', resolve))
     const url = `http://127.0.0.1:${api.address().port}/api/meiji/models`
     const get = await (await fetch(url)).json()
-    assert.deepEqual(get.settings, { text: config.text, image: config.image, video: config.video })
+    assert.deepEqual(get.settings, { output_language: 'zh-CN', text: config.text, image: config.image, video: config.video })
     assert.ok(!JSON.stringify(get).includes(config.apiKey))
     const saved = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Meiji-Request': '1' }, body: JSON.stringify({ settings: get.settings }) })
     assert.equal(saved.status, 200)

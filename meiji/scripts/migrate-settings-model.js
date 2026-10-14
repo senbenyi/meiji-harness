@@ -12,7 +12,7 @@ export async function migrateSettingsModel(home) {
   catch (error) { if (error.code !== 'ENOENT') throw error }
   const base = await defaults()
   const current = existing || base
-  if (existing?.text && !existing.chat && !existing.story) {
+  if (existing?.text && !existing.chat && !existing.story && (existing.output_language === 'zh-CN' || existing.output_language === 'en')) {
     normalizeModels(existing)
     return { changed: false }
   }

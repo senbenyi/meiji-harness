@@ -380,13 +380,16 @@ export function renderEpisode(root, env, entries) {
   );
   const body = element("div", "", "session-body");
   if (shot) {
+    const video = nodeCard('video', shot.id, shot.video);
+    video.append(nodeCard('tail', shot.id, shot.last_frame, { readOnly: true }));
     body.append(
         element("p", `参考 ${shot.duration_seconds} 秒${shot.actual_duration_seconds > 0 ? ` · 实际 ${shot.actual_duration_seconds} 秒` : ""}`, "meta"),
         nodeCard("shot-characters", shot.id, shot.character_binding),
         nodeCard("seconds", shot.id, shot.seconds_storyboard),
         nodeCard("storyboard", shot.id, shot.text_to_video_prompt),
-        nodeCard("video", shot.id, shot.video),
-        nodeCard("tail", shot.id, shot.last_frame),
+        element('p', '视频类型：' + (shot.video_generation_type || '待角色识别完成后确定'), 'meta'),
+        ...(shot.video_generation_type === '首尾帧' ? [nodeCard('first-last-frame', shot.id, shot.first_last_frame_prompt)] : shot.video_generation_type === '多模态' ? [nodeCard('multimodal', shot.id, shot.multimodal_prompt)] : []),
+        video,
       );
     root.append(body);
     return;

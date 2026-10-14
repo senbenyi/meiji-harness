@@ -20,7 +20,7 @@ export async function mediaBytes(root) {
       "-f",
       "lavfi",
       "-i",
-      "color=c=red:s=32x32:d=0.2",
+      "color=c=red:s=32x32:d=4",
       "-c:v",
       "libx264",
       "-pix_fmt",
@@ -64,7 +64,7 @@ test("S6-01/02/03/04 仅姓名角色通过前置，真实媒体经过图片、�
     const snapshot = { project: p, tasks: [], steps: [] };
     for (const business of ["episode-summary", "outline", "shots"])
       stampDependencyHash(snapshot, business, e.id);
-    for (const business of ["seconds", "storyboard", "video", "tail"])
+    for (const business of ["shot-characters", "seconds", "storyboard", "video", "tail"])
       stampDependencyHash(snapshot, business, s.id);
     stampDependencyHash(snapshot, "assembly", e.id);
     const repository = new ModelRepository(join(root, "projects")),
@@ -117,7 +117,7 @@ test("S6-01/02/03/04 仅姓名角色通过前置，真实媒体经过图片、�
         ).result.remote_id,
       "remote-test",
     );
-    await submit("tail", s.id, "regenerate");
+    assert.ok(model.read().project.episodes[0].shot_list.shots[0].last_frame.address);
     const info = await media.validate(model.read().project.episodes[0].shot_list.shots[0].video.address, p.id, "video");
     assert.equal(model.read().project.episodes[0].shot_list.shots[0].actual_duration_seconds, Math.round(info.duration * 10) / 10);
     const restored = await new ModelRepository(join(root, "projects")).open(p.id);
@@ -156,7 +156,7 @@ test("图片提示词的人物资料组装为一句话，省略编号、必出�
     "郓哥；男；古代（架空）；水果贩；18岁；身材瘦削；不可改特征受过武大郎照顾，愿意冒险相助。",
   );
   const prompt = composeNodePrompt("costume-image", "generate", {
-    language: "zh-CN", person: sentence, costume: "", referenceDescription: "", rules: [], requirements: "", aspectRatio: "16:9", references: [],
+    language: "zh-CN", person: sentence, costume: "", referenceDescription: "", requirements: "", aspectRatio: "16:9", references: [],
   }, "elysium-image");
   assert.match(prompt.user, /## 人物资料\n郓哥；男；古代/);
   assert.doesNotMatch(prompt.user, /### |编号|必出|有图|资料未提供/);
@@ -212,7 +212,7 @@ function stampAssemblyInputs(project) {
   for (const business of ["episode-summary", "outline", "shots"])
     stampDependencyHash(snapshot, business, episode.id);
   for (const shot of [...episode.shot_list.shots].sort((a, b) => a.sequence - b.sequence))
-    for (const business of ["seconds", "storyboard", "video", "tail"])
+    for (const business of ["shot-characters", "seconds", "storyboard", "video", "tail"])
       stampDependencyHash(snapshot, business, shot.id);
   stampDependencyHash(snapshot, "assembly", episode.id);
 }
@@ -293,12 +293,12 @@ test("合片缺失、损坏、跨项目或依赖过期的视频在前置失败�
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("定妆照提示词精简重复规则，保留参考图、补充规则与修改意见", async () => {
+test("定妆照提示词保留参考图与修改意见", async () => {
   const { composeNodePrompt } = await import("../server/http/ai-routes.js");
   for (const kind of ["generate", "regenerate"]) {
     const prompt = composeNodePrompt("costume-image", kind, {
       person: "甲；成年；身材健壮。", costume: "蓝色常服", referenceDescription: "参考图仅用于面相。",
-      rules: [{ constraint: "必须", content: "保留左眉疤痕。" }], ...(kind === "regenerate" ? { opinion: "调整发型。" } : {}),
+      ...(kind === "regenerate" ? { opinion: "调整发型。" } : {}),
       language: "zh-CN", requirements: "", aspectRatio: "16:9", references: [],
     }, "elysium-image");
     assert.equal(prompt.output.type, "图片");
@@ -307,7 +307,7 @@ test("定妆照提示词精简重复规则，保留参考图、补充规则与�
 
     assert.match(prompt.body, /单人全身.*3\/4.*纯色背景/);
     assert.match(prompt.user, /参考图仅用于面相/);
-    assert.match(prompt.system, /保留左眉疤痕/);
+    assert.doesNotMatch(prompt.body, /保留左眉疤痕|补充规则/);
     assert.doesNotMatch(prompt.system, /内容边界|语言要求|需要呈现的文字/);
     if (kind === "regenerate") assert.match(prompt.user, /调整发型/);
   }

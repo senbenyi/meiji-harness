@@ -114,7 +114,7 @@ test("S4-11 继续组重做上游时，将即将过期的已生成视频/尾帧�
     const snapshot = { project: p, tasks: [], steps: [] };
     for (const business of ["outline", "shots"])
       stampDependencyHash(snapshot, business, p.episodes[0].id);
-    for (const business of ["shot-characters", "seconds", "storyboard", "video", "tail"])
+    for (const business of ["shot-characters", "seconds", "storyboard", "video"])
       stampDependencyHash(snapshot, business, p.episodes[0].shot_list.shots[0].id);
     const repository = new ModelRepository(root),
       model = await repository.create(p);
@@ -150,7 +150,7 @@ test("S4-11 继续组重做上游时，将即将过期的已生成视频/尾帧�
         .read()
         .tasks.filter((t) => next.task_ids.includes(t.id))
         .map((t) => t.business_type),
-      ["shot-characters", "seconds", "storyboard", "video", "tail"],
+      ["shot-characters", "seconds", "storyboard", "video"],
     );
   } finally {
     await service?.dispose();

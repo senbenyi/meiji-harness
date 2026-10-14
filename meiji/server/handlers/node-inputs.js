@@ -5,12 +5,6 @@ import { aiProjection } from './content.js';
 import { scriptParagraphs, paragraphNumber } from './script-split.js';
 import { nodeAction } from '../http/ai-routes.js';
 
-export function applicableRules(project, business, targetId) {
-  const rules = project.rules.filter(rule => rule.applicable_business_types.includes(business) && (rule.scope === 'project' || rule.node_id === targetId));
-  return [...rules.filter(rule => rule.scope === 'project'), ...rules.filter(rule => rule.scope === 'node')]
-    .map(({ constraint, category, content }) => ({ constraint, category, content }));
-}
-
 function shotTable(value) {
   const fields = ['title', 'number', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement'];
   return { shots: (value?.shots || []).map(shot => Object.fromEntries(fields.map(key => [key, structuredClone(shot[key])]))) };
@@ -53,10 +47,10 @@ const inputs = {
   storyboard: ({ project, episode, object }) => shotTextInputs(project, episode, object, 'storyboard'),
 };
 
-export function taskNodeInput(snapshot, task, draft, action, step = {}) {
+export function taskNodeInput(snapshot, task, draft, action, step = {}, language = "zh-CN") {
   const project = snapshot.project, business = task.business_type;
   const target = locateTarget(project, business, task.target_id);
-  const value = { language: project.output_language, rules: applicableRules(project, business, task.target_id), requirements: project.creative_direction || '',
+  const value = { language, requirements: project.creative_direction || '',
     ...inputs[business]({ project, ...target }) };
   if (action !== 'generate') {
     const steps = snapshot.steps || [];

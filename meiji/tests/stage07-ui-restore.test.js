@@ -246,7 +246,7 @@ test("UI-4 人物文字网格/服装详情和编号，运行冻结；不显示�
       ].every((n) => n.disabled),
     );
   }));
-test("UI-5 设置为语言表单/规则入口；历史筛选和步骤独立详情", () =>
+test("UI-5 设置为语言表单；历史筛选和步骤独立详情", () =>
   domTest((root) => {
     const snap = snapshotFixture(),
       view = { page: "settings" },
@@ -433,14 +433,13 @@ test("UI-6 设置选项自动保存、刷新恢复、失败回退，运行中冻
         "dsh.sessions.current",
         JSON.stringify({ sessionId: "session-" + randomUUID() }),
       );
-      const settings = { text: { model: "qwen3.5:27b" }, image: { model: "elysium-image" }, video: { model: "elysium-video" } };
+      const settings = { output_language: "zh-CN", text: { model: "qwen3.5:27b" }, image: { model: "elysium-image" }, video: { model: "elysium-video" } };
       let fail = false;
       globalThis.fetch = async (url, options = {}) => {
         if (options.method === "POST") {
           if (fail) return { ok: false, json: async () => ({ message: "保存失败" }) };
           const body = JSON.parse(options.body);
           if (url.endsWith("/models")) Object.assign(settings, body.settings);
-          else snap.project.output_language = body.command.fields.output_language;
         }
         return { ok: true, json: async () => url.endsWith("/models") ? { settings: structuredClone(settings) } : { project_id: snap.project.id, snapshot: structuredClone(snap) } };
       };
@@ -462,7 +461,9 @@ test("UI-6 设置选项自动保存、刷新恢复、失败回退，运行中冻
       language.value = "en";
       await language.onchange();
       await tick();
-      assert.equal(snap.project.output_language, "en");
+      assert.equal(settings.output_language, "en");
+      assert.equal(Object.hasOwn(snap.project, "output_language"), false);
+      assert.ok(!content.textContent.includes(snap.project.name));
       snap.runtime.revision++;
       await app.refresh(); await tick();
       language = content.querySelector("[name=output_language]"); model = content.querySelector("[name=text]");

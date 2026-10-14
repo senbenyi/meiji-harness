@@ -24,6 +24,7 @@ export function taskName(task, project) {
     for (const s of e.shot_list.shots)
       if (s.id === task.target_id) target = `第 ${e.sequence} 集 ${s.number}`;
   }
+  if (['first-last-frame', 'multimodal'].includes(task.business_type)) return `${target} · 执行${business}`;
   const action = { generate: "生成", regenerate: "重新生成", continue: "生成", manual_edit: "编辑", override: "放行", delete: "删除" }[task.action] || "生成";
   if (task.business_type === "script-split") return `${task.action === "manual_edit" ? "编辑拆分设置" : "拆分剧集"}`;
   if (task.business_type === "project-characters") return `${task.action === "regenerate" ? "重新提取" : "提取"}剧本重要角色`;
@@ -33,10 +34,10 @@ export function stepName(step, task) {
   if (step.name) return step.name;
   const business = businessNames[task.business_type] || task.business_type;
   return {
-    precheck: "前置检查", generate: task.business_type === "project-characters" ? "提取角色资料" : `${task.action === "regenerate" ? "重新生成" : "生成"}${business}`,
+    precheck: "前置检查", generate: task.business_type === "project-characters" ? "提取角色资料" : `${['first-last-frame','multimodal'].includes(task.business_type) ? '执行' : task.action === 'regenerate' ? '重新生成' : '生成'}${business}`,
     review: `${step.round ? `第 ${step.round} 轮` : ""}${step.review_type === "program" ? "程序审核" : "AI审核"}${business}`,
     revise: `第 ${step.round} 轮修订${business}`, manual_edit: "保存人工编辑",
-    override: "人工放行", impact: "检查删除影响", apply: "执行删除",
+    override: "人工放行", impact: "检查删除影响", apply: task.business_type === 'video' ? '校验视频、测量时长与截取尾帧' : '执行删除',
   }[step.kind] || step.kind;
 }
 export function groupName(group, tasks, project) {

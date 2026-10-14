@@ -6,7 +6,6 @@ import { emptyShotModel } from "../shared/models/shot_model.js";
 import { emptyCharacterModel } from "../shared/models/character_model.js";
 import { emptyCostumeModel } from "../shared/models/costume_model.js";
 import { emptyCostumeImageModel } from "../shared/models/costume_image_model.js";
-import { emptyRuleModel } from "../shared/models/rule_model.js";
 import { emptyStorySegmentModel } from "../shared/models/story_segment_model.js";
 import { emptyOnScreenCharacterModel } from "../shared/models/on_screen_character_model.js";
 import { emptyStoryboardBeatModel } from "../shared/models/storyboard_beat_model.js";
@@ -25,7 +24,6 @@ test("项目模型的每个嵌套数组项都由独立模型构造并通过完�
   character.default_costume_id = costume.id;
   character.costume_images.push(emptyCostumeImageModel(costume.id));
   project.character_library.characters.push(character);
-  project.rules.push(emptyRuleModel());
 
   const episode = emptyEpisodeModel();
   episode.story_outline.segments.push(emptyStorySegmentModel());

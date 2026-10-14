@@ -123,7 +123,8 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
     assert.ok(!root.querySelector('[data-business="episode-characters"]'));
     view.page = "settings";
     renderTaskPanel(root, snapshot, context);
-    assert.ok(root.textContent.includes("规则"));
+    assert.ok(!root.textContent.includes("编辑规则"));
+    assert.ok(!root.textContent.includes(snapshot.project.name));
     assert.ok(!root.textContent.includes("技能库"));
     const t = {
       id: "t-test",

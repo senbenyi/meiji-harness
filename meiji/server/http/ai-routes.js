@@ -29,11 +29,6 @@ export function validateInput(input, schema) {
     const value = input[key], type = Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value;
     if (![types].flat().includes(type) || (type === 'number' && !Number.isFinite(value))) invalid(`输入.${key}`, `需为 ${[types].flat().join(' / ')}`);
   }
-  for (const rule of input.rules || []) {
-    assertRecord(rule, '规则');
-    for (const key of Object.keys(rule)) if (!['constraint', 'content', 'category'].includes(key)) invalid('规则.' + key, '未定义字段');
-    if (!['必须', '参考'].includes(rule.constraint) || typeof rule.content !== 'string' || (rule.category !== undefined && typeof rule.category !== 'string')) invalid('规则', '需包含 constraint（必须/参考）、content 和可选 category');
-  }
 }
 
 export function composeNodePrompt(node, action, input, model) {

@@ -89,15 +89,13 @@ test("S3-04 剧本更新使依赖剧本的节点过期，配置变化不触发�
   expireDownstream(snapshot, "script", p.id);
   assert.equal(p.project_summary.node_state.status, "expired");
   assert.equal(p.episodes[0].story_outline.node_state.status, "generated");
-  p.output_language = "en";
   p.aspect_ratio = "768x1344";
-  p.rules = [];
   assert.equal(s.video.node_state.status, "generated");
   expireDownstream(snapshot, "seconds", s.id, "上游已修改", { compareHash: false });
   assert.equal(s.text_to_video_prompt.node_state.status, "rejected");
   assert.equal(s.text_to_video_prompt.node_state.reason, "未通过");
 });
-test("S3-05 图片变化只使实际使用该参考图的视频过期（基于历史生成结果）", () => {
+test("S3-05 图片变化只使实际使用该参考图的视频过期（基于确认绑定）", () => {
   const snapshot = snapshotFixture(),
     p = snapshot.project,
     s = p.episodes[0].shot_list.shots[0];
@@ -110,6 +108,7 @@ test("S3-05 图片变化只使实际使用该参考图的视频过期（基于�
       costumes: [],
     }),
   ];
+  s.character_binding.on_screen_characters = [{ character_id: id, costume_id: "" }];
   const t = taskFixture(p, "video", s.id, { task_status: "completed" });
   snapshot.tasks = [t];
   snapshot.steps = [

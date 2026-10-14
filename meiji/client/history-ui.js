@@ -15,7 +15,7 @@ const nodeTypeNames = {
   seconds: "每秒分镜",
   storyboard: "文本提示词",
   video: "视频",
-  tail: "尾帧",
+  tail: "尾帧", 'first-last-frame': '首尾帧参数编排', multimodal: '多模态参数编排',
   assembly: "合片",
 };
 const text = (value) =>

@@ -1,4 +1,3 @@
-import { applicableRules } from '../server/handlers/node-inputs.js';
 import test from "node:test";
 import { emptyCharacterModel } from "../shared/models/character_model.js";
 import { emptyCostumeModel } from "../shared/models/costume_model.js";
@@ -22,7 +21,6 @@ import {
   emptyShot,
   validateProject,
 } from "../shared/project_contract.js";
-import { ruleInputs } from '../server/prompts/inputs.js';
 import { nodeRoutes, composeNodePrompt, nodeAction } from '../server/http/ai-routes.js';
 import { sampleInput } from './fixtures/ai.js';
 
@@ -77,7 +75,7 @@ test("S1-01 新项目结构、七种状态及原因约束", () => {
     assert.equal(validateProject(q), q);
   }
   const bad = structuredClone(p);
-  delete bad.output_language;
+  bad.output_language = "en";
   assert.throws(() => validateProject(bad), /output_language/);
   p.project_summary.node_state.status = "passed";
   assert.throws(() => validateProject(p), /status/);
@@ -228,41 +226,9 @@ for (const [node, route] of Object.entries(nodeRoutes)) {
   });
 }
 test('S1-05 用户资料中的占位符不二次展开，未定义路由不加载任何文件', () => {
-  const rendered = composeNodePrompt('project-summary', 'generate', { script: '原样资料{{不是模板}}', language: 'zh-CN', rules: [], requirements: '' }, 'qwen3.5:27b');
+  const rendered = composeNodePrompt('project-summary', 'generate', { script: '原样资料{{不是模板}}', language: 'zh-CN', requirements: '' }, 'qwen3.5:27b');
   assert.ok(rendered.user.includes('{{不是模板}}'));
   assert.throws(() => nodeAction('../step_model', 'generate'), /不存在/);
-});
-test("S1-05 项目/节点规则顺序和参考素材分开，无资料不保留空段", () => {
-  const rules = [
-    {
-      scope: "node",
-      node_id: "target",
-      applicable_business_types: ["seconds"],
-      constraint: "必须",
-      content: "节点规则",
-      category: "动作",
-    },
-    {
-      scope: "project",
-      node_id: "",
-      applicable_business_types: ["seconds"],
-      constraint: "必须",
-      content: "项目规则",
-      category: "动作",
-    },
-    {
-      scope: "project",
-      node_id: "",
-      applicable_business_types: ["seconds"],
-      constraint: "参考",
-      content: "参考动作",
-      category: "动作",
-    },
-  ];
-  const v = ruleInputs(applicableRules({ rules }, "seconds", "target"));
-  assert.ok(v.补充规则.indexOf("项目规则") < v.补充规则.indexOf("节点规则"));
-  assert.ok(v.指导素材.includes("参考动作"));
-  assert.equal(ruleInputs(applicableRules({ rules }, "shots", "target")).指导素材, "");
 });
 test("通知预检：只在会话显示提示卡，不唤醒 AI、不进入模型上下文", async () => {
   const events = [];
@@ -384,7 +350,7 @@ test("S1-04 所有命令共享严格白名单，组/人工/删除/队列协议�
 });
 
 test('S1-05 输出格式只在 system，空资料段省略且请求不能覆盖输出格式', () => {
-  const input = { script: '', language: 'zh-CN', rules: [], requirements: '' };
+  const input = { script: '', language: 'zh-CN', requirements: '' };
   const prompt = composeNodePrompt('project-summary', 'generate', input, 'qwen3.5:27b');
   assert.ok(!prompt.user.includes('背景信息'));
   assert.ok(!prompt.user.includes('输出格式'));

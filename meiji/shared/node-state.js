@@ -73,7 +73,7 @@ export function hasNodeContent(project, business, targetId) {
   if (business === "shot-characters") return node.has_result;
   if (business === "seconds") return node.storyboard.length > 0;
   if (business === "storyboard") return Boolean(node.integrated_multimodal_description.trim());
-  return Boolean((node.body ?? node.address ?? "").trim());
+  return Boolean((node.body ?? node.prompt ?? node.address ?? "").trim());
 }
 export function assertOutput(project, business, targetId) {
   validateProject(project);
@@ -101,6 +101,8 @@ export function assertOutput(project, business, targetId) {
       if (person.costumes.length && !row.costume_id) invalid("镜头角色识别", "需明确本镜服装");
     }
   }
+  if (['first-last-frame', 'multimodal'].includes(business)) nonempty(node.prompt, '视频编排');
+  if (business === 'video') { nonempty(object.last_frame.address, '视频尾帧'); if (!(object.actual_duration_seconds > 0)) invalid('视频时长', '缺少实测时长'); }
   if (business === "seconds" && !node.storyboard.length) invalid("每秒分镜", "产出内容为空");
   if (business === "storyboard") nonempty(node.integrated_multimodal_description, "文生视频提示词");
 }
@@ -119,6 +121,11 @@ export function assertProgramReview(project, business, targetId) {
     }
     if (Math.abs(end - object.duration_seconds) > 5 + 1e-9)
       invalid("每秒分镜", `总时长 ${end} 秒超出本镜参考 ${object.duration_seconds} 秒允许误差±5秒`);
+  }
+  if (business === 'video') {
+    const actual = object.actual_duration_seconds;
+    if (actual < 4 || actual > 15 || Math.abs(actual - object.duration_seconds) > 5 + 1e-9)
+      invalid('视频时长', `实测 ${actual} 秒，需为4–15秒且与计划 ${object.duration_seconds} 秒相差不超过±5秒`);
   }
   if (business === "outline") {
     const total = node.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0);

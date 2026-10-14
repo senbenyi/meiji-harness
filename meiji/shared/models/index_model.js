@@ -1,6 +1,5 @@
 // 统一导出 shared/models 目录中的模型工厂。
 export { emptyNodeStateModel } from "./node_state_model.js";
-export { emptyRuleModel } from "./rule_model.js";
 export { emptyProjectSummaryModel } from "./project_summary_model.js";
 export { emptyScriptRevisionModel } from "./script_revision_model.js";
 export { emptyScriptModel } from "./script_model.js";

@@ -55,15 +55,15 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","rules":"array","requirements":"string","script":"string","characters":"array"},
+      input: {"language":"string","requirements":"string","script":"string","characters":"array"},
       output: output0,
     },
     regenerate: {
-      input: {"language":"string","rules":"array","requirements":"string","script":"string","characters":"array","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","script":"string","characters":"array","opinion":"string","content":"object"},
       output: output0,
     },
     review: {
-      input: {"language":"string","rules":"array","requirements":"string","script":"string","characters":"array","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","script":"string","characters":"array","opinion":"string","content":"object"},
       output: output1,
     },
   },

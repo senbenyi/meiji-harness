@@ -1,3 +1,4 @@
+import { videoType, videoPack, previousShot, videoImages } from './video-inputs.js';
 import { shotTextInputs } from './shot-text-inputs.js';
 import { primaryCostumeImage } from "./models/character_model.js";
 import { createHash } from "node:crypto";
@@ -82,27 +83,19 @@ function dependencyMaterial(snapshot, business, id) {
   }
   if (['shot-characters', 'seconds', 'storyboard'].includes(business)) {
     const { episode, object } = locateTarget(project, business, id);
-    const rules = project.rules.filter(rule => rule.applicable_business_types.includes(business) && (rule.scope === 'project' || rule.node_id === id));
-    const orderedRules = [...rules.filter(rule => rule.scope === 'project'), ...rules.filter(rule => rule.scope === 'node')].map(({ constraint, category, content }) => ({ constraint, category, content }));
-    return { ...shotTextInputs(project, episode, object, business), language: project.output_language, requirements: project.creative_direction,
-      rules: orderedRules, upstream: business === 'shot-characters' ? upstream('shots', episode.id)
+    return { ...shotTextInputs(project, episode, object, business), requirements: project.creative_direction,
+      upstream: business === 'shot-characters' ? upstream('shots', episode.id)
         : business === 'seconds' ? upstream('shot-characters', id) : upstream('seconds', id) };
   }
-  if (business === "video") {
-    const located = locateTarget(project, business, id),
-      shot = located.object,
-      list = [...located.episode.shot_list.shots].sort(
-        (a, b) => a.sequence - b.sequence,
-      ),
-      index = list.findIndex((item) => item.id === shot.id),
-      previous = index > 0 ? list[index - 1] : null;
-    return {
-      提示词: body(shot.text_to_video_prompt),
-      上游: upstream("storyboard", shot.id),
-      参考图: referencedImages(snapshot, shot),
-      上一尾帧: previous
-        ? { 镜头id: previous.id, 地址: previous.last_frame.address, 上游: upstream("tail", previous.id) }
-        : null,
+  if (['video', 'first-last-frame', 'multimodal'].includes(business)) {
+    const { object: shot, episode } = locateTarget(project, business, id);
+    const type = videoType(episode, shot), previous = previousShot(episode, shot);
+    const pack = videoPack(type);
+    return { type, duration: shot.duration_seconds, aspectRatio: project.aspect_ratio,
+      prompt: body(shot.text_to_video_prompt), upstream: upstream('storyboard', id),
+      ...(type === '多模态' ? { images: videoImages(project, shot).map(({ id, image }) => ({ id, address: image?.address || '', hash: image?.node_state.dependency_hash || '' })) } : {}),
+      ...(type === '首尾帧' ? { previous: { id: previous.id, address: previous.last_frame.address, hash: upstream('tail', previous.id) } } : {}),
+      ...(business === 'video' && pack ? { packed: body(nodeOf(project, pack, id)), packHash: upstream(pack, id) } : {}),
     };
   }
   if (business === "tail") {
@@ -123,49 +116,6 @@ function dependencyMaterial(snapshot, business, id) {
   return {};
 }
 
-function referencedImages(snapshot, shot) {
-  const steps = snapshot.steps || [];
-  const task = (snapshot.tasks || [])
-    .filter(
-      (item) =>
-        item.business_type === "video" &&
-        item.target_id === shot.id &&
-        item.task_status === "completed",
-    )
-    .sort((a, b) => b.queue_order - a.queue_order)
-    .find((item) =>
-      steps.some(
-        (step) =>
-          step.task_id === item.id && step.result?.address === shot.video.address,
-      ),
-    );
-  const recorded = task
-    ? steps.find(
-        (step) =>
-          step.task_id === task.id && step.result?.address === shot.video.address,
-      )?.result?.reference_ids
-    : null;
-  const ids = Array.isArray(recorded)
-    ? recorded
-    : (shot.character_binding.on_screen_characters || []).map((row) => row.costume_id || row.character_id);
-  return ids.filter(Boolean).map((imageId) => {
-    for (const character of snapshot.project.character_library.characters) {
-      if (character.id === imageId)
-        return {
-          地址: primaryCostumeImage(character).address,
-          上游: primaryCostumeImage(character).node_state.dependency_hash,
-        };
-      for (const costume of character.costumes)
-        if (costume.id === imageId)
-          return {
-            地址: character.costume_images.find(image => image.costume_id === costume.id).address,
-            上游: nodeOf(snapshot.project, "costume-image", imageId).node_state.dependency_hash,
-          };
-    }
-    return { 地址: "", 上游: "" };
-  });
-}
-
 export function dependencyHash(snapshot, business, id) {
   return createHash("sha256")
     .update(canonical(dependencyMaterial(snapshot, business, id)))
@@ -174,6 +124,8 @@ export function dependencyHash(snapshot, business, id) {
 
 export function isNodeCurrent(snapshot, business, id) {
   try {
+    if (business === 'video' && locateTarget(snapshot.project, business, id).object.last_frame.node_state.status !== 'generated') return false;
+    if (business === 'tail' && locateTarget(snapshot.project, business, id).object.video.node_state.status !== 'generated') return false;
     const node = nodeOf(snapshot.project, business, id);
     if (!node || node.node_state.status !== "generated") return false;
     assertOutput(snapshot.project, business, id);
@@ -190,6 +142,35 @@ export function stampDependencyHash(snapshot, business, id) {
   if (!node) return "";
   node.node_state.dependency_hash = dependencyHash(snapshot, business, id);
   return node.node_state.dependency_hash;
+}
+
+const shotTextBusinesses = ["shot-characters", "seconds", "storyboard"];
+
+function restampShotText(snapshot) {
+  for (const episode of snapshot.project.episodes || []) {
+    for (const shot of episode.shot_list?.shots || []) {
+      for (const business of shotTextBusinesses) {
+        const node = nodeOf(snapshot.project, business, shot.id);
+        if (node?.node_state?.status === "generated") stampDependencyHash(snapshot, business, shot.id);
+      }
+    }
+  }
+  for (const task of snapshot.tasks || []) {
+    if (!shotTextBusinesses.includes(task.business_type) || task.previous_node_state?.status !== "generated") continue;
+    task.previous_node_state.dependency_hash = dependencyHash(snapshot, task.business_type, task.target_id);
+  }
+}
+
+// v9 项目去掉规则后，按不再包含规则的指纹重写已生成节点和排队快照。
+export function removeProjectRules(snapshot) {
+  delete snapshot.project.rules;
+  restampShotText(snapshot);
+}
+
+// v10 项目去掉语言字段后，按不再包含语言的指纹重写已生成节点和排队快照。正文和状态不动。
+export function detachOutputLanguage(snapshot) {
+  delete snapshot.project.output_language;
+  restampShotText(snapshot);
 }
 
 export function downstream(snapshot, business, id) {
@@ -228,21 +209,22 @@ export function downstream(snapshot, business, id) {
     return [
       ...e.shot_list.shots.map((x) => one("shot-characters", x.id)),
       // 集合顺序也影响前镜尾帧和合片，不能依赖每秒分镜变化才触达。
-      ...e.shot_list.shots.map((x) => one("video", x.id)),
+      ...e.shot_list.shots.flatMap(x => [one('first-last-frame', x.id), one('multimodal', x.id), one('video', x.id)]),
       one("assembly", e.id),
     ];
   if (business === 'shot-characters') {
     const shots = [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence);
     const next = shots[shots.findIndex(shot => shot.id === id) + 1];
-    return [one('seconds', id), ...(next ? [one('shot-characters', next.id)] : [])];
+    return [one('seconds', id), one('first-last-frame', id), one('multimodal', id), one('video', id), ...(next ? [one('shot-characters', next.id)] : [])];
   }
   if (business === "seconds") return [one("storyboard", id)];
-  if (business === "storyboard") return [one("video", id)];
-  if (business === "video") return [one("tail", id), one("assembly", e.id)];
+  if (business === 'storyboard') return [one('first-last-frame', id), one('multimodal', id), one('video', id)];
+  if (['first-last-frame','multimodal'].includes(business)) return [one('video', id)];
+  if (business === 'video') return [one('tail', id), ...downstream(snapshot, 'tail', id), one('assembly', e.id)];
   if (business === "tail") {
     const list = [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence),
       next = list[list.findIndex((x) => x.id === id) + 1];
-    return next ? [one("video", next.id)] : [];
+    return next && videoType(e, next) === '首尾帧' ? [one('first-last-frame', next.id), one('video', next.id)] : [];
   }
   if (business === "character-setting") return [...s.costume_images.map(image => one("costume-image", image.costume_id || id)), ...roleContext()];
   if (business === "costume-setting") return [one("costume-image", id), ...roleContext()];
@@ -254,34 +236,8 @@ export function downstream(snapshot, business, id) {
       .map(image => one("costume-image", image.costume_id || character.id)) : [];
     for (const episode of p.episodes)
       for (const shot of episode.shot_list.shots) {
-        const task = snapshot.tasks
-          .filter(
-            (t) =>
-              t.business_type === "video" &&
-              t.target_id === shot.id &&
-              t.task_status === "completed",
-          )
-          .sort((a, b) => b.queue_order - a.queue_order)
-          .find((t) =>
-            snapshot.steps.some(
-              (st) =>
-                st.task_id === t.id && st.result?.address === shot.video.address,
-            ),
-          );
-        const refs = task
-          ? snapshot.steps.find(
-              (st) =>
-                st.task_id === task.id && st.result?.address === shot.video.address,
-            )?.result?.reference_ids
-          : null;
-        const used = refs
-          ? refs.includes(id) || (isPrimary && refs.includes(character.id))
-          : shot.character_binding.on_screen_characters.some((r) =>
-              business === "costume-image"
-                ? (r.costume_id === id || (isPrimary && r.character_id === character.id && !r.costume_id))
-                : r.character_id === id && !r.costume_id,
-            );
-        if (used) result.push(one("video", shot.id));
+        const used = videoType(episode, shot) === '多模态' && videoImages(p, shot).some(row => row.id === id || (business === 'character-image' && row.id === character.id));
+        if (used) result.push(one('multimodal', shot.id), one('video', shot.id));
       }
     return result;
   }

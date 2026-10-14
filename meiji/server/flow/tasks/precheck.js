@@ -1,3 +1,4 @@
+import { videoType, videoPack, previousShot, videoImages } from '../../../shared/video-inputs.js';
 import { primaryCostumeImage } from "../../../shared/models/character_model.js";
 import {
   nodeOf,
@@ -51,8 +52,6 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       }
     } else if (character.default_costume_id === object.id)
       invalid("precheck", "不能删除默认服装");
-    if (p.rules.some((r) => r.scope === "node" && r.node_id === object.id))
-      invalid("precheck", "目标仍被节点规则引用");
     return { passed: true };
   }
   if (task.action === "generate" && node && hasNodeContent(p, task.business_type, task.target_id))
@@ -103,23 +102,26 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       requireNode("shots", episode.id);
       requireNode("seconds", object.id);
     },
-    video: () => {
-      requireNode("shots", episode.id);
-      requireNode("storyboard", object.id);
-      for (const row of object.character_binding.on_screen_characters) {
-        const c = p.character_library.characters.find((c) => c.id === row.character_id);
-        requireNode(
-          row.costume_id ? "costume-image" : "character-image",
-          row.costume_id || c.id,
-        );
-      }
-      const list = [...episode.shot_list.shots].sort((a, b) => a.sequence - b.sequence),
-        index = list.findIndex((s) => s.id === object.id);
-      if (index > 0) requireNode("tail", list[index - 1].id);
+    'video-pack': () => {
+      requireNode('shot-characters', object.id);
+      requireNode('storyboard', object.id);
+      const type = videoType(episode, object);
+      if (videoPack(type) !== business) invalid('precheck', '视频类型已变化，请重新提交视频任务');
+      if (type === '多模态') {
+        const refs = videoImages(p, object);
+        if (refs.length > 9) invalid('precheck', '多模态最多9张定妆照');
+        for (const row of refs) requireNode('costume-image', row.id);
+      } else requireNode('tail', previousShot(episode, object).id);
     },
-    tail: () => {
-      requireNode("shots", episode.id);
-      requireNode("video", object.id);
+    video: () => {
+      requireNode('shots', episode.id);
+      requireNode('shot-characters', object.id);
+      requireNode('storyboard', object.id);
+      const type = videoType(episode, object), pack = videoPack(type);
+      if (object.video_generation_type !== type) invalid('precheck', '视频类型尚未确定');
+      if (pack) requireNode(pack, object.id);
+      if (type === '多模态') for (const row of videoImages(p, object)) requireNode('costume-image', row.id);
+      if (type === '首尾帧') requireNode('tail', previousShot(episode, object).id);
     },
     assembly: () => {
       if (!episode.shot_list.shots.length) invalid("precheck", "没有镜头");

@@ -29,6 +29,9 @@ export function projectFixture() {
     s.text_to_video_prompt.integrated_multimodal_description = "动作；镜头；空间；声音；结束";
     s.video.node_state.status = "generated";
     s.video.address = `${n}.mp4`;
+    s.actual_duration_seconds = 5;
+    s.video_generation_type = n === 1 ? "文生" : "首尾帧";
+    if (n > 1) Object.assign(s.first_last_frame_prompt, { model: "elysium-video", prompt: "compiled", seconds: 5, size: "1024x576", input_reference: "1.png", node_state: { status: "generated", reason: "", dependency_hash: "" } });
     s.last_frame.node_state.status = "generated";
     s.last_frame.address = `${n}.png`;
     e.shot_list.shots.push(s);
@@ -39,7 +42,7 @@ export function projectFixture() {
   for (const business of ["episode-summary", "outline", "shots"])
     stampDependencyHash(snapshot, business, e.id);
   for (const shot of e.shot_list.shots)
-    for (const business of ["shot-characters", "seconds", "storyboard", "video", "tail"])
+    for (const business of ["shot-characters", "seconds", "storyboard", "first-last-frame", "multimodal", "video", "tail"])
       stampDependencyHash(snapshot, business, shot.id);
   stampDependencyHash(snapshot, "assembly", e.id);
   return p;

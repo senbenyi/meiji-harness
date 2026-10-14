@@ -28,11 +28,11 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","rules":"array","requirements":"string","script":"string","duration":"number"},
+      input: {"language":"string","requirements":"string","script":"string","duration":"number"},
       output: output0,
     },
     regenerate: {
-      input: {"language":"string","rules":"array","requirements":"string","script":"string","duration":"number","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","script":"string","duration":"number","opinion":"string","content":"object"},
       output: output0,
     },
   },

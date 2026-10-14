@@ -52,15 +52,15 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","rules":"array","requirements":"string","segments":"array","duration":"number","characters":"array","shotNumbers":"array"},
+      input: {"language":"string","requirements":"string","segments":"array","duration":"number","characters":"array","shotNumbers":"array"},
       output: output0,
     },
     regenerate: {
-      input: {"language":"string","rules":"array","requirements":"string","segments":"array","duration":"number","characters":"array","shotNumbers":"array","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","segments":"array","duration":"number","characters":"array","shotNumbers":"array","opinion":"string","content":"object"},
       output: output0,
     },
     review: {
-      input: {"language":"string","rules":"array","requirements":"string","segments":"array","characters":"array","duration":"number","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","segments":"array","characters":"array","duration":"number","opinion":"string","content":"object"},
       output: output1,
     },
   },

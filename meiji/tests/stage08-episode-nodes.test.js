@@ -41,10 +41,11 @@ test("视频写回立即累计剧集实测时长；整集导入不覆盖，删�
   const repository = new ModelRepository(root), project = projectFixture(), episode = project.episodes[0];
   let service;
   try {
+    for (const shot of episode.shot_list.shots) shot.actual_duration_seconds = 0;
     const model = await repository.create(project);
     service = new TaskService({ repository, commitOutput: commitContent, execute: createHandlerRegistry({
       text: async () => { throw Error("人工编辑不调用 AI"); },
-      media: async ({ step }) => ({ content: step.result.input, result: step.result.input }),
+      media: async ({ step, draft }) => ({ content: step.kind === "apply" ? { ...draft, last_frame: {address: "import-tail.png"} } : step.result.input, result: step.result?.input }),
     }) });
     const imported = [];
     for (const [index, duration] of [5.2, 6.1].entries()) {

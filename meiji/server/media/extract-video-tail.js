@@ -1,15 +1,16 @@
 import { spawn } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 
-export async function saveLastFrame(videoPath, framePath, spawnImpl = spawn) {
+export async function saveLastFrame(videoPath, framePath, signal) {
+  signal?.throwIfAborted()
   await new Promise((resolve, reject) => {
-    const child = spawnImpl('ffmpeg', [
+    const child = spawn('ffmpeg', [
       '-y', '-hide_banner', '-loglevel', 'error',
       '-i', videoPath,
       '-map', '0:v:0',
       '-update', '1',
       framePath,
-    ])
+    ], { signal })
     let stderr = ''
     child.stderr?.on('data', chunk => { stderr += chunk })
     child.once('error', error => reject(Object.assign(new Error(error.code === 'ENOENT' ? '本机未安装 FFmpeg' : '无法抽出尾帧'), { status: error.code === 'ENOENT' ? 503 : 502 })))
