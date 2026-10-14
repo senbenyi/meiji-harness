@@ -262,7 +262,7 @@ test("面板：剧本创作方式显示拆分剧集弹窗并依次提交时长�
     assert.equal(opinion.placeholder, "本次执行意见");
     opinion.value = "第二集再短一点";
     opinion.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
-    root.querySelector("[aria-label=重新拆分剧集]").click();
+    root.querySelector("[aria-label=重新生成]").click();
     const dialog = root.querySelector("dialog");
     assert.match(dialog.textContent, /参考单集时长（秒）/);
     dialog.querySelector("[name=reference_episode_duration_seconds]").value = "120";
@@ -280,7 +280,7 @@ test("面板：剧本创作方式显示拆分剧集弹窗并依次提交时长�
     for (const path of ["/api/meiji/project-command", "/api/meiji/task-command"]) {
       failPath = path;
       const before = calls.length;
-      root.querySelector("[aria-label=重新拆分剧集]").click();
+      root.querySelector("[aria-label=重新生成]").click();
       root.querySelector("dialog form").dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
       assert.equal(root.querySelector("dialog"), null);
       for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));

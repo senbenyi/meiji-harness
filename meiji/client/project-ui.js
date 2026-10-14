@@ -183,25 +183,37 @@ export function renderOverview(root, env) {
   scriptRow.append(open, arrow);
   script.append(scriptRow, element("p", `版本 ${p.script.version}`, "meta"));
   const splitting = p.creation_mode === "剧本",
-    splitTask = splitting ? latestTask("script-split") : null,
-    { c: episodes, h: episodeHead, actions: episodeActions } = card(
-      "剧集",
-      splitTask
-        ? taskLabels[splitTask.task_status] || splitTask.task_status
-        : "",
-    );
-  episodeHead.classList.add("episode-head");
-  // 剧本创作方式由剧本拆分生成剧集；自由创作仍逐集新增。
-  const addLabel = splitting
-    ? p.episodes.length
-      ? "重新拆分剧集"
-      : "拆分剧集"
-    : "新增剧集";
-  const add = button(splitting ? addLabel : "＋ 新增剧集", () => {
-    if (splitting) {
-      const dialog = detailsDialog(
+    latestSplitTask = splitting
+      ? env.snapshot?.tasks
+          .filter((t) => t.business_type === "script-split" && t.target_id === p.id)
+          .sort((a, b) => b.queue_order - a.queue_order)[0]
+      : null,
+    { c: episodes, actions: episodeActions } = card("剧集");
+  episodeActions.remove();
+  const episodeUi = element("div", "", "node-ui"),
+    episodeRow = element("div", "", "workflow-generation-row"),
+    splitBusy = ["queued", "running"].includes(latestSplitTask?.task_status),
+    splitStatus = !latestSplitTask
+      ? p.episodes.length ? "generated" : "empty"
+      : latestSplitTask.task_status === "running"
+        ? "running"
+        : latestSplitTask.task_status === "queued"
+          ? p.episodes.length ? "generated" : "empty"
+          : latestSplitTask.task_status === "completed"
+            ? "generated"
+            : latestSplitTask.task_status;
+  episodeRow.append(element(
+    "p",
+    splitStatus === "superseded" ? "已作废" : labels[splitStatus] || splitStatus,
+    "node-ui-status",
+  ));
+  if (splitting) {
+    const splitLabel = p.episodes.length ? "重新生成" : "AI生成";
+    if (!splitBusy) {
+      const add = button(splitLabel, () => {
+        const dialog = detailsDialog(
           root,
-          addLabel,
+          splitLabel,
           { reference_episode_duration_seconds: p.reference_episode_duration_seconds },
           async (fields) => {
             dialog.close();
@@ -222,22 +234,33 @@ export function renderOverview(root, env) {
           },
           { episode: true },
         );
-      return dialog;
+        return dialog;
+      });
+      add.setAttribute("aria-label", splitLabel);
+      episodeRow.append(add);
     }
-    return detailsDialog(
-          root,
-          "新增剧集",
-          { duration_seconds: 150 },
-          (fields) => act({ type: "add-episode", fields }, true),
-          { episode: true },
-        );
-  });
-  add.className = "episode-add";
-  const latestSplitTask = splitting
-    ? env.snapshot?.tasks
-        .filter(t => t.business_type === "script-split" && t.target_id === p.id)
-        .sort((a, b) => b.queue_order - a.queue_order)[0]
-    : null;
+  } else {
+    const add = button("＋ 新增剧集", () =>
+      detailsDialog(
+        root,
+        "新增剧集",
+        { duration_seconds: 150 },
+        (fields) => act({ type: "add-episode", fields }, true),
+        { episode: true },
+      ));
+    add.className = "episode-add";
+    add.setAttribute("aria-label", "新增剧集");
+    episodeRow.append(add);
+  }
+  if (splitting) {
+    episodeRow.append(button(
+      "任务历史",
+      () => go("history", { task_id: latestSplitTask?.id || null, target_id: null, history_business: null }),
+      false,
+    ));
+    if (splitBusy) episodeRow.append(button("取消", () => act({ type: "cancel", task_id: latestSplitTask.id }), false));
+  }
+  episodeUi.append(episodeRow);
   if (splitting) {
     const opinionKey = `script-split:${p.id}`;
     if (
@@ -259,23 +282,11 @@ export function renderOverview(root, env) {
     opinion.setAttribute("aria-label", "本次执行意见");
     opinion.value = state.opinions[opinionKey] || "";
     opinion.oninput = () => { state.opinions[opinionKey] = opinion.value; };
-    episodes.append(opinion);
-    if (latestSplitTask?.end_reason) {
-      const feedback = element("div", "", "split-task-feedback");
-      feedback.setAttribute("aria-live", "polite");
-      feedback.append(element("p", latestSplitTask.end_reason, "error"));
-      episodes.append(feedback);
-    }
+    episodeUi.append(opinion);
+    if (["failed", "rejected"].includes(latestSplitTask?.task_status) && latestSplitTask.end_reason)
+      episodeUi.append(element("p", latestSplitTask.end_reason, "error"));
   }
-  add.setAttribute("aria-label", addLabel);
-  if (!["queued", "running"].includes(latestSplitTask?.task_status)) episodeActions.append(add);
-  episodeActions.append(
-      button(
-        "查看拆分任务",
-        () => go("history", { task_id: latestSplitTask?.id || null, target_id: null, history_business: null }),
-        false,
-      ),
-    );
+  episodes.append(episodeUi);
   const list = element("div", "", "episode-card-list");
   let drag = null, dragged = false;
   list.onpointerdown = (event) => {

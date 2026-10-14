@@ -18,17 +18,19 @@ for (const status of ['queued', 'running', 'failed', 'completed', 'cancelled', '
       ];
       const view = { page: 'overview' }, context = { session_id: 'session-test', view, refresh: async () => {}, paint: () => {}, onError: () => {} };
       renderTaskPanel(root, s, context);
-      const actions = root.querySelector('.episode-head + .workflow-generation-row');
+      const card = [...root.querySelectorAll('section')].find((item) => item.querySelector('h3')?.textContent === '剧集');
+      const actions = card.querySelector('.node-ui .workflow-generation-row');
       assert.ok(actions);
-      assert.deepEqual([...actions.querySelectorAll('button')].map(button => button.textContent), [...(['queued', 'running'].includes(status) ? [] : ['重新拆分剧集']), '查看拆分任务']);
-      const feedback = root.querySelector('.split-task-feedback');
+      assert.equal(card.querySelector('.episode-head'), null);
+      assert.deepEqual([...actions.querySelectorAll('button')].map(button => button.textContent), ['queued', 'running'].includes(status) ? ['任务历史', '取消'] : ['重新生成', '任务历史']);
+      const notice = card.querySelector('.node-ui .error');
       if (status === 'failed') {
-        assert.match(feedback.textContent, /模型没有返回有效JSON/);
-        assert.doesNotMatch(feedback.textContent, /旧错误/);
+        assert.match(notice.textContent, /模型没有返回有效JSON/);
+        assert.doesNotMatch(notice.textContent, /旧错误/);
       } else {
-        assert.equal(feedback, null);
+        assert.equal(notice, null);
       }
-      actions.querySelector('button:last-child').click();
+      [...actions.querySelectorAll('button')].find((button) => button.textContent === '任务历史').click();
       assert.equal(view.page, 'history');
       assert.equal(view.task_id, 'new');
     } finally {

@@ -328,7 +328,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     assert.deepEqual(labelsOf(titled("提取人物")), ["AI生成", "人工编辑", "任务历史"]);
     assert.equal(titled("生成定妆照").querySelector(".node-ui-status").textContent, "未生成");
     assert.equal(titled("生成定妆照").querySelector("input"), null);
-    assert.ok(cardOf("剧集").querySelector("[aria-label=重新拆分剧集]"));
+    assert.ok(cardOf("剧集").querySelector("[aria-label=重新生成]"));
     assert.ok(![...root.querySelectorAll("button")].some((button) => button.textContent.includes("添加角色")));
     project.creation_mode = "剧本";
     snapshot.tasks = [{
@@ -343,7 +343,9 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     paint();
     assert.equal(cardOf("剧集").querySelector(".section-titles .status-label"), null);
     assert.equal(cardOf("剧集").querySelector(".workflow-generation-row .node-ui-status").textContent, "生成中");
-    assert.equal(cardOf("剧集").querySelector("[aria-label=重新拆分剧集]"), null);
+    assert.equal(cardOf("剧集").querySelector("[aria-label=重新生成]"), null);
+    assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "取消"));
+    assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "任务历史"));
     assert.deepEqual(labelsOf(cardOf("剧本")), []);
     project.creation_mode = "自由创作";
     project.project_summary.node_state.status = "rejected";
