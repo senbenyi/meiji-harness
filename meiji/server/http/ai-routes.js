@@ -13,7 +13,7 @@ import { withGatewayTrace } from '../gateway/gateway-trace.js';
 import { generateGatewayImage, submitGatewayVideo, retrieveGatewayVideo } from '../gateway/model-gateway.js';
 
 export { nodeRoutes };
-const clients = { elysium: elysiumClient, 'llm-server': llmServerClient };
+const clients = { codex: llmServerClient, elysium: elysiumClient, 'llm-server': llmServerClient };
 
 export function nodeAction(node, action) {
   const route = Object.hasOwn(nodeRoutes, node) && nodeRoutes[node];
@@ -85,7 +85,8 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
       } else {
         let bytes;
         if (kind === 'image') {
-          bytes = await (gateway.image || generateGatewayImage)({ ...options, prompt: prompt.body, aspectRatio: input.aspectRatio, references: input.references.map(value => decodeImageData(value)) });
+          const generate = gateway.image || (connection.model === 'gpt-image' ? llmServerClient.generateImage : generateGatewayImage);
+          bytes = await generate({ ...options, prompt: prompt.body, aspectRatio: input.aspectRatio, references: input.references.map(value => decodeImageData(value)) });
         } else {
           const remote = await (gateway.submitVideo || submitGatewayVideo)({ ...options, ...prompt.request });
           prompt.parameters = { remote_id: remote.id };

@@ -15,6 +15,7 @@ import {
   taskFixture,
   snapshotFixture,
 } from "./fixtures/project.js";
+import { emptyCharacterModel } from "../shared/models/character_model.js";
 const cases = [
   "project-summary",
   "project-characters",
@@ -241,6 +242,32 @@ for (const change of ["character", "costume"])
       assert.equal(untouched.costume_images[0].node_state.status, "generated");
       assert.equal(untouched.costume_images[0].node_state.status, "generated");
     });
+
+test("重新提取角色不提交已有角色库，首次生成和审核仍提交", async () => {
+  const project = projectFixture();
+  const character = emptyCharacterModel({ number: "C01", name: "库内独有姓名甲", gender: "男", era: "宋代" });
+  project.character_library.characters = [character];
+  project.script.body = "剧本只写了另一人。";
+  const snapshot = { project, tasks: [], steps: [] };
+  const seen = [];
+  const handler = createTextHandler({ chat: async ({ messages, step }) => {
+    seen.push(messages.map(message => message.content).join("\n"));
+    if (step.kind === "review") return { 是否通过: true, 原因: "" };
+    return { characters: [] };
+  } });
+  const run = (action, kind) => handler({
+    snapshot, task: taskFixture(project, "project-characters", project.id, { action }),
+    step: { kind, seq: 1 }, draft: null, signal: new AbortController().signal, record: async () => {},
+  });
+  await run("regenerate", "generate");
+  assert.doesNotMatch(seen[0], /# 项目角色库目录|库内独有姓名甲|costume_images/);
+  await run("generate", "generate");
+  assert.match(seen[1], /# 项目角色库目录/);
+  assert.match(seen[1], /库内独有姓名甲/);
+  await run("regenerate", "review");
+  assert.match(seen[2], /# 项目角色库目录/);
+  assert.match(seen[2], /库内独有姓名甲/);
+});
 
 test("提取仅写人物，每个人物独立生成全部服装，空服装生成一张", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-character-group-"));

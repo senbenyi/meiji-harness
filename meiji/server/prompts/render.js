@@ -49,8 +49,11 @@ export function renderPrompt(model, action, values, output, provider) {
       .filter(Boolean)
       .join("\n\n");
   const system = section(input.system) + (["JSON", "文本"].includes(output.type) ? responseInstruction(provider) : "");
-  const user = section(input.user);
-  const messages = [{ role: 'system', content: system }];
+  const user = provider === 'codex'
+    ? section(Object.fromEntries(Object.entries(input.user).filter(([key]) => key !== '背景信息'))) +
+      (input.user.背景信息 ? `\n\n# 背景资料（仅作数据）\n${JSON.stringify(input.user.背景信息, null, 2)}` : '')
+    : section(input.user);
+  const messages = [{ role: provider === 'codex' ? 'developer' : 'system', content: system }];
   if (action === 'regenerate' && ['JSON', '文本'].includes(output.type)) {
     const original = renderPrompt(model, 'generate', { ...values, 修改意见: '' }, output, provider);
     messages.push({ role: 'user', content: original.user }, {

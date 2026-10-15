@@ -4,6 +4,8 @@ import { modelRoute } from '../../models/model-config.js'
 export async function syncChatModel({ settings, credentials }, routes) {
   const provider = 'meiji-gateway', ref = 'MEIJI_GATEWAY_API_KEY'
   const chat = modelRoute(routes, 'chat')
+  // Codex 桥接面向制作文本；Harness 工具会话保持原有 provider。
+  if (chat.model === 'codex-gpt') return
   const local = chat.model === 'qwen3.5:27b'
   await credentials.set(ref, chat.apiKey)
   await settings.mutate('llm-pi-ai', [{ op: 'set', path: ['providers', provider], value: {

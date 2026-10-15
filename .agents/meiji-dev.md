@@ -84,11 +84,11 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 文本按对应节点声明解析：项目/剧集摘要为纯文本，人物和切点等按 JSON 结构校验；分镜提示词保留其既定段落协议。JSON 结构不可用时 failed 并保留旧内容；可用候选的业务审核未通过时按节点轮次修订，耗尽后将最后内容及 rejected 原因存正式节点，不刷新 hash、不传播、不派生。拆分只做程序审核，拒绝候选留任务历史且不替换剧集。定妆照的姓名、性别、年代、定位、年龄段、身材、发型、签名道具、不可改特征任一项去除首尾空白后非空即可生成；全部为空时拒绝。首套可有或没有用户参考图；后续定妆照固定且唯一地引用首套定妆照，所有生成/修订动作一致。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图，后续镜头使用前镜尾帧及交接资料；远端 ID 在提交后记录。
 
-文本由 `shared/models/settings_model.js` 的 SettingsModel 选择：`elysium-chat` 或独立 llm-server 提供的 `qwen3.5:27b`。图片、视频选项名分别为 `elysium-image`、`elysium-video`。选择 Qwen 时，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 messages、stream=false（生成/审核为 system/user，文本修订为 system/user/assistant/user）；Qwen 的 reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5 默认参数已迁到独立 llm-server；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由节点路由契约注入提示词，并按同一契约进行本地校验。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../meiji/README.md)。
+文本由 `shared/models/settings_model.js` 的 SettingsModel 选择：`elysium-chat`、`codex-gpt` 或独立 llm-server 提供的 `qwen3.5:27b`。图片可选 `elysium-image` 或 `gpt-image`（显示为 GPT（Codex 套餐）），视频选项名为 `elysium-video`。选择 Qwen、Codex 文本或 `gpt-image` 时，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 messages、stream=false（生成/审核为 system/user，文本修订为 system/user/assistant/user）；Qwen 的 reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5 默认参数已迁到独立 llm-server；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由节点路由契约注入提示词，并按同一契约进行本地校验。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../meiji/README.md)。
 
 当前网关图片协议为 `images/generations` 或 multipart `images/edits`；视频为 `videos` 提交、状态轮询与 content 下载；文本使用 chat/completions。沿用实际网关的地址和参数，不依赖旧 README 所述异步图片取消协议。网关不提供远端视频取消接口：取消停止本地等待并阻止晚到结果提交，如实保留远端可能继续运行的原因。新增视频/合片在本地保持比例缩放并填充到项目画幅的像素尺寸，保留音轨；网关请求仍使用兼容尺寸，旧媒体不追溯改写。生成文件须通过 FFprobe 及 FFmpeg 完整解码；不能只根据扩展名或 HTTP 成功判为有效。
 
-配置为运行目录 `models.json`，默认值来自 `config/models.json` 和被忽略的 `config/models.local.json`；测试覆盖使用 `MEIJI_MODELS_LOCAL`。已有配置须显式运行 `meiji/scripts/migrate-settings-model.js`，先备份、保留连接与并发设置、将 chat/story 合并为 text，不用运行时旧配置兜底替代迁移。密钥不得写入 Git、浏览器响应或日志。设置页只显示语言与模型选项，选择自动保存，且不依赖已打开的项目。语言保存在 output_language，模型选择保存在 text/image/video.model；两者只作用于之后的生成。缺省语言为 zh-CN。聊天通过公开 credentials/settings 同步选中服务；Qwen 使用 ollama 与上下文 32768，网关使用服务端密钥与接口文档声明的 65536；图片/视频保留原网关。设置 API 仅公开和接收选择，不公开连接地址与凭据。
+配置为运行目录 `models.json`，默认值来自 `config/models.json` 和被忽略的 `config/models.local.json`；测试覆盖使用 `MEIJI_MODELS_LOCAL`。已有配置须显式运行 `meiji/scripts/migrate-settings-model.js`，先备份、保留连接与并发设置、将 chat/story 合并为 text，不用运行时旧配置兜底替代迁移。密钥不得写入 Git、浏览器响应或日志。设置页只显示语言与模型选项，选择自动保存，且不依赖已打开的项目。语言保存在 output_language，模型选择保存在 text/image/video.model；两者只作用于之后的生成。缺省语言为 zh-CN。聊天通过公开 credentials/settings 同步选中服务；Qwen 使用 ollama 与上下文 32768，网关使用服务端密钥与接口文档声明的 65536。`gpt-image` 走本地 `POST /v1/images/generations`，占位密钥 `ollama`，`size` 为 `auto`，画幅写入提示词；其余图片与视频保留原网关。设置 API 仅公开和接收选择，不公开连接地址与凭据。
 
 ## 双端与通知
 
@@ -116,3 +116,5 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 文本重新生成 task.action=regenerate 首轮调用 generate，仅 system/user，不带旧结果；本次意见作为生成要求。原结果修订 task.action=revise 必须有意见，单个文本节点可用，多轮 system/user/assistant/user；自动 revise 步骤同样多轮并使用本任务最近候选。公共文本节点已有结果且没有未结束任务时展示原结果修订，不限未通过状态。
 
 项目Model每次事务提交后，以临时文件原子替换 `projects/<项目ID>/project.json`，内容为完整project对象（不含任务/步骤/运行时或模型连接配置）。SQLite仍为唯一数据来源；启动从数据库补齐或修复镜像，删除项目一并删除。数据库回滚不发布JSON；数据库已提交而镜像写入失败时，更新返回storage_warning，内存仍保持已提交内容，幂等重试和重启可以修复。JSON不是反向导入入口。
+
+Codex 制作模型：`codex-gpt` 使用本地 textBaseUrl 和 llmServerClient，但提示来源为 codex，首条为 developer，背景 JSON 放末尾；原结果修订保留 assistant 历史。设置选择 Codex 时 syncChatModel 不修改 Harness 工具会话，避免把工具流量送入纯文本桥接。图片 `gpt-image` 使用同一本地地址的文生图接口，不改变文本编排。llm-server 使用官方 App Server 的 ChatGPT 登录和 ephemeral 会话，测试及实施见 `docs/implement/1015-实施-GPT-Codex接入.md` 与 `docs/implement/1015-实施-GPT文生图接入.md`。

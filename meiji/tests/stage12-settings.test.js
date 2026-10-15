@@ -21,8 +21,14 @@ test('设置 Model 拒绝未知选项、图片冒用文本，聊天和制作同�
   const config = { ...selection, baseUrl: 'https://gateway.test/v1', textBaseUrl: 'http://localhost:11435/v1', apiKey: 'private' }
   assert.deepEqual(modelRoute(config, 'chat'), modelRoute(config, 'story'))
   assert.equal(modelRoute(config, 'image').model, 'elysium-image')
+  assert.equal(modelRoute(config, 'image').baseUrl, 'https://gateway.test/v1')
   assert.equal(modelRoute(config, 'video').model, 'elysium-video')
   assert.equal(modelRoute(config, 'image').apiKey, 'private')
+  const gpt = modelRoute({ ...config, image: { model: 'gpt-image' } }, 'image')
+  assert.equal(gpt.model, 'gpt-image')
+  assert.equal(gpt.baseUrl, 'http://localhost:11435/v1')
+  assert.equal(gpt.apiKey, 'ollama')
+  assert.equal(modelRoute(config, 'chat').baseUrl, 'http://localhost:11435/v1')
 })
 
 test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，重建 runtime 恢复选项', async () => {
@@ -49,12 +55,14 @@ test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，�
     const publicConfig = await (await fetch(url)).json()
     assert.deepEqual(publicConfig.settings, selection)
     let project
-    for (const [modelName, kind, key] of [['elysium-chat', 'gateway', 'gateway-secret'], ['qwen3.5:27b', 'qwen', 'ollama']]) {
+    for (const [modelName, kind, key] of [['elysium-chat', 'gateway', 'gateway-secret'], ['qwen3.5:27b', 'qwen', 'ollama'], ['codex-gpt', 'qwen', 'ollama']]) {
       const before = requests.length
       const response = await save({ ...selection, text: { model: modelName }, apiKey: 'must-not-overwrite', baseUrl: 'http://must-not-use.test' })
       assert.equal(response.status, 200)
-      assert.equal(synced.at(-2), key)
-      assert.equal(synced.at(-1).models[0].contextWindow, kind === 'qwen' ? 262144 : 65536)
+      if (modelName !== 'codex-gpt') {
+        assert.equal(synced.at(-2), key)
+        assert.equal(synced.at(-1).models[0].contextWindow, kind === 'qwen' ? 262144 : 65536)
+      }
       const p = emptyProject({ name: 'HTTP验证', creation_mode: '剧本' }); p.script.body = '阿明丢失钥匙，寻找后找回。'
       project = await runtime.repository.create(p)
       const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: modelName, business_type: 'project-summary', target_id: p.id, action: 'generate' })

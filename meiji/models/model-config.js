@@ -39,7 +39,7 @@ export function modelRoute(config, purpose) {
   const selected = new SettingsModel(config)
   const kind = purpose === 'chat' || purpose === 'story' ? 'text' : purpose
   const model = selected[kind].model
-  const local = kind === 'text' && model === 'qwen3.5:27b'
+  const local = (kind === 'text' && ['qwen3.5:27b', 'codex-gpt'].includes(model)) || (kind === 'image' && model === 'gpt-image')
   return {
     baseUrl: gatewayBaseUrl(local ? config.textBaseUrl : config.baseUrl),
     apiKey: local ? 'ollama' : config.apiKey,
