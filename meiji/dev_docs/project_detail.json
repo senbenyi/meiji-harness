@@ -143,7 +143,7 @@
             "duration_seconds": "12（该镜计划参考时长，整数秒；单镜4–15秒、全剧集镜头时长总和按本集 duration_seconds ±30 秒由程序审核。）",
             "actual_duration_seconds": "0（该镜最终视频实测时长，单位秒；生成视频节点测量并写入，不是提示词或分镜预算。）",
             "title": "（镜头标题。）",
-            "body": "（正文或摘要内容。）",
+            "body": "（本镜完整事件、原台词、场景背景及整镜摄影安排；只写整镜安排，不写逐秒时间点。）",
             "seconds_storyboard": {
               "end_state": "（镜末人物、物件与环境的已知状态。）",
               "pending_actions": "（未完成动作及进度；无则为空。）",
@@ -234,8 +234,8 @@
             "hook": "视觉笑点|反转|悬念|温情|追逐|揭示|回扣|表情拍（本镜钩子类型。）",
             "continuity_transition": "（承接上一镜并为下一镜开场做准备。）",
             "reference_anchor": {
-              "fixed_landmark": "（固定地标及其画面位置。）",
-              "character_positions": "（出镜角色的位置、朝向和初始姿态。）",
+              "fixed_landmark": "（固定地标、初始构图及关键物件的画面相对位置。）",
+              "character_positions": "（出镜角色的位置、朝向、初始姿态、已知服装及实际可见身体范围。）",
               "departed_characters": "（本镜不在场角色及离场原因。）",
               "lighting": "（场景光位基线。）"
             },

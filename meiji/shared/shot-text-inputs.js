@@ -30,6 +30,11 @@ export function previousSeconds(episode, shot) {
     last_beats: beats.filter(beat => Number(beat.time_range.split(/[–-]/)[1].replace('s', '')) > end - 3)
       .map(beat => ({ ...structuredClone(beat), dialogue: beat.dialogue.map(line => ({ ...line, speaker_id: '' })) })) };
 }
+// 整镜设定只有镜头表一份来源；输入与UI按需投影，不复制到每秒节点保存。
+export function shotSceneSetup(shot) {
+  return Object.fromEntries(['body', 'shot_scale', 'continuity_transition', 'reference_anchor', 'audio_arrangement']
+    .map(key => [key, structuredClone(shot[key])]));
+}
 export function shotTextInputs(project, episode, shot, business) {
   const fields = ['title', 'number', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement'];
   const table = Object.fromEntries(fields.map(key => [key, structuredClone(shot[key])]));
@@ -42,7 +47,13 @@ export function shotTextInputs(project, episode, shot, business) {
   }
   if (business === 'seconds') return { shot: table, characters, previous: previousSeconds(episode, shot), bindings: bindingNumbers(project, shot.character_binding).on_screen_characters };
   const speakers = new Set(shot.seconds_storyboard.storyboard.flatMap(beat => beat.dialogue.map(line => line.speaker_name)));
+  const speakerIds = new Set(shot.seconds_storyboard.storyboard.flatMap(beat => beat.dialogue.map(line => line.speaker_id)).filter(Boolean));
   const visible = new Set(shot.character_binding.on_screen_characters.map(row => project.character_library.characters.find(person => person.id === row.character_id)?.number));
-  return { duration: shot.duration_seconds, characters: characters.filter(person => speakers.has(person.name) || visible.has(person.number)),
-    storyboard: { ...secondsEnding(shot.seconds_storyboard), storyboard: shot.seconds_storyboard.storyboard.map(beat => ({ ...structuredClone(beat), dialogue: beat.dialogue.map(line => ({ ...line, speaker_id: '' })) })) } };
+  const participants = characters.flatMap((person, index) => {
+    const source = project.character_library.characters[index];
+    return speakers.has(person.name) || speakerIds.has(source.id) || visible.has(person.number)
+      ? [{ ...person, nationality: source.nationality, height: source.height, facial_features: source.facial_features }] : [];
+  });
+  return { duration: shot.duration_seconds, characters: participants,
+    storyboard: { shot_setup: shotSceneSetup(shot), ...secondsEnding(shot.seconds_storyboard), storyboard: shot.seconds_storyboard.storyboard.map(beat => ({ ...structuredClone(beat), dialogue: beat.dialogue.map(line => ({ ...line, speaker_id: '' })) })) } };
 }

@@ -1,6 +1,6 @@
 import { latestNodeTask, taskStatusRow, taskFailureRow } from './node-task-status.js';
 import { NODE_DEFINITIONS } from '../shared/node-definitions.js';
-import { bindingNumbers } from '../shared/shot-text-inputs.js';
+import { bindingNumbers, shotSceneSetup } from '../shared/shot-text-inputs.js';
 import { editor, fieldLabels, readable } from "./content-forms.js";
 import { renderOverview, renderEpisode, backHeader } from "./project-ui.js";
 import { renderResource, blankCharacter } from "./resource-ui.js";
@@ -263,6 +263,13 @@ export function renderTaskPanel(root, snapshot, context) {
         ? (node.node_state.status === 'generated' ? '已确认无人出镜' : '候选：无人出镜')
         : readable(bindingNumbers(p, node)), 'prompt full'));
     } else if (business === "seconds") {
+      const shot = p.episodes.flatMap(episode => episode.shot_list.shots).find(shot => shot.id === id);
+      if (shot) {
+        const setup = element('section', '', 'seconds-shot-setup');
+        setup.append(element('h4', '整镜设定（来自镜头表）'), element('p', readable(shotSceneSetup(shot)), 'prompt full'));
+        card.append(setup);
+      }
+      card.append(element('h4', '逐秒时间线'));
       card.append(secondsView(node));
     } else if (business === "outline") {
       const segments = element("div", "", "outline-segments");

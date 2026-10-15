@@ -403,7 +403,7 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .shot-result video,.shot-result img{display:block;width:100%;height:72px;object-fit:cover;border-radius:6px;background:#111}
 .seconds-beats{display:flex;flex-direction:column;gap:14px}
 .seconds-beat,.seconds-summary{display:flex;flex-direction:column;gap:4px}
-.seconds-beat p,.seconds-summary p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.seconds-beat p,.seconds-summary p,.seconds-shot-setup p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
 .node-ui{box-sizing:border-box;padding:12px 0}
 .node-ui>.workflow-generation-row{justify-content:flex-start}
 .node-ui-buttons{display:flex;flex:none;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:10px;max-width:100%;min-width:0}
