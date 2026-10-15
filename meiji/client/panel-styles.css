@@ -377,3 +377,12 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .character-detail .character-wardrobe{margin-top:16px}
 
 .run-step-card:not(.is-expanded) .run-step-result pre{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.6;max-height:3.2em}
+
+.node-data-tag{display:inline-flex;align-items:center;flex:none;margin:0 0 0 12px;padding:1px 8px;border:1px solid #8d734f;border-radius:6px;background:#3a3126;color:#dfc196;font-size:12px;font-weight:650;line-height:18px;white-space:nowrap}
+.shot-card-title{display:flex;align-items:center;min-width:0;flex:1}
+.shot-card-title h3{margin:0}
+.node-ui{box-sizing:border-box;padding:12px 0}
+.node-ui>.workflow-generation-row{justify-content:flex-start}
+.node-ui-buttons{display:flex;flex:none;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:10px}
+.node-ui-buttons>button{flex:none;margin:0;min-height:34px;padding:6px 10px;font-size:13px;line-height:20px}
+.node-ui>.workflow-generation-row>.node-ui-task-status{margin:0 16px 0 auto;flex:0 1 auto;max-width:100%;min-width:0;font-size:13px;line-height:1.4;color:#c8c4bc;text-align:right}

@@ -217,7 +217,7 @@ test('界面显示适用程序编排；尾帧是视频内步骤，失败时可�
     const failed=root.querySelector('[data-business="video"] [data-business="tail"]');
     assert.equal(failed.querySelector('.node-ui'),null);
     assert.deepEqual([...failed.querySelectorAll('button')].map(button=>button.textContent),['重新提取']);
-    assert.match(root.textContent,/最新任务状态：失败，原因：截帧失败/);assert.match(root.textContent,/视频类型：首尾帧/);
+    assert.match(root.textContent,/最新任务：失败，原因：截帧失败/);assert.match(root.textContent,/视频类型：首尾帧/);
     const calls=[];
     globalThis.fetch=async(_url,options)=>{calls.push(JSON.parse(options.body).command);return {ok:true,json:async()=>({})};};
     failed.querySelector('button').click();

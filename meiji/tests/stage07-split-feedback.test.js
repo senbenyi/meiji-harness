@@ -21,6 +21,7 @@ for (const status of ['queued', 'running', 'failed', 'completed', 'cancelled', '
       const actions = card.querySelector('.node-ui .workflow-generation-row');
       assert.ok(actions);
       assert.equal(card.querySelector('.episode-head'), null);
+      assert.deepEqual([...actions.children].map((node) => node.className), ['node-ui-buttons', 'node-ui-task-status']);
       assert.deepEqual([...actions.querySelectorAll('button')].map(button => button.textContent), ['queued', 'running'].includes(status) ? ['任务历史', '取消'] : ['重新生成', '任务历史']);
       const notice = status === 'failed' ? card.querySelector('.node-ui-task-status') : card.querySelector('.node-ui .error');
       if (status === 'failed') {

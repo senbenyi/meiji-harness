@@ -234,13 +234,18 @@ for (const change of ["character", "costume"])
       assert.notEqual(costumeHash, dependencyHash(snapshot, "costume-image", first.costumes[0].id));
       commitContent(snapshot, { ...task, action }, content);
       const [accepted, untouched] = project.character_library.characters;
-      assert.equal(accepted.costume_images[0].node_state.dependency_hash, imageHash);
-      assert.equal(accepted.costume_images[0].node_state.status, "expired");
-      assert.equal(accepted.costume_images[0].node_state.status, "expired");
-      assert.equal(accepted.costume_images[0].node_state.dependency_hash, costumeHash);
+      if (action === "regenerate") {
+        assert.equal(accepted.costume_images[0].address, "");
+        assert.equal(accepted.costume_images[0].node_state.status, "empty");
+      } else {
+        assert.equal(accepted.costume_images[0].node_state.dependency_hash, imageHash);
+        assert.equal(accepted.costume_images[0].node_state.status, "expired");
+        assert.equal(accepted.costume_images[0].address, "甲-衣服.png");
+        assert.equal(accepted.costume_images[0].node_state.dependency_hash, costumeHash);
+      }
       assert.equal(untouched.id, second.id);
       assert.equal(untouched.costume_images[0].node_state.status, "generated");
-      assert.equal(untouched.costume_images[0].node_state.status, "generated");
+      assert.equal(untouched.costume_images[0].address, "乙-衣服.png");
     });
 
 test("首次生成和重新提取使用同一提示词，且不提交已有角色库", async () => {

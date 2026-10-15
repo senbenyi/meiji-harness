@@ -187,13 +187,11 @@ export function renderOverview(root, env) {
   episodeActions.remove();
   const episodeUi = element("div", "", "node-ui"),
     episodeRow = element("div", "", "workflow-generation-row"),
+    episodeButtons = element("div", "", "node-ui-buttons"),
     splitBusy = ["queued", "running"].includes(latestSplitTask?.task_status),
     splitStatus = p.episodes.length ? "generated" : "empty";
-  episodeRow.append(element(
-    "p",
-    `数据状态：${labels[splitStatus] || splitStatus}`,
-    "node-ui-status",
-  ));
+  episodes.querySelector(".section-titles").append(element("span", labels[splitStatus] || splitStatus, "node-data-tag"));
+  const splitTaskRow = taskStatusRow(latestSplitTask);
   if (splitting) {
     const splitLabel = p.episodes.length ? "重新生成" : "AI生成";
     if (!splitBusy) {
@@ -224,7 +222,7 @@ export function renderOverview(root, env) {
         return dialog;
       });
       add.setAttribute("aria-label", splitLabel);
-      episodeRow.append(add);
+      episodeButtons.append(add);
     }
   } else {
     const add = button("＋ 新增剧集", () =>
@@ -237,19 +235,19 @@ export function renderOverview(root, env) {
       ));
     add.className = "episode-add";
     add.setAttribute("aria-label", "新增剧集");
-    episodeRow.append(add);
+    episodeButtons.append(add);
   }
   if (splitting) {
-    episodeRow.append(button(
+    episodeButtons.append(button(
       "任务历史",
       () => go("history", { task_id: latestSplitTask?.id || null, target_id: null, history_business: null }),
       false,
     ));
-    if (splitBusy) episodeRow.append(button("取消", () => act({ type: "cancel", task_id: latestSplitTask.id }), false));
+    if (splitBusy) episodeButtons.append(button("取消", () => act({ type: "cancel", task_id: latestSplitTask.id }), false));
   }
+  episodeRow.append(episodeButtons);
+  if (splitTaskRow) episodeRow.append(splitTaskRow);
   episodeUi.append(episodeRow);
-  const splitTaskRow = taskStatusRow(latestSplitTask);
-  if (splitTaskRow) episodeUi.append(splitTaskRow);
   if (splitting) {
     const opinionKey = `script-split:${p.id}`;
     if (
@@ -512,9 +510,12 @@ export function renderEpisode(root, env, entries) {
     }
     for (const s of [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence)) {
       const card = element("article", "", "shot-card"),
-        h = element("div", "", "outline-head");
+        h = element("div", "", "outline-head"),
+        title = element("div", "", "shot-card-title");
+      title.append(element("h3", `${s.number} ${s.title} · ${s.duration_seconds}s`));
+      if (state.tab === "film") title.append(element("span", env.labels[s.video.node_state.status] || s.video.node_state.status, "node-data-tag"));
       h.append(
-        element("h3", `${s.number} ${s.title} · ${s.duration_seconds}s`),
+        title,
         button(
           "打开镜头",
           () =>

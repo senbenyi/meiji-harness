@@ -75,7 +75,7 @@ test("重新加载取消真实运行任务，Model 保存后渲染，abort 后�
       Object.assign(app.view, { page: "episode", episode_id: p.episodes[0].id, tab: "script" });
       await app.refresh();
       const card = app.shell.content.querySelector('[data-business="episode-summary"]');
-      assert.equal(card.querySelector(".node-ui-status").textContent, "数据状态：已生成");
+      assert.equal(card.querySelector(".node-data-tag").textContent, "已生成");
       release();
       await service.idle(p.id);
       assert.equal(model.read().project.episodes[0].summary.body, p.episodes[0].summary.body);

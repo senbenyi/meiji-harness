@@ -113,8 +113,9 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
       ui = shotCard.querySelector(".node-ui"),
       actions = ui.querySelector(".workflow-generation-row");
     assert.equal(title.nextElementSibling, ui);
-    assert.equal(ui.querySelector(".node-ui-status").parentElement, actions);
-    assert.equal(ui.querySelector(".node-ui-status").textContent, "数据状态：未通过");
+    assert.equal(title.querySelector(".node-data-tag").textContent, "未通过");
+    assert.equal(ui.querySelector(".node-ui-status"), null);
+    assert.deepEqual([...actions.children].map((node) => node.className), ["node-ui-buttons", "node-ui-task-status"]);
     assert.equal(title.querySelector(".status-label"), null);
     assert.equal(ui.querySelector(".node-ui-opinion").placeholder, "本次执行意见");
     assert.ok(
@@ -213,14 +214,8 @@ test("故事大纲按小段顺序展示正文、参考时长与因果衔接", ()
       cards.map((card) => card.querySelector("h3").textContent),
       ["故事大纲", "本集摘要", "本集剧情"],
     );
-    assert.equal(
-      cards[0].querySelector(".node-ui-status").textContent,
-      "数据状态：已生成",
-    );
-    assert.equal(
-      cards[1].querySelector(".node-ui-status").textContent,
-      "数据状态：未生成",
-    );
+    assert.equal(cards[0].querySelector(".node-data-tag").textContent, "已生成");
+    assert.equal(cards[1].querySelector(".node-data-tag").textContent, "未生成");
     assert.equal(
       [...cards[1].querySelectorAll("button")].some((button) =>
         ["人工编辑", "人工放行"].includes(button.textContent),
@@ -315,7 +310,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
         (card) => card.querySelector("h3")?.textContent === title,
       );
     assert.equal(outline.querySelector(".section-titles h3").textContent, "项目摘要");
-    assert.equal(outline.querySelector(".node-ui-status").textContent, "数据状态：已生成");
+    assert.equal(outline.querySelector(".node-data-tag").textContent, "已生成");
     assert.equal(outline.querySelector(".section-titles .status-label"), null);
     assert.deepEqual(
       labelsOf(outline).filter((label) => ["AI生成", "重新生成", "原结果修订"].includes(label)),
@@ -326,7 +321,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
       [],
     );
     assert.equal(cardOf("剧本").querySelector(".status-label"), null);
-    assert.equal(titled("提取人物").querySelector(".node-ui-status").textContent, "数据状态：未生成");
+    assert.equal(titled("提取人物").querySelector(".node-data-tag").textContent, "未生成");
     assert.deepEqual(labelsOf(titled("提取人物")), ["AI生成", "人工编辑", "任务历史"]);
     assert.equal(titled("生成定妆照").querySelector(".node-ui-status").textContent, "未生成");
     assert.equal(titled("生成定妆照").querySelector("input"), null);
@@ -344,7 +339,9 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     snapshot.groups = [{ id: "g", group_type: "single" }];
     paint();
     assert.equal(cardOf("剧集").querySelector(".section-titles .status-label"), null);
-    assert.equal(cardOf("剧集").querySelector(".workflow-generation-row .node-ui-status").textContent, "数据状态：已生成");
+    assert.equal(cardOf("剧集").querySelector(".node-data-tag").textContent, "已生成");
+    assert.equal(cardOf("剧集").querySelector(".workflow-generation-row .node-ui-status"), null);
+    assert.deepEqual([...cardOf("剧集").querySelector(".workflow-generation-row").children].map((node) => node.className), ["node-ui-buttons", "node-ui-task-status"]);
     assert.equal(cardOf("剧集").querySelector("[aria-label=重新生成]"), null);
     assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "取消"));
     assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "任务历史"));
@@ -365,8 +362,8 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     snapshot.groups = [{ id: "g2", group_type: "single" }];
     paint();
     assert.equal(
-      root.querySelector("[data-business=project-summary] .node-ui-status").textContent,
-      "数据状态：未通过",
+      root.querySelector("[data-business=project-summary] .node-data-tag").textContent,
+      "未通过",
     );
     assert.equal(
       [...root.querySelector("[data-business=project-summary]").querySelectorAll("button")].some((button) =>
@@ -384,7 +381,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
       labelsOf(cardOf("剧本")).filter((label) => ["重新生成", "原结果修订"].includes(label)),
       [],
     );
-    assert.equal(titled("提取人物").querySelector(".node-ui-status").textContent, "数据状态：未通过");
+    assert.equal(titled("提取人物").querySelector(".node-data-tag").textContent, "未通过");
     assert.ok(titled("提取人物").textContent.includes("未通过"));
     assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "原结果修订", "人工编辑", "人工放行", "任务历史"]);
   } finally {

@@ -165,12 +165,13 @@ export function renderTaskPanel(root, snapshot, context) {
     }
     const ui = element("div", "", "node-ui");
     const actions = element("div", "", "workflow-generation-row");
-    actions.append(element("p", `数据状态：${labels[node.node_state.status] || node.node_state.status}`, "node-ui-status"));
-    for (const item of buttons) actions.append(item);
-    ui.append(actions);
     const latest = latestNodeTask(snapshot.tasks, business, id);
     const taskRow = taskStatusRow(latest);
-    if (taskRow) ui.append(taskRow);
+    const buttonBox = element("div", "", "node-ui-buttons");
+    for (const item of buttons) buttonBox.append(item);
+    actions.append(buttonBox);
+    if (taskRow) actions.append(taskRow);
+    ui.append(actions);
     if (opinion) {
       state.opinions ??= {};
       const input = element("input", "", "node-ui-opinion");
@@ -375,6 +376,7 @@ export function renderTaskPanel(root, snapshot, context) {
     const head = element("div", "", "section-head"),
       titles = element("div", "", "section-titles");
     titles.append(card.querySelector("h3"));
+    titles.append(element("span", labels[node.node_state.status] || node.node_state.status, "node-data-tag"));
     head.append(titles);
     card.prepend(head);
     card.insertBefore(nodeUi({ business, id, node, buttons, readOnly, opinion: !readOnly && !program }), head.nextSibling);

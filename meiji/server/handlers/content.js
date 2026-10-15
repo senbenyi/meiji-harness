@@ -7,6 +7,7 @@ import { mergeCharacters, replaceShots } from "../../shared/collection-identity.
 import { assertOutput, assertProgramReview } from "../../shared/node-state.js";
 import { emptyEpisode, validateProject } from "../../shared/project_contract.js";
 import { emptyCostumeImageModel } from "../../shared/models/costume_image_model.js";
+import { emptyNodeStateModel } from "../../shared/models/node_state_model.js";
 import { updateEpisodeActualDuration } from "../../shared/models/episode_model.js";
 import { buildSplit } from "./script-split.js";
 
@@ -65,6 +66,21 @@ function expireCharacterImages(snapshot) {
     expireDownstream(snapshot, "character-setting", character.id, "人物或服装资料已修改");
 }
 
+function extractionTask(task) {
+  return ["generate", "regenerate", "revise"].includes(task.action);
+}
+
+function detachExtractedPhotos(characters, changes) {
+  const names = new Set((changes || []).map(row => row.name));
+  for (const character of characters) {
+    if (!names.has(character.name)) continue;
+    for (const image of character.costume_images) {
+      image.address = "";
+      image.node_state = emptyNodeStateModel();
+    }
+  }
+}
+
 export function commitContent(snapshot, task, content, { passed = true } = {}) {
   const project = snapshot.project, business = task.business_type;
   if (task.action === "delete") { applyDelete(snapshot, task); return []; }
@@ -118,5 +134,6 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   if (business !== "project-characters") return [];
   // 正式资料可能已保存过拒绝候选，是否过期须与图片生成时的依赖 hash 比较。
   expireCharacterImages(snapshot);
+  if (extractionTask(task)) detachExtractedPhotos(node.characters, content.changes);
   return [];
 }
