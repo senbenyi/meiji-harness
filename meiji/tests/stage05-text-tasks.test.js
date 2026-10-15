@@ -243,7 +243,7 @@ for (const change of ["character", "costume"])
       assert.equal(untouched.costume_images[0].node_state.status, "generated");
     });
 
-test("重新提取角色不提交已有角色库，首次生成和审核仍提交", async () => {
+test("首次生成和重新提取使用同一提示词，且不提交已有角色库", async () => {
   const project = projectFixture();
   const character = emptyCharacterModel({ number: "C01", name: "库内独有姓名甲", gender: "男", era: "宋代" });
   project.character_library.characters = [character];
@@ -256,17 +256,16 @@ test("重新提取角色不提交已有角色库，首次生成和审核仍提�
     return { characters: [] };
   } });
   const run = (action, kind) => handler({
-    snapshot, task: taskFixture(project, "project-characters", project.id, { action }),
+    snapshot, task: taskFixture(project, "project-characters", project.id, { action, opinion: "" }),
     step: { kind, seq: 1 }, draft: null, signal: new AbortController().signal, record: async () => {},
   });
-  await run("regenerate", "generate");
-  assert.doesNotMatch(seen[0], /# 项目角色库目录|库内独有姓名甲|costume_images/);
   await run("generate", "generate");
-  assert.match(seen[1], /# 项目角色库目录/);
-  assert.match(seen[1], /库内独有姓名甲/);
-  await run("regenerate", "review");
-  assert.match(seen[2], /# 项目角色库目录/);
-  assert.match(seen[2], /库内独有姓名甲/);
+  await run("regenerate", "generate");
+  assert.equal(seen[0], seen[1]);
+  assert.match(seen[0], /完整剧本/);
+  assert.doesNotMatch(seen[0], /项目角色库目录|库内独有姓名甲|costume_images/);
+  await run("generate", "review");
+  assert.doesNotMatch(seen[2], /项目角色库目录|库内独有姓名甲|costume_images/);
 });
 
 test("提取仅写人物，每个人物独立生成全部服装，空服装生成一张", async () => {
