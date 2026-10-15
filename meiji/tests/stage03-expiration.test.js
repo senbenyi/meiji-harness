@@ -8,7 +8,7 @@ import {
   shotCharacterContext,
   stampDependencyHash,
 } from "../shared/node-dependencies.js";
-import { enqueueNode, restoreQueued } from "../shared/node-state.js";
+import { enqueueNode } from "../shared/node-state.js";
 import { nodeOf, createId } from "../shared/task_contract.js";
 import { snapshotFixture, taskFixture } from "./fixtures/project.js";
 import { replaceShots } from "../shared/collection-identity.js";
@@ -64,7 +64,7 @@ for (const [business, expected] of [
     assert.equal(e.shot_list.shots[1].video.node_state.status, "expired");
     assert.equal(s.video.address, "1.mp4");
   });
-test("S3-03 排队快照随上游失效，取消后恢复 expired", () => {
+test("S3-03 排队快照随上游失效，排队期间保持 expired", () => {
   const snapshot = snapshotFixture(),
     p = snapshot.project,
     t = taskFixture(p, "video"),
@@ -75,7 +75,6 @@ test("S3-03 排队快照随上游失效，取消后恢复 expired", () => {
   expireDownstream(snapshot, "seconds", s.id, "上游已修改", { compareHash: false });
   assert.equal(s.video.node_state.status, "expired");
   assert.equal(t.previous_node_state.status, "expired");
-  restoreQueued(p, t);
   assert.equal(s.video.node_state.status, "expired");
 });
 test("S3-04 剧本更新使依赖剧本的节点过期，配置变化不触发过期；非 generated 保持状态", () => {

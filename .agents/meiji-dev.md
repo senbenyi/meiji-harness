@@ -48,7 +48,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 唯一数据库为 `$DSH_HOME/storages/meiji/meiji.sqlite`，使用 Node 内置 `node:sqlite`（^22.19.0 或 >=24）。`schema.sql` 定义 projects、task_groups、tasks、task_steps、command_requests、notification_outbox、schema_migrations 七表；任务必须归组，步骤必须归任务，顺序唯一且同项目最多一个 running 任务。`sqlite-store.js` 使用 WAL/foreign_keys/FULL、短同步事务及 revision 条件校验，变化记录增量写入；不在持锁期间调用模型或等待异步工作。ProjectModel 的写接口只允许 repository 提供的事务闭包，项目内容/任务/步骤/幂等/通知一起提交，事件发生在持久化后。卸载时等待任务和通知结束，再关闭连接。
 
-`projects/<p_UUID>/` 作为宿主工作区目录，同时保存 `project.json` 项目镜像。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 固定字段及 `node_state.{status,reason,fail_message,dependency_hash}`。当前 schema v13。v9 删除项目 rules，v10 删除项目 output_language；两步都按新指纹重写已生成的角色识别、每秒分镜和文生提示词及其排队快照，不改写正文。v11 把失败节点的 `reason` 移到 `fail_message`。v8 及更早明确拒绝，不在运行时自动删除或兼容。模型配置和独立素材库保留。
+`projects/<p_UUID>/` 作为宿主工作区目录，同时保存 `project.json` 项目镜像。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 固定字段及 `node_state.{status,reason,fail_message,dependency_hash}`。当前 schema v15。v14 移除项目暂停字段；v15 将节点执行状态显式迁移为四种数据状态，保留正文、任务历史及审核原因，无法确认有效性的数据标为 expired。v9 删除项目 rules，v10 删除项目 output_language；两步都按新指纹重写已生成的角色识别、每秒分镜和文生提示词及其排队快照，不改写正文。v11 把失败节点的 `reason` 移到 `fail_message`。v8 及更早明确拒绝，不在运行时自动删除或兼容。模型配置和独立素材库保留。
 
 项目、剧集、角色、服装、镜头、任务、组和步骤使用创建时生成的带前缀 UUID。AI 输入输出及资料界面使用编号，引用转换由程序核对唯一性和归属。重生成保留同一对象 ID，不按列表位置重建身份、不无声删除引用对象。独立素材继续使用原 `assets/<category>/<UUID>/metadata.json` 和 `original.<ext>` 文件格式；场景、道具及指导素材入口退出，但磁盘数据不会在启动时被删除。
 
@@ -56,7 +56,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 ## 状态、前置和任务
 
-- 7 种节点状态为 empty、running、generated、rejected、failed、cancelled、expired，原因和状态一同提交；剧本没有节点状态。排队中只属于任务和任务组。
+- 4 种节点数据状态为 empty、generated、rejected、expired；任务开始、失败或取消不写节点状态、不清除审核原因。任务状态独立读取当前关联任务或数据库最近记录；从未执行隐藏该行。剧本没有节点状态。
 - 入队不改节点状态，只保存原状态/原因；排队取消或作废按快照写回。上游变化更新节点本身，并同步更新排队快照中的 generated→expired。正文和媒体地址保留。
 - 仅 generated、结构有效且保存 hash 与当前依赖相符的节点可作为前置；空 hash 不视为有效。执行时重读当前 Model；不足记录 failed/precheck，不调用 AI，不自动补上游。
 - 故事大纲（outline）是将已有本集剧情完整拆为故事小段，不生成新剧情；两种模式均要求本集 plot 非空，先完整分段再估算时长，生成/修订/审核都以原文逐项回查。任务名称统一为“故事大纲”。

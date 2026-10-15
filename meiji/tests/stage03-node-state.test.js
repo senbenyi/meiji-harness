@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   setNodeState,
   enqueueNode,
-  restoreQueued,
   assertOutput,
   assertProgramReview,
 } from "../shared/node-state.js";
@@ -41,16 +40,16 @@ test("S3-01/02 状态和原因一起转换，未开始取消恢复快照，非�
   enqueueNode(p, t);
   assert.equal(node.node_state.status, "generated");
   assert.deepEqual(t.previous_node_state, { status: "generated", reason: "", fail_message: "" });
-  restoreQueued(p, t);
   assert.equal(node.node_state.status, "generated");
   assert.equal(node.storyboard[0].action, "动作");
-  assert.throws(() => setNodeState(node, "failed", "原因"), /非法转换/);
+  for (const status of ["running", "failed", "cancelled", "queued"])
+    assert.throws(() => setNodeState(node, status, "原因"), /非法数据状态/);
+  setNodeState(node, "rejected", "审核未通过");
   enqueueNode(p, t);
-  setNodeState(node, "running");
-  setNodeState(node, "cancelled", "用户取消");
-  assert.equal(node.node_state.reason, "用户取消");
-  assert.equal(node.storyboard[0].action, "动作");
-  assert.throws(() => setNodeState(node, "queued", "多余原因"), /非法转换/);
+  assert.equal(node.node_state.reason, "审核未通过");
+  assert.equal(node.node_state.status, "rejected");
+  setNodeState(node, "generated");
+  assert.equal(node.node_state.reason, "");
 });
 
 test("大纲结构允许有限正数，程序审核按参考时长±30；镜头仍为4–15整数秒", () => {

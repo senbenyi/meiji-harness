@@ -70,12 +70,12 @@ test("重新加载取消真实运行任务，Model 保存后渲染，abort 后�
       assert.equal(saved.tasks[0].task_status, "cancelled");
       assert.equal(saved.tasks[1].task_status, "cancelled");
 
-      assert.equal(saved.project.episodes[0].summary.node_state.status, "cancelled");
+      assert.equal(saved.project.episodes[0].summary.node_state.status, "generated");
       assert.ok(saved.steps.filter(s => s.task_id === first.task_id).every(s => ["done", "cancelled"].includes(s.step_status)));
       Object.assign(app.view, { page: "episode", episode_id: p.episodes[0].id, tab: "script" });
       await app.refresh();
       const card = app.shell.content.querySelector('[data-business="episode-summary"]');
-      assert.equal(card.querySelector(".node-ui-status").textContent, "已取消");
+      assert.equal(card.querySelector(".node-ui-status").textContent, "数据状态：已生成");
       release();
       await service.idle(p.id);
       assert.equal(model.read().project.episodes[0].summary.body, p.episodes[0].summary.body);

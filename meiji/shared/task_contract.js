@@ -7,15 +7,9 @@ import {
 } from "./node-definitions.js";
 
 // 新任务协议的纯模块；不读取旧 Run、任务历史或文件。
-export const NODE_STATUS = Object.freeze([
-  "empty",
-  "running",
-  "generated",
-  "rejected",
-  "failed",
-  "cancelled",
-  "expired",
-]);
+export const NODE_STATUS = Object.freeze(["empty", "generated", "rejected", "expired"]);
+// 历史任务的执行前快照保留原协议；当前项目节点只允许数据状态。
+const HISTORICAL_NODE_STATUS = [...NODE_STATUS, "running", "failed", "cancelled"];
 export const TASK_STATUS = Object.freeze([
   "queued",
   "running",
@@ -122,7 +116,7 @@ export function assertFields(value, keys, path) {
 }
 export function validateNode(state, path, checkHash = true) {
   assertRecord(state, path);
-  assertEnum(state.status, NODE_STATUS, `${path}.status`);
+  assertEnum(state.status, checkHash ? NODE_STATUS : HISTORICAL_NODE_STATUS, `${path}.status`);
   assertText(state.reason, `${path}.reason`);
   if (typeof state.fail_message !== "string") state.fail_message = "";
   if (state.status === "failed" && state.reason.trim() && !state.fail_message.trim()) {

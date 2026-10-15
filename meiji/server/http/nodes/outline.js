@@ -13,7 +13,7 @@ const output0 = {
       }
     ]
   },
-  "requirements": "仅返回 JSON，不附解释或 Markdown 围栏。sequence 从 1 连续递增；duration_seconds 为有限正数，允许小数；body 为完整剧情的非空字符串；causal 为字符串。每项剧情必须保留在 body。"
+  "requirements": "仅返回 JSON，不附解释或 Markdown 围栏。sequence 从 1 连续递增；duration_seconds 为有限正数，允许小数；body 为完整剧情的非空字符串；causal 为字符串。先规划并锁定段数、顺序和逐段时长，duration_seconds 合计等于本集参考时长，再以各段自身已锁定的 duration_seconds 为时间约束，按对应原文填写 body 与 causal；整集参考时长仅用于规划分配和总和校验，填充阶段不重新估时。每项剧情必须保留在 body；仅输出最终完整 segments，不输出规划草稿或计算过程。"
 };
 
 const output1 = {

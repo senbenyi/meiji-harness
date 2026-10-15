@@ -1,3 +1,4 @@
+import { latestNodeTask, taskStatusRow } from './node-task-status.js';
 import { primaryCostumeImage } from "../shared/models/character_model.js";
 import { nodeOf } from "../shared/task_contract.js";
 import { detailsDialog } from "./project-forms.js";
@@ -13,7 +14,7 @@ function stoppedNodeMessage(project, tasks) {
   if (!stopped) return "";
   let node = null;
   try { node = nodeOf(project, stopped.business_type, stopped.target_id); } catch { node = null; }
-  if (stopped.task_status === "failed") return node?.node_state.fail_message || stopped.end_reason || "";
+  if (stopped.task_status === "failed") return stopped.end_reason || "";
   return node?.node_state.reason || stopped.end_reason || "";
 }
 function canResumeGroup(entry, groups) {
@@ -41,8 +42,7 @@ function tailStep(shot, { button, act, media }) {
   const frame = shot.last_frame;
   const step = element("section", "", "tail-step");
   const labels = {
-    empty: "未生成", running: "生成中", generated: "已生成", rejected: "未通过",
-    failed: "失败", cancelled: "已取消", expired: "已过期",
+    empty: "未生成", generated: "已生成", rejected: "未通过", expired: "已过期",
   };
   step.dataset.business = "tail";
   step.append(element("p", `尾帧 · ${labels[frame.node_state.status] || frame.node_state.status}`, "meta"));
@@ -53,8 +53,7 @@ function tailStep(shot, { button, act, media }) {
     image.style.maxWidth = "100%";
     step.append(image);
   }
-  if (frame.node_state.status === "failed") {
-    if (frame.node_state.fail_message) step.append(element("p", frame.node_state.fail_message, "error"));
+  if (shot.video.address && !frame.address) {
     step.append(button("重新提取", () => act({
       type: "manual-edit",
       business_type: "video",
@@ -183,28 +182,16 @@ export function renderOverview(root, env) {
   scriptRow.append(open, arrow);
   script.append(scriptRow, element("p", `版本 ${p.script.version}`, "meta"));
   const splitting = p.creation_mode === "剧本",
-    latestSplitTask = splitting
-      ? env.snapshot?.tasks
-          .filter((t) => t.business_type === "script-split" && t.target_id === p.id)
-          .sort((a, b) => b.queue_order - a.queue_order)[0]
-      : null,
+    latestSplitTask = splitting ? latestNodeTask(env.snapshot?.tasks || [], "script-split", p.id) : null,
     { c: episodes, actions: episodeActions } = card("剧集");
   episodeActions.remove();
   const episodeUi = element("div", "", "node-ui"),
     episodeRow = element("div", "", "workflow-generation-row"),
     splitBusy = ["queued", "running"].includes(latestSplitTask?.task_status),
-    splitStatus = !latestSplitTask
-      ? p.episodes.length ? "generated" : "empty"
-      : latestSplitTask.task_status === "running"
-        ? "running"
-        : latestSplitTask.task_status === "queued"
-          ? p.episodes.length ? "generated" : "empty"
-          : latestSplitTask.task_status === "completed"
-            ? "generated"
-            : latestSplitTask.task_status;
+    splitStatus = p.episodes.length ? "generated" : "empty";
   episodeRow.append(element(
     "p",
-    labels[splitStatus] || splitStatus,
+    `数据状态：${labels[splitStatus] || splitStatus}`,
     "node-ui-status",
   ));
   if (splitting) {
@@ -261,6 +248,8 @@ export function renderOverview(root, env) {
     if (splitBusy) episodeRow.append(button("取消", () => act({ type: "cancel", task_id: latestSplitTask.id }), false));
   }
   episodeUi.append(episodeRow);
+  const splitTaskRow = taskStatusRow(latestSplitTask);
+  if (splitTaskRow) episodeUi.append(splitTaskRow);
   if (splitting) {
     const opinionKey = `script-split:${p.id}`;
     if (
@@ -283,8 +272,8 @@ export function renderOverview(root, env) {
     opinion.value = state.opinions[opinionKey] || "";
     opinion.oninput = () => { state.opinions[opinionKey] = opinion.value; };
     episodeUi.append(opinion);
-    if (["failed", "rejected"].includes(latestSplitTask?.task_status) && latestSplitTask.end_reason)
-      episodeUi.append(element("p", latestSplitTask.end_reason, "error"));
+    if (latestSplitTask?.task_status === "rejected" && latestSplitTask.end_reason)
+      episodeUi.append(element("p", `未通过原因：${latestSplitTask.end_reason}`, "error node-ui-reason"));
   }
   episodes.append(episodeUi);
   const list = element("div", "", "episode-card-list");
@@ -539,7 +528,7 @@ export function renderEpisode(root, env, entries) {
       const shotButtons = [];
       if (state.tab === "film") {
         const current = env.snapshot.tasks.find((task) => task.business_type === "video" && task.target_id === s.id && ["queued", "running"].includes(task.task_status));
-        const active = s.video.node_state.status === "running" || Boolean(current);
+        const active = Boolean(current);
         if (!active) shotButtons.push(button(s.video.address ? "重新生成" : "生成", () => {
           const text = (state.opinions?.[`video:${s.id}`] || "").trim();
           if (text) {

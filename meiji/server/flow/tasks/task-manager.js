@@ -10,7 +10,6 @@ import {
 } from "../../../shared/task_contract.js";
 import {
   enqueueNode,
-  restoreQueued,
   setNodeState,
   hasNodeContent,
 } from "../../../shared/node-state.js";
@@ -369,27 +368,12 @@ export class TaskService {
   }
   #finish(s, task, status, reason = "") {
     if (TERMINAL_TASKS.includes(task.task_status)) return;
-    const started = task.task_status === "running",
-      node = nodeOf(s.project, task.business_type, task.target_id);
+    const node = nodeOf(s.project, task.business_type, task.target_id);
     task.task_status = status;
     task.end_reason = reason;
     task.ended_at = now();
-    if (node) {
-      if (!started && ["cancelled", "superseded"].includes(status))
-        restoreQueued(s.project, task);
-      else
-        setNodeState(
-          node,
-          {
-            completed: "generated",
-            rejected: "rejected",
-            failed: "failed",
-            cancelled: "cancelled",
-            superseded: "cancelled",
-          }[status],
-          reason,
-        );
-    }
+    if (node && ["completed", "rejected"].includes(status))
+      setNodeState(node, status === "completed" ? "generated" : "rejected", reason);
     if (task.business_type === 'video' && ['completed', 'rejected'].includes(status)) {
       const shot = locateTarget(s.project, 'video', task.target_id).object;
       Object.assign(shot.last_frame.node_state, { status: status === 'completed' ? 'generated' : 'rejected', reason: status === 'completed' ? '' : reason, fail_message: '' });
@@ -470,8 +454,6 @@ export class TaskService {
         if (t.task_status !== "queued") return { started: false };
         t.task_status = "running";
         t.started_at = now();
-        const n = nodeOf(s.project, t.business_type, t.target_id);
-        if (n) setNodeState(n, "running");
         return { started: true };
       });
       if (!started.started) continue;

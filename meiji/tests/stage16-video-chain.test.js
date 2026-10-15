@@ -81,7 +81,7 @@ for (const mode of ['文生','首尾帧','多模态']) test(`真实视频链 ${m
   if(mode==='多模态') {
     episode.shot_list.shots[1].character_binding.on_screen_characters=[{character_id:person.id,costume_id:''}];
     // 多模态后镜不依赖前镜尾帧，即使该尾帧失效也应成功。
-    episode.shot_list.shots[0].last_frame.node_state.status='failed'; episode.shot_list.shots[0].last_frame.node_state.reason='缺尾帧';
+    episode.shot_list.shots[0].last_frame.node_state.status='expired'; episode.shot_list.shots[0].last_frame.node_state.reason='缺尾帧';
   }
   for(const shot of episode.shot_list.shots) shot.first_last_frame_prompt.node_state.status='empty';
   stamp();
@@ -211,12 +211,13 @@ test('界面显示适用程序编排；尾帧是视频内步骤，失败时可�
     assert.ok(pack);assert.deepEqual([...pack.querySelectorAll('button')].map(button=>button.textContent),['执行编排','任务历史']);
     assert.equal(pack.querySelector('input'),null);
     assert.ok(tail);assert.equal(tail.querySelector('.node-ui'),null);assert.equal(tail.querySelector('button'),null);
-    shot.last_frame.node_state.status='failed';shot.last_frame.node_state.fail_message='截帧失败';shot.last_frame.node_state.reason='';
+    shot.last_frame.address='';shot.last_frame.node_state.status='empty';shot.last_frame.node_state.reason='';
+    snapshot.tasks=[{business_type:'video',target_id:shot.id,task_status:'failed',end_reason:'截帧失败',queue_order:1}];
     renderTaskPanel(root,snapshot,{session_id:'test',view:{page:'episode',episode_id:episode.id,shot_id:shot.id,tab:'film'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
     const failed=root.querySelector('[data-business="video"] [data-business="tail"]');
     assert.equal(failed.querySelector('.node-ui'),null);
     assert.deepEqual([...failed.querySelectorAll('button')].map(button=>button.textContent),['重新提取']);
-    assert.match(failed.textContent,/截帧失败/);assert.match(root.textContent,/视频类型：首尾帧/);
+    assert.match(root.textContent,/最新任务状态：失败，原因：截帧失败/);assert.match(root.textContent,/视频类型：首尾帧/);
     const calls=[];
     globalThis.fetch=async(_url,options)=>{calls.push(JSON.parse(options.body).command);return {ok:true,json:async()=>({})};};
     failed.querySelector('button').click();

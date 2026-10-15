@@ -110,7 +110,7 @@ test("面板重试同一失败节点直接启动新任务并保留失败历史",
       const failed = await service.command(submit(p));
       await service.idle(p.id);
       assert.equal(model.read().tasks[0].task_status, "failed");
-      assert.equal(model.read().project.episodes[0].summary.node_state.status, "failed");
+      assert.equal(model.read().project.episodes[0].summary.node_state.status, "generated");
 
 
       const retry = submit(p, "episode-summary", p.episodes[0].id, "retry");

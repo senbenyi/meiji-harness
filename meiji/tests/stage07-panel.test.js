@@ -96,16 +96,17 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
     assert.ok(!root.textContent.includes("道具"));
     assert.ok(!root.textContent.includes("生成要求"));
     const episode = snapshot.project.episodes[0];
-    episode.shot_list.node_state.status = "failed";
-    episode.shot_list.node_state.reason = "";
-    episode.shot_list.node_state.fail_message = "镜头表：镜头总时长超出允许范围（本集参考时长±30秒，允许 1–40 秒）";
+    episode.shot_list.node_state.status = "rejected";
+    episode.shot_list.node_state.reason = "保留审核原因";
+    const failureReason = "镜头表：镜头总时长超出允许范围（本集参考时长±30秒，允许 1–40 秒）";
+    snapshot.tasks.push({business_type:"shots",target_id:episode.id,task_status:"failed",end_reason:failureReason,queue_order:99});
     episode.shot_list.shots[0].body = "最终超时生成镜头内容";
     view.tab = "shots";
     renderTaskPanel(root, snapshot, context);
     assert.ok(root.querySelector('[data-business="shots"]'));
     assert.ok(!root.querySelector('[data-business="episode-characters"]'));
     assert.ok(root.textContent.includes("失败"));
-    assert.ok(root.textContent.includes(episode.shot_list.node_state.fail_message));
+    assert.ok(root.textContent.includes(failureReason));
     assert.ok(root.textContent.includes("最终超时生成镜头内容"));
     const shotCard = root.querySelector('[data-business="shots"]'),
       title = shotCard.querySelector(".section-head"),
@@ -113,7 +114,7 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
       actions = ui.querySelector(".workflow-generation-row");
     assert.equal(title.nextElementSibling, ui);
     assert.equal(ui.querySelector(".node-ui-status").parentElement, actions);
-    assert.equal(ui.querySelector(".node-ui-status").textContent, "失败");
+    assert.equal(ui.querySelector(".node-ui-status").textContent, "数据状态：未通过");
     assert.equal(title.querySelector(".status-label"), null);
     assert.equal(ui.querySelector(".node-ui-opinion").placeholder, "本次执行意见");
     assert.ok(
@@ -154,7 +155,8 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
         .filter((b) => b.textContent === "AI生成")
         .every((b) => b.disabled),
     );
-    view.page = "history";
+    view.tab = "film";
+    view.shot_id = t.target_id;
     renderTaskPanel(root, snapshot, context);
     const cancel = [...root.querySelectorAll("button")].find(
       (b) => b.textContent === "取消",
@@ -192,7 +194,7 @@ test("故事大纲按小段顺序展示正文、参考时长与因果衔接", ()
       "1. 4.5秒 酒馆开场\n因果衔接：承接开场来信",
       "2. 6秒 武松上路\n因果衔接：因酒馆消息而动身",
     ]);
-    episode.story_outline.node_state.status = "running";
+    snapshot.tasks.push({business_type:"outline",target_id:episode.id,task_status:"running",queue_order:99});
     episode.summary.node_state.status = "empty";
     renderTaskPanel(root, snapshot, {
       session_id: "session-test",
@@ -213,11 +215,11 @@ test("故事大纲按小段顺序展示正文、参考时长与因果衔接", ()
     );
     assert.equal(
       cards[0].querySelector(".node-ui-status").textContent,
-      "生成中",
+      "数据状态：已生成",
     );
     assert.equal(
       cards[1].querySelector(".node-ui-status").textContent,
-      "未生成",
+      "数据状态：未生成",
     );
     assert.equal(
       [...cards[1].querySelectorAll("button")].some((button) =>
@@ -313,7 +315,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
         (card) => card.querySelector("h3")?.textContent === title,
       );
     assert.equal(outline.querySelector(".section-titles h3").textContent, "项目摘要");
-    assert.equal(outline.querySelector(".node-ui-status").textContent, "已生成");
+    assert.equal(outline.querySelector(".node-ui-status").textContent, "数据状态：已生成");
     assert.equal(outline.querySelector(".section-titles .status-label"), null);
     assert.deepEqual(
       labelsOf(outline).filter((label) => ["AI生成", "重新生成", "原结果修订"].includes(label)),
@@ -324,7 +326,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
       [],
     );
     assert.equal(cardOf("剧本").querySelector(".status-label"), null);
-    assert.equal(titled("提取人物").querySelector(".node-ui-status").textContent, "未生成");
+    assert.equal(titled("提取人物").querySelector(".node-ui-status").textContent, "数据状态：未生成");
     assert.deepEqual(labelsOf(titled("提取人物")), ["AI生成", "人工编辑", "任务历史"]);
     assert.equal(titled("生成定妆照").querySelector(".node-ui-status").textContent, "未生成");
     assert.equal(titled("生成定妆照").querySelector("input"), null);
@@ -342,7 +344,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     snapshot.groups = [{ id: "g", group_type: "single" }];
     paint();
     assert.equal(cardOf("剧集").querySelector(".section-titles .status-label"), null);
-    assert.equal(cardOf("剧集").querySelector(".workflow-generation-row .node-ui-status").textContent, "生成中");
+    assert.equal(cardOf("剧集").querySelector(".workflow-generation-row .node-ui-status").textContent, "数据状态：已生成");
     assert.equal(cardOf("剧集").querySelector("[aria-label=重新生成]"), null);
     assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "取消"));
     assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "任务历史"));
@@ -364,7 +366,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     paint();
     assert.equal(
       root.querySelector("[data-business=project-summary] .node-ui-status").textContent,
-      "未通过",
+      "数据状态：未通过",
     );
     assert.equal(
       [...root.querySelector("[data-business=project-summary]").querySelectorAll("button")].some((button) =>
@@ -382,7 +384,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
       labelsOf(cardOf("剧本")).filter((label) => ["重新生成", "原结果修订"].includes(label)),
       [],
     );
-    assert.equal(titled("提取人物").querySelector(".node-ui-status").textContent, "未通过");
+    assert.equal(titled("提取人物").querySelector(".node-ui-status").textContent, "数据状态：未通过");
     assert.ok(titled("提取人物").textContent.includes("未通过"));
     assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "原结果修订", "人工编辑", "人工放行", "任务历史"]);
   } finally {

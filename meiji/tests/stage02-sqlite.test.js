@@ -70,14 +70,15 @@ test("v13迁移删除暂停列，完整保留项目、队列、历史与幂等�
   await seedQueuedTasks(model, [['project-summary',p.id],['episode-summary',p.episodes[0].id]]);
   const before=model.read();await repo.close();
   let db=new DatabaseSync(join(root,'meiji.sqlite'));
-  db.exec('ALTER TABLE projects ADD COLUMN queue_stopped INTEGER NOT NULL DEFAULT 1 CHECK(queue_stopped IN (0,1)); DELETE FROM schema_migrations WHERE version=14; PRAGMA user_version=13');
+  db.exec('ALTER TABLE projects ADD COLUMN queue_stopped INTEGER NOT NULL DEFAULT 1 CHECK(queue_stopped IN (0,1)); DELETE FROM schema_migrations WHERE version>=14; PRAGMA user_version=13');
   db.close();repo=new ModelRepository(root);
   try {
     const restored=await repo.open(p.id);
+    before.runtime.revision += 1;
     assert.deepEqual(restored.read(),before);
     assert.equal('queue_stopped' in restored.read().runtime,false);
     db=new DatabaseSync(join(root,'meiji.sqlite'));
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version,14);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version,15);
     assert.equal(db.prepare('PRAGMA table_info(projects)').all().some(c=>c.name==='queue_stopped'),false);
     assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
     assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');

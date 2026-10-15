@@ -104,7 +104,7 @@ for(const kind of ['script-split','project-characters','costume-image']) test(`$
   }
   assert.ok(after.steps.every(st=>['done','cancelled'].includes(st.step_status)));
   assert.deepEqual(after.project.episodes,before.project.episodes);
-  if(kind==='costume-image'){const c=after.project.character_library.characters[0];assert.equal(primaryCostumeImage(c).node_state.status,'cancelled');assert.equal(c.costume_images[1].node_state.status,'empty');}
+  if(kind==='costume-image'){const c=after.project.character_library.characters[0];assert.equal(primaryCostumeImage(c).node_state.status,'empty');assert.equal(c.costume_images[1].node_state.status,'empty');}
   const stable=model.read();await service.recover(model);assert.deepEqual(model.read(),stable);
  }finally{child?.kill('SIGKILL');await service?.dispose();await repo.close();await rm(root,{recursive:true,force:true});}
 });

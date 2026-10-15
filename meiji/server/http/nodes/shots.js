@@ -46,7 +46,9 @@ export default {
       ...commonValues(input),
       本集故事小段: input.segments,
       本集时长秒: input.duration,
-      本集角色资料: input.characters,
+      本集角色资料: input.characters.map(({ name, costumes }) => ({
+        name, costumes: costumes.map(({ name }) => ({ name })),
+      })),
       已有镜头编号目录: input.shotNumbers,
     };
   },

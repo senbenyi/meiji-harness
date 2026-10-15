@@ -1,3 +1,4 @@
+import { latestNodeTask, taskStatusRow } from './node-task-status.js';
 import { NODE_DEFINITIONS } from '../shared/node-definitions.js';
 import { bindingNumbers } from '../shared/shot-text-inputs.js';
 import { editor, readable } from "./content-forms.js";
@@ -8,11 +9,8 @@ import { element, showPanelDialog, appendJsonCopy } from "./panel-dom.js";
 import { sendCommand } from "./task-client.js";
 const labels = {
   empty: "未生成",
-  running: "生成中",
   generated: "已生成",
   rejected: "未通过",
-  failed: "失败",
-  cancelled: "已取消",
   expired: "已过期",
 };
 export const episodeTabs = [
@@ -167,9 +165,12 @@ export function renderTaskPanel(root, snapshot, context) {
     }
     const ui = element("div", "", "node-ui");
     const actions = element("div", "", "workflow-generation-row");
-    actions.append(element("p", labels[node.node_state.status] || node.node_state.status, "node-ui-status"));
+    actions.append(element("p", `数据状态：${labels[node.node_state.status] || node.node_state.status}`, "node-ui-status"));
     for (const item of buttons) actions.append(item);
     ui.append(actions);
+    const latest = latestNodeTask(snapshot.tasks, business, id);
+    const taskRow = taskStatusRow(latest);
+    if (taskRow) ui.append(taskRow);
     if (opinion) {
       state.opinions ??= {};
       const input = element("input", "", "node-ui-opinion");
@@ -179,12 +180,8 @@ export function renderTaskPanel(root, snapshot, context) {
       input.oninput = () => { state.opinions[key] = input.value; };
       ui.append(input);
     }
-    const notice = node.node_state.status === "rejected"
-      ? node.node_state.reason
-      : node.node_state.status === "failed"
-        ? node.node_state.fail_message || ""
-        : "";
-    if (notice) ui.append(element("p", notice, "error"));
+    if (node.node_state.status === "rejected" && node.node_state.reason)
+      ui.append(element("p", `未通过原因：${node.node_state.reason}`, "error node-ui-reason"));
     return ui;
   };
   const nodeCard = (business, id, node, { readOnly = false } = {}) => {
@@ -262,7 +259,7 @@ export function renderTaskPanel(root, snapshot, context) {
         });
       };
     const currentTask = snapshot.tasks.find((task) => task.business_type === business && task.target_id === id && ["queued", "running"].includes(task.task_status));
-    const active = node.node_state.status === "running" || Boolean(currentTask);
+    const active = Boolean(currentTask);
     const quiet = ["project-summary", "episode-summary"].includes(business);
     const buttons = [];
     if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate()));

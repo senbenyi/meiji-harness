@@ -129,7 +129,8 @@ test("S8-05 重启把运行和排队任务都记为已取消，恢复快照、�
       s.groups = [task, queued, terminal].map(singleGroup);
       s.tasks = [task, queued, terminal];
       s.steps = [done, running, newStep(queued, 1, "precheck")];
-      s.project.project_summary.node_state.status = "running";
+      s.project.episodes[0].summary.node_state.status = "expired";
+      s.project.episodes[0].summary.node_state.reason = queued.previous_node_state.reason;
       return {};
     });
     const freshRepository = new ModelRepository(root),
@@ -147,7 +148,7 @@ test("S8-05 重启把运行和排队任务都记为已取消，恢复快照、�
     assert.deepEqual(snapshot.steps[0], done);
     assert.deepEqual(snapshot.steps.slice(1).map(st => st.step_status), ["cancelled", "cancelled"]);
     assert.equal(snapshot.project.project_summary.body, "摘要");
-    assert.equal(snapshot.project.project_summary.node_state.status, "cancelled");
+    assert.equal(snapshot.project.project_summary.node_state.status, "generated");
     assert.equal(snapshot.project.episodes[0].summary.body, "展示摘要");
     assert.equal(snapshot.project.episodes[0].summary.node_state.status, "expired");
     assert.equal(snapshot.project.episodes[0].summary.node_state.reason, "上游已变化");

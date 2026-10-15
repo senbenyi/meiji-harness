@@ -79,12 +79,13 @@ test("任务生成按钮按内容和审核状态互斥，意见修改要求填�
     assert.equal(commands.at(-1).action, "revise");
     assert.equal(commands.at(-1).opinion, "保留人物关系，补足动机");
 
-    for (const status of ["generated", "failed", "cancelled", "expired"]) {
+    for (const status of ["generated", "expired"]) {
       episode.summary = summary(status, "已有结果");
       renderTaskPanel(root, snapshot, context);
       assert.deepEqual(actions(), ["重新生成", "原结果修订"], status);
     }
-    episode.summary = summary("running", "已有结果");
+    snapshot.tasks = [{ business_type: "episode-summary", target_id: episode.id, task_status: "running" }];
+    episode.summary = summary("generated", "已有结果");
     renderTaskPanel(root, snapshot, context);
     assert.deepEqual(actions(), []);
     episode.summary = summary("generated", "已有结果");

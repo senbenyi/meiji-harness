@@ -272,7 +272,7 @@ test("合片缺失、损坏、跨项目或依赖过期的视频在前置失败�
       if (kind === "outside") target.video.address = old.address.replace(p.id, `p_${crypto.randomUUID()}`);
       stampAssemblyInputs(p);
       if (kind === "stale") target.video.node_state.dependency_hash = "f".repeat(64);
-      if (kind === "unfinished") { target.video.node_state.status = "failed"; target.video.node_state.reason = "未完成"; }
+      if (kind === "unfinished") { target.video.node_state.status = "rejected"; target.video.node_state.reason = "未完成"; }
       const repository = new ModelRepository(join(root, kind, "data")), model = await repository.create(p);
       const execute = createMediaHandler({ media, gateway: {} }), calls = [];
       const service = new TaskService({ repository, commitOutput: commitContent, execute: context => { calls.push(context.step.kind); return execute(context); } });
@@ -286,8 +286,7 @@ test("合片缺失、损坏、跨项目或依赖过期的视频在前置失败�
         assert.equal(steps[1].step_status, "cancelled", kind);
         assert.equal(calls.includes("generate"), false, kind);
         assert.equal(after.project.episodes[0].assembly.address, old.address);
-        assert.equal(after.project.episodes[0].assembly.node_state.status, "failed");
-        assert.ok(after.project.episodes[0].assembly.node_state.fail_message);
+        assert.deepEqual(after.project.episodes[0].assembly.node_state, e.assembly.node_state);
       } finally { await service.dispose(); }
     }
   } finally { await rm(root, { recursive: true, force: true }); }
