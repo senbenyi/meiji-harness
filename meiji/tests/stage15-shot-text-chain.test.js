@@ -288,5 +288,12 @@ test('镜头详情在每秒分镜之前展示角色识别，区分未识别与�
     const titles = [...root.querySelectorAll('h3')].map(node => node.textContent);
     assert.ok(titles.indexOf('镜头角色与服装') >= 0);
     assert.ok(titles.indexOf('镜头角色与服装') < titles.indexOf('每秒分镜'));
+    shot.seconds_storyboard.storyboard.push({ ...shot.seconds_storyboard.storyboard[0], time_range: '5–6s', action: '下一秒', dialogue: [{ speaker_name: '武松', mode: '画内', dialogue_text: '走' }] });
+    renderTaskPanel(root, snapshot, context);
+    const beats = [...root.querySelectorAll('[data-business=seconds] .seconds-beat')];
+    assert.equal(beats.length, 2);
+    assert.deepEqual([...beats[0].querySelectorAll('p')].map(node => node.textContent), ['时段：0–5s', '动作：动作', '镜头：镜头', '空间：空间', '声音：声音', '交接：结束']);
+    assert.deepEqual([...beats[1].querySelectorAll('p')].map(node => node.textContent), ['时段：5–6s', '动作：下一秒', '镜头：镜头', '空间：空间', '声音：声音', '交接：结束', '说话人：武松', '方式：画内', '原话：走']);
+    assert.equal(root.querySelector('[data-business=seconds] .seconds-summary p').textContent, '结尾状态：人物站在原位，动作已结束，持物保持不变。');
   } finally { globalThis.document = previous; dom.window.close(); }
 });

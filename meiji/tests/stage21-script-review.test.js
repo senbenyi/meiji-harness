@@ -212,7 +212,8 @@ test("剧本卡片即剧本节点：无状态标签与版本、不展示审核�
     assert.ok(card.querySelector(".script-title-row"));
     assert.equal(card.querySelector(".node-data-tag"), null);
     assert.doesNotMatch(card.textContent, /版本|剧情连续|适合拍摄/);
-    assert.deepEqual([...card.querySelectorAll(".node-ui > .workflow-generation-row button")].map(b => b.textContent), ["重新审核", "人工放行", "任务历史"]);
+    // 「查看规则」由其他功能统一追加，不在本断言范围内。
+    assert.deepEqual([...card.querySelectorAll(".node-ui > .workflow-generation-row button")].map(b => b.textContent).filter(t => t !== "查看规则"), ["重新审核", "人工放行", "任务历史"]);
     const ui = card.querySelector(".node-ui"), children = [...ui.children];
     const reasonRow = ui.querySelector(".node-ui-reason"), repairRow = ui.querySelector(".node-ui-repair-row");
     assert.match(reasonRow.textContent, /未通过原因：1\. 第一场末补一句/);
@@ -227,7 +228,29 @@ test("剧本卡片即剧本节点：无状态标签与版本、不展示审核�
   const empty = paintOverview(snap => { snap.project.script.node_state.status = "empty"; });
   try {
     const card = empty.root.querySelector("[data-business=script-review]");
-    assert.deepEqual([...card.querySelectorAll("button")].filter(b => !b.classList.contains("script-file-name") && b.textContent !== "→").map(b => b.textContent), ["AI审核", "任务历史"]);
+    assert.deepEqual([...card.querySelectorAll("button")].filter(b => !b.classList.contains("script-file-name") && !["→", "查看规则"].includes(b.textContent)).map(b => b.textContent), ["AI审核", "任务历史"]);
     assert.equal(card.querySelector(".node-ui-repair-row"), null);
   } finally { empty.close(); }
+});
+
+test("修改进行中：剧本卡片状态行标明修改流程与当前步骤，隐藏修改与审核按钮，保留取消", () => {
+  const { root, close } = paintOverview(snap => {
+    Object.assign(snap.project.script.node_state, { status: "rejected", reason, dependency_hash: "" });
+    snap.groups = [{ id: "g", group_type: "single" }];
+    snap.tasks = [{ id: "t1", name: "按审核意见修改剧本", group_id: "g", group_seq: 1, business_type: "script-review", target_id: snap.project.id, action: "revise", task_status: "running", queue_order: 1, end_reason: "", opinion: reason }];
+    snap.steps = [
+      { id: "s1", task_id: "t1", seq: 1, kind: "precheck", name: "前置检查", step_status: "done" },
+      { id: "s2", task_id: "t1", seq: 2, kind: "generate", name: "按审核意见修改剧本", step_status: "done" },
+      { id: "s3", task_id: "t1", seq: 3, kind: "review", name: "AI审核剧本", step_status: "rejected" },
+      { id: "s4", task_id: "t1", seq: 4, kind: "revise", name: "第 1 轮修改剧本", step_status: "running" },
+      { id: "s5", task_id: "t1", seq: 5, kind: "review", name: "第 1 轮AI审核剧本", step_status: "ready" },
+    ];
+  });
+  try {
+    const card = root.querySelector("[data-business=script-review]");
+    assert.equal(card.querySelector(".node-ui-task-status").textContent, "最新任务：生成中 · 按审核意见修改剧本 · 当前：第 1 轮修改剧本");
+    const labels = [...card.querySelectorAll(".node-ui button")].map(b => b.textContent);
+    assert.ok(labels.includes("取消"));
+    for (const hidden of ["修改", "重新审核", "人工放行"]) assert.ok(!labels.includes(hidden), hidden);
+  } finally { close(); }
 });

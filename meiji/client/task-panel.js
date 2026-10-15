@@ -1,7 +1,7 @@
 import { latestNodeTask, taskStatusRow, taskFailureRow } from './node-task-status.js';
 import { NODE_DEFINITIONS } from '../shared/node-definitions.js';
 import { bindingNumbers } from '../shared/shot-text-inputs.js';
-import { editor, readable } from "./content-forms.js";
+import { editor, fieldLabels, readable } from "./content-forms.js";
 import { renderOverview, renderEpisode, backHeader } from "./project-ui.js";
 import { renderResource, blankCharacter } from "./resource-ui.js";
 import { renderHistory } from "./history-ui.js";
@@ -59,6 +59,29 @@ function payload(node) {
       .filter(([key]) => !["id", "node_state", "script_version", "character_image", "costume_images", "reference_image"].includes(key))
       .map(([key, child]) => [key, walk(child)])) : value;
   return walk(node);
+}
+function labeledLines(source, keys) {
+  return keys.flatMap((key) => {
+    const text = String(source?.[key] ?? "").trim();
+    return text ? [[fieldLabels[key] || key, text]] : [];
+  });
+}
+function secondsView(node) {
+  const view = element("div", "", "seconds-beats");
+  for (const beat of node.storyboard || []) {
+    const block = element("section", "", "seconds-beat");
+    for (const [label, text] of labeledLines(beat, ["time_range", "action", "camera", "space", "audio", "handoff"]))
+      block.append(element("p", `${label}：${text}`));
+    for (const line of beat.dialogue || [])
+      for (const [label, text] of labeledLines(line, ["speaker_name", "mode", "dialogue_text"]))
+        block.append(element("p", `${label}：${text}`));
+    if (block.childElementCount) view.append(block);
+  }
+  const summary = element("section", "", "seconds-summary");
+  for (const [label, text] of labeledLines(node, ["end_state", "pending_actions", "pending_dialogue", "continuing_audio"]))
+    summary.append(element("p", `${label}：${text}`));
+  if (summary.childElementCount) view.append(summary);
+  return view;
 }
 function hasContent(value) {
   if (value?.has_result === true) return true;
@@ -169,6 +192,13 @@ export function renderTaskPanel(root, snapshot, context) {
     const actions = element("div", "", "workflow-generation-row");
     const latest = latestNodeTask(snapshot.tasks, business, id);
     const taskRow = taskStatusRow(latest);
+    // 剧本节点的审核与修改都在同一节点上进行，进行中时标明当前步骤（如「第 1 轮修改剧本」），让修改流程可见。
+    if (taskRow && business === "script-review" && ["queued", "running"].includes(latest.task_status)) {
+      const current = (snapshot.steps || []).filter((step) => step.task_id === latest.id && ["running", "ready"].includes(step.step_status))
+        .sort((a, b) => (a.step_status === "running" ? -1 : 0) - (b.step_status === "running" ? -1 : 0) || a.seq - b.seq)[0];
+      const name = latest.action === "revise" ? "按审核意见修改剧本" : "审核剧本";
+      taskRow.textContent += ` · ${name}${current ? ` · 当前：${current.name}` : ""}`;
+    }
     const buttonBox = element("div", "", "node-ui-buttons");
     for (const item of buttons) buttonBox.append(item);
     if (!readOnly && NODE_DEFINITIONS[business] && !NODE_DEFINITIONS[business].retired &&
@@ -232,6 +262,8 @@ export function renderTaskPanel(root, snapshot, context) {
       card.append(element('p', !node.has_result ? '尚未识别' : !node.on_screen_characters.length
         ? (node.node_state.status === 'generated' ? '已确认无人出镜' : '候选：无人出镜')
         : readable(bindingNumbers(p, node)), 'prompt full'));
+    } else if (business === "seconds") {
+      card.append(secondsView(node));
     } else if (business === "outline") {
       const segments = element("div", "", "outline-segments");
       for (const part of [...(node.segments || [])].sort((a, b) => a.sequence - b.sequence))
