@@ -193,7 +193,7 @@ test("UI-2/3 概要原卡片、剧本入口；剧集四标签和镜头两标签�
     const firstShot = root.querySelector(".shot-card");
     assert.equal(firstShot.querySelector("h3").textContent, "S01 开门 · 5s");
     assert.equal(firstShot.querySelector("details"), null);
-    assert.equal(firstShot.querySelector(".prompt").textContent, "剧情");
+    assert.match(firstShot.querySelector(".prompt").textContent, /^正文：剧情/);
     view.tab = "film";
     context.paint();
     assert.equal(root.querySelectorAll(".shot-card").length, 2);

@@ -11,7 +11,7 @@ function shotTable(value) {
 }
 
 function candidate(business, value) {
-  if (['project-summary', 'episode-summary'].includes(business)) return value?.body || '';
+  if (['project-summary', 'episode-summary', 'script-review'].includes(business)) return typeof value === 'string' ? value : value?.body || '';
   if (business === 'project-characters') {
     const fields = ['name', 'gender', 'era', 'position', 'age_range', 'body_type', 'hairstyle', 'signature_props', 'immutable_traits'];
     return { characters: (value?.changes || value?.characters || []).map(character => ({
@@ -99,6 +99,8 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
       value.content = draft || (task.opinion && rejected) || previousSplit(project);
     }
   }
+  // 剧本审核没有待审候选时审核当前剧本。
+  if (business === 'script-review' && action === 'review' && !value.content) value.content = project.script.body;
   if (action === 'regenerate' && step.kind === 'revise') {
     const previous = (snapshot.steps || []).filter(row => row.task_id === task.id
       && ['generate', 'revise'].includes(row.kind) && row.step_status === 'done'

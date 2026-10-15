@@ -404,10 +404,9 @@ export function validateCommand(command) {
     (command.content === null || command.content === undefined)
   )
     invalid("command.content", "人工编辑需内容");
-  // 剧本审核只评估剧本：重新审核或人工放行，不编辑、不修订审核结论。
-  if (command.business_type === "script-review" &&
-      (command.type === "manual-edit" || (command.type === "submit" && command.action === "revise")))
-    invalid("command.business_type", "剧本审核只支持审核、重新审核与人工放行");
+  // 剧本节点只支持审核、按审核意见修改与人工放行，剧本不提供人工编辑。
+  if (command.business_type === "script-review" && command.type === "manual-edit")
+    invalid("command.business_type", "剧本只支持审核、按审核意见修改与人工放行");
   return command;
 }
 const references = {

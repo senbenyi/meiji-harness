@@ -207,6 +207,8 @@ export function downstream(snapshot, business, id) {
     return [one("episode-summary", id), one("outline", id)];
   if (business === "episode-plot-sync") return [one("episode-summary", id)];
   if (business === "episode-duration") return [one("outline", id), one("shots", id)];
+  // 修改剧本后，依据剧本正文的项目摘要与角色按 hash 过期。
+  if (business === "script-review") return [one("project-summary", p.id), one("project-characters", p.id)];
   if (business === "project-characters") return roleContext();
   if (business === "script-split") return [];
   if (business === "outline") return [one("shots", id)];

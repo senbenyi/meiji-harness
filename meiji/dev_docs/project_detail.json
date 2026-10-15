@@ -26,7 +26,13 @@
         "task_id": "t_uuid（产生本条修改记录的任务标识。）",
         "revision_notes": "（本次修改的说明或意见。）"
       }
-    ]
+    ],
+    "node_state": {
+      "status": "empty（剧本节点状态；审核通过或人工放行为 generated，审核未通过为 rejected，reason 为修改意见；剧本有无即其数据状态，界面不展示。）",
+      "reason": "（审核未通过时给剧本的修改意见；「修改」任务带上它改写剧本。）",
+      "fail_message": "（失败原因，不交给 AI。）",
+      "dependency_hash": "（审核所依据剧本正文的摘要值；剧本变化后节点过期。）"
+    }
   },
   "character_library": {
     "node_state": {

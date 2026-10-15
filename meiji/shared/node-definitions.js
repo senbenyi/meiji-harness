@@ -10,16 +10,17 @@ const freezeDefinitions = (definitions) =>
   );
 
 export const NODE_DEFINITIONS = freezeDefinitions({
-  // 剧本审核本身是评估：AI 产出结论，程序审核按结论判定通过；不适合拍摄直接未通过，不自动修订。
+  // 剧本本身是节点，审核与修改都是作用于它的任务。审核任务只有 AI 审核步骤，未通过不自动修改；
+  // 修改任务按审核意见改写剧本再 AI 审核，未通过时再修改一次，共两轮修改与审核。
   "script-review": {
     targetKind: "project",
-    field: "script_review",
-    label: "剧本审核",
+    field: "script",
+    label: "剧本",
     handler: "text",
     output: "text",
-    programReview: true,
-    aiReview: false,
-    retryRounds: 0,
+    programReview: false,
+    aiReview: true,
+    retryRounds: 1,
     precheck: "project-text",
   },
   "project-summary": {

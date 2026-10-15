@@ -3,7 +3,7 @@ import { NODE_TYPES } from "../shared/task_contract.js";
 import { BUSINESS_DEFINITIONS } from "../shared/node-definitions.js";
 import { element } from "./panel-dom.js";
 const nodeTypeNames = {
-  "script-review": "剧本审核",
+  "script-review": "剧本",
   "project-summary": "项目摘要",
   "project-characters": "剧本重要角色",
   "character-image": "角色图片",

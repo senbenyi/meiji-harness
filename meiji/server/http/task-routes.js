@@ -1,4 +1,5 @@
 import { SettingsModel } from '../../shared/models/settings_model.js';
+import { nodeRules } from './node-rules.js';
 import { llmServerClient } from './llm-server/client.js';
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -83,6 +84,10 @@ export function createTaskHttpHandler(
         return res.end(bytes);
       }
       if (req.method === "GET") {
+        if (path === "/api/meiji/rules") {
+          await runtime.bindings.require(url.searchParams.get('session_id'), url.searchParams.get('project_id'));
+          return json(res, 200, nodeRules(url.searchParams.get('business')));
+        }
         if (path === "/api/meiji/gpu") {
           const settings = await runtime.models.read();
           return json(res, 200, await llmServerClient.gpu({ baseUrl: settings.textBaseUrl }));

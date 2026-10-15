@@ -48,7 +48,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 唯一数据库为 `$DSH_HOME/storages/meiji/meiji.sqlite`，使用 Node 内置 `node:sqlite`（^22.19.0 或 >=24）。`schema.sql` 定义 projects、task_groups、tasks、task_steps、command_requests、notification_outbox、schema_migrations 七表；任务必须归组，步骤必须归任务，顺序唯一且同项目最多一个 running 任务。`sqlite-store.js` 使用 WAL/foreign_keys/FULL、短同步事务及 revision 条件校验，变化记录增量写入；不在持锁期间调用模型或等待异步工作。ProjectModel 的写接口只允许 repository 提供的事务闭包，项目内容/任务/步骤/幂等/通知一起提交，事件发生在持久化后。卸载时等待任务和通知结束，再关闭连接。
 
-`projects/<p_UUID>/` 作为宿主工作区目录，同时保存 `project.json` 项目镜像。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 固定字段及 `node_state.{status,reason,fail_message,dependency_hash}`。当前 schema v15。v14 移除项目暂停字段；v15 将节点执行状态显式迁移为四种数据状态，保留正文、任务历史及审核原因，无法确认有效性的数据标为 expired。v9 删除项目 rules，v10 删除项目 output_language；两步都按新指纹重写已生成的角色识别、每秒分镜和文生提示词及其排队快照，不改写正文。v11 把失败节点的 `reason` 移到 `fail_message`。v8 及更早明确拒绝，不在运行时自动删除或兼容。模型配置和独立素材库保留。
+`projects/<p_UUID>/` 作为宿主工作区目录，同时保存 `project.json` 项目镜像。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 固定字段及 `node_state.{status,reason,fail_message,dependency_hash}`。当前 schema v18。剧本本身是节点（`script.node_state`）：v16–v18 归一为该形态，早期 v16 的独立 `script_review` 并入剧本状态，v17 的 `script.review` 结论字段移除，保留状态、原因与依赖指纹；更早版本的迁移在校验前同样先归一。v14 移除项目暂停字段；v15 将节点执行状态显式迁移为四种数据状态，保留正文、任务历史及审核原因，无法确认有效性的数据标为 expired。v9 删除项目 rules，v10 删除项目 output_language；两步都按新指纹重写已生成的角色识别、每秒分镜和文生提示词及其排队快照，不改写正文。v11 把失败节点的 `reason` 移到 `fail_message`。v8 及更早明确拒绝，不在运行时自动删除或兼容。模型配置和独立素材库保留。
 
 项目、剧集、角色、服装、镜头、任务、组和步骤使用创建时生成的带前缀 UUID。AI 输入输出及资料界面使用编号，引用转换由程序核对唯一性和归属。重生成保留同一对象 ID，不按列表位置重建身份、不无声删除引用对象。独立素材继续使用原 `assets/<category>/<UUID>/metadata.json` 和 `original.<ext>` 文件格式；场景、道具及指导素材入口退出，但磁盘数据不会在启动时被删除。
 
@@ -56,10 +56,12 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 ## 状态、前置和任务
 
+- 剧本节点（`script-review`）：剧本本身是节点（`script.node_state`），审核与修改都是它的任务。审核（generate/regenerate）只有 precheck→AI 审核，未通过不自动修改，原因为修改意见；修改（revise）precheck→AI 改写剧本→AI 审核，未通过再修改一次（retryRounds 1，两轮），写入新剧本时版本递增并记修改历史。剧本模式创建项目后自动审核。提取剧集与提取人物在自身前置通过后要求剧本节点已生成且未过期。不支持 manual-edit。见 [项目-剧本](../meiji/dev_docs/dots/项目-剧本审核.md)。
+
 - 4 种节点数据状态为 empty、generated、rejected、expired；任务开始、失败或取消不写节点状态、不清除审核原因。任务状态独立读取当前关联任务或数据库最近记录；从未执行隐藏该行。剧本没有节点状态。
 - 入队不改节点状态，只保存原状态/原因；排队取消或作废按快照写回。上游变化更新节点本身，并同步更新排队快照中的 generated→expired。正文和媒体地址保留。
 - 仅 generated、结构有效且保存 hash 与当前依赖相符的节点可作为前置；空 hash 不视为有效。执行时重读当前 Model；不足记录 failed/precheck，不调用 AI，不自动补上游。
-- 故事大纲（outline）是将已有本集剧情完整拆为故事小段，不生成新剧情；两种模式均要求本集 plot 非空，先完整分段再估算时长，生成/修订/审核都以原文逐项回查。任务名称统一为“故事大纲”。
+- 故事大纲（outline）完整保留本集剧情；原剧情明显不足以自然撑满参考时长时，允许 AI 根据已有剧情补充合理情节，内容足够时不强行扩写。两种模式均要求本集 plot 非空；先判断内容量、规划原剧情与必要补充并锁定逐段预算，再写完整正文。生成/修订/审核统一保留原事件顺序、台词、核心事实及结局，不靠空等或重复凑时长；合规补充不因无逐句原文依据被拒绝。任务名称统一为“故事大纲”。
 - 剧本是制作工作流的输入资料；工作流包含提取剧集，不包含剧本生成或修改。
 - 单任务针对一个节点操作；文本 precheck→generate→程序审核→AI 审核，节点没有的审核跳过。程序审核或 AI 审核未通过时，按该节点重试轮次 revise→再审核；修订次数用尽后才是 rejected。生成/修订的可解析JSON缺必填字段由程序审核判未通过并修订；耗尽保留旧正式内容与hash。其余协议/结构/网络错误 failed，保留旧内容与历史；网络、接口失败原因不自动上传提示词。
 - 图片 precheck→generate，无审核。视频 precheck→generate→apply（校验、实测、截帧）→程序 review；每次 revise 后重复 apply/review，最多两次修订。独立 tail 已退役，last_frame 保留为视频配对产物。文件失败/取消不覆盖旧配对，不重试付费生成；审核耗尽保存最后配对为 rejected。合片为程序任务，输入文件在 precheck 校验，无审核或自动修订。视频人工导入为 precheck→manual_edit→apply，其余人工编辑与 override 为两步，均不调用 AI；manual_edit 校验结构，override 只对 rejected 文本跳过 AI 审核，结构及程序时长审核仍须通过。

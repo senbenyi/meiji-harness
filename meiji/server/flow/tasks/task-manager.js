@@ -314,8 +314,8 @@ export class TaskService {
     const previous = business === "script-split"
       ? s.tasks.filter(t => t.business_type === business && t.target_id === id).sort((a,b)=>b.queue_order-a.queue_order)[0]
       : null;
-    // 剧本审核的未通过原因是给剧本的修改意见，重新审核不把它当作本次审核要求。
-    const rejectedReason = business === "script-review" ? ""
+    // 剧本的未通过原因是给剧本的修改意见：按意见修改时带上，重新审核不把它当作本次审核要求。
+    const rejectedReason = business === "script-review" && action !== "revise" ? ""
       : node?.node_state.status === "rejected" ? node.node_state.reason
       : previous?.task_status === "rejected" ? previous.end_reason : "";
     if (["generate", "regenerate", "revise", "continue"].includes(action) && rejectedReason && !opinion.includes(rejectedReason))
@@ -556,7 +556,9 @@ export class TaskService {
               pending.step_status = "cancelled";
               pending.ended_at = now();
             }
-            if (step.round < BUSINESS_DEFINITIONS[t.business_type].retryRounds) {
+            // 剧本审核任务只审核；只有按意见修改的任务才在未通过时继续修改。
+            const reviewOnly = t.business_type === "script-review" && t.action !== "revise";
+            if (!reviewOnly && step.round < BUSINESS_DEFINITIONS[t.business_type].retryRounds) {
               const round = step.round + 1;
               let seq = Math.max(...s.steps.filter(x => x.task_id === id).map(x => x.seq));
               s.steps.push(newStep(t, ++seq, "revise", round));

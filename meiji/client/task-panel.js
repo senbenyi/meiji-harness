@@ -5,8 +5,9 @@ import { editor, readable } from "./content-forms.js";
 import { renderOverview, renderEpisode, backHeader } from "./project-ui.js";
 import { renderResource, blankCharacter } from "./resource-ui.js";
 import { renderHistory } from "./history-ui.js";
+import { renderSkillDetail } from './skill-detail.js';
 import { element, showPanelDialog, appendJsonCopy } from "./panel-dom.js";
-import { sendCommand } from "./task-client.js";
+import { sendCommand, request } from "./task-client.js";
 const labels = {
   empty: "未生成",
   generated: "已生成",
@@ -36,7 +37,7 @@ function blockingDialog(root, message) {
   close.focus();
 }
 const names = {
-  "script-review": "剧本审核",
+  "script-review": "剧本",
   "project-summary": "项目摘要",
   "project-characters": "角色库",
   "episode-summary": "展示摘要",
@@ -170,6 +171,9 @@ export function renderTaskPanel(root, snapshot, context) {
     const taskRow = taskStatusRow(latest);
     const buttonBox = element("div", "", "node-ui-buttons");
     for (const item of buttons) buttonBox.append(item);
+    if (!readOnly && NODE_DEFINITIONS[business] && !NODE_DEFINITIONS[business].retired &&
+        !['assembly', 'tail', 'first-last-frame', 'multimodal'].includes(business))
+      buttonBox.append(button('查看规则', () => openRules(business, id), false));
     actions.append(buttonBox);
     if (taskRow) actions.append(taskRow);
     ui.append(actions);
@@ -223,13 +227,7 @@ export function renderTaskPanel(root, snapshot, context) {
       }
       card.append(asset);
     } else if (business === "script-review") {
-      // 未通过时修改意见已显示在原因区，这里只列判断依据；放行后仍保留修改意见供参考。
-      const rows = !node.has_result ? ["尚未审核"] : [
-        `剧情连续：${node.story_continuous ? "是" : "否"}。${node.continuity}`,
-        `适合拍摄：${node.filmable ? "是" : "否"}。${node.filmability}`,
-        ...(node.suggestions && node.node_state.status !== "rejected" ? [`修改意见：${node.suggestions}`] : []),
-      ];
-      for (const row of rows) card.append(element("p", row, "prompt full"));
+      // 剧本节点的正文在剧本详情页展示，卡片只放公共节点 UI。
     } else if (business === 'shot-characters') {
       card.append(element('p', !node.has_result ? '尚未识别' : !node.on_screen_characters.length
         ? (node.node_state.status === 'generated' ? '已确认无人出镜' : '候选：无人出镜')
@@ -251,10 +249,10 @@ export function renderTaskPanel(root, snapshot, context) {
           "prompt full",
         ),
       );
-    if (typeof node.body === "string") appendJsonCopy(card, node.body);
+    if (typeof node.body === "string" && business !== "script-review") appendJsonCopy(card, node.body);
     const program = ["first-last-frame", "multimodal", "assembly"].includes(business);
     const isPack = ["first-last-frame", "multimodal"].includes(business);
-    const hasOutput = isPack ? Boolean(node.prompt.trim()) : hasContent(node),
+    const hasOutput = isPack ? Boolean(node.prompt.trim()) : business === "script-review" ? node.node_state.status !== "empty" : hasContent(node),
       typedOpinion = () => (state.opinions?.[`${business}:${id}`] || "").trim(),
       generate = (opinion = "", revise = false) => {
         const text = [opinion, typedOpinion()].filter(Boolean).join("\n");
@@ -282,11 +280,11 @@ export function renderTaskPanel(root, snapshot, context) {
       (node.node_state.status === "rejected" || latest?.task_status === "rejected");
     const reviewReason = node.node_state.reason || (latest?.task_status === "rejected" ? latest.end_reason : "") || "";
     const quiet = ["project-summary", "episode-summary"].includes(business);
-    // 剧本审核只评估剧本：可重新审核和人工放行，不修订、不修复、不人工编辑审核结论。
+    // 剧本节点：审核、重新审核、人工放行；未通过时原因下方为「修改」（按审核意见修改剧本后再审核），不提供原结果修订和人工编辑。
     const reviewOnly = business === "script-review";
     const buttons = [];
-    const repair = rejectedText && !program && !reviewOnly && !active && !readOnly && reviewReason.trim()
-      ? button("修复", () => generate(reviewReason, hasOutput)) : null;
+    const repair = rejectedText && !program && !active && !readOnly && reviewReason.trim()
+      ? button(reviewOnly ? "修改" : "修复", () => generate(reviewReason, hasOutput)) : null;
     if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : reviewOnly ? (hasOutput ? "重新审核" : "AI审核") : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
     if (!program && !reviewOnly && !active && !readOnly && !rejectedText && hasOutput && (NODE_DEFINITIONS[business]?.handler === "text" || node.node_state.status === "rejected"))
       buttons.push(
@@ -424,6 +422,9 @@ export function renderTaskPanel(root, snapshot, context) {
     (url.includes("?") ? "&" : "?") +
     "session_id=" +
     encodeURIComponent(session_id);
+  const openRules = (business, id) => go('skill', {
+    rule_business: business, rule_target: id, rule_return: state.page,
+  });
   const env = {
     p,
     snapshot,
@@ -439,6 +440,7 @@ export function renderTaskPanel(root, snapshot, context) {
     labels,
     names,
     onError,
+    openRules,
   };
   if (state.page === "overview") {
     const body = element("div", "", "session-body");
@@ -448,6 +450,20 @@ export function renderTaskPanel(root, snapshot, context) {
   else if (state.page === "character" || state.page === "characters")
     renderResource(root, env);
   else if (state.page === "history") renderHistory(root, env, snapshot);
+  else if (state.page === 'skill') {
+    const business = state.rule_business;
+    const supplement = business === 'outline'
+      ? p.episodes.find(e => e.id === state.rule_target)?.episode_requirements || ''
+      : ['costume-image', 'video'].includes(business) ? '' : p.creative_direction || '';
+    root.append(renderSkillDetail({
+      label: names[business] || business,
+      supplement,
+      opinion: state.opinions?.[`${business}:${state.rule_target}`] || '',
+    }, {
+      load: () => request('rules?' + new URLSearchParams({ session_id, project_id: p.id, business })),
+      back: () => go(state.rule_return || 'overview'),
+    }));
+  }
   else if (state.page === "script") {
     backHeader(root, "剧本详情", "返回项目概要", () => go("overview"));
     const card = element("section", "", "overview-card");

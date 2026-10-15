@@ -180,6 +180,7 @@
 
 | 项目 JSON 位置 | 节点 |
 |---|---|
+| `script.node_state` | 剧本节点状态；审核与按审核意见修改都是剧本节点的任务。节点内容为 `body` 等剧本字段 |
 | `project_summary.node_state` | 项目摘要状态。节点内容另有 `body`、`script_version` |
 | `character_library.node_state` | 角色库状态。节点内容另有 `characters[]` |
 | `character_library.characters[].costume_images[].node_state` | 定妆照状态。节点内容另有 `costume_id`、`address` |

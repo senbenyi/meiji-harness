@@ -78,7 +78,7 @@ test("v13迁移删除暂停列，完整保留项目、队列、历史与幂等�
     assert.deepEqual(restored.read(),before);
     assert.equal('queue_stopped' in restored.read().runtime,false);
     db=new DatabaseSync(join(root,'meiji.sqlite'));
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version,16);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version,18);
     assert.equal(db.prepare('PRAGMA table_info(projects)').all().some(c=>c.name==='queue_stopped'),false);
     assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
     assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');

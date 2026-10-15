@@ -1,0 +1,14 @@
+import { JSDOM } from "jsdom";
+const dom = new JSDOM("<main></main>", { url: "http://localhost" }); globalThis.document = dom.window.document;
+const { renderTaskPanel } = await import("/sessions/rcw-0157wvamcmngakokzmon5pfp/mnt/devin--meiji/meiji-harness/meiji/client/task-panel.js");
+const { snapshotFixture } = await import("/sessions/rcw-0157wvamcmngakokzmon5pfp/mnt/devin--meiji/meiji-harness/meiji/tests/fixtures/project.js");
+const snap = snapshotFixture(); snap.project.creation_mode = "剧本";
+Object.assign(snap.project.script.node_state, { status: "rejected", reason: "原因A" });
+snap.groups=[{id:'g',group_type:'single'}];
+snap.tasks = [{ id: "t1", name:"按审核意见修改剧本", group_id:'g', group_seq:1, business_type: "script-review", target_id: snap.project.id, action: "revise", task_status: "running", queue_order: 1, end_reason: "", opinion: "原因A" }];
+snap.steps=[];
+const root = document.querySelector("main");
+renderTaskPanel(root, snap, { session_id: "s", view: { page: "overview" }, refresh: async () => {}, paint: () => {}, onError: () => {} });
+const card = root.querySelector("[data-business=script-review]");
+console.log(card.querySelector(".node-ui").textContent.replace(/\s+/g," "));
+console.log([...card.querySelectorAll(".node-ui button")].map(b=>b.textContent));

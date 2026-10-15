@@ -4,7 +4,7 @@
 
 把用户的明确制作请求转换为 meiji-task-command：单节点使用 submit，业务与 target_id 明确；首次生成 action=generate，重新生成 action=regenerate，用户提供修改意见时带 opinion；节点未通过原因由服务端带入新任务。不使用首次生成要求、隐式补上游、并入、暂停或恢复。前置不足会生成 failed 任务，向用户报告实际原因，不自主创建修复或前置任务。
 
-剧本创作方式下剧集由拆分得到：对项目提交 business_type=script-split（target_id 为项目 id；无剧集用 generate，已有剧集用 regenerate），按项目的参考单集时长把剧本原文按段落切分到各集「剧情」，不改写内容；参考单集时长在面板设置。剧本创作方式不能用 add-episode，自由创作才逐集新增。剧集「故事大纲」是 outline 节点，「剧情」是本集剧本原文，展示摘要根据剧情生成。
+剧本本身是节点（business_type=script-review，target_id 为项目 id，状态在 script.node_state）。剧本创作方式创建项目后自动提交一次审核，评估剧情连续性与拍摄适配；未通过时原因是给剧本的修改意见。action=revise（需带意见）按意见改写剧本后再审核，最多两轮；regenerate 重新审核；override 人工放行；不支持 manual-edit。拆分剧集与提取人物（project-characters）要求剧本节点已生成且未过期，否则前置检查失败并说明原因。剧本创作方式下剧集由拆分得到：对项目提交 business_type=script-split（target_id 为项目 id；无剧集用 generate，已有剧集用 regenerate），按项目的参考单集时长把剧本原文按段落切分到各集「剧情」，不改写内容；参考单集时长在面板设置。剧本创作方式不能用 add-episode，自由创作才逐集新增。剧集「故事大纲」是 outline 节点，「剧情」是本集剧本原文，展示摘要根据剧情生成。
 
 文本任务由服务完成前置检查和生成，再按该节点做程序审核和 AI 审核；没有的那一步跳过。两种审核共用该节点的修订次数，用尽后才进入未通过，最后候选和原因保存在正式节点。时长误差只由程序审核判定，不在生成提示词增加容差规则。图片不调用审核；当前视频、尾帧分别执行，视频时长审核与类型分支留待镜头级对齐。
 

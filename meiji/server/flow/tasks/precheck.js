@@ -58,16 +58,17 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       invalid("precheck", "不能删除默认服装");
     return { passed: true };
   }
-  if (task.action === "generate" && node && hasNodeContent(p, task.business_type, task.target_id))
+  // 剧本节点的内容就是剧本，首次审核时已有内容。
+  if (task.action === "generate" && node && task.business_type !== "script-review" && hasNodeContent(p, task.business_type, task.target_id))
     invalid("precheck", "已有内容请重新生成");
   if (["regenerate", "revise"].includes(task.action) && node && !hasNodeContent(p, task.business_type, task.target_id))
     invalid("precheck", "未生成节点请使用生成");
   const business = task.business_type;
   // 提取剧集与提取人物以剧本审核通过（或人工放行）且剧本未变化为前提。
   const requireScriptReview = () => {
-    const review = p.script_review, status = review.node_state.status;
+    const status = p.script.node_state.status;
     if (status === "rejected")
-      invalid("precheck", `剧本审核未通过：${review.node_state.reason}。请按修改意见调整剧本，或在剧本审核中人工放行`);
+      invalid("precheck", `剧本审核未通过：${p.script.node_state.reason}。请在剧本上按审核意见修改，或人工放行`);
     if (!isNodeCurrent(snapshot, "script-review", p.id))
       invalid("precheck", status === "expired" ? "剧本已变化，请重新审核剧本" : "请先完成剧本审核");
   };

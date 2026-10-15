@@ -28,6 +28,55 @@ function fixture(mode, action = "generate") {
 }
 
 for (const mode of ["剧本", "自由创作"]) {
+  test(`${mode} 大纲生成、修订及审核允许按时长合理补充，保留原剧情约束`, () => {
+    const { p, e, task } = fixture(mode);
+    e.duration_seconds = 180;
+    for (const action of ["generate", "regenerate", "review"]) {
+      const rendered = renderTaskPrompt({ project: p, steps: [] }, task, e.story_outline, action);
+      assert.match(rendered.system, /明显不足|明显撑不满/);
+      assert.match(rendered.system, /补充.*合理情节|合理补充/);
+      assert.match(rendered.system, /内容足够时不强行扩写/);
+      assert.match(rendered.system, /原台词逐字保留|逐字核对原台词/);
+      assert.match(rendered.system, /不改变原事件结果|拒绝改变原事件结果/);
+      assert.doesNotMatch(rendered.system, /只拆分和整理原剧情，不续写|拒绝新增人物、动机、动作|唯一剧情事实来源|反查每段内容都有原文依据/);
+      assert.ok(rendered.messages[1].content.includes(e.plot));
+    }
+  });
+
+  test(`${mode} 按预算补充剧情的任务保留扩写正文且不改源剧情`, async () => {
+    const root = await mkdtemp(join(tmpdir(), "meiji-outline-expand-"));
+    try {
+      const { p, e } = fixture(mode);
+      e.duration_seconds = 180;
+      const expanded = { segments: [
+        { sequence: 1, duration_seconds: 30, body: e.plot, causal: "" },
+        { sequence: 2, duration_seconds: 150, body: "人物循着已有线索反复核对身边的物件，在试探与受阻中确认下一步行动。", causal: "承接原事件的行动与反应" },
+      ] };
+      const repository = new ModelRepository(root), model = await repository.create(p);
+      let reviewed = false;
+      const service = new TaskService({ repository, commitOutput: commitContent,
+        execute: createTextHandler({ chat: async ({ step, messages }) => {
+          if (step.kind === "review") {
+            reviewed = true;
+            assert.match(messages[0].content, /不能仅因合理补充没有原文逐句依据而判未通过/);
+            assert.ok(messages.some(message => message.content.includes(expanded.segments[1].body)));
+            return { 是否通过: true, 原因: "" };
+          }
+          return expanded;
+        } }),
+      });
+      const result = await service.command({ type: "submit", project_id: p.id, request_id: "expand", business_type: "outline", target_id: e.id, action: "generate" });
+      await service.idle(p.id);
+      const saved = model.read();
+      assert.equal(saved.tasks.find(task => task.id === result.task_id).task_status, "completed");
+      assert.equal(reviewed, true);
+      assert.equal(saved.project.episodes[0].plot, e.plot);
+      assert.equal(saved.project.script.body, p.script.body);
+      assert.equal(saved.project.episodes[0].duration_seconds, 180);
+      assert.deepEqual(saved.project.episodes[0].story_outline.segments, expanded.segments);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   test(`B-8 ${mode} 摘要的空/失败/过期/无效生成状态均不阻断剧情`, () => {
     const { p, task } = fixture(mode);
     for (const state of ["empty", "failed", "expired", "generated"]) {

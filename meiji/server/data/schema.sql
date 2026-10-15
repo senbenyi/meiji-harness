@@ -84,4 +84,6 @@ CREATE UNIQUE INDEX one_running_task ON tasks(project_id) WHERE task_status='run
 CREATE INDEX steps_project ON task_steps(project_id);
 INSERT INTO schema_migrations VALUES (15,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (16,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
-PRAGMA user_version=16;
+INSERT INTO schema_migrations VALUES (17,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+INSERT INTO schema_migrations VALUES (18,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+PRAGMA user_version=18;

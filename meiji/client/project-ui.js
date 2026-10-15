@@ -5,6 +5,7 @@ import { detailsDialog } from "./project-forms.js";
 import { element, tabs } from "./panel-dom.js";
 import { editor, readable } from "./content-forms.js";
 import { historyGroups } from "../shared/task-labels.js";
+import { videoType } from "../shared/video-inputs.js";
 const groupLabels = {
   empty: "未生成", queued: "排队中", running: "生成中", completed: "已通过",
   failed: "失败", rejected: "未通过", cancelled: "已取消", superseded: "已取消",
@@ -76,20 +77,24 @@ function stepTone(status) {
   if (status === "rejected" || status === "expired") return "failed";
   return "empty";
 }
-function packNode(shot) {
-  if (shot.video_generation_type === "首尾帧") return ["首尾帧", shot.first_last_frame_prompt];
-  if (shot.video_generation_type === "多模态") return ["多模态", shot.multimodal_prompt];
-  if (shot.video_generation_type === "文生") return ["文生", { node_state: { status: "generated" }, prompt: "文生，不编排额外提示词" }];
+function packNode(episode, shot) {
+  const type = shot.video_generation_type || videoType(episode, shot);
+  if (type === "首尾帧") return ["首尾帧", shot.first_last_frame_prompt];
+  if (type === "多模态") return ["多模态", shot.multimodal_prompt];
+  if (type === "文生") return ["文生", { node_state: { status: "generated" }, prompt: "文生，不编排额外提示词" }];
   return ["多模态/首尾帧", { node_state: { status: "empty" }, prompt: "" }];
 }
-function filmNodes(shot) {
+function filmNodes(episode, shot) {
   return [
     ["角色识别", shot.character_binding],
     ["每秒分镜", shot.seconds_storyboard],
     ["文本提示词", shot.text_to_video_prompt],
-    packNode(shot),
+    packNode(episode, shot),
     ["视频", shot.video],
   ];
+}
+function shotFilmEntry(listed, episode, shot) {
+  return listed.find((row) => row.group.group_type === "episode-film" && row.group.episode_id === episode.id && row.group.shot_ids?.length === 1 && row.group.shot_ids[0] === shot.id);
 }
 function taskGroupUi(status, message, buttons) {
   const ui = element("div", "", "task-group-ui"),
@@ -100,13 +105,15 @@ function taskGroupUi(status, message, buttons) {
   if (message) ui.append(element("p", message, "error"));
   return ui;
 }
-function shotStepRow(shot) {
+function shotStepRow(episode, shot) {
   const row = element("ol", "", "shot-steps");
-  filmNodes(shot).forEach(([name, node], index) => {
+  filmNodes(episode, shot).forEach(([name, node], index) => {
     const status = node?.node_state?.status || "empty";
     const item = element("li", "", `shot-step is-${stepTone(status)}`);
     item.title = nodeStatusLabels[status] || status;
-    item.append(element("span", String(index + 1), "shot-step-index"), element("span", name, "shot-step-name"));
+    const badge = element("span", "", "shot-step-index");
+    badge.append(element("span", String(index + 1)));
+    item.append(badge, element("span", name, "shot-step-name"));
     row.append(item);
   });
   return row;
@@ -143,12 +150,12 @@ function shotResultText(project, name, node) {
   if (name === "首尾帧" || name === "多模态") return clipPreview(node.prompt);
   return "未生成";
 }
-function shotResultStrip(project, shot, media) {
+function shotResultStrip(project, episode, shot, media) {
   const strip = element("div", "", "shot-results");
-  for (const [name, node] of filmNodes(shot)) {
+  for (const [name, node] of filmNodes(episode, shot)) {
     const card = element("article", "", "shot-result");
     const status = node?.node_state?.status || "empty";
-    card.append(element("h4", name, `shot-step is-${stepTone(status)}`));
+    card.append(element("h4", name, `is-${stepTone(status)}`));
     if (name === "视频" && node.address) {
       const video = element("video");
       video.src = media(node.address);
@@ -265,13 +272,12 @@ export function renderOverview(root, env) {
   arrow.className = "script-title-arrow";
   arrow.setAttribute("aria-label", "打开剧本详情");
   scriptRow.append(open, arrow);
-  script.append(scriptRow, element("p", `版本 ${p.script.version}`, "meta"));
-  // 剧本审核节点紧接剧本卡片下方，使用公共节点状态 UI。
+  script.append(scriptRow);
+  // 剧本本身是节点，审核与修改都是它的任务：剧本的有无即其数据状态，不展示状态标签；公共节点 UI 放在剧本信息下方。
   if (p.script.body.trim()) {
-    const review = nodeCard("script-review", p.id, p.script_review);
-    review.className = "overview-card script-review-card";
-    review.querySelector(".section-head").className = "overview-card-title";
-    view.append(review);
+    const node = nodeCard("script-review", p.id, p.script);
+    script.dataset.business = "script-review";
+    script.append(...node.querySelectorAll(":scope > .node-ui"));
   }
   const splitting = p.creation_mode === "剧本",
     latestSplitTask = splitting ? latestNodeTask(env.snapshot?.tasks || [], "script-split", p.id) : null,
@@ -339,6 +345,7 @@ export function renderOverview(root, env) {
     ));
     if (splitBusy) episodeButtons.append(button("取消", () => act({ type: "cancel", task_id: latestSplitTask.id }), false));
   }
+  if (splitting) episodeButtons.append(button('查看规则', () => env.openRules('script-split', p.id), false));
   episodeRow.append(episodeButtons);
   if (splitTaskRow) episodeRow.append(splitTaskRow);
   episodeUi.append(episodeRow);
@@ -609,7 +616,6 @@ export function renderEpisode(root, env, entries) {
         h = element("div", "", "outline-head"),
         title = element("div", "", "shot-card-title");
       title.append(element("h3", `${s.number} ${s.title} · ${s.duration_seconds}s`));
-      if (state.tab === "film") title.append(shotStepRow(s));
       h.append(title);
       if (state.tab === "film") h.append(
         button(
@@ -622,9 +628,32 @@ export function renderEpisode(root, env, entries) {
           false,
         ),
       );
+      const shotGroup = state.tab === "film" ? shotFilmEntry(listed, e, s) : null;
+      const shotReady = Boolean(s.video.address);
+      const shotBusy = Boolean(shotGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status)));
       card.append(
         h,
-        ...(state.tab === "film" ? [shotScript(s), shotResultStrip(p, s, media)] : []),
+        ...(state.tab === "film" ? [
+          taskGroupUi(
+            shotGroup?.status || "empty",
+            ["failed", "rejected"].includes(shotGroup?.status) ? stoppedNodeMessage(p, shotGroup.tasks) : "",
+            groupButtons(button, act, {
+              ready: shotReady,
+              busy: shotBusy,
+              resume: canResumeGroup(shotGroup, listed),
+              tasks: shotGroup?.tasks,
+              onPrimary: () => act({
+                type: "submit-group", group_type: "episode-film",
+                action: shotReady ? "regenerate" : "generate", episode_id: e.id, shot_id: s.id,
+              }),
+              onResume: () => act({ type: "continue-group", group_id: shotGroup.group.id }),
+              onHistory: () => go("history", { history_episode: e.id }),
+            }),
+          ),
+          shotStepRow(e, s),
+          shotScript(s),
+          shotResultStrip(p, e, s, media),
+        ] : []),
       );
       if (state.tab === "shots")
         card.append(element("p", readable({

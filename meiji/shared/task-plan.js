@@ -20,6 +20,8 @@ export function stepKinds(task) {
   if (task.business_type === 'video' && task.action === 'manual_edit') return ['precheck', 'manual_edit', 'apply'];
   if (["manual_edit", "override"].includes(task.action))
     return ["precheck", task.action];
+  // 剧本审核只审核当前剧本，不改写；按意见修改（revise）才先改写剧本再审核。
+  if (task.business_type === "script-review" && task.action !== "revise") return ["precheck", "review"];
   return ["precheck", "generate", ...(task.business_type === 'video' ? ['apply'] : []), ...reviewTypes(task).map(() => "review")];
 }
 export function newStep(task, seq, kind, round = 0, reviewer = null) {

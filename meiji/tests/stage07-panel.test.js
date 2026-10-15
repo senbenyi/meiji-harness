@@ -325,7 +325,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     );
     assert.equal(cardOf("剧本").querySelector(".status-label"), null);
     assert.equal(titled("提取人物").querySelector(".node-data-tag").textContent, "未生成");
-    assert.deepEqual(labelsOf(titled("提取人物")), ["AI生成", "人工编辑", "任务历史"]);
+    assert.deepEqual(labelsOf(titled("提取人物")), ["AI生成", "人工编辑", "任务历史", "查看规则"]);
     assert.equal(titled("生成定妆照").querySelector(".node-ui-status").textContent, "未生成");
     assert.equal(titled("生成定妆照").querySelector("input"), null);
     assert.ok(cardOf("剧集").querySelector("[aria-label=重新生成]"));
@@ -348,7 +348,8 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     assert.equal(cardOf("剧集").querySelector("[aria-label=重新生成]"), null);
     assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "取消"));
     assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "任务历史"));
-    assert.deepEqual(labelsOf(cardOf("剧本")), []);
+    // 剧本本身是剧本审核节点，剧本卡片带审核按钮。
+    assert.deepEqual(labelsOf(cardOf("剧本")), ["重新审核", "任务历史", "查看规则"]);
     project.creation_mode = "自由创作";
     project.project_summary.node_state.status = "rejected";
     project.project_summary.node_state.reason = "摘要缺少结局";
@@ -388,7 +389,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     );
     assert.equal(titled("提取人物").querySelector(".node-data-tag").textContent, "未通过");
     assert.ok(titled("提取人物").textContent.includes("未通过"));
-    assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "人工编辑", "人工放行", "任务历史"]);
+    assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "人工编辑", "人工放行", "任务历史", "查看规则"]);
     assert.equal(titled("提取人物").querySelector('.node-ui-repair-row button').textContent, '修复');
   } finally {
     globalThis.document = previous;

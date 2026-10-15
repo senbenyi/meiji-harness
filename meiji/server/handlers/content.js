@@ -39,8 +39,9 @@ export function prepareContent(snapshot, task, raw) {
       if (row.costume_number && !costume || person.costumes.length && !costume) invalid("镜头角色识别", "需指定该人物的有效服装编号");
       return { character_id: person.id, costume_id: costume?.id || '' };
     }) };  } else if (business === "script-review") {
-    content = { has_result: true, story_continuous: raw.story_continuous, continuity: raw.continuity.trim(),
-      filmable: raw.filmable, filmability: raw.filmability.trim(), suggestions: raw.suggestions.trim() };
+    // 按审核意见改写后的完整剧本。
+    if (typeof raw !== "string" || !raw.trim()) invalid("剧本", "修改后的剧本为空");
+    content = { body: raw.trim() };
   } else if (["project-summary", "episode-summary"].includes(business)) {
     if (typeof raw !== "string" || !raw.trim()) invalid(business, "摘要内容为空");
     content = { body: raw.trim() };
@@ -104,6 +105,20 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
     return [];
   }
   const node = nodeOf(project, business, task.target_id);
+  if (business === "script-review") {
+    // 审核任务没有正文产出；修改任务写入新剧本，版本递增并记录修改历史。
+    if (content?.body && content.body !== node.body) {
+      node.body = content.body;
+      node.version += 1;
+      node.updated_at = new Date().toISOString();
+      node.revision_history.push({ timestamp: node.updated_at, task_id: task.id, revision_notes: task.opinion || "" });
+    }
+    validateProject(project);
+    if (!passed) return [];
+    assertOutput(project, business, task.target_id);
+    stampDependencyHash(snapshot, business, task.target_id);
+    return [];
+  }
   if (business === "project-characters") {
     node.characters = structuredClone(content.characters);
     // 即使没有角色增量，也补齐每个角色的图片槽位；槽位不是虚构的服装资料。

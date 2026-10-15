@@ -3,7 +3,6 @@ export { emptyNodeStateModel } from "./node_state_model.js";
 export { emptyProjectSummaryModel } from "./project_summary_model.js";
 export { emptyScriptRevisionModel } from "./script_revision_model.js";
 export { emptyScriptModel } from "./script_model.js";
-export { emptyScriptReviewModel } from "./script_review_model.js";
 export { emptyCostumeImageModel } from "./costume_image_model.js";
 export { emptyReferenceImageModel } from "./reference_image_model.js";
 export { emptyCostumeModel } from "./costume_model.js";
