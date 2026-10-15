@@ -5,7 +5,7 @@ import {
   locateTarget,
   invalid,
 } from "../../../shared/task_contract.js";
-import { assertOutput, assertProgramReview, hasNodeContent, TEXT_BUSINESSES } from "../../../shared/node-state.js";
+import { assertOutput, assertOverride, hasNodeContent, TEXT_BUSINESSES } from "../../../shared/node-state.js";
 import { NODE_DEFINITIONS } from "../../../shared/node-definitions.js";
 import { isNodeCurrent } from "../../../shared/node-dependencies.js";
 
@@ -34,7 +34,7 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       original !== "rejected"
     )
       invalid("precheck", "只允许放行结构有效的未通过文本");
-    assertProgramReview(p, task.business_type, task.target_id);
+    assertOverride(p, task.business_type, task.target_id);
     return { passed: true };
   }
   if (task.action === "manual_edit") return { passed: true };
@@ -63,6 +63,14 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
   if (["regenerate", "revise"].includes(task.action) && node && !hasNodeContent(p, task.business_type, task.target_id))
     invalid("precheck", "未生成节点请使用生成");
   const business = task.business_type;
+  // 提取剧集与提取人物以剧本审核通过（或人工放行）且剧本未变化为前提。
+  const requireScriptReview = () => {
+    const review = p.script_review, status = review.node_state.status;
+    if (status === "rejected")
+      invalid("precheck", `剧本审核未通过：${review.node_state.reason}。请按修改意见调整剧本，或在剧本审核中人工放行`);
+    if (!isNodeCurrent(snapshot, "script-review", p.id))
+      invalid("precheck", status === "expired" ? "剧本已变化，请重新审核剧本" : "请先完成剧本审核");
+  };
   if (business === "script-split") {
     if (!p.script.body.trim()) invalid("precheck", "剧本为空");
     if (!Number.isInteger(p.reference_episode_duration_seconds) || p.reference_episode_duration_seconds < 1)
@@ -149,5 +157,7 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     if (!check) invalid("precheck", `未定义节点前置检查：${precheckKey}`);
     check();
   }
+  // 节点自身前置通过后再核对剧本审核，剧本为空等原有原因优先提示。
+  if (["script-split", "project-characters"].includes(business)) requireScriptReview();
   return { passed: true, business_type: business, target_id: task.target_id };
 }

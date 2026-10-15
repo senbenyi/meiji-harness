@@ -23,8 +23,10 @@ for (const status of ['queued', 'running', 'failed', 'completed', 'cancelled', '
       assert.equal(card.querySelector('.episode-head'), null);
       assert.deepEqual([...actions.children].map((node) => node.className), ['node-ui-buttons', 'node-ui-task-status']);
       assert.deepEqual([...actions.querySelectorAll('button')].map(button => button.textContent), ['queued', 'running'].includes(status) ? ['任务历史', '取消'] : ['重新生成', '任务历史']);
-      const notice = status === 'failed' ? card.querySelector('.node-ui-task-status') : card.querySelector('.node-ui .error');
+      const notice = card.querySelector('.node-ui .error');
       if (status === 'failed') {
+        assert.equal(card.querySelector('.node-ui-task-status').textContent, '最新任务：失败');
+        assert.equal(card.querySelector('.node-ui-opinion').nextElementSibling, notice);
         assert.match(notice.textContent, /模型没有返回有效JSON/);
         assert.doesNotMatch(notice.textContent, /旧错误/);
       } else {

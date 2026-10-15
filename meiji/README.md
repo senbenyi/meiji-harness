@@ -18,7 +18,7 @@ DeepSeek Harness 短剧制作插件。按项目 Model 保存剧本、角色与�
 
 图片和视频沿用现有网关协议，尾帧和合片使用 FFmpeg，所有产物在保存前校验。停止视频任务只停止本地等待，网关不提供远端取消接口。不要同时运行多个写入同一 DSH_HOME 的实例。
 
-设置页提供「语言」和「模型」卡片，选择后自动保存，不绑定当前项目。语言和模型只作用于之后的生成，不改写已有内容。文本可选 `elysium-chat`、「Qwen3.5 27B」（本地 HTTP `qwen3.5:27b`）或「GPT（Codex 套餐）」。聊天与制作文本共同读取 `SettingsModel` 的文本选择。图片可选 `elysium-image` 或「GPT（Codex 套餐）」（`gpt-image`，经 `textBaseUrl` 调用 llm-server `POST /v1/images/generations`，不使用媒体密钥）。视频选项名为 `elysium-video`。界面不再编辑地址、密钥或自由模型名。
+设置页提供「语言」和「模型」卡片，选择后自动保存，不绑定当前项目。语言和模型只作用于之后的生成，不改写已有内容。文本固定为「Qwen3.5 27B」（本地 HTTP `qwen3.5:27b`）或「GPT（Codex 套餐）」（`codex-gpt`）。聊天与制作文本共同读取 `SettingsModel` 的文本选择。图片可选「krea2 turbo V2.5」（默认，经 `textBaseUrl` 调用 llm-server `POST /v1/images/comfy`）或「GPT（Codex 套餐）」（`gpt-image`，`POST /v1/images/generations`）。两者都不使用媒体密钥。视频选项名为 `elysium-video`。界面不再编辑地址、密钥或自由模型名。
 
 连接配置仍在 `$DSH_HOME/storages/meiji/models.json`：`baseUrl/apiKey` 为网关，`textBaseUrl` 为独立 [llm-server](../../llm-server/README.md) 的 HTTP 接口（默认 `http://127.0.0.1:11435/v1`，由该服务管理 SSH 隧道并连接 CloudGPU Ollama）。本地请求仅使用占位密钥 `ollama`。`text/image/video.model` 为设置 Model 的唯一选择来源；旧 `chat/story` 已移除。已有配置执行 `node meiji/scripts/migrate-settings-model.js`（可传 DSH_HOME 路径）后重启：先备份，保留地址、密钥、并发配置及当前文本选择；不更改项目数据。未知模型配置迁移时直接报错，需明确修正，不作运行时兜底。
 
@@ -48,7 +48,7 @@ DeepSeek Harness 短剧制作插件。按项目 Model 保存剧本、角色与�
 
 路由只返回候选，不提交正式项目或创建任务。现有面板仍通过任务命令执行前置检查、审核、修订和项目事务。任务 Handler 与 HTTP 路由调用同一个节点执行函数，避免服务内部再发 HTTP。
 
-运行时每次读取当前选择的模型一次；`elysium-chat` 和 `qwen3.5:27b` 分别使用 `server/http/elysium/`、`server/http/llm-server/` 的单例与参数组装。PromptModel 不持有输出格式，提示词和响应校验共同引用路由输出契约。请求历史保留当次业务输入、模型、提示词及脱敏 HTTP 记录。
+运行时每次读取当前选择的模型一次；`qwen3.5:27b` 与 `codex-gpt` 都使用 `server/http/llm-server/` 的单例与参数组装，`server/http/elysium/` 文本客户端已不在设置选项中。PromptModel 不持有输出格式，提示词和响应校验共同引用路由输出契约。请求历史保留当次业务输入、模型、提示词及脱敏 HTTP 记录。
 
 ### HTTP 阶段契约（2026-10-14）
 

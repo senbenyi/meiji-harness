@@ -7,7 +7,7 @@ import { chatParameters } from '../server/http/llm-server/params.js';
 import { renderPrompt } from '../server/prompts/render.js';
 import { textProvider } from '../server/prompts/providers.js';
 
-const settings = { text: { model: 'codex-gpt' }, image: { model: 'elysium-image' }, video: { model: 'elysium-video' }, baseUrl: 'https://gateway.test/v1', textBaseUrl: 'http://localhost:11435/v1', apiKey: 'private-media-key' };
+const settings = { text: { model: 'codex-gpt' }, image: { model: 'gpt-image' }, video: { model: 'elysium-video' }, baseUrl: 'https://gateway.test/v1', textBaseUrl: 'http://localhost:11435/v1', apiKey: 'private-media-key' };
 test('GPT设置、路由与制作HTTP使用本地桥接，不将网关密钥传给Codex', async () => {
   assert.equal(new SettingsModel(settings).text.model, 'codex-gpt');
   assert.ok(modelOptions.text.some(x => x.value === 'codex-gpt' && x.label.includes('GPT')));

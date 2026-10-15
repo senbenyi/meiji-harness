@@ -1,4 +1,4 @@
-import { TEXT_BUSINESSES, assertProgramReview } from "../../shared/node-state.js";
+import { TEXT_BUSINESSES, assertProgramReview, assertOverride } from "../../shared/node-state.js";
 import { locateTarget } from "../../shared/task_contract.js";
 import { validateNodeResult } from "../http/ai-routes.js";
 import { prepareContent, commitContent } from "./content.js";
@@ -32,7 +32,7 @@ export function createHandlerRegistry({ text, media, videoPrompt }) {
       if (step.kind === "apply") return { content: { delete_id: object.id }, result: { deleted_id: object.id } };
     }
     if (task.action === "override") {
-      assertProgramReview(project, business, task.target_id);
+      assertOverride(project, business, task.target_id);
       return { content: null, result: { override: true } };
     }
     if (task.action === "manual_edit" && TEXT_BUSINESSES.includes(business)) {

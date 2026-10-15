@@ -195,7 +195,7 @@ test('v14 新库为空；v8 明确拒绝且不修改项目、不生成迁移备�
     await repo.list();
     const path = join(root, 'meiji.sqlite');
     let db = new DatabaseSync(path);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 15);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 16);
     for (const table of ['projects', 'task_groups', 'tasks', 'task_steps']) assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n, 0);
     db.close();
     await repo.create(fixtureProject()); await repo.close();
@@ -232,7 +232,7 @@ test('v9 删除项目规则并重写已生成镜头文本指纹', async () => {
     store.close();
     db = new DatabaseSync(path);
     const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 15);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 16);
     assert.equal(Object.hasOwn(opened, 'rules'), false);
     assert.equal(Object.hasOwn(opened, 'output_language'), false);
     assert.equal(opened.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.dependency_hash, dependencyHash({ project: opened, tasks: [], steps: [] }, 'seconds', shot.id));
@@ -262,7 +262,7 @@ test('v10 删除项目语言并重写已生成镜头文本指纹，正文保持�
     db = new DatabaseSync(path);
     const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
     const openedShot = opened.episodes[0].shot_list.shots[0];
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 15);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 16);
     assert.equal(Object.hasOwn(opened, 'output_language'), false);
     assert.equal(openedShot.seconds_storyboard.storyboard[0].action, body);
     assert.equal(openedShot.seconds_storyboard.node_state.status, 'expired');

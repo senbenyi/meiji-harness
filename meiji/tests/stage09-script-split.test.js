@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { emptyProject, emptyEpisode } from "../shared/project_contract.js";
+import { approveScriptReview } from "./fixtures/project.js";
 import { precheck } from "../server/flow/tasks/precheck.js";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { TaskService } from "../server/flow/tasks/task-manager.js";
@@ -115,7 +116,7 @@ test("拆分校验：按段落原文写入各集，遗漏、重叠、倒序、�
 function scriptProject() {
   const p = emptyProject({ name: "武松", creation_mode: "剧本" });
   p.script.body = script;
-  return p;
+  return approveScriptReview(p);
 }
 
 test("会话拆分自动启动，执行中面板重复提交复用同一任务", async () => {

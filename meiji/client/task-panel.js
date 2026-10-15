@@ -1,4 +1,4 @@
-import { latestNodeTask, taskStatusRow } from './node-task-status.js';
+import { latestNodeTask, taskStatusRow, taskFailureRow } from './node-task-status.js';
 import { NODE_DEFINITIONS } from '../shared/node-definitions.js';
 import { bindingNumbers } from '../shared/shot-text-inputs.js';
 import { editor, readable } from "./content-forms.js";
@@ -36,6 +36,7 @@ function blockingDialog(root, message) {
   close.focus();
 }
 const names = {
+  "script-review": "剧本审核",
   "project-summary": "项目摘要",
   "project-characters": "角色库",
   "episode-summary": "展示摘要",
@@ -152,7 +153,7 @@ export function renderTaskPanel(root, snapshot, context) {
       } else b.onclick = () => Promise.resolve(fn()).catch(() => {});
       return b;
     };
-  const nodeUi = ({ business, id, node, buttons, readOnly = false, opinion = !readOnly }) => {
+  const nodeUi = ({ business, id, node, buttons, repair = null, readOnly = false, opinion = !readOnly }) => {
     const key = `${business}:${id}`;
     if (state.opinionPending?.[key]) {
       const tasks = snapshot.tasks.filter((task) => task.business_type === business && task.target_id === id);
@@ -181,8 +182,15 @@ export function renderTaskPanel(root, snapshot, context) {
       input.oninput = () => { state.opinions[key] = input.value; };
       ui.append(input);
     }
+    const failureRow = taskFailureRow(latest);
+    if (failureRow) ui.append(failureRow);
     if (node.node_state.status === "rejected" && node.node_state.reason)
       ui.append(element("p", `未通过原因：${node.node_state.reason}`, "error node-ui-reason"));
+    if (repair) {
+      const row = element("div", "", "node-ui-buttons node-ui-repair-row");
+      row.append(repair);
+      ui.append(row);
+    }
     return ui;
   };
   const nodeCard = (business, id, node, { readOnly = false } = {}) => {
@@ -214,6 +222,14 @@ export function renderTaskPanel(root, snapshot, context) {
         };
       }
       card.append(asset);
+    } else if (business === "script-review") {
+      // 未通过时修改意见已显示在原因区，这里只列判断依据；放行后仍保留修改意见供参考。
+      const rows = !node.has_result ? ["尚未审核"] : [
+        `剧情连续：${node.story_continuous ? "是" : "否"}。${node.continuity}`,
+        `适合拍摄：${node.filmable ? "是" : "否"}。${node.filmability}`,
+        ...(node.suggestions && node.node_state.status !== "rejected" ? [`修改意见：${node.suggestions}`] : []),
+      ];
+      for (const row of rows) card.append(element("p", row, "prompt full"));
     } else if (business === 'shot-characters') {
       card.append(element('p', !node.has_result ? '尚未识别' : !node.on_screen_characters.length
         ? (node.node_state.status === 'generated' ? '已确认无人出镜' : '候选：无人出镜')
@@ -261,19 +277,27 @@ export function renderTaskPanel(root, snapshot, context) {
       };
     const currentTask = snapshot.tasks.find((task) => task.business_type === business && task.target_id === id && ["queued", "running"].includes(task.task_status));
     const active = Boolean(currentTask);
+    const latest = latestNodeTask(snapshot.tasks, business, id);
+    const rejectedText = NODE_DEFINITIONS[business]?.handler === "text" &&
+      (node.node_state.status === "rejected" || latest?.task_status === "rejected");
+    const reviewReason = node.node_state.reason || (latest?.task_status === "rejected" ? latest.end_reason : "") || "";
     const quiet = ["project-summary", "episode-summary"].includes(business);
+    // 剧本审核只评估剧本：可重新审核和人工放行，不修订、不修复、不人工编辑审核结论。
+    const reviewOnly = business === "script-review";
     const buttons = [];
-    if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
-    if (!program && !active && !readOnly && hasOutput && (NODE_DEFINITIONS[business]?.handler === "text" || node.node_state.status === "rejected"))
+    const repair = rejectedText && !program && !reviewOnly && !active && !readOnly && reviewReason.trim()
+      ? button("修复", () => generate(reviewReason, hasOutput)) : null;
+    if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : reviewOnly ? (hasOutput ? "重新审核" : "AI审核") : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
+    if (!program && !reviewOnly && !active && !readOnly && !rejectedText && hasOutput && (NODE_DEFINITIONS[business]?.handler === "text" || node.node_state.status === "rejected"))
       buttons.push(
         button("原结果修订", () =>
           editor(
             root,
             "原结果修订",
-            node.node_state.reason,
+            reviewReason,
             (opinion) => {
               if (!opinion.trim()) throw new Error("请输入修改意见");
-              return generate(opinion.trim(), true);
+              return generate(opinion.trim(), hasOutput);
             },
             { json: false },
           ),
@@ -317,7 +341,7 @@ export function renderTaskPanel(root, snapshot, context) {
       };
       card.append(upload);
     }
-    if (!program && !active && !readOnly && !quiet) buttons.push(
+    if (!program && !reviewOnly && !active && !readOnly && !quiet) buttons.push(
       button("人工编辑", () =>
         isMedia
           ? upload.click()
@@ -379,7 +403,7 @@ export function renderTaskPanel(root, snapshot, context) {
     titles.append(element("span", labels[node.node_state.status] || node.node_state.status, "node-data-tag"));
     head.append(titles);
     card.prepend(head);
-    card.insertBefore(nodeUi({ business, id, node, buttons, readOnly, opinion: !readOnly && !program }), head.nextSibling);
+    card.insertBefore(nodeUi({ business, id, node, buttons, repair, readOnly, opinion: !readOnly && !program }), head.nextSibling);
     return card;
   };
   root.replaceChildren();

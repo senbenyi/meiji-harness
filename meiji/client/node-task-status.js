@@ -6,6 +6,10 @@ export function latestNodeTask(tasks,business,id) {
 }
 export function taskStatusRow(task) {
   if(!task)return null;
-  const failure=task.task_status==='failed'&&task.end_reason?`，原因：${task.end_reason}`:'';
-  return element('p',`最新任务：${labels[task.task_status]||task.task_status}${failure}`,'node-ui-task-status');
+  return element('p',`最新任务：${labels[task.task_status]||task.task_status}`,'node-ui-task-status');
+}
+export function taskFailureRow(task) {
+  return task?.task_status === 'failed' && task.end_reason
+    ? element('p', `失败原因：${task.end_reason}`, 'error node-ui-reason node-ui-failure')
+    : null;
 }

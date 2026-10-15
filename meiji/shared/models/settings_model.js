@@ -4,8 +4,8 @@ export const languageOptions = [
   { value: 'en', label: 'English（英文）' },
 ]
 export const modelOptions = {
-  text: [{ value: 'codex-gpt', label: 'GPT（Codex 套餐）' }, { value: 'elysium-chat', label: 'elysium-chat' }, { value: 'qwen3.5:27b', label: 'Qwen3.5 27B' }],
-  image: [{ value: 'gpt-image', label: 'GPT（Codex 套餐）' }, { value: 'elysium-image', label: 'elysium-image' }],
+  text: [{ value: 'qwen3.5:27b', label: 'Qwen3.5 27B' }, { value: 'codex-gpt', label: 'GPT（Codex 套餐）' }],
+  image: [{ value: 'krea2 turbo V2.5', label: 'krea2 turbo V2.5' }, { value: 'gpt-image', label: 'GPT（Codex 套餐）' }],
   video: [{ value: 'elysium-video', label: 'elysium-video' }],
 }
 export class SettingsModel {

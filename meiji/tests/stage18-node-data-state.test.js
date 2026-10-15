@@ -40,7 +40,7 @@ for (const outcome of ['failed','cancelled']) test(`任务${outcome}保留原未
   }finally{release?.();await service?.dispose();await repo.close();await rm(root,{recursive:true,force:true});}
 });
 
-test('节点四行顺序，失败原因与审核原因独立；从未执行隐藏任务行',()=>{
+test('失败原因与审核原因在意见下分行展示；从未执行隐藏任务行',()=>{
   const dom=new JSDOM('<main></main>'),previous=globalThis.document;
   globalThis.document=dom.window.document;
   try{
@@ -51,12 +51,13 @@ test('节点四行顺序，失败原因与审核原因独立；从未执行隐�
     assert.equal(paint().querySelector('.node-ui-task-status'),null);
     s.tasks=[{id:'old',business_type:'episode-summary',target_id:e.id,task_status:'failed',end_reason:'网络超时',queue_order:1}];
     let card=paint(),ui=card.querySelector('.node-ui');
-    assert.deepEqual([...ui.children].map(x=>x.className),['workflow-generation-row','node-ui-opinion','error node-ui-reason']);
+    assert.deepEqual([...ui.children].map(x=>x.className),['workflow-generation-row','node-ui-opinion','error node-ui-reason node-ui-failure','error node-ui-reason','node-ui-buttons node-ui-repair-row']);
     assert.equal(card.querySelector('.section-titles .node-data-tag').textContent,'未通过');
     assert.equal(ui.querySelector('.node-ui-status'),null);
     assert.deepEqual([...ui.querySelector('.workflow-generation-row').children].map(x=>x.className),['node-ui-buttons','node-ui-task-status']);
-    assert.equal(ui.querySelector('.node-ui-task-status').textContent,'最新任务：失败，原因：网络超时');
-    assert.equal(ui.children[2].textContent,'未通过原因：缺少动作');
+    assert.equal(ui.querySelector('.node-ui-task-status').textContent,'最新任务：失败');
+    assert.equal(ui.children[2].textContent,'失败原因：网络超时');
+    assert.equal(ui.children[3].textContent,'未通过原因：缺少动作');
     s.tasks.push({id:'current',business_type:'episode-summary',target_id:e.id,task_status:'queued',queue_order:2});
     assert.equal(paint().querySelector('.node-ui-task-status').textContent,'最新任务：排队中');
     assert.equal(latestNodeTask(s.tasks,'episode-summary',e.id).id,'current');
@@ -95,7 +96,7 @@ test('v14到v15事务迁移落盘且只执行一次',async()=>{
     const legacy=structuredClone(before.project);legacy.episodes[0].summary.node_state.status='failed';legacy.episodes[0].summary.node_state.fail_message='旧连接失败';
     const db=new DatabaseSync(join(root,'meiji.sqlite'));
     db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy),p.id);
-    db.exec('DELETE FROM schema_migrations WHERE version=15; PRAGMA user_version=14');db.close();
+    db.exec('DELETE FROM schema_migrations WHERE version>=15; PRAGMA user_version=14');db.close();
     repo=new ModelRepository(root);
     const migrated=(await repo.open(p.id)).read();
     assert.equal(migrated.project.episodes[0].summary.node_state.status,'generated');

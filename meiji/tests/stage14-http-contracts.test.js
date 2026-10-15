@@ -49,7 +49,7 @@ test('视频错误类型/素材/时长/修订意见在读取配置前拒绝', as
 });
 
 test('镜头识别三动作共用两个来源契约并校验编号归属，无人是合法候选', async () => {
-  for (const model of ['elysium-chat', 'qwen3.5:27b']) {
+  for (const model of ['codex-gpt', 'qwen3.5:27b']) {
     let response = { on_screen_characters: [{ character_number: 'C1', costume_number: 'C1F1' }] };
     const ai = createAiRoutes({ readConfig: async () => ({ ...config, text: { model } }), gateway: { chat: async () => JSON.stringify(response) } });
     assert.deepEqual((await ai('shot-characters', 'generate', binding)).result, response);
@@ -74,7 +74,8 @@ test('storyboard 输入不携带图片状态/前镜资料，但保留只发声�
   assert.ok(input.characters.some(row => row.name === person.name));
   assert.doesNotMatch(JSON.stringify(input), /has_image|assets|previous|costume_images/);
   const prompt = composeNodePrompt('storyboard', 'generate', input, 'elysium-chat');
-  assert.match(prompt.system, /画面描述使用英文/);
+  assert.match(prompt.system, /画面描述、运镜、声景和配乐说明均使用简体中文/);
+  assert.doesNotMatch(prompt.system, /画面描述使用英文|完整英文动作/);
   assert.doesNotMatch(prompt.body, /固定素材清单|前镜衔接|上一镜交接/);
   assert.throws(() => composeNodePrompt('storyboard', 'generate', { ...input, assets: [] }, 'elysium-chat'), /未定义/);
 });

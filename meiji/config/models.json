@@ -3,7 +3,7 @@
   "apiKey": "",
   "textBaseUrl": "http://127.0.0.1:11435/v1",
   "image": {
-    "model": "elysium-image"
+    "model": "krea2 turbo V2.5"
   },
   "video": {
     "model": "elysium-video"

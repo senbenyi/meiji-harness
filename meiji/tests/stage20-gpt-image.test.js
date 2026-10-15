@@ -17,6 +17,19 @@ const input = {
   referenceDescription: '参考图用于人物身份和面相，服装按本次资料。', aspectRatio: '1344x768', references: [reference],
 };
 
+test('Krea 图片走 Comfy 接口，项目画幅换成 16:9 或 9:16，质量默认正常', () => {
+  const route = modelRoute({ baseUrl: 'https://gateway.test/v1', textBaseUrl: 'http://127.0.0.1:9/v1', apiKey: mediaKey, text: { model: 'qwen3.5:27b' }, image: { model: 'krea2 turbo V2.5' }, video: { model: 'elysium-video' } }, 'image');
+  assert.equal(route.baseUrl, 'http://127.0.0.1:9/v1');
+  assert.equal(route.apiKey, 'ollama');
+  const wide = imageParameters({ ...route, apiKey: mediaKey, prompt: '定妆照', aspectRatio: '1344x768', references: [{ mime: 'image/png', bytes: png }], taskId });
+  assert.equal(wide.url.pathname, '/v1/images/comfy');
+  assert.deepEqual(wide.body, { model: 'krea2 turbo V2.5', prompt: '定妆照', quality: 'normal', aspect: '16:9' });
+  assert.equal(wide.headers['X-Task-ID'], taskId);
+  assert.equal(imageParameters({ ...route, prompt: '定妆照', aspectRatio: '768x1344' }).body.aspect, '9:16');
+  assert.doesNotMatch(JSON.stringify(wide), new RegExp(mediaKey));
+  assert.throws(() => imageParameters({ ...route, prompt: '定妆照', aspectRatio: '100x100' }), /画幅不受支持/);
+});
+
 test('GPT图片参数固定文生图接口，画幅写入提示词，不接收媒体密钥', () => {
   assert.equal(new SettingsModel({ text: { model: 'qwen3.5:27b' }, image: { model: 'gpt-image' }, video: { model: 'elysium-video' } }).image.model, 'gpt-image');
   const route = modelRoute({ baseUrl: 'https://gateway.test/v1', textBaseUrl: 'http://127.0.0.1:9/v1', apiKey: mediaKey, text: { model: 'codex-gpt' }, image: { model: 'gpt-image' }, video: { model: 'elysium-video' } }, 'image');
@@ -35,7 +48,7 @@ test('GPT图片参数固定文生图接口，画幅写入提示词，不接收�
   assert.throws(() => imageParameters({ ...route, prompt: '定妆照', references: Array.from({ length: 6 }, () => ({ mime: 'image/png', bytes: png })) }), /参考图最多 5 张/);
 });
 
-test('定妆照经 llm-server 文生图返回图片，网关图片仍走媒体尺寸', async () => {
+test('定妆照经 llm-server 文生图返回图片，已移除的网关图片选择被拒绝', async () => {
   const gptRequests = [], gatewayRequests = [];
   const take = bucket => createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
@@ -67,12 +80,9 @@ test('定妆照经 llm-server 文生图返回图片，网关图片仍走媒体�
     assert.match(logged, /generateImage/);
     assert.doesNotMatch(logged, new RegExp(png.toString('base64')));
     const gatewayAi = createAiRoutes({ readConfig: async () => ({ ...(await readConfig()), image: { model: 'elysium-image' } }) });
-    await gatewayAi('costume-image', 'generate', { ...input, references: [] });
+    await assert.rejects(gatewayAi('costume-image', 'generate', { ...input, references: [] }), /image：请选择有效模型/);
     assert.equal(gptRequests.length, 1);
-    assert.equal(gatewayRequests[0].authorization, `Bearer ${mediaKey}`);
-    assert.equal(gatewayRequests[0].body.model, 'elysium-image');
-    assert.equal(gatewayRequests[0].body.size, '1344x768');
-    assert.equal(gatewayRequests[0].body.images, undefined);
+    assert.equal(gatewayRequests.length, 0);
   } finally {
     await close(gpt); await close(gateway);
   }

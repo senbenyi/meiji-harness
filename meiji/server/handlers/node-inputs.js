@@ -66,6 +66,7 @@ function previousSplit(project) {
 
 // 各节点独立提取执行时资料；不向节点接口传入 project/snapshot。
 const inputs = {
+  'script-review': ({ project }) => ({ script: project.script.body }),
   'project-summary': ({ project }) => ({ script: project.script.body }),
   'project-characters': ({ project }) => ({ script: project.script.body, characters: projectNumberCatalog(project).characters }),
   'script-split': ({ project }) => ({ script: project.script.body, duration: project.reference_episode_duration_seconds }),

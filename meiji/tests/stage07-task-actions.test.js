@@ -4,7 +4,7 @@ import { JSDOM } from "jsdom";
 import { renderTaskPanel } from "../client/task-panel.js";
 import { snapshotFixture } from "./fixtures/project.js";
 
-test("任务生成按钮按内容和审核状态互斥，意见修改要求填写意见", async () => {
+test("任务生成按钮按内容和审核状态互斥，修复直接提交未通过原因", async () => {
   const dom = new JSDOM("<main></main>"),
     previousDocument = globalThis.document,
     previousFetch = globalThis.fetch,
@@ -58,26 +58,15 @@ test("任务生成按钮按内容和审核状态互斥，意见修改要求填�
 
     episode.summary = summary("rejected", "未通过的摘要", "需要修订");
     renderTaskPanel(root, snapshot, context);
-    assert.deepEqual(actions(), ["重新生成", "原结果修订"]);
+    assert.deepEqual(actions(), ["重新生成"]);
     await click("重新生成");
     assert.equal(commands.at(-1).action, "regenerate");
     assert.equal(commands.at(-1).opinion, undefined);
 
-    [...card().querySelectorAll("button")].find((button) => button.textContent === "原结果修订").click();
-    const dialog = root.querySelector("dialog"),
-      form = dialog.querySelector("form"),
-      opinion = dialog.querySelector('[aria-label="正文"]');
-    assert.equal(opinion.value, "需要修订");
-    opinion.value = "";
-    form.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(commands.at(-1).opinion, undefined);
-    assert.equal(dialog.querySelector('[role="alert"]').textContent, "请输入修改意见");
-    opinion.value = "保留人物关系，补足动机";
-    form.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
-    await new Promise((resolve) => setImmediate(resolve));
+    await click("修复");
+    assert.equal(root.querySelector("dialog"), null);
     assert.equal(commands.at(-1).action, "revise");
-    assert.equal(commands.at(-1).opinion, "保留人物关系，补足动机");
+    assert.equal(commands.at(-1).opinion, "需要修订");
 
     for (const status of ["generated", "expired"]) {
       episode.summary = summary(status, "已有结果");
@@ -117,7 +106,7 @@ test('三个生成入口均携带公共输入框的本次执行意见', async ()
   try {
     const snapshot = snapshotFixture(), episode = snapshot.project.episodes[0], root = document.querySelector('main');
     const context = { session_id: 'session-test', view: { page: 'episode', episode_id: episode.id, tab: 'script' }, refresh: async () => {}, paint: () => {}, onError: error => { throw error; } };
-    for (const [label, action] of [['AI生成', 'generate'], ['重新生成', 'regenerate'], ['原结果修订', 'revise']]) {
+    for (const [label, action] of [['AI生成', 'generate'], ['重新生成', 'regenerate'], ['修复', 'revise']]) {
       episode.summary.body = action === 'generate' ? '' : '上次摘要';
       episode.summary.node_state.status = action === 'generate' ? 'empty' : 'rejected';
       episode.summary.node_state.reason = action === 'generate' ? '' : '未通过原因';
@@ -127,15 +116,12 @@ test('三个生成入口均携带公共输入框的本次执行意见', async ()
       input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
       [...card.querySelectorAll('button')].find(button => button.textContent === label).click();
       if (action === 'revise') {
-        const dialog = root.querySelector('dialog');
-        assert.match(dialog.textContent, /原结果修订/);
-        dialog.querySelector('[aria-label="正文"]').value = '弹窗补充意见';
-        dialog.querySelector('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+        assert.equal(root.querySelector('dialog'), null);
       }
       await new Promise(resolve => setImmediate(resolve));
       assert.equal(commands.at(-1).action, action);
       assert.match(commands.at(-1).opinion, /公共框本次执行意见/);
-      if (action === 'revise') assert.match(commands.at(-1).opinion, /弹窗补充意见/);
+      if (action === 'revise') assert.match(commands.at(-1).opinion, /未通过原因/);
     }
   } finally { globalThis.document = previous.document; globalThis.fetch = previous.fetch; dom.window.close(); }
 });

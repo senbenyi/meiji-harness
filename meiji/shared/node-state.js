@@ -32,6 +32,7 @@ export function releaseQueuedNodeStatus(project, tasks) {
     else if (previous && previous.status !== "queued") Object.assign(node.node_state, { status: previous.status, reason: previous.reason || "", fail_message: previous.fail_message || "" });
     else Object.assign(node.node_state, { status: "cancelled", reason: "排队中已从节点状态移除", fail_message: "" });
   };
+  apply("script-review", project.id, project.script_review);
   apply("project-summary", project.id, project.project_summary);
   apply("project-characters", project.id, project.character_library);
   for (const character of project.character_library?.characters || [])
@@ -60,7 +61,7 @@ export function hasNodeContent(project, business, targetId) {
   if (business === "project-characters") return node.characters.length > 0;
   if (business === "outline") return node.segments.length > 0;
   if (business === "shots") return node.shots.length > 0;
-  if (business === "shot-characters") return node.has_result;
+  if (["shot-characters", "script-review"].includes(business)) return node.has_result;
   if (business === "seconds") return node.storyboard.length > 0;
   if (business === "storyboard") return Boolean(node.integrated_multimodal_description.trim());
   return Boolean((node.body ?? node.prompt ?? node.address ?? "").trim());
@@ -77,6 +78,13 @@ export function assertOutput(project, business, targetId) {
     return;
   }
   if (business.endsWith("-delete")) return;
+  if (business === "script-review") {
+    if (!node.has_result) invalid("剧本审核", "尚未审核");
+    nonempty(node.continuity, "剧本审核.剧情连续性说明");
+    nonempty(node.filmability, "剧本审核.拍摄适配说明");
+    if (!(node.story_continuous && node.filmable)) nonempty(node.suggestions, "剧本审核.修改意见");
+    return;
+  }
   if (["project-summary", "episode-summary"].includes(business)) nonempty(node.body, business);
   if (["character-image", "costume-image", "video", "tail", "assembly"].includes(business)) nonempty(node.address, business);
   if (business === "outline") {
@@ -104,6 +112,9 @@ export function assertOutput(project, business, targetId) {
 export function assertProgramReview(project, business, targetId) {
   assertOutput(project, business, targetId);
   const { object } = locateTarget(project, business, targetId), node = nodeOf(project, business, targetId);
+  // 剧本审核的程序审核即判定结论：剧情不连续或不适合拍摄时以修改意见作为未通过原因。
+  if (business === "script-review" && !(node.story_continuous && node.filmable))
+    throw Object.assign(new Error(node.suggestions.trim()), { code: "INVALID_CONTRACT", status: 422, path: "剧本审核" });
   if (business === "seconds") {
     let end = 0;
     for (const beat of node.storyboard) {
@@ -132,4 +143,10 @@ export function assertProgramReview(project, business, targetId) {
     if (total < min || total > max)
       invalid("镜头表", `镜头总时长超出允许范围（本集参考时长±${SHOT_DURATION_TOLERANCE_SECONDS}秒，允许 ${min}–${max} 秒）`);
   }
+}
+
+// 人工放行跳过本节点业务判定，只校验结构；剧本审核的程序审核就是结论本身，放行时不再要求结论为适合。
+export function assertOverride(project, business, targetId) {
+  if (business === "script-review") return assertOutput(project, business, targetId);
+  return assertProgramReview(project, business, targetId);
 }

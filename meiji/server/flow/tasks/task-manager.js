@@ -314,7 +314,9 @@ export class TaskService {
     const previous = business === "script-split"
       ? s.tasks.filter(t => t.business_type === business && t.target_id === id).sort((a,b)=>b.queue_order-a.queue_order)[0]
       : null;
-    const rejectedReason = node?.node_state.status === "rejected" ? node.node_state.reason
+    // 剧本审核的未通过原因是给剧本的修改意见，重新审核不把它当作本次审核要求。
+    const rejectedReason = business === "script-review" ? ""
+      : node?.node_state.status === "rejected" ? node.node_state.reason
       : previous?.task_status === "rejected" ? previous.end_reason : "";
     if (["generate", "regenerate", "revise", "continue"].includes(action) && rejectedReason && !opinion.includes(rejectedReason))
       opinion = [rejectedReason, opinion].filter(Boolean).join("\n");
@@ -485,6 +487,7 @@ export class TaskService {
   }
   async #run(model, id, signal) {
     let draft = null;
+    let validationFailure = "";
     const initial = model.read();
     const current = initial.tasks.find(t => t.id === id);
     if (current.business_type === "script-split") {
@@ -517,12 +520,15 @@ export class TaskService {
       const fresh = model.read();
       const context = { snapshot: fresh, task, step, draft, reviewType: reviewType(step), signal, record };
       let output;
-      if (step.kind === "precheck") {
+      if (step.kind === "review" && validationFailure) {
+        output = { result: { 是否通过: false, 原因: validationFailure } };
+      } else if (step.kind === "precheck") {
         output = { result: precheck(fresh, task, { libraryReferences: await this.#libraryReferences() }) };
         if (task.business_type === "assembly" && ["generate", "regenerate", "continue"].includes(task.action))
           output = await this.#execute(context);
       } else output = await this.#execute(context);
       if (signal.aborted || model.read().tasks.find(t => t.id === id).task_status !== "running") return;
+      if (["generate", "revise"].includes(step.kind)) validationFailure = output.validationFailure || "";
       if (["generate", "revise", "manual_edit", "apply"].includes(step.kind) || (step.kind === "review" && output.content !== undefined)) draft = output.content;
       await model.update(`step-end:${step.id}`, { step: step.id }, s => {
         const t = s.tasks.find(x => x.id === id), st = s.steps.find(x => x.id === step.id);
@@ -531,6 +537,13 @@ export class TaskService {
           step_status: "done", result: output.result ?? output.content ?? null,
           prompt: output.prompt ?? st.prompt, ended_at: now(),
         });
+        if (["generate", "revise"].includes(step.kind) && validationFailure) {
+          const next = s.steps.filter(x => x.task_id === id && x.step_status === "ready").sort((a,b) => a.seq-b.seq)[0];
+          if (!next || next.kind !== "review" || reviewType(next) !== "program") {
+            for (const pending of s.steps.filter(x => x.task_id === id && x.step_status === "ready")) pending.seq++;
+            s.steps.push(newStep(t, step.seq + 1, "review", step.round, "program"));
+          }
+        }
         if (step.kind === "review") {
           const review = output.result;
           if (typeof review?.是否通过 !== "boolean" || typeof review?.原因 !== "string" ||
@@ -551,7 +564,7 @@ export class TaskService {
               for (const reviewer of reviewTypes(t)) s.steps.push(newStep(t, ++seq, "review", round, reviewer));
               return {};
             }
-            this.#commitOutput(s, t, draft, { passed: false });
+            if (!validationFailure) this.#commitOutput(s, t, draft, { passed: false });
             this.#finish(s, t, "rejected", review.原因);
             return {};
           }

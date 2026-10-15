@@ -1,4 +1,4 @@
-import { latestNodeTask, taskStatusRow } from './node-task-status.js';
+import { latestNodeTask, taskStatusRow, taskFailureRow } from './node-task-status.js';
 import { primaryCostumeImage } from "../shared/models/character_model.js";
 import { nodeOf } from "../shared/task_contract.js";
 import { detailsDialog } from "./project-forms.js";
@@ -65,16 +65,101 @@ function tailStep(shot, { button, act, media }) {
 }
 function groupCard(title, status, message, buttons) {
   const card = element("section", "", "session-project"),
-    head = element("div", "", "section-head"),
-    ui = element("div", "", "task-group-ui"),
-    row = element("div", "", "workflow-generation-row");
+    head = element("div", "", "section-head");
   head.append(element("h3", title));
+  card.append(head, taskGroupUi(status, message, buttons));
+  return card;
+}
+const nodeStatusLabels = { empty: "未生成", generated: "已生成", rejected: "未通过", expired: "已过期" };
+function stepTone(status) {
+  if (status === "generated") return "done";
+  if (status === "rejected" || status === "expired") return "failed";
+  return "empty";
+}
+function packNode(shot) {
+  if (shot.video_generation_type === "首尾帧") return ["首尾帧", shot.first_last_frame_prompt];
+  if (shot.video_generation_type === "多模态") return ["多模态", shot.multimodal_prompt];
+  if (shot.video_generation_type === "文生") return ["文生", { node_state: { status: "generated" }, prompt: "文生，不编排额外提示词" }];
+  return ["多模态/首尾帧", { node_state: { status: "empty" }, prompt: "" }];
+}
+function filmNodes(shot) {
+  return [
+    ["角色识别", shot.character_binding],
+    ["每秒分镜", shot.seconds_storyboard],
+    ["文本提示词", shot.text_to_video_prompt],
+    packNode(shot),
+    ["视频", shot.video],
+  ];
+}
+function taskGroupUi(status, message, buttons) {
+  const ui = element("div", "", "task-group-ui"),
+    row = element("div", "", "workflow-generation-row");
   row.append(element("p", groupLabels[status] || status, "node-ui-status"));
   for (const item of buttons) row.append(item);
   ui.append(row);
   if (message) ui.append(element("p", message, "error"));
-  card.append(head, ui);
-  return card;
+  return ui;
+}
+function shotStepRow(shot) {
+  const row = element("ol", "", "shot-steps");
+  filmNodes(shot).forEach(([name, node], index) => {
+    const status = node?.node_state?.status || "empty";
+    const item = element("li", "", `shot-step is-${stepTone(status)}`);
+    item.title = nodeStatusLabels[status] || status;
+    item.append(element("span", String(index + 1), "shot-step-index"), element("span", name, "shot-step-name"));
+    row.append(item);
+  });
+  return row;
+}
+function shotScript(shot) {
+  const block = element("div", "", "shot-body");
+  block.append(element("h4", "本镜内容"), element("p", shot.body || "尚无本镜内容", "prompt"));
+  if (shot.actual_duration_seconds > 0) block.append(element("p", `实际 ${shot.actual_duration_seconds} 秒`, "meta"));
+  return block;
+}
+function clipPreview(text) {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  if (!value) return "未生成";
+  return value.length > 140 ? `${value.slice(0, 140)}…` : value;
+}
+function shotResultText(project, name, node) {
+  if (name === "角色识别") {
+    if (!node?.has_result) return "尚未识别";
+    if (!node.on_screen_characters.length) return node.node_state.status === "generated" ? "已确认无人出镜" : "候选：无人出镜";
+    return node.on_screen_characters.map((row) => {
+      const person = project.character_library.characters.find((item) => item.id === row.character_id);
+      const costume = person?.costumes.find((item) => item.id === row.costume_id);
+      if (!person) return "未知角色";
+      return costume ? `${person.name}·${costume.name}` : person.name;
+    }).join("、");
+  }
+  if (name === "每秒分镜") {
+    const beat = node.storyboard?.[0];
+    return clipPreview([beat?.time_range, beat?.action].filter(Boolean).join(" ") || node.end_state);
+  }
+  if (name === "文本提示词") return clipPreview(node.integrated_multimodal_description);
+  if (name === "文生") return "文生，不编排额外提示词";
+  if (name === "多模态/首尾帧") return "待判断";
+  if (name === "首尾帧" || name === "多模态") return clipPreview(node.prompt);
+  return "未生成";
+}
+function shotResultStrip(project, shot, media) {
+  const strip = element("div", "", "shot-results");
+  for (const [name, node] of filmNodes(shot)) {
+    const card = element("article", "", "shot-result");
+    const status = node?.node_state?.status || "empty";
+    card.append(element("h4", name, `shot-step is-${stepTone(status)}`));
+    if (name === "视频" && node.address) {
+      const video = element("video");
+      video.src = media(node.address);
+      video.muted = true;
+      video.preload = "metadata";
+      video.setAttribute("aria-label", `${shot.number} 视频预览`);
+      card.append(video);
+    } else card.append(element("p", shotResultText(project, name, node)));
+    strip.append(card);
+  }
+  return strip;
 }
 const editIcon =
   '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.7 2.3 13.7 6.3 5.4 14.6H1.4v-4L9.7 2.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
@@ -181,6 +266,13 @@ export function renderOverview(root, env) {
   arrow.setAttribute("aria-label", "打开剧本详情");
   scriptRow.append(open, arrow);
   script.append(scriptRow, element("p", `版本 ${p.script.version}`, "meta"));
+  // 剧本审核节点紧接剧本卡片下方，使用公共节点状态 UI。
+  if (p.script.body.trim()) {
+    const review = nodeCard("script-review", p.id, p.script_review);
+    review.className = "overview-card script-review-card";
+    review.querySelector(".section-head").className = "overview-card-title";
+    view.append(review);
+  }
   const splitting = p.creation_mode === "剧本",
     latestSplitTask = splitting ? latestNodeTask(env.snapshot?.tasks || [], "script-split", p.id) : null,
     { c: episodes, actions: episodeActions } = card("剧集");
@@ -192,13 +284,14 @@ export function renderOverview(root, env) {
     splitStatus = p.episodes.length ? "generated" : "empty";
   episodes.querySelector(".section-titles").append(element("span", labels[splitStatus] || splitStatus, "node-data-tag"));
   const splitTaskRow = taskStatusRow(latestSplitTask);
+  let add = null, addLabel = "";
   if (splitting) {
-    const splitLabel = p.episodes.length ? "重新生成" : "AI生成";
+    addLabel = p.episodes.length ? "重新生成" : "AI生成";
     if (!splitBusy) {
-      const add = button(splitLabel, () => {
+      add = button(addLabel, () => {
         const dialog = detailsDialog(
           root,
-          splitLabel,
+          addLabel,
           { reference_episode_duration_seconds: p.reference_episode_duration_seconds },
           async (fields) => {
             dialog.close();
@@ -221,11 +314,12 @@ export function renderOverview(root, env) {
         );
         return dialog;
       });
-      add.setAttribute("aria-label", splitLabel);
+      add.setAttribute("aria-label", addLabel);
       episodeButtons.append(add);
     }
   } else {
-    const add = button("＋ 新增剧集", () =>
+    addLabel = "＋ 新增剧集";
+    add = button(addLabel, () =>
       detailsDialog(
         root,
         "新增剧集",
@@ -270,6 +364,8 @@ export function renderOverview(root, env) {
     opinion.value = state.opinions[opinionKey] || "";
     opinion.oninput = () => { state.opinions[opinionKey] = opinion.value; };
     episodeUi.append(opinion);
+    const failureRow = taskFailureRow(latestSplitTask);
+    if (failureRow) episodeUi.append(failureRow);
     if (latestSplitTask?.task_status === "rejected" && latestSplitTask.end_reason)
       episodeUi.append(element("p", `未通过原因：${latestSplitTask.end_reason}`, "error node-ui-reason"));
   }
@@ -353,8 +449,8 @@ export function renderOverview(root, env) {
     empty.append(
       element("strong", "还没有剧集"),
       element("p", splitting ? "拆分剧本后开始制作" : "新增剧集后开始制作"),
-      button(addLabel, () => add.click()),
     );
+    if (add) empty.append(button(addLabel, () => add.click()));
     list.append(empty);
   }
   const people = nodeCard("project-characters", p.id, p.character_library);
@@ -420,7 +516,7 @@ export function backHeader(root, title, label, back) {
   root.append(bar);
 }
 export function renderEpisode(root, env, entries) {
-  const { p, state, button, act, nodeCard, nodeUi, go, media } = env,
+  const { p, state, button, act, nodeCard, go, media } = env,
     e = p.episodes.find((e) => e.id === state.episode_id);
   if (!e) return go("overview");
   if (!entries.some(([id]) => id === state.tab)) state.tab = "script";
@@ -484,8 +580,8 @@ export function renderEpisode(root, env, entries) {
   }
   if (state.tab === "assembly") body.append(nodeCard("assembly", e.id, e.assembly));
   if (["film", "shots"].includes(state.tab)) {
+    const listed = historyGroups(env.snapshot);
     if (state.tab !== "shots") {
-      const listed = historyGroups(env.snapshot);
       const filmGroup = listed.find((row) => row.group.group_type === "episode-film" && row.group.episode_id === e.id);
       const hasVideo = e.shot_list.shots.some((shot) => shot.video.address);
       const filmBusy = filmGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status));
@@ -513,11 +609,11 @@ export function renderEpisode(root, env, entries) {
         h = element("div", "", "outline-head"),
         title = element("div", "", "shot-card-title");
       title.append(element("h3", `${s.number} ${s.title} · ${s.duration_seconds}s`));
-      if (state.tab === "film") title.append(element("span", env.labels[s.video.node_state.status] || s.video.node_state.status, "node-data-tag"));
-      h.append(
-        title,
+      if (state.tab === "film") title.append(shotStepRow(s));
+      h.append(title);
+      if (state.tab === "film") h.append(
         button(
-          "打开镜头",
+          "查看详情",
           () =>
             go("episode", {
               shot_id: s.id,
@@ -526,46 +622,16 @@ export function renderEpisode(root, env, entries) {
           false,
         ),
       );
-      const shotButtons = [];
-      if (state.tab === "film") {
-        const current = env.snapshot.tasks.find((task) => task.business_type === "video" && task.target_id === s.id && ["queued", "running"].includes(task.task_status));
-        const active = Boolean(current);
-        if (!active) shotButtons.push(button(s.video.address ? "重新生成" : "生成", () => {
-          const text = (state.opinions?.[`video:${s.id}`] || "").trim();
-          if (text) {
-            state.opinionPending ??= {};
-            state.opinionPending[`video:${s.id}`] = true;
-          }
-          return act({
-            type: "submit-group", group_type: "episode-film",
-            action: s.video.address ? "regenerate" : "generate",
-            episode_id: e.id, shot_id: s.id, ...(text ? { opinion: text } : {}),
-          });
-        }));
-        shotButtons.push(button("任务历史", () => go("history", { history_business: "video", target_id: s.id }), false));
-        if (current) shotButtons.push(button("取消", () => act({ type: "cancel", task_id: current.id }), false));
-      }
       card.append(
         h,
-        ...(state.tab === "film" ? [nodeUi({ business: "video", id: s.id, node: s.video, buttons: shotButtons })] : []),
-        ...(state.tab === "film" && s.actual_duration_seconds > 0
-          ? [element("p", `实际 ${s.actual_duration_seconds} 秒`, "meta")]
-          : []),
-        element("p", s.body, "prompt full"),
+        ...(state.tab === "film" ? [shotScript(s), shotResultStrip(p, s, media)] : []),
       );
       if (state.tab === "shots")
         card.append(element("p", readable({
+          body: s.body,
           shot_scale: s.shot_scale, hook: s.hook, continuity_transition: s.continuity_transition,
           reference_anchor: s.reference_anchor, audio_arrangement: s.audio_arrangement,
         }), "prompt full"));
-      if (state.tab === "film")
-        card.append(
-          element(
-            "p",
-            `角色识别：${env.labels[s.character_binding.node_state.status]} · 每秒分镜：${env.labels[s.seconds_storyboard.node_state.status]} · 文本提示词：${env.labels[s.text_to_video_prompt.node_state.status]} · 视频：${env.labels[s.video.node_state.status]} · 尾帧：${env.labels[s.last_frame.node_state.status]}`,
-            "meta",
-          ),
-        );
       body.append(card);
     }
   }

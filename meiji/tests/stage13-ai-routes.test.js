@@ -46,7 +46,7 @@ test('两个文本服务实际 HTTP 原样发送并记录多轮消息，不重�
   });
   try {
     const url = `${await listen(server)}/v1`;
-    for (const model of ['qwen3.5:27b', 'elysium-chat']) {
+    for (const model of ['qwen3.5:27b', 'codex-gpt']) {
       const ai = createAiRoutes({ readConfig: async () => ({ ...config, baseUrl: url, textBaseUrl: url, text: { model } }) });
       let saved;
       const { prompt } = await ai('project-summary', 'regenerate', { ...input, content: '原稿唯一标记', opinion: '意见唯一标记' }, { record: async value => { saved = structuredClone(value.prompt); } });
@@ -98,7 +98,7 @@ test('同一节点 HTTP 路由四项业务输入，切换两个来源，统一�
     const base = await listen(api), path = '/api/meiji/ai/project-summary/generate';
     const url = `${base}${path}?session_id=${sid}&project_id=${project.id}`;
     const post = (body = input, options = {}) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Meiji-Request': '1', ...options }, body: JSON.stringify(body) });
-    for (const [model, source, key] of [['elysium-chat', 'elysium', settings.apiKey], ['qwen3.5:27b', 'llm-server', 'ollama']]) {
+    for (const [model, source, key] of [['codex-gpt', 'llm-server', 'ollama'], ['qwen3.5:27b', 'llm-server', 'ollama']]) {
       await runtime.models.write({ ...settings, text: { model } });
       const response = await post();
       assert.equal(response.status, 200);
@@ -152,7 +152,7 @@ test('输出按路由契约校验，模型无法用 HTTP200 掩盖错误结构',
 test('两次并发节点调用各读一次配置、保存自己的模型与提示词', async () => {
   let reads = 0, release;
   const gate = new Promise(resolve => { release = resolve; }), savedA = [], savedB = [];
-  const ai = createAiRoutes({ readConfig: async () => ({ ...config, text: { model: ++reads === 1 ? 'qwen3.5:27b' : 'elysium-chat' } }), gateway: {
+  const ai = createAiRoutes({ readConfig: async () => ({ ...config, text: { model: ++reads === 1 ? 'qwen3.5:27b' : 'codex-gpt' } }), gateway: {
     chat: async ({ model, messages }) => {
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n'); if (model === 'qwen3.5:27b') await gate; else release(); return prompt.includes('请求A') ? '结果A' : '结果B'; },
   } });
@@ -161,7 +161,7 @@ test('两次并发节点调用各读一次配置、保存自己的模型与提�
     ai('project-summary', 'generate', { ...input, script: '请求B' }, { record: async row => savedB.push(structuredClone(row)) }),
   ]);
   assert.equal(reads, 2); assert.equal(a.result, '结果A'); assert.equal(b.result, '结果B');
-  assert.equal(a.prompt.model, 'qwen3.5:27b'); assert.equal(b.prompt.model, 'elysium-chat');
+  assert.equal(a.prompt.model, 'qwen3.5:27b'); assert.equal(b.prompt.model, 'codex-gpt');
   assert.equal(savedA[0].prompt.input.script, '请求A'); assert.equal(savedB[0].prompt.input.script, '请求B');
   assert.doesNotMatch(a.prompt.user, /请求B/); assert.doesNotMatch(b.prompt.user, /请求A/);
 });

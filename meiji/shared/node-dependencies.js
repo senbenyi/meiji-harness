@@ -45,7 +45,7 @@ function dependencyMaterial(snapshot, business, id) {
     delete copy.node_state;
     return copy;
   };
-  if (business === "project-summary" || business === "project-characters")
+  if (["script-review", "project-summary", "project-characters"].includes(business))
     return { 剧本正文: project.script.body };
   if (business === "character-image") {
     const character = locateTarget(project, business, id).character;
@@ -200,7 +200,7 @@ export function downstream(snapshot, business, id) {
     { ...one("shots", episode.id), context_only: true },
     ...episode.shot_list.shots.flatMap(shot => ['shot-characters', 'seconds', 'storyboard'].map(business => ({ ...one(business, shot.id), context_only: true }))),
   ]);
-  if (business === "script") return [one("project-summary", p.id), one("project-characters", p.id)];
+  if (business === "script") return [one("script-review", p.id), one("project-summary", p.id), one("project-characters", p.id)];
   // 剧集剧情（剧本原文）不是节点：拆分写入或人工编辑使摘要与故事大纲过期；
   // 自由创作剧本更新回写剧情时，故事大纲是剧情的来源，只使摘要过期。
   if (business === "episode-plot")

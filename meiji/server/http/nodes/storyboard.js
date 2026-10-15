@@ -4,7 +4,7 @@ import { commonValues } from '../../prompts/inputs.js';
 const output0 = {
   "type": "文本",
   "sections": ["integrated_multimodal_description", "overall_soundscape", "non_diegetic_music"],
-  "requirements": "1. 只返回以下三段及其内容，不返回JSON、分镜时间表、解释或Markdown代码围栏：integrated_multimodal_description、overall_soundscape、non_diegetic_music。\n2. 画面描述使用英文；对白、歌词和画面文字保留原文并按规则标记说话人。\n3. 忠实转写已审核的每秒分镜，不改事件、动作、人物、服装、时间线或时长。\n4. 环境声和非叙事配乐分别写入对应段落；无声时按节点规则输出。"
+  "requirements": "1. 只返回以下三段及其内容，不返回JSON、分镜时间表、解释或Markdown代码围栏：integrated_multimodal_description、overall_soundscape、non_diegetic_music。\n2. 三段正文及运镜描述使用语言要求指定的输出语言；固定段名不翻译，对白、旁白、心声、歌词和画面文字保留原文并按规则标记说话人。\n3. 忠实转写已审核的每秒分镜，不改事件、动作、人物、服装、时间线或时长。\n4. 环境声和非叙事配乐分别写入对应段落；无声时按节点规则输出。"
 };
 
 const output1 = {

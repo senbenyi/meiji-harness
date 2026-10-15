@@ -46,6 +46,14 @@ export function projectFixture() {
     for (const business of ["shot-characters", "seconds", "storyboard", "first-last-frame", "multimodal", "video", "tail"])
       stampDependencyHash(snapshot, business, shot.id);
   stampDependencyHash(snapshot, "assembly", e.id);
+  approveScriptReview(p);
+  return p;
+}
+// 提取剧集/人物以剧本审核通过为前提；按当前剧本正文写入一份已通过的审核结论。剧本改动后需重新调用。
+export function approveScriptReview(p) {
+  Object.assign(p.script_review, { has_result: true, story_continuous: true, continuity: "情节前后连贯", filmable: true, filmability: "可用画面与对白呈现", suggestions: "" });
+  Object.assign(p.script_review.node_state, { status: "generated", reason: "", fail_message: "" });
+  stampDependencyHash({ project: p, tasks: [], steps: [] }, "script-review", p.id);
   return p;
 }
 export function taskFixture(p, business = "seconds", target = p.episodes[0].shot_list.shots[0].id, fields = {}) {

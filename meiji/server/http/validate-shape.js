@@ -10,7 +10,12 @@ export function validateShape(value, shape, path = "响应") {
     if (!value || typeof value !== "object" || Array.isArray(value)) invalid(path, "需为对象");
     for (const key of Object.keys(value)) if (!Object.hasOwn(shape, key)) invalid(path + "." + key, "未定义字段");
     for (const key of Object.keys(shape)) {
-      if (!Object.hasOwn(value, key)) invalid(path + "." + key, "缺少字段");
+      if (!Object.hasOwn(value, key)) {
+        const field = path + "." + key;
+        throw Object.assign(new Error(`${field}：缺少字段`), {
+          code: 'INVALID_CONTRACT', status: 422, path: field, validationKind: 'missing-field',
+        });
+      }
       validateShape(value[key], shape[key], path + "." + key);
     }
     return;

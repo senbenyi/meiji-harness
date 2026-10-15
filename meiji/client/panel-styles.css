@@ -278,6 +278,7 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .run-list-row{cursor:pointer;gap:3px;padding:7px;border:0;outline:1px solid #383a41;transition:background .15s,outline-color .15s}
 .run-detail-page{max-width:100%;min-width:0;overflow-x:hidden}.run-detail-page *{box-sizing:border-box}.run-detail-page button,.run-detail-page pre,.run-detail-page p{max-width:100%;overflow-wrap:anywhere;word-break:break-word}
 .run-list-row p{margin:0;line-height:1.25}
+.run-id-row{display:flex;align-items:center;gap:6px;min-width:0;margin:4px 0;font-size:11px;line-height:1.5}.run-id-row>span{flex:none}.run-id-row>code{flex:0 1 auto;min-width:0;overflow-wrap:anywhere;word-break:break-word;user-select:text}.run-id-row>.run-id-copy{flex:none;margin:0;padding:1px 6px;min-height:0;font-size:11px;line-height:18px}
 .run-list-row:hover,.run-list-row:focus-visible{background:#25262d;outline-color:#dfc196}
 .run-list-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.run-list-heading strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .run-target-group{margin:10px 0;padding:0;border:0;background:none}.run-target-group.is-highlighted{padding:0;background:none}
@@ -379,10 +380,29 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .run-step-card:not(.is-expanded) .run-step-result pre{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.6;max-height:3.2em}
 
 .node-data-tag{display:inline-flex;align-items:center;flex:none;margin:0 0 0 12px;padding:1px 8px;border:1px solid #8d734f;border-radius:6px;background:#3a3126;color:#dfc196;font-size:12px;font-weight:650;line-height:18px;white-space:nowrap}
-.shot-card-title{display:flex;align-items:center;min-width:0;flex:1}
+.shot-card{display:flex;flex-direction:column;gap:18px}
+.shot-card .outline-head{align-items:flex-start;margin:0}
+.shot-card-title{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0;flex:1}
 .shot-card-title h3{margin:0}
+.shot-steps{display:flex;flex-wrap:wrap;align-items:center;gap:8px 0;margin:0;font-size:12px;line-height:18px}
+.shot-step{font-weight:650}
+.shot-step-sep{display:inline-flex;flex:none;align-items:center;width:56px;margin:0 10px;color:#9aa0ab}
+.shot-step-sep svg{display:block;width:56px;height:10px}
+.shot-step.is-done{color:#7dcea0}
+.shot-step.is-failed{color:#e27680}
+.shot-step.is-empty{color:#8c919e}
+.shot-body{display:flex;flex-direction:column;gap:8px}
+.shot-body h4{margin:0;font-size:12px;font-weight:650;line-height:18px;color:#c8cad1}
+.shot-body .prompt,.shot-body .meta{margin:0}
+.shot-results{display:flex;gap:12px;overflow-x:auto;margin:0;padding:2px 0;scrollbar-width:none}
+.shot-results::-webkit-scrollbar{display:none;height:0}
+.shot-result{flex:0 0 200px;width:200px;min-height:176px;margin:0;padding:14px;border:1px solid #383a41;border-radius:8px;background:#23252c}
+.shot-result h4{margin:0 0 10px;font-size:13px;line-height:18px}
+.shot-result p{margin:0;font-size:13px;line-height:1.5;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden}
+.shot-result video,.shot-result img{display:block;width:100%;height:132px;object-fit:cover;border-radius:6px;background:#111}
 .node-ui{box-sizing:border-box;padding:12px 0}
 .node-ui>.workflow-generation-row{justify-content:flex-start}
-.node-ui-buttons{display:flex;flex:none;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:10px}
+.node-ui-buttons{display:flex;flex:none;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:10px;max-width:100%;min-width:0}
 .node-ui-buttons>button{flex:none;margin:0;min-height:34px;padding:6px 10px;font-size:13px;line-height:20px}
-.node-ui>.workflow-generation-row>.node-ui-task-status{margin:0 16px 0 auto;flex:0 1 auto;max-width:100%;min-width:0;font-size:13px;line-height:1.4;color:#c8c4bc;text-align:right}
+.node-ui>.workflow-generation-row>.node-ui-task-status{margin:0 16px 0 0;flex:0 1 auto;max-width:100%;min-width:0;font-size:13px;line-height:1.4;color:#c8c4bc;text-align:left}
+.node-ui-failure{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}

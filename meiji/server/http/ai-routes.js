@@ -81,11 +81,16 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
         result = await complete({ ...options, messages: prompt.messages });
         signal?.throwIfAborted();
         if (contract.output.type === 'JSON' && typeof result === 'string') result = parseJsonValue(result);
-        validateNodeResult(node, action, result, input);
+        try { validateNodeResult(node, action, result, input); }
+        catch (error) {
+          if (contract.output.type === 'JSON' && action !== 'review' && error.validationKind === 'missing-field')
+            Object.assign(error, { candidate: structuredClone(result), prompt });
+          throw error;
+        }
       } else {
         let bytes;
         if (kind === 'image') {
-          const generate = gateway.image || (connection.model === 'gpt-image' ? llmServerClient.generateImage : generateGatewayImage);
+          const generate = gateway.image || (['krea2 turbo V2.5', 'gpt-image'].includes(connection.model) ? llmServerClient.generateImage : generateGatewayImage);
           bytes = await generate({ ...options, prompt: prompt.body, aspectRatio: input.aspectRatio, references: input.references.map(value => decodeImageData(value)) });
         } else {
           const remote = await (gateway.submitVideo || submitGatewayVideo)({ ...options, ...prompt.request });

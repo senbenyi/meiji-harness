@@ -18,20 +18,20 @@ const config = {
   baseUrl: 'https://media.test/v1', apiKey: 'media-secret',
   textBaseUrl: 'http://127.0.0.1:11435/v1',
   text: { model: 'qwen3.5:27b' },
-  image: { model: 'elysium-image' }, video: { model: 'elysium-video' },
+  image: { model: 'gpt-image' }, video: { model: 'elysium-video' },
   output_language: 'zh-CN',
 }
 
 test('千问：文本路由和媒体凭据隔离，配置保存不丢失独立地址', async () => {
   const base = await defaults(new URL('./fixtures/absent-local.json', import.meta.url))
   assert.equal(base.text.model, 'qwen3.5:27b')
+  assert.equal(base.image.model, 'krea2 turbo V2.5')
   const normalized = normalizeModels(config)
   for (const purpose of ['chat', 'story']) {
     assert.deepEqual(modelRoute(normalized, purpose), { baseUrl: config.textBaseUrl, apiKey: 'ollama', model: 'qwen3.5:27b' })
   }
-  for (const purpose of ['image', 'video']) {
-    assert.deepEqual(modelRoute(normalized, purpose), { baseUrl: config.baseUrl, apiKey: config.apiKey, model: config[purpose].model })
-  }
+  assert.deepEqual(modelRoute(normalized, 'image'), { baseUrl: config.textBaseUrl, apiKey: 'ollama', model: 'gpt-image' })
+  assert.deepEqual(modelRoute(normalized, 'video'), { baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.video.model })
   assert.deepEqual(normalized, config)
   assert.throws(() => normalizeModels({ ...config, textBaseUrl: '' }), /网关地址无效/)
   assert.equal(modelRoute({ ...config, apiKey: '' }, 'story').apiKey, 'ollama')
@@ -56,6 +56,29 @@ test('千问：显式迁移先备份，媒体、额外设置及原备份不变�
     assert.equal(after.output_language, 'zh-CN')
     assert.deepEqual(await migrateSettingsModel(home), { changed: false })
     assert.equal(await readFile(migrated.backup, 'utf8'), before)
+  } finally { await rm(home, { recursive: true, force: true }) }
+})
+
+test('迁移把已移除的 elysium 文本与图片选择改为默认可选值，保留连接与额外设置', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'meiji-fixed-options-'))
+  try {
+    const previous = { baseUrl: config.baseUrl, apiKey: config.apiKey, chat: { model: 'elysium-chat' }, story: { model: 'elysium-chat' }, image: { model: 'elysium-image' }, video: { model: 'elysium-video' }, concurrency: { text: 4 } }
+    const store = modelStore(home)
+    await store.write(previous)
+    const migrated = await migrateSettingsModel(home)
+    assert.equal(migrated.changed, true)
+    const after = await store.read()
+    assert.equal(after.text.model, 'qwen3.5:27b')
+    assert.equal(after.image.model, 'krea2 turbo V2.5')
+    assert.equal(after.video.model, 'elysium-video')
+    assert.equal(after.output_language, 'zh-CN')
+    for (const key of ['baseUrl', 'apiKey', 'concurrency']) assert.deepEqual(after[key], previous[key])
+    assert.equal(after.chat, undefined)
+    assert.equal(after.story, undefined)
+    await store.write({ ...after, text: { model: 'elysium-chat' } })
+    assert.equal((await migrateSettingsModel(home)).changed, true)
+    assert.equal((await store.read()).text.model, 'qwen3.5:27b')
+    assert.deepEqual(await migrateSettingsModel(home), { changed: false })
   } finally { await rm(home, { recursive: true, force: true }) }
 })
 

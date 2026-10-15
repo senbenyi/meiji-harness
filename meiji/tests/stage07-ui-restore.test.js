@@ -199,7 +199,7 @@ test("UI-2/3 概要原卡片、剧本入口；剧集四标签和镜头两标签�
     assert.equal(root.querySelectorAll(".shot-card").length, 2);
     assert.equal(root.querySelector("[data-business=video]"), null);
     [...root.querySelectorAll("button")]
-      .find((b) => b.textContent === "打开镜头")
+      .find((b) => b.textContent === "查看详情")
       .click();
     assert.equal(root.querySelectorAll(".stage-overview .stage").length, 0);
     assert.ok(root.querySelector("[data-business=video]"));
@@ -463,7 +463,7 @@ test("UI-6 设置选项自动保存、刷新恢复、失败回退，运行中冻
         "dsh.sessions.current",
         JSON.stringify({ sessionId: "session-" + randomUUID() }),
       );
-      const settings = { output_language: "zh-CN", text: { model: "qwen3.5:27b" }, image: { model: "elysium-image" }, video: { model: "elysium-video" } };
+      const settings = { output_language: "zh-CN", text: { model: "qwen3.5:27b" }, image: { model: "gpt-image" }, video: { model: "elysium-video" } };
       let fail = false;
       globalThis.fetch = async (url, options = {}) => {
         if (options.method === "POST") {
@@ -482,8 +482,8 @@ test("UI-6 设置选项自动保存、刷新恢复、失败回退，运行中冻
       assert.equal(content.querySelectorAll("input, textarea").length, 0);
       assert.ok(![...content.querySelectorAll("button")].some(b => b.textContent === "保存"));
       let language = content.querySelector("[name=output_language]"), model = content.querySelector("[name=text]");
-      assert.deepEqual([...model.options].map(o => o.textContent), ["GPT（Codex 套餐）", "elysium-chat", "Qwen3.5 27B"]);
-      assert.deepEqual([...content.querySelector("[name=image]").options].map(o => o.textContent), ["GPT（Codex 套餐）", "elysium-image"]);
+      assert.deepEqual([...model.options].map(o => o.textContent), ["Qwen3.5 27B", "GPT（Codex 套餐）"]);
+      assert.deepEqual([...content.querySelector("[name=image]").options].map(o => o.textContent), ["GPT（Codex 套餐）"]);
       assert.deepEqual([...content.querySelector("[name=video]").options].map(o => o.textContent), ["elysium-video"]);
       model.value = "codex-gpt";
       await model.onchange();

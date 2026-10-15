@@ -11,7 +11,7 @@ import { createHandlerRegistry } from '../server/handlers/handler-registry.js';
 import { commitContent } from '../server/handlers/content.js';
 import { mergeCharacters } from '../shared/collection-identity.js';
 import { primaryCostumeImage } from '../shared/models/character_model.js';
-import { projectFixture } from './fixtures/project.js';
+import { projectFixture, approveScriptReview } from './fixtures/project.js';
 
 const person = {name:'甲',gender:'男',era:'宋代',position:'主角',age_range:'成年',body_type:'高大',hairstyle:'束发',signature_props:[],immutable_traits:[],costumes:['常服','礼服'].map(name=>({name,color:'蓝',material:'布',props:[]}))};
 const split = {剧集:[{序号:1,起始段落:'P001',结束段落:'P002',预估时长秒:30}],排除段落:[]};
@@ -19,7 +19,7 @@ const deferred = () => { let resolve; const promise = new Promise(r=>{resolve=r;
 async function scenario(work) {
  const root=await mkdtemp(join(tmpdir(),'meiji-state-matrix-'));
  let repo=new ModelRepository(root), service;
- const project=projectFixture(); project.creation_mode='剧本'; project.script.body='宋代，甲穿蓝色常服入门。\n甲换上礼服离开。';
+ const project=projectFixture(); project.creation_mode='剧本'; project.script.body='宋代，甲穿蓝色常服入门。\n甲换上礼服离开。'; approveScriptReview(project);
  project.character_library.characters=mergeCharacters(project,[person]).characters;
  let model=await repo.create(project), mode='ok', gate, entered, calls=0, failAt=Infinity;
  const execute=createHandlerRegistry({text:createTextHandler({chat:async ctx=>{

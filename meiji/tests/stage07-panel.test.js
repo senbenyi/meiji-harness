@@ -270,6 +270,9 @@ test("镜头表九字段按序直接展开，时长在标题旁且不重复展�
     assert.equal(root.querySelectorAll("details, [aria-expanded]").length, 0);
     assert.equal(root.querySelector('[data-business="shots"] .prompt'), null);
     for (const [index, card] of cards.entries()) {
+      assert.equal(card.querySelectorAll(".prompt").length, 1);
+      assert.ok(card.querySelector(".prompt.full").textContent.startsWith(`正文：镜头正文${index + 1}`));
+      assert.equal(card.querySelector("button"), null);
       assert.equal(root.textContent.split(`镜头正文${index + 1}`).length - 1, 1);
       for (const text of ["景别：近景", "钩子：人物察觉异样", "连续性衔接：承接前镜抬头动作", "参考锚点", "固定地标：门槛", "人物位置：门内左侧", "离场角色：王婆已离场", "光位：窗外冷光", "音频安排", "旁白：日色将晚", "对白：且慢", "音效：落碗声"])
         assert.ok(card.textContent.includes(text), text);
@@ -348,6 +351,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     assert.deepEqual(labelsOf(cardOf("剧本")), []);
     project.creation_mode = "自由创作";
     project.project_summary.node_state.status = "rejected";
+    project.project_summary.node_state.reason = "摘要缺少结局";
     project.character_library.node_state.status = "rejected";
     project.character_library.node_state.reason = "未通过";
     project.character_library.characters = [{ id: "c1", number: "C01", name: "武松", position: "好汉", costumes: [], costume_images: [{ costume_id: "", address: "" }] }];
@@ -372,9 +376,10 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
       false,
     );
     assert.deepEqual(
-      labelsOf(cardOf("项目摘要")).filter((label) => ["重新生成", "原结果修订"].includes(label)),
-      ["重新生成", "原结果修订"],
+      labelsOf(cardOf("项目摘要")).filter((label) => ["重新生成", "原结果修订", "修复"].includes(label)),
+      ["重新生成"],
     );
+    assert.equal(cardOf("项目摘要").querySelector('.node-ui-repair-row button').textContent, '修复');
     assert.equal(cardOf("剧本").querySelector(".section-titles .status-label"), null);
     assert.equal(cardOf("剧本").querySelector(".workflow-generation-row .node-ui-status").textContent, "未通过");
     assert.deepEqual(
@@ -383,7 +388,36 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     );
     assert.equal(titled("提取人物").querySelector(".node-data-tag").textContent, "未通过");
     assert.ok(titled("提取人物").textContent.includes("未通过"));
-    assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "原结果修订", "人工编辑", "人工放行", "任务历史"]);
+    assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "人工编辑", "人工放行", "任务历史"]);
+    assert.equal(titled("提取人物").querySelector('.node-ui-repair-row button').textContent, '修复');
+  } finally {
+    globalThis.document = previous;
+    dom.window.close();
+  }
+});
+
+test("新建项目没有剧集时概览可以渲染，占位按钮打开对应操作", () => {
+  const dom = new JSDOM("<main></main>", { url: "http://localhost" }), previous = globalThis.document;
+  globalThis.document = dom.window.document;
+  dom.window.HTMLDialogElement.prototype.show = function () { this.open = true; };
+  try {
+    const snapshot = snapshotFixture(), root = document.querySelector("main"), view = { page: "overview" };
+    snapshot.project.episodes = [];
+    const paint = (mode) => {
+      snapshot.project.creation_mode = mode;
+      root.replaceChildren();
+      renderTaskPanel(root, snapshot, { session_id: "session-test", view, refresh: async () => {}, paint: () => {}, onError: () => {} });
+    };
+    paint("自由创作");
+    const freePlaceholder = root.querySelector(".episode-placeholder");
+    assert.equal(freePlaceholder.querySelector("p").textContent, "新增剧集后开始制作");
+    freePlaceholder.querySelector("button").click();
+    assert.match(root.querySelector("dialog").textContent, /新增剧集/);
+    paint("剧本");
+    const scriptPlaceholder = root.querySelector(".episode-placeholder");
+    assert.equal(scriptPlaceholder.querySelector("p").textContent, "拆分剧本后开始制作");
+    scriptPlaceholder.querySelector("button").click();
+    assert.match(root.querySelector("dialog").textContent, /参考单集时长/);
   } finally {
     globalThis.document = previous;
     dom.window.close();

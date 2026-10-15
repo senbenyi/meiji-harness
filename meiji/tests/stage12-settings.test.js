@@ -12,7 +12,7 @@ import { createTaskHttpHandler } from '../server/http/task-routes.js'
 import { syncChatModel } from '../server/host/harness-chat-model.js'
 import { emptyProject } from '../shared/project_contract.js'
 
-const selection = { output_language: 'zh-CN', text: { model: 'qwen3.5:27b' }, image: { model: 'elysium-image' }, video: { model: 'elysium-video' } }
+const selection = { output_language: 'zh-CN', text: { model: 'qwen3.5:27b' }, image: { model: 'gpt-image' }, video: { model: 'elysium-video' } }
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}/v1`)))
 
 test('设置 Model 拒绝未知选项、图片冒用文本，聊天和制作同源', () => {
@@ -20,11 +20,13 @@ test('设置 Model 拒绝未知选项、图片冒用文本，聊天和制作同�
   assert.throws(() => new SettingsModel({ ...selection, image: selection.text }), /请选择有效模型/)
   const config = { ...selection, baseUrl: 'https://gateway.test/v1', textBaseUrl: 'http://localhost:11435/v1', apiKey: 'private' }
   assert.deepEqual(modelRoute(config, 'chat'), modelRoute(config, 'story'))
-  assert.equal(modelRoute(config, 'image').model, 'elysium-image')
-  assert.equal(modelRoute(config, 'image').baseUrl, 'https://gateway.test/v1')
+  for (const [purpose, model] of [['text', 'elysium-chat'], ['image', 'elysium-image']]) {
+    assert.throws(() => new SettingsModel({ ...selection, [purpose]: { model } }), /请选择有效模型/)
+  }
   assert.equal(modelRoute(config, 'video').model, 'elysium-video')
-  assert.equal(modelRoute(config, 'image').apiKey, 'private')
-  const gpt = modelRoute({ ...config, image: { model: 'gpt-image' } }, 'image')
+  assert.equal(modelRoute(config, 'video').baseUrl, 'https://gateway.test/v1')
+  assert.equal(modelRoute(config, 'video').apiKey, 'private')
+  const gpt = modelRoute(config, 'image')
   assert.equal(gpt.model, 'gpt-image')
   assert.equal(gpt.baseUrl, 'http://localhost:11435/v1')
   assert.equal(gpt.apiKey, 'ollama')
@@ -55,7 +57,7 @@ test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，�
     const publicConfig = await (await fetch(url)).json()
     assert.deepEqual(publicConfig.settings, selection)
     let project
-    for (const [modelName, kind, key] of [['elysium-chat', 'gateway', 'gateway-secret'], ['qwen3.5:27b', 'qwen', 'ollama'], ['codex-gpt', 'qwen', 'ollama']]) {
+    for (const [modelName, kind, key] of [['qwen3.5:27b', 'qwen', 'ollama'], ['codex-gpt', 'qwen', 'ollama']]) {
       const before = requests.length
       const response = await save({ ...selection, text: { model: modelName }, apiKey: 'must-not-overwrite', baseUrl: 'http://must-not-use.test' })
       assert.equal(response.status, 200)
@@ -91,9 +93,11 @@ test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，�
     const persisted = await runtime.models.read()
     assert.deepEqual(persisted.concurrency, { text: 4 })
     assert.equal(persisted.apiKey, 'gateway-secret')
-    assert.equal((await save({ ...selection, text: { model: 'bad' } })).status, 400)
+    for (const bad of [{ text: { model: 'bad' } }, { text: { model: 'elysium-chat' } }, { image: { model: 'elysium-image' } }]) {
+      assert.equal((await save({ ...selection, ...bad })).status, 400)
+    }
     runtime.syncModels = async () => { throw Error('聊天同步失败') }
-    assert.equal((await save({ ...selection, text: { model: 'elysium-chat' } })).status, 422)
+    assert.equal((await save({ ...selection, text: { model: 'qwen3.5:27b' } })).status, 422)
     assert.deepEqual(await runtime.models.read(), persisted)
     await runtime.dispose(); runtime = await createAppRuntime({ home })
     assert.deepEqual(await runtime.models.read(), persisted)

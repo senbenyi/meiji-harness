@@ -4,7 +4,7 @@ import { expireDownstream, stampDependencyHash } from "../../shared/node-depende
 import { applyDelete } from "./deletion-handler.js";
 import { nodeOf, locateTarget, invalid } from "../../shared/task_contract.js";
 import { mergeCharacters, replaceShots } from "../../shared/collection-identity.js";
-import { assertOutput, assertProgramReview } from "../../shared/node-state.js";
+import { assertOutput, assertOverride } from "../../shared/node-state.js";
 import { emptyEpisode, validateProject } from "../../shared/project_contract.js";
 import { emptyCostumeImageModel } from "../../shared/models/costume_image_model.js";
 import { emptyNodeStateModel } from "../../shared/models/node_state_model.js";
@@ -38,7 +38,10 @@ export function prepareContent(snapshot, task, raw) {
       const costume = person.costumes.find(costume => costume.number === row.costume_number);
       if (row.costume_number && !costume || person.costumes.length && !costume) invalid("镜头角色识别", "需指定该人物的有效服装编号");
       return { character_id: person.id, costume_id: costume?.id || '' };
-    }) };  } else if (["project-summary", "episode-summary"].includes(business)) {
+    }) };  } else if (business === "script-review") {
+    content = { has_result: true, story_continuous: raw.story_continuous, continuity: raw.continuity.trim(),
+      filmable: raw.filmable, filmability: raw.filmability.trim(), suggestions: raw.suggestions.trim() };
+  } else if (["project-summary", "episode-summary"].includes(business)) {
     if (typeof raw !== "string" || !raw.trim()) invalid(business, "摘要内容为空");
     content = { body: raw.trim() };
   } else if (business === "storyboard") {
@@ -85,7 +88,7 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   const project = snapshot.project, business = task.business_type;
   if (task.action === "delete") { applyDelete(snapshot, task); return []; }
   if (task.action === "override") {
-    assertProgramReview(project, business, task.target_id);
+    assertOverride(project, business, task.target_id);
     if (business === "outline") {
       const episode = locateTarget(project, business, task.target_id).episode;
       episode.duration_seconds = episode.story_outline.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0);

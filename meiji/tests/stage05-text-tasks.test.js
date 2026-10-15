@@ -41,7 +41,11 @@ test("角色生成与修订执行器要求性别，拒绝遗漏或空白并保�
         return { characters: [candidate] };
       } });
       const run = () => handler({ snapshot, task, step: { kind, seq: 1 }, record: async () => {} });
-      if (!gender?.trim()) await assert.rejects(run, /gender/);
+      if (gender === undefined) {
+        const output = await run();
+        assert.match(output.validationFailure, /gender.*缺少字段/);
+        assert.equal(output.content, null);
+      } else if (!gender.trim()) await assert.rejects(run, /gender/);
       else assert.equal((await run()).content.characters.at(-1).gender, gender);
     }
   }

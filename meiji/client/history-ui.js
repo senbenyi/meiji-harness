@@ -1,7 +1,9 @@
 import { historyGroups, taskName, stepName } from "../shared/task-labels.js";
 import { NODE_TYPES } from "../shared/task_contract.js";
+import { BUSINESS_DEFINITIONS } from "../shared/node-definitions.js";
 import { element } from "./panel-dom.js";
 const nodeTypeNames = {
+  "script-review": "剧本审核",
   "project-summary": "项目摘要",
   "project-characters": "剧本重要角色",
   "character-image": "角色图片",
@@ -19,6 +21,16 @@ const nodeTypeNames = {
 };
 const text = (value) =>
   typeof value === "string" ? value : JSON.stringify(value ?? null, null, 2);
+function isAiStep(step, task) {
+  const definition = BUSINESS_DEFINITIONS[task.business_type];
+  if (step.kind === "review") {
+    const name = stepName(step, task);
+    return !name.includes("程序审核") && (name.includes("AI审核") || Boolean(definition?.aiReview));
+  }
+  return ["generate", "revise"].includes(step.kind) &&
+    (["text", "media"].includes(definition?.handler) || ["script", "episode-characters"].includes(task.business_type)) &&
+    !["assembly", "tail"].includes(task.business_type);
+}
 // 记录卡片：标题与复制按钮同一行，正文完整展示不截断。
 function copyButton(label, read, title = "复制") {
   const copy = element("button", title, "meiji-log-copy");
@@ -37,6 +49,14 @@ function copyButton(label, read, title = "复制") {
     }
   };
   return copy;
+}
+function identityRow(label, id) {
+  const row = element("div", "", "meta run-id-row");
+  row.dataset.recordId = id;
+  const copy = copyButton(`复制${label} ID`, () => id);
+  copy.classList.add("run-id-copy");
+  row.append(element("span", `${label} ID：`), element("code", id), copy);
+  return row;
 }
 function recordCard(title, value, { copy = true, copyTitle = "复制" } = {}) {
   const card = element("section", "", "run-record-card"),
@@ -193,12 +213,12 @@ export function renderHistory(root, env, snapshot) {
   if (selected) {
     const groupHead = element("div", "", "run-group-head run-list-heading");
     groupHead.append(element("strong", selectedGroup.name), element("span", statuses[selectedGroup.status], `task-history-status is-${selectedGroup.status}`));
-    view.append(groupHead, element("p", `任务完成 ${selectedGroup.tasks.filter(t=>t.task_status === "completed").length}/${selectedGroup.tasks.length}`, "meta"));
+    view.append(groupHead, identityRow("任务组", selectedGroup.group.id), element("p", `任务完成 ${selectedGroup.tasks.filter(t=>t.task_status === "completed").length}/${selectedGroup.tasks.length}`, "meta"));
     for (const selected of selectedGroup.tasks) {
     const taskHead = element("div", "", "run-task-head run-list-heading");
     taskHead.dataset.taskId = selected.id;
     taskHead.append(element("h3", `${selected.group_seq}. ${taskName(selected, p)}`),element("span", statuses[selected.task_status], `task-history-status is-${selected.task_status}`));
-    view.append(taskHead);
+    view.append(taskHead, identityRow("任务", selected.id));
     view.append(
       element(
         "p",
@@ -246,7 +266,7 @@ export function renderHistory(root, env, snapshot) {
         ),
       );
       heading.append(toggle);
-      summary.append(heading);
+      summary.append(heading, identityRow("步骤", step.id));
       item.append(summary);
       const detail = element("div", "", "run-step-detail");
       const reason = step.error_reason || (rejected ? step.result?.原因 : '');
@@ -262,6 +282,7 @@ export function renderHistory(root, env, snapshot) {
       detail.append(result);
       const links = element("div", "", "workflow-generation-row run-record-links");
       for (const [view, title] of [["prompt", "查看提示词"], ["http", "查看 HTTP"]]) {
+        if (view === "prompt" && !isAiStep(step, selected)) continue;
         const link = button(title, () =>
           go("history", { task_id: selected.id, group_id:selectedGroup.group.id, step_id: step.id, step_view: view, http_index: 0, http_tab: "request" }),
         false);
@@ -341,7 +362,7 @@ export function renderHistory(root, env, snapshot) {
     progress.max = entry.tasks.length;
     progress.value = entry.tasks.filter(t=>t.task_status === "completed").length;
     progress.setAttribute("aria-label","组内任务进度");
-    row.append(heading,element("p",`${entry.group.source === "session" ? "会话发起" : "面板发起"} · ${entry.group.created_at || ""}`,"meta"),
+    row.append(heading,identityRow("任务组", entry.group.id),element("p",`${entry.group.source === "session" ? "会话发起" : "面板发起"} · ${entry.group.created_at || ""}`,"meta"),
       element("p",`任务完成 ${progress.value}/${progress.max}${current ? ` · 当前：${taskName(current,p)}` : ""}`,"meta"),element("p",entry.reason || "", "error"),progress);
     list.append(row);
   }

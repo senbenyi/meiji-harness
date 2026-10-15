@@ -119,11 +119,22 @@ export async function createAppRuntime({
           invalid("creative_direction", "自由创作需用户提供方向");
         const p = emptyProject(fields);
         await repository.create(p);
-        return runtime.projectCommand(
+        const opened = await runtime.projectCommand(
           { type: "open", project_id: p.id },
           sessionId,
           source,
         );
+        // 导入剧本后先自动审核一次；提交失败不撤销已创建的项目，原因随结果返回。
+        if (!p.script.body.trim()) return opened;
+        try {
+          const review = await runtime.command({
+            type: "submit", project_id: p.id, request_id: `script-review:${p.id}`,
+            business_type: "script-review", target_id: p.id, action: "generate",
+          }, opened.session_id, source);
+          return { ...opened, script_review_task_id: review.task_id };
+        } catch (error) {
+          return { ...opened, script_review_error: error.message };
+        }
       }
       if (command.type === "open") {
         const model = await repository.open(command.project_id);

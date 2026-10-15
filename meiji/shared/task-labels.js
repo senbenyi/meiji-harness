@@ -26,12 +26,15 @@ export function taskName(task, project) {
   }
   if (['first-last-frame', 'multimodal'].includes(task.business_type)) return `${target} · 执行${business}`;
   const action = { generate: "生成", regenerate: "重新生成", revise: "原结果修订", continue: "生成", manual_edit: "编辑", override: "放行", delete: "删除" }[task.action] || "生成";
+  if (task.business_type === "script-review") return { override: "放行剧本审核", regenerate: "重新审核剧本" }[task.action] || "审核剧本";
   if (task.business_type === "script-split") return `${task.action === "manual_edit" ? "编辑拆分设置" : "拆分剧集"}`;
   if (task.business_type === "project-characters" && task.action !== "revise") return `${task.action === "regenerate" ? "重新提取" : "提取"}剧本重要角色`;
   return `${target ? target + " · " : ""}${action}${business}`;
 }
 export function stepName(step, task) {
   if (step.name) return step.name;
+  if (task.business_type === "script-review" && step.kind === "generate") return "AI审核剧本连续性与拍摄适配";
+  if (task.business_type === "script-review" && step.kind === "review") return "程序审核：判定剧本审核结论";
   const business = businessNames[task.business_type] || task.business_type;
   return {
     precheck: "前置检查", generate: task.business_type === "project-characters" ? "提取角色资料" : `${['first-last-frame','multimodal'].includes(task.business_type) ? '执行' : task.action === 'revise' ? '原结果修订' : task.action === 'regenerate' ? '重新生成' : '生成'}${business}`,

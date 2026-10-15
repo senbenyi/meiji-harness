@@ -135,7 +135,7 @@ test('组列表只显示一张卡片，详情排列全部任务步骤，二级�
  paint();assert.equal(root.querySelectorAll('.run-list-row').length,1);assert.match(root.textContent,/重要角色及图片/);
  const typeSelect=root.querySelector('[aria-label=按节点类型筛选]');
  assert.deepEqual([...typeSelect.options].map(o=>[o.value,o.textContent]),[
-  ['','全部对象'],['project-summary','项目摘要'],['project-characters','剧本重要角色'],
+  ['','全部对象'],['script-review','剧本审核'],['project-summary','项目摘要'],['project-characters','剧本重要角色'],
   ['character-image','角色图片'],['costume-image','角色定妆照'],['episode-summary','展示摘要'],
   ['outline','故事大纲'],['shots','镜头表'],
   ['shot-characters','镜头角色与服装'],['seconds','每秒分镜'],['storyboard','文本提示词'],['first-last-frame','首尾帧参数编排'],['multimodal','多模态参数编排'],['video','视频'],['tail','尾帧'],['assembly','合片']]);
@@ -172,4 +172,77 @@ test('任务历史卡片和详情都不放继续',()=>fixture(({s,root,state,pai
  assert.equal(labels.includes('继续'),false);
  assert.equal(labels.includes('取消'),false);
  assert.ok(labels.includes('查看提示词')&&labels.includes('查看 HTTP')&&labels.includes('复制结果'));
+}));
+
+test('任务组、任务、收起步骤显示完整ID，小复制按钮只复制对应ID且不触发导航或展开',()=>fixture(({dom,s,root,state,paint})=>{
+ const previous=Object.getOwnPropertyDescriptor(globalThis,'navigator'),copies=[];
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{writeText:async value=>{copies.push(value);}}}});
+ try{
+  const groupId='g_12345678-1234-1234-1234-123456789012';
+  const taskIds=['t_12345678-1234-1234-1234-123456789012','t_22345678-1234-1234-1234-123456789012'];
+  const stepIds=['st_12345678-1234-1234-1234-123456789012','st_22345678-1234-1234-1234-123456789012'];
+  s.groups[0].id=groupId;
+  s.tasks=taskIds.map((id,index)=>({...s.tasks[0],id,group_id:groupId,group_seq:index+1,queue_order:index+1}));
+  s.steps=stepIds.map((id,index)=>({id,task_id:taskIds[index],seq:1,kind:'generate',step_status:'done',result:'结果'}));
+  const before=structuredClone(s);
+  paint();
+  const row=root.querySelector('.run-list-row .run-id-row');
+  assert.equal(row.querySelector('code').textContent,groupId);
+  assert.equal(row.querySelector('button').getAttribute('aria-label'),'复制任务组 ID');
+  row.querySelector('button').click();
+  assert.deepEqual(copies,[groupId]);
+  assert.equal(state.task_id,undefined);
+  row.querySelector('button').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  assert.equal(state.task_id,undefined);
+  state.task_id=taskIds[0];paint();
+  assert.equal(root.querySelector('.run-group-head').nextElementSibling.querySelector('code').textContent,groupId);
+  const taskHeads=[...root.querySelectorAll('.run-task-head')],steps=[...root.querySelectorAll('.run-step-card')];
+  for(let i=0;i<taskIds.length;i++){
+   assert.equal(taskHeads[i].nextElementSibling.querySelector('code').textContent,taskIds[i]);
+   assert.equal(steps[i].querySelector('.run-step-summary .run-id-row code').textContent,stepIds[i]);
+   assert.equal(steps[i].classList.contains('is-expanded'),false);
+  }
+  for(const idRow of root.querySelectorAll('.run-id-row'))idRow.querySelector('button').click();
+  assert.deepEqual(copies,[groupId,groupId,taskIds[0],stepIds[0],taskIds[1],stepIds[1]]);
+  assert.equal(state.task_id,taskIds[0]);
+  assert.equal(state.step_view,undefined);
+  assert.ok(steps.every(step=>!step.classList.contains('is-expanded')));
+  assert.deepEqual(s,before);
+ }finally{if(previous)Object.defineProperty(globalThis,'navigator',previous);else delete globalThis.navigator;}
+}));
+
+test('只有AI生成修订审核显示提示词，前置检查和各类程序步骤隐藏，HTTP入口不变',()=>fixture(({s,root,state,paint})=>{
+ state.task_id='t';
+ const cases=[
+  ['outline','precheck','前置检查',false],
+  ['outline','generate','生成故事大纲',true],
+  ['outline','revise','修订故事大纲',true],
+  ['outline','review','程序审核故事大纲',false],
+  ['outline','review','AI审核故事大纲',true],
+  ['project-characters','review','程序审核剧本重要角色',false],
+  ['project-characters','review','AI审核剧本重要角色',true],
+  ['costume-image','generate','生成定妆照',true],
+  ['video','generate','生成视频',true],
+  ['video','review','程序审核视频',false],
+  ['video','review','AI审核视频',true],
+  ['script','generate','旧剧本生成',true],
+  ['episode-characters','generate','旧本集角色识别',true],
+  ['assembly','generate','生成合片',false],
+  ['tail','generate','提取尾帧',false],
+  ['first-last-frame','generate','执行首尾帧编排',false],
+  ['multimodal','generate','执行多模态编排',false],
+  ['outline','manual_edit','人工编辑',false],
+  ['outline','override','人工放行',false],
+  ['character-delete','impact','删除影响',false],
+  ['character-delete','apply','应用删除',false],
+ ];
+ for(const [business,kind,name,ai] of cases){
+  s.tasks[0].business_type=business;
+  // 即使程序步骤有历史prompt字段，也不能误显示AI入口。
+  s.steps=[{id:'s',task_id:'t',seq:1,kind,name,step_status:'done',prompt:{system:'历史记录',user:'资料'}}];
+  paint();
+  const labels=[...root.querySelector('.run-step-card').querySelectorAll('.run-record-link')].map(button=>button.textContent);
+  assert.equal(labels.includes('查看提示词'),ai,`${business}/${kind}/${name}`);
+  assert.ok(labels.includes('查看 HTTP'));
+ }
 }));
