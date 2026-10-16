@@ -252,7 +252,7 @@ export function renderTaskPanel(root, snapshot, context) {
         setup.append(element('h4', '整镜设定（来自镜头表）'), element('p', readable(shotSceneSetup(shot)), 'prompt full'), shotCastDetails(p, shot));
         card.append(setup);
       }
-      card.append(element('h4', '逐秒时间线'));
+      card.append(element('h4', '节拍时间线'));
       card.append(secondsView(node));
     } else if (business === "outline") {
       const segments = element("div", "", "outline-segments");

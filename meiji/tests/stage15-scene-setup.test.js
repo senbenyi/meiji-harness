@@ -72,7 +72,7 @@ test('每秒卡片先展示本镜镜头表设定再展示时间线，刷新读�
     const setupCard = card.querySelector('.seconds-shot-setup');
     assert.match(setupCard.textContent, /整镜设定（来自镜头表）/);
     for (const value of ['黑暗火场', '固定机位观察门面', '特写', '门框位于画面右侧', '只有戴手套的手与袖口入镜', '暖色火光', '近处呼吸器警报']) assert.ok(setupCard.textContent.includes(value), value);
-    assert.equal(setupCard.nextElementSibling.textContent, '逐秒时间线');
+    assert.equal(setupCard.nextElementSibling.textContent, '节拍时间线');
     assert.equal(setupCard.compareDocumentPosition(card.querySelector('.seconds-beats')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING, dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
     assert.equal(setupCard.querySelector('textarea,input,button'), null);
     shot.reference_anchor.lighting = '更新光位哨兵'; paint();

@@ -47,6 +47,11 @@ test('首镜无前镜；后镜直接读取镜末字段与末尾三秒完整节�
   // 跨越末尾窗口的长节拍保留全文，不裁切对白或动作。
   first.seconds_storyboard.storyboard = [{ ...emptyStoryboardBeatModel(), time_range: '0–5s', action: '连续完整长动作' }];
   assert.equal(previousSeconds(e, second).last_beats[0].time_range, '0–5s');
+  // 变长节拍：与末尾3秒相交的整拍进入交接，恰好止于窗口起点的节拍不进入。
+  first.seconds_storyboard.storyboard = ['0–2s', '2–4s', '4–5s'].map(time_range => ({ ...emptyStoryboardBeatModel(), time_range, action: `节拍${time_range}` }));
+  assert.deepEqual(previousSeconds(e, second).last_beats.map(beat => beat.time_range), ['2–4s', '4–5s']);
+  first.seconds_storyboard.storyboard = ['0–1s', '1–3s', '3–5s'].map(time_range => ({ ...emptyStoryboardBeatModel(), time_range, action: `节拍${time_range}` }));
+  assert.deepEqual(previousSeconds(e, second).last_beats.map(beat => beat.action), ['节拍1–3s', '节拍3–5s']);
 });
 
 test('生成/审核的前镜资料在user；修订assistant只含本镜候选，明确换场按本镜剧情选择继承', () => {

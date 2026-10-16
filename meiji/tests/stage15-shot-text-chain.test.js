@@ -56,13 +56,20 @@ test('独立识别节点退役，每秒分镜直接继承镜头表', () => withR
   assert.equal((await command('seconds', 'regenerate')).task_status, 'completed');
 }));
 
-test('seconds 语法错误是协议失败，空隙/倒序/重叠和±5边界交程序审核', () => {
+test('seconds 语法错误是协议失败，空隙/倒序/重叠和总长不等交程序审核', () => {
   const p = fixtureProject(), shot = p.episodes[0].shot_list.shots[0]; shot.duration_seconds = 10;
-  for (const end of [5, 15]) { shot.seconds_storyboard.storyboard = [beat(`0–${end}s`)]; assert.doesNotThrow(() => assertProgramReview(p, 'seconds', shot.id)); }
+  for (const ranges of [['0–10s'], ['0–2s', '2–5s', '5–10s'], ['0–1s', '1–2s', '2–3s', '3–4s', '4–5s', '5–6s', '6–7s', '7–8s', '8–9s', '9–10s']]) {
+    shot.seconds_storyboard.storyboard = ranges.map(beat);
+    assert.doesNotThrow(() => assertProgramReview(p, 'seconds', shot.id));
+  }
+  for (const end of [5, 9, 9.5, 11, 15]) {
+    shot.seconds_storyboard.storyboard = [beat(`0–${end}s`)];
+    assert.throws(() => assertProgramReview(p, 'seconds', shot.id), /需等于本镜参考 10 秒/);
+  }
   for (const ranges of [['0–4.9s'], ['0–15.1s'], ['0–5s', '4–10s'], ['0–5s', '6–10s'], ['0–0s'], ['1–10s'], ['0–5s', '5–4s']]) {
     shot.seconds_storyboard.storyboard = ranges.map(beat);
     assert.doesNotThrow(() => assertOutput(p, 'seconds', shot.id));
-    assert.throws(() => assertProgramReview(p, 'seconds', shot.id), /时段|误差/);
+    assert.throws(() => assertProgramReview(p, 'seconds', shot.id), /时段|需等于/);
   }
   shot.seconds_storyboard.storyboard = [beat('not-time')];
   assert.throws(() => assertOutput(p, 'seconds', shot.id), /time_range/);
@@ -77,7 +84,7 @@ test('程序失败再AI失败共用两次修订；修订收到最新候选与对
   assert.deepEqual(steps.filter(step => step.kind === 'revise').map(step => step.round), [1, 2]);
   const generations = calls.filter(call => call.task.business_type === 'seconds' && call.step.kind !== 'review');
   assert.equal(generations.length, 3);
-  assert.match(generations[1].messages.at(-1).content, /允许误差±5秒/);
+  assert.match(generations[1].messages.at(-1).content, /需等于本镜参考 5 秒/);
   assert.match(generations[2].messages.at(-1).content, /动作缺失/);
   assert.deepEqual(model.read().project.episodes[0].shot_list.shots[0].seconds_storyboard.storyboard, [beat('0–5s')]);
 }, ({ task, step }) => {
@@ -92,7 +99,7 @@ test('AI拒绝后的程序拒绝不丢失业务意见，再修订仍使用最新
   const generations = calls.filter(call => call.task.id === task.id && call.step.kind !== 'review');
   assert.equal(generations.length, 3);
   const final = generations[2];
-  assert.match(final.messages.at(-1).content, /允许误差±5秒/);
+  assert.match(final.messages.at(-1).content, /需等于本镜参考 5 秒/);
   assert.match(final.messages.at(-1).content, /结束状态必须明确门已打开/);
   assert.match(final.messages.at(-1).content, /已解决项不重复修改/);
   assert.equal(JSON.parse(final.messages[2].content).storyboard[0].time_range, '0–11s');

@@ -102,8 +102,9 @@ export function assertProgramReview(project, business, targetId) {
       if (Math.abs(start - end) > 1e-9 || next <= start) invalid("时段", "必须从0开始连续覆盖，不能重叠、倒序或留空隙");
       end = next;
     }
-    if (Math.abs(end - object.duration_seconds) > 5 + 1e-9)
-      invalid("每秒分镜", `总时长 ${end} 秒超出本镜参考 ${object.duration_seconds} 秒允许误差±5秒`);
+    // 视频请求时长取镜头参考时长，节拍时间线必须与之精确一致。
+    if (Math.abs(end - object.duration_seconds) > 1e-9)
+      invalid("每秒分镜", `节拍总时长 ${end} 秒需等于本镜参考 ${object.duration_seconds} 秒`);
   }
   if (business === 'video') {
     const actual = object.actual_duration_seconds;
