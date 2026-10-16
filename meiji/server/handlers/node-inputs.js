@@ -104,6 +104,16 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
         ...[...rejectedReviews].reverse().map(row => `${row.seq}. ${row.result?.原因 || row.error_reason}`)].filter(Boolean).join('\n');
     const source = action === 'review' ? draft : draft || (business === 'episode-scenes' ? {scenes:sceneCatalog(project,target.episode)} : nodeOf(project, business, task.target_id));
     value.content = candidate(business, source);
+    // 修复被拒绝的表时，审核意见指向最后失败候选，不能拿保留的旧正式表代替。
+    if (business === 'shots' && action === 'regenerate' && task.action === 'revise' && !draft
+      && nodeOf(project, business, task.target_id).node_state.status === 'rejected') {
+      const previous = (snapshot.tasks || []).filter(row => row.id !== task.id && row.business_type === business
+        && row.target_id === task.target_id).sort((a,b) => b.queue_order - a.queue_order)[0];
+      const failed = previous?.task_status === 'rejected' && steps.filter(row => row.task_id === previous.id
+        && ['generate','revise'].includes(row.kind) && row.step_status === 'done').sort((a,b) => b.seq - a.seq)[0];
+      const base = failed?.result?.mode === 'patch' ? failed.prompt?.input?.content : failed?.result;
+      if (Array.isArray(base?.shots) && base.shots.length) value.content = structuredClone(base);
+    }
     if (business === 'script-split') {
       const previous = (snapshot.tasks || []).filter(row => row.id !== task.id && row.business_type === business).sort((a, b) => b.queue_order - a.queue_order)[0];
       const rejected = previous?.task_status === 'rejected' && steps.filter(row => row.task_id === previous.id && ['generate', 'revise'].includes(row.kind) && row.step_status === 'done').sort((a, b) => b.seq - a.seq)[0]?.result;

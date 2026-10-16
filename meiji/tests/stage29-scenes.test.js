@@ -147,6 +147,24 @@ test('未分配镜头ID的候选明确改用完整replace，不以空ID做patch'
   const result=validateNodeResult('shots','regenerate',{mode:'replace',shots:replacement},input);
   assert.equal(result.shots[0].body,'修复正文');assert.equal(result.shots[0].id,'');
 });
+test('拒绝镜头表的修复读取最近同目标失败候选，正常原结果修订仍读正式表',()=>{
+  const {p,e,snapshot}=withScene(),current=taskFixture(p,'shots',e.id,{action:'revise',queue_order:3});
+  const old=taskFixture(p,'shots',e.id,{task_status:'rejected',queue_order:1});
+  const unrelated=taskFixture(p,'shots','e_other',{task_status:'rejected',queue_order:2});
+  const base=taskNodeInput(snapshot,current,null,'regenerate').content;
+  const failed=structuredClone(base);failed.shots[0].id='';failed.shots[0].body='最近失败候选正文';
+  snapshot.tasks=[old,unrelated,current];snapshot.steps=[{task_id:old.id,kind:'revise',seq:5,step_status:'done',result:failed},
+    {task_id:unrelated.id,kind:'generate',seq:2,step_status:'done',result:{shots:[{body:'别的集不能混入'}]}}];
+  e.shot_list.node_state.status='rejected';
+  assert.deepEqual(taskNodeInput(snapshot,current,null,'regenerate').content,failed);
+  e.shot_list.node_state.status='generated';
+  assert.deepEqual(taskNodeInput(snapshot,current,null,'regenerate').content,base);
+  e.shot_list.node_state.status='rejected';
+  assert.deepEqual(taskNodeInput(snapshot,{...current,action:'regenerate'},null,'regenerate').content,base);
+  snapshot.steps[0].result={mode:'patch',shots:[{id:'',changes:{body:'无法定位'}}]};
+  snapshot.steps[0].prompt={input:{content:failed}};
+  assert.deepEqual(taskNodeInput(snapshot,current,null,'regenerate').content,failed);
+});
 test('连续接拍须同地点同状态；换场、反打、回到旧场景使用场景参考而非前镜尾帧',()=>{
   const {e}=withScene(),[a,b]=e.shot_list.shots;
   assert.equal(videoType(e,a),'多模态');assert.equal(videoType(e,b),'多模态');
