@@ -1,4 +1,4 @@
-import { sceneText } from '../../shared/scene-inputs.js';
+import { sceneText, sceneImageContext } from '../../shared/scene-inputs.js';
 import { videoPack, previousShot, videoImages } from '../../shared/video-inputs.js';
 import { primaryCostumeImage } from "../../shared/models/character_model.js";
 import { dataUrl } from "../gateway/model-gateway.js";
@@ -96,7 +96,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
         await media.validate(node.address,p.id,'image');
         references.push(dataUrl(await media.read(node.address,p.id), node.address.endsWith('.jpg') ? 'image/jpeg' : node.address.endsWith('.webp') ? 'image/webp' : 'image/png'));
       }
-      const response = await ai(business, task.opinion.trim() ? 'regenerate' : 'generate', { language, requirements:p.creative_direction, scene:sceneText(object), aspectRatio:p.aspect_ratio, references, ...(task.opinion.trim() ? {opinion:task.opinion} : {}) }, {signal,record,task,step});
+      const response = await ai(business, task.opinion.trim() ? 'regenerate' : 'generate', { language, requirements:p.creative_direction, scene:sceneText(object), context:sceneImageContext(p,object.id), aspectRatio:p.aspect_ratio, references, ...(task.opinion.trim() ? {opinion:task.opinion} : {}) }, {signal,record,task,step});
       bytes = Buffer.from(response.result.data,'base64'); prompt = response.prompt;
     } else if (business === "costume-image") {
       const modify = Boolean(node.address) && Boolean(task.opinion.trim());

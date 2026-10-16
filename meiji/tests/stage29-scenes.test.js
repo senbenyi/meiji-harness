@@ -8,7 +8,7 @@ import { JSDOM } from 'jsdom';
 import { projectFixture, snapshotFixture, taskFixture } from './fixtures/project.js';
 import { emptySceneModel } from '../shared/models/scene_model.js';
 import { emptyEpisode } from '../shared/project_contract.js';
-import { mergeScenes, sceneText, shotScene } from '../shared/scene-inputs.js';
+import { mergeScenes, sceneText, shotScene, sceneImageContext } from '../shared/scene-inputs.js';
 import { videoType, videoImages } from '../shared/video-inputs.js';
 import { dependencyHash, stampDependencyHash, isNodeCurrent, expireDownstream } from '../shared/node-dependencies.js';
 import { precheck } from '../server/flow/tasks/precheck.js';
@@ -22,6 +22,9 @@ import { composeNodePrompt, validateNodeResult } from '../server/http/ai-routes.
 import { renderTaskPanel } from '../client/task-panel.js';
 import { migrateScenes } from '../server/data/scene-migration.js';
 import { emptyCharacterModel } from '../shared/models/character_model.js';
+import { createMediaHandler } from '../server/handlers/media-handler.js';
+import { createAiRoutes } from '../server/http/ai-routes.js';
+import { config } from './fixtures/ai.js';
 
 const png = 'data:image/png;base64,aGVsbG8=';
 function withScene(p = projectFixture()) {
@@ -114,6 +117,36 @@ test('镜头场景引用、状态和衔接校验，节拍及最终提示读取�
   const final=taskNodeInput(snapshot,taskFixture(p,'storyboard',shot.id),null,'generate');
   assert.equal(final.storyboard.shot_setup.scene.layout,scene.layout);
 });
+test('镜头人物ID抄错反馈带镜头位置、错误值及真实目录，不只报未知ID',()=>{
+  const {p,e,snapshot}=withScene(),person=emptyCharacterModel({name:'臬科尔'});
+  p.character_library.characters.push(person);
+  const input=taskNodeInput(snapshot,taskFixture(p,'shots',e.id),null,'regenerate');
+  const row={...input.content.shots[0],on_screen_characters:[{character_id:'c_wrong_tail',costume_id:''}]};
+  assert.throws(()=>validateNodeResult('shots','generate',{shots:[row]},input),error=>{
+    assert.match(error.message,/shots\[0\].on_screen_characters\[0\]/);
+    assert.ok(error.message.includes('c_wrong_tail'));assert.ok(error.message.includes(`臬科尔=${person.id}`));return true;
+  });
+});
+test('多处人物引用错误与同时超出集预算在同次反馈列出，避免逐项耗尽修订轮次',()=>{
+  const {p,e,snapshot}=withScene(),person=emptyCharacterModel({name:'臬科尔'});p.character_library.characters.push(person);
+  const input=taskNodeInput(snapshot,taskFixture(p,'shots',e.id),null,'regenerate');
+  input.duration=100;input.segments=[{duration_seconds:100,body:'完整剧情',sequence:1,causal:''}];
+  const rows=input.content.shots.map((shot,n)=>({...shot,on_screen_characters:[{character_id:`c_wrong_${n}`,costume_id:''}]}));
+  assert.throws(()=>validateNodeResult('shots','generate',{shots:rows},input),error=>{
+    for(const value of ['c_wrong_0','c_wrong_1','候选合计10秒','70–130秒',person.id]) assert.ok(error.message.includes(value),value);
+    return true;
+  });
+});
+test('未分配镜头ID的候选明确改用完整replace，不以空ID做patch',()=>{
+  const {p,e,snapshot}=withScene(),input=taskNodeInput(snapshot,taskFixture(p,'shots',e.id),null,'regenerate');
+  input.content.shots.forEach(row=>{row.id='';});
+  const prompt=composeNodePrompt('shots','regenerate',input,'codex-gpt');
+  assert.match(prompt.system,/id为空的新镜头/);
+  assert.throws(()=>validateNodeResult('shots','regenerate',{mode:'patch',shots:[{id:'',changes:{body:'修复正文'}}]},input),/mode=replace返回完整表/);
+  const replacement=structuredClone(input.content.shots);replacement[0].body='修复正文';
+  const result=validateNodeResult('shots','regenerate',{mode:'replace',shots:replacement},input);
+  assert.equal(result.shots[0].body,'修复正文');assert.equal(result.shots[0].id,'');
+});
 test('连续接拍须同地点同状态；换场、反打、回到旧场景使用场景参考而非前镜尾帧',()=>{
   const {e}=withScene(),[a,b]=e.shot_list.shots;
   assert.equal(videoType(e,a),'多模态');assert.equal(videoType(e,b),'多模态');
@@ -159,6 +192,23 @@ test('场景参考图可人工导入，文字与图片操作共用项目任务�
     await runtime.tasks.idle(p.id);const snapshot=model.read(),task=snapshot.tasks.find(item=>item.id===result.task_id);
     assert.equal(task.task_status,'completed',task.end_reason);assert.equal(isNodeCurrent(snapshot,'scene-image',scene.id),true);
   }finally{await runtime?.dispose();await rm(home,{recursive:true,force:true});}
+});
+test('场景图片真实编排读取所引用剧集原剧情，输入与指纹同源且不混入无关集',async()=>{
+  const {p,e,scene,snapshot}=withScene();
+  e.plot='原始资料：平原上竖直装填的发射设施，旅行弹丸从上方垂入炮底。';
+  const other=emptyEpisode({plot:'不相关的海底城市'});p.episodes.push(other);
+  const hash=dependencyHash(snapshot,'scene-image',scene.id);
+  other.plot='不相关的沙漠';assert.equal(dependencyHash(snapshot,'scene-image',scene.id),hash);
+  e.plot+='周边是平坦观礼空地。';assert.notEqual(dependencyHash(snapshot,'scene-image',scene.id),hash);
+  assert.deepEqual(sceneImageContext(p,scene.id).plots,[{episode:e.sequence,plot:e.plot}]);
+  scene.reference_image.address='';
+  let sent='';
+  const ai=createAiRoutes({readConfig:async()=>config,gateway:{image:async({prompt})=>{sent=prompt;return Buffer.from('image');}}});
+  const media={put:async()=>({address:'generated.png'})};
+  const handler=createMediaHandler({media,ai});
+  const result=await handler({snapshot,task:taskFixture(p,'scene-image',scene.id,{action:'generate',opinion:''}),step:{kind:'generate'},signal:new AbortController().signal,record:async()=>{}});
+  assert.equal(result.content.address,'generated.png');assert.match(sent,/从上方垂入炮底/);
+  assert.match(sent,/不能.*斜卧野战炮/);assert.doesNotMatch(sent,/不相关的/);
 });
 test('人物与场景共同编排：人物在前场景在后，一图一职责，发送顺序与已保存编排一致',async()=>{
   const {p,e,scene,snapshot}=withScene(),shot=e.shot_list.shots[0];

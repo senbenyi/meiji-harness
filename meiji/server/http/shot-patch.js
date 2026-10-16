@@ -12,7 +12,7 @@ export function resolveShotPatch(value, input, shape, action) {
     const merged = structuredClone(base);
     for (const row of value.shots) {
       assertFields(row, ['id', 'changes'], '局部修订.shots[]');
-      if (typeof row.id !== 'string' || !row.id || !ids.has(row.id) || seen.has(row.id)) invalid('局部修订.id', '未知、重复或空镜头ID；从完整基稿原样复制');
+      if (typeof row.id !== 'string' || !row.id || !ids.has(row.id) || seen.has(row.id)) invalid('局部修订.id', '未知、重复或空镜头ID；从完整基稿原样复制' + (base.some(item => !item.id) ? '。基稿含尚未分配ID的新镜头；要修改这些镜头必须使用mode=replace返回完整表，新增镜头的id仍为空，不使用空ID patch、不编造ID或按数组位置猜测' : ''));
       seen.add(row.id);
       if (!row.changes || typeof row.changes !== 'object' || Array.isArray(row.changes) || !Object.keys(row.changes).length)
         invalid('局部修订.changes', '需为非空字段对象');

@@ -72,17 +72,32 @@ export default {
   },
   validateResult(value, input, action) {
     if (action === 'review') return;
-    for (const shot of value.shots) {
+    const issues = [];
+    for (const [shotIndex, shot] of value.shots.entries()) {
       if (!['连续接拍','切换机位','换场'].includes(shot.scene_transition)) invalid('响应.scene_transition','需为连续接拍、切换机位或换场');
       if (shot.scene_id && !(input.scenes || []).some(scene => scene.id === shot.scene_id)) invalid('响应.scene_id','需引用本集已提取场景；一次性不重要地点为空');
       const seen = new Set();
-      for (const row of shot.on_screen_characters) {
+      for (const [personIndex, row] of shot.on_screen_characters.entries()) {
         const person = input.characters.find(person => person.id === row.character_id);
-        if (!person || seen.has(row.character_id)) invalid('响应.on_screen_characters', '未知或重复人物ID');
+        const at = `响应.shots[${shotIndex}].on_screen_characters[${personIndex}]（第${shotIndex + 1}镜 ${shot.title}）`;
+        if (!person || seen.has(row.character_id)) {
+          issues.push(`${at}：未知或重复人物ID ${row.character_id}；按本镜人物从目录原样复制完整ID，不拼接其他ID的尾段。同一人物只列一次。`);
+          seen.add(row.character_id);
+          continue;
+        }
         seen.add(row.character_id);
         if (person.costumes.length ? !person.costumes.some(costume => costume.id === row.costume_id) : row.costume_id !== '')
-          invalid('响应.costume_id', '服装需属于本人物；有服装目录时必须指定一套');
+          issues.push(`${at}.costume_id：服装需属于本人物${person.name}；错误值${row.costume_id}。有服装目录时必须指定一套，原样复制对应完整ID：${person.costumes.map(item => `${item.name}=${item.id}`).join('；') || '无服装目录，costume_id为空字符串'}；不修改剧情或换成其他人物。`);
       }
+    }
+    if (issues.length) {
+      issues.push(`人物目录（姓名=完整character_id）：${input.characters.map(item => `${item.name}=${item.id}`).join('；')}`);
+      if (Array.isArray(input.segments) && Number.isFinite(input.duration)) {
+        const budget = shotsBudget(input.segments, input.duration), total = value.shots.reduce((sum, shot) => sum + shot.duration_seconds, 0);
+        if (total < budget.min_seconds || total > budget.max_seconds || value.shots.some(shot => shot.duration_seconds < 4 || shot.duration_seconds > 15))
+          issues.push(`同时核对时长：候选合计${total}秒，允许${budget.min_seconds}–${budget.max_seconds}秒，每镜4–15秒；引用错误不能遮蔽时长问题，须在同次修订处理。按真实剧情/对白补足镜头覆盖，不空等、不删原话。新增、拆并或重排用mode=replace返回完整表。`);
+      }
+      invalid('镜头表引用', issues.join('\n'));
     }
   },
   actions: {
@@ -94,7 +109,7 @@ export default {
       input: {"language":"string","requirements":"string","segments":"array","duration":"number","characters":"array","scenes":["array","undefined"],"opinion":"string","content":"object"},
       output: { ...output0,
         patchStructure: { mode: 'patch', shots: [{ id: '完整基稿中的镜头ID', changes: { body: '只返回需要修改字段的新值' } }] },
-        requirements: '本修订动作优先使用另列局部修订结构；以下原镜头表规则仅约束mode=replace全表中的镜头对象。局部patch允许shots为空，changes只包含所改字段。\n' + output0.requirements.replace('只返回完整镜头表', '增删、拆并或重排时用mode=replace并返回完整镜头表') + '\n局部修订优先返回mode=patch及shots[{id,changes}]，changes只含需要修改的字段；未返回镜头和字段由程序保留。嵌套字段修改时返回该嵌套对象完整值。不能修改ID；新增、删除、拆并、重排必须显式mode=replace并返回完整表。问题已解决可返回空patch。',
+        requirements: '只有待修改镜头在完整基稿中已有非空且唯一ID时才优先使用另列局部修订结构；要修改id为空的新镜头必须用mode=replace返回完整表，新镜头id仍为空，不能用空ID做patch或编造ID。以下原镜头表规则仅约束mode=replace全表中的镜头对象。局部patch允许shots为空，changes只包含所改字段。\n' + output0.requirements.replace('只返回完整镜头表', '增删、拆并或重排时用mode=replace并返回完整镜头表') + '\n局部修订返回mode=patch及shots[{id,changes}]，changes只含需要修改的字段；未返回镜头和字段由程序保留。嵌套字段修改时返回该嵌套对象完整值。不能修改ID；新增、删除、拆并、重排必须显式mode=replace并返回完整表。问题已解决可返回空patch。',
       },
     },
     review: {

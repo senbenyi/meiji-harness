@@ -1,4 +1,4 @@
-import { sceneCatalog, sceneText } from './scene-inputs.js';
+import { sceneCatalog, sceneText, sceneImageContext } from './scene-inputs.js';
 import { videoType, videoPack, previousShot, videoImages } from './video-inputs.js';
 import { shotTextInputs } from './shot-text-inputs.js';
 import { primaryCostumeImage } from "./models/character_model.js";
@@ -66,7 +66,7 @@ function dependencyMaterial(snapshot, business, id) {
     const e = locateTarget(project,business,id).episode;
     return { segments:e.story_outline.segments, script:project.script.body || project.episodes.map(e=>e.plot).join('\n\n'), upstream:upstream('outline',id) };
   }
-  if (business === 'scene-image') return sceneText(locateTarget(project,business,id).object);
+  if (business === 'scene-image') return { scene:sceneText(locateTarget(project,business,id).object), context:sceneImageContext(project,id), requirements:project.creative_direction };
   if (business === "episode-summary")
     return { 剧情: locateTarget(project, business, id).episode.plot };
   if (business === "outline") {

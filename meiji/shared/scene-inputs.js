@@ -4,6 +4,10 @@ export const sceneFields = ['id', 'name', 'description', 'layout', 'materials', 
 export const sceneText = scene => Object.fromEntries(sceneFields.map(key => [key, scene[key]]));
 export const sceneCatalog = (project, episode) => project.scene_library.scenes
   .filter(scene => !episode || episode.scene_catalog.scene_ids.includes(scene.id)).map(sceneText);
+export const sceneImageContext = (project, id) => ({
+  plots: project.episodes.filter(episode => episode.scene_catalog.scene_ids.includes(id))
+    .map(episode => ({ episode: episode.sequence, plot: episode.plot })),
+});
 export function shotScene(project, shot) {
   const scene = project.scene_library.scenes.find(scene => scene.id === shot.scene_id);
   return scene ? { ...sceneText(scene), state: shot.scene_state } : null;
