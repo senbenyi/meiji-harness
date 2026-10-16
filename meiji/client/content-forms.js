@@ -4,7 +4,7 @@ export const fieldLabels = {
   signature_props: "签名道具", immutable_traits: "不可改特征", gender: "性别", nationality: "国籍",
   era: "年代", height: "身高", facial_features: "面相", voice: "声音", required_appearance: "必出",
   default_costume_id: "默认服装", costumes: "服装", characters: "角色", color: "颜色", material: "材质", props: "道具",
-  number: "编号", sequence: "序号", duration_seconds: "参考时长（秒）", title: "标题", body: "正文",
+  number: "编号", sequence: "序号", duration_seconds: "参考时长（秒）", title: "标题", body: "正文", opinion: "修改意见",
   description: "描述", segments: "故事小段", shots: "镜头", causal: "因果衔接", plot: "本集剧情",
   shot_scale: "景别", hook: "钩子", continuity_transition: "连续性衔接", reference_anchor: "参考锚点",
   fixed_landmark: "固定地标", character_positions: "人物位置", departed_characters: "离场角色", lighting: "光位",
@@ -91,7 +91,7 @@ export function fieldsForm(
         ? "select"
         : typeof initial === "boolean"
           ? "input"
-          : /正文|描述|方向|要求|动作|镜头|空间|声音|交接|原话|表演|内容|体型|面相|身份特征|事件|结尾状态/.test(
+          : /正文|描述|方向|要求|意见|动作|镜头|空间|声音|交接|原话|表演|内容|体型|面相|身份特征|事件|结尾状态/.test(
                 fieldLabels[key] || key,
               ) && typeof initial !== "number"
             ? "textarea"
@@ -141,7 +141,7 @@ export function editor(
   title,
   value,
   save,
-  { json = true, disabled = false, templates } = {},
+  { json = true, disabled = false, templates, textField = 'body', submitLabel = '保存' } = {},
 ) {
   const dialog = element("dialog"),
     head = element("div", "", "modal-head"),
@@ -150,7 +150,7 @@ export function editor(
     error = element("div", "", "error"),
     footer = element("footer", "", "footer"),
     cancel = element("button", "取消", "cancel"),
-    submit = element("button", "保存", "primary");
+    submit = element("button", submitLabel, "primary");
   head.append(element("h2", title), close);
   close.type = cancel.type = "button";
   close.setAttribute("aria-label", "关闭" + title);
@@ -158,7 +158,7 @@ export function editor(
   error.setAttribute("role", "alert");
   submit.type = "submit";
   submit.disabled = disabled;
-  const fields = fieldsForm(json ? value : { body: String(value) }, {
+  const fields = fieldsForm(json ? value : { [textField]: String(value) }, {
     disabled,
     templates,
   });
@@ -170,7 +170,7 @@ export function editor(
     submit.disabled = true;
     try {
       const result = fields.read();
-      await save(json ? result : result.body);
+      await save(json ? result : result[textField]);
       dialog.close();
     } catch (cause) {
       error.textContent = cause.message;

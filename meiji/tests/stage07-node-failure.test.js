@@ -82,8 +82,11 @@ for (const hasOutput of [false, true]) test(`网络失败只展示原因，${has
     [...card.querySelectorAll('button')].find(b => b.textContent === label).click();
     if (hasOutput) {
       const dialog = root.querySelector('dialog');
-      assert.equal(dialog.querySelector('[aria-label="正文"]').value, '');
-      dialog.querySelector('[aria-label="正文"]').value = '用户修改意见';
+      const opinion = dialog.querySelector('[aria-label="修改意见"]');
+      assert.equal(opinion.value, '');
+      assert.equal(opinion.tagName, 'TEXTAREA');
+      assert.equal(dialog.querySelector('button[type="submit"]').textContent, '提交修订');
+      opinion.value = '用户修改意见';
       dialog.querySelector('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
     }
     await new Promise(resolve => setImmediate(resolve));

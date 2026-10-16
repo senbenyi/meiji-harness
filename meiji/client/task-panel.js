@@ -325,7 +325,7 @@ export function renderTaskPanel(root, snapshot, context) {
               if (!opinion.trim()) throw new Error("请输入修改意见");
               return generate(opinion.trim(), hasOutput);
             },
-            { json: false },
+            { json: false, textField: 'opinion', submitLabel: '提交修订' },
           ),
         ),
       );
