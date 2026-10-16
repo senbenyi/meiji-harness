@@ -58,6 +58,21 @@ test('场景提取三动作强调选择性收录与去重，允许空结果，�
     if(action==='generate') assert.deepEqual(validateNodeResult('episode-scenes',action,{scenes:[]},input),{scenes:[]});
   }
 });
+test('场景再审核读取本任务拆并历史并按顺序核查，不混入别的任务或未来意见',()=>{
+  const p=projectFixture(),e=p.episodes[0],task=taskFixture(p,'episode-scenes',e.id);
+  const steps=[
+    {task_id:task.id,seq:3,kind:'review',step_status:'rejected',result:{原因:'同一场地应合并总体布局'}},
+    {task_id:'other',seq:4,kind:'review',step_status:'rejected',result:{原因:'其他任务不得泄漏'}},
+    {task_id:task.id,seq:5,kind:'review',step_status:'rejected',result:{原因:'检查合并后的场内外分区'}},
+    {task_id:task.id,seq:9,kind:'review',step_status:'rejected',result:{原因:'未来意见不得泄漏'}},
+  ];
+  const input=taskNodeInput({project:p,steps},task,{scenes:[],scene_ids:[]},'review',{seq:7,kind:'review'});
+  assert.ok(input.opinion.indexOf('同一场地应合并')<input.opinion.indexOf('检查合并后'));
+  assert.doesNotMatch(input.opinion,/不得泄漏/);
+  const prompt=composeNodePrompt('episode-scenes','review',input,'codex-gpt');
+  assert.match(prompt.user,/同一场地应合并总体布局/);
+  assert.match(prompt.system,/同一连续室外场地/);assert.match(prompt.system,/不得改口要求重新拆分/);
+});
 test('大纲后必须先完成场景选择；空选择通过后镜头表不强制建档和配图',()=>{
   const p=projectFixture(),e=p.episodes[0],snapshot={project:p,tasks:[],steps:[]};
   const task=taskFixture(p,'shots',e.id,{action:'regenerate'});

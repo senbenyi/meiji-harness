@@ -99,6 +99,9 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
       ? rejectedReviews.find(row => row.name && reviewType(row) === 'ai') : null;
     const priorOpinion = priorAiReview && `此前AI审核意见（对照最新候选核查，已解决项不重复修改；同时满足本轮程序审核）：\n${priorAiReview.result?.原因 || priorAiReview.error_reason}`;
     value.opinion = [...new Set([step.kind === 'revise' ? lastReview?.result?.原因 || lastReview?.error_reason : '', priorOpinion, step.kind === 'revise' ? lastReview?.result?.修订进展?.提示 : '', task.opinion].filter(Boolean).flatMap(value => value.split('\n')).map(value => value.trim()).filter(Boolean))].join('\n');
+    if (business === 'episode-scenes' && action === 'review' && rejectedReviews.length)
+      value.opinion = [value.opinion, '本任务此前审核要求（按先后顺序，对照最新候选核查；已解决项不重复提出，改变拆并结论须给出新的具体事实）：',
+        ...[...rejectedReviews].reverse().map(row => `${row.seq}. ${row.result?.原因 || row.error_reason}`)].filter(Boolean).join('\n');
     const source = action === 'review' ? draft : draft || (business === 'episode-scenes' ? {scenes:sceneCatalog(project,target.episode)} : nodeOf(project, business, task.target_id));
     value.content = candidate(business, source);
     if (business === 'script-split') {
