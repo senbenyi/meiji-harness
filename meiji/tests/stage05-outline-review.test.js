@@ -98,7 +98,7 @@ for (const rejectAi of [false, true])
     }
   });
 
-test("摘要和大纲修订注入候选；大纲三种模板均有参考值，生成规则不写±30", async () => {
+test("摘要和大纲修订注入候选；大纲三种模板均有参考值与程序一致的范围", async () => {
   const snapshot = snapshotFixture(), project = snapshot.project, episode = project.episodes[0];
   episode.plot = story;
   episode.duration_seconds = 137;
@@ -116,7 +116,8 @@ test("摘要和大纲修订注入候选；大纲三种模板均有参考值，�
     const task = taskFixture(project, "outline", episode.id);
     const rendered = renderTaskPrompt(snapshot, task, episode.story_outline, suffix);
     assert.match(rendered.messages[1].content, /本集参考时长秒\n137/);
-    assert.doesNotMatch(rendered.system, /±30|上下30|允许\s*107/);
+    assert.match(rendered.messages[1].content, /min_seconds["：:\s]+107/);
+    assert.match(rendered.messages[1].content, /max_seconds["：:\s]+167/);
   }
 });
 

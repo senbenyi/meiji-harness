@@ -11,7 +11,7 @@ export function createHandlerRegistry({ text, media, videoPrompt }) {
     const project = snapshot.project, business = task.business_type;
     if (step.kind === "review" && reviewType === "program" && (TEXT_BUSINESSES.includes(business) || business === "video")) {
       try {
-        if (business === "script-split") buildSplit(project.script.body, draft);
+        if (business === "script-split") buildSplit(project.script.body, draft, project.reference_episode_duration_seconds);
         else {
           const probe = structuredClone(snapshot);
           commitContent(probe, task, draft, { passed: false });

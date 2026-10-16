@@ -80,7 +80,7 @@ test("拆分只保留剧情：模型排除人物说明和间隔后才不写入�
   const nonPlot = (part) => /《|主要人物|穿越|武大郎|^=+$|预计时长|^时间：|^地点：|^【/.test(part.trim());
   const raw = {
     剧集: ranges.map(([start, end], index) => ({ 序号: index + 1, 起始段落: paragraphNumber(start), 结束段落: paragraphNumber(end), 预估时长秒: 60 })),
-    排除段落: parts.flatMap((part, index) => nonPlot(part) ? [paragraphNumber(index)] : []),
+    排除段落: parts.flatMap((part, index) => index < ranges[0][0] || nonPlot(part) ? [paragraphNumber(index)] : []),
   };
   assert.ok(raw.排除段落.includes(paragraphNumber(at("预计时长"))));
   assert.throws(() => buildSplit(screenplay, { 剧集: raw.剧集 }), /遗漏/);
@@ -127,7 +127,7 @@ test("会话拆分自动启动，执行中面板重复提交复用同一任务",
   try {
     const p = scriptProject(), repository = new ModelRepository(root), model = await repository.create(p);
     let calls = 0;
-    const text = createTextHandler({ chat: async () => { calls++; enter(); await gate; return covered(rows); } });
+    const text = createTextHandler({ chat: async ({ step }) => { if (step.kind === "review") return { 是否通过: true, 原因: "" }; calls++; enter(); await gate; return covered(rows); } });
     service = new TaskService({ repository, commitOutput: commitContent,
       execute: createHandlerRegistry({ text, media: async () => { throw Error("不应调用媒体"); } }) });
     const command = { type:"submit",project_id:p.id,target_id:p.id,business_type:"script-split",action:"generate",request_id:"session-split" };
@@ -152,6 +152,7 @@ test("拆分剧集真实任务：失败暂停后面板再次拆分直接执行�
     let failOnce = true;
     const text = createTextHandler({
       chat: async ({ task, step, messages }) => {
+    if (step.kind === "review") return { 是否通过: true, 原因: "" };
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
         assert.equal(task.business_type, "script-split", "拆分不应调用剧集摘要");
         seen.push(step.kind);
@@ -187,7 +188,7 @@ test("拆分剧集真实任务：失败暂停后面板再次拆分直接执行�
     assert.equal(s.tasks.find(t => t.id === first.task_id).task_status, "failed");
     assert.deepEqual(
       s.steps.filter((x) => x.task_id === task.id).map((x) => x.kind),
-      ["precheck", "generate", "review"],
+      ["precheck", "generate", "review", "review"],
     );
     assert.equal(s.project.episodes.length, 2);
     assert.equal(s.tasks.filter(t => t.group_id === task.group_id).length, 1);
@@ -357,6 +358,7 @@ for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucc
   const prompts = [];
   let generations = 0;
   const text = createTextHandler({ chat: async ({ task, step, messages }) => {
+    if (step.kind === "review") return { 是否通过: true, 原因: "" };
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
     assert.equal(task.business_type, "script-split", "拆分不应调用剧集摘要");
     prompts.push(prompt);
@@ -426,7 +428,8 @@ test('全部覆盖问题进入同一轮修订，通过后逐字保存原文且�
   const home = await mkdtemp(join(tmpdir(), 'meiji-split-all-gaps-'));
   let runtime, calls = 0;
   try {
-    runtime = await createAppRuntime({ home, gateway: { chat: async ({ messages }) => {
+    runtime = await createAppRuntime({ home, gateway: { chat: async ({ messages, step }) => {
+      if (step.kind === "review") return { 是否通过: true, 原因: "" };
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
       calls++;
       if (calls === 1) return covered([

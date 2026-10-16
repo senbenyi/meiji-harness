@@ -96,7 +96,7 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   }
   if (business === "script-split") {
     if (!passed) return [];
-    project.episodes = buildSplit(project.script.body, content).episodes.map(row => emptyEpisode(row));
+    project.episodes = buildSplit(project.script.body, content, project.reference_episode_duration_seconds).episodes.map(row => emptyEpisode(row));
     assertOutput(project, business, task.target_id);
     return [];
   }

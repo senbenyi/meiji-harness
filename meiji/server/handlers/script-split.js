@@ -1,14 +1,33 @@
+import { splitBudget } from "../prompts/duration-policy.js";
 import { invalid } from "../../shared/task_contract.js";
 
-// 剧本按行切成段落：空行并入上一段，保证所有段落按顺序拼接后与原文逐字一致。
+// 编号是完整句/完整发言的候选切点，不是强制分集；字符与空白全部保留。
 export function scriptParagraphs(text) {
-  const paragraphs = [];
+  const paragraphs = [], quotes = [];
+  const pairs = { '“': '”', '「': '」', '『': '』' };
+  let pending = '';
   for (const line of String(text).split(/(?<=\n)/)) {
-    if (!line) continue;
-    const last = paragraphs.length - 1;
-    if (last >= 0 && (!line.trim() || !paragraphs[last].trim()))
-      paragraphs[last] += line;
-    else paragraphs.push(line);
+    // 剧本格式的一整行发言保留完整，不从发言内部断句。
+    const speech = /^[^：:“”「」『』\n]{1,20}[:：]/u.test(line.trim()) && !/[“「『"]/u.test(line);
+    for (let at = 0; at < line.length; at++) {
+      const ch = line[at];
+      pending += ch;
+      let closed = false;
+      if (ch === quotes.at(-1)) { quotes.pop(); closed = true; }
+      else if (pairs[ch]) quotes.push(pairs[ch]);
+      else if (ch === '"') quotes.push('"');
+      const end = !quotes.length && ((!speech && (/[。！？!?；;]/u.test(ch) || closed)) || ch === '\n');
+      if (end) {
+        if (pending.trim()) paragraphs.push(pending);
+        else if (paragraphs.length) paragraphs[paragraphs.length - 1] += pending;
+        else continue;
+        pending = '';
+      }
+    }
+  }
+  if (pending) {
+    if (!pending.trim() && paragraphs.length) paragraphs[paragraphs.length - 1] += pending;
+    else paragraphs.push(pending);
   }
   return paragraphs;
 }
@@ -36,7 +55,7 @@ function exclusionSet(raw, index) {
 }
 
 // 校验 AI 返回的起止段落并按段落原文拼出各集剧情。排除段落由模型指定，程序不判断内容。
-export function buildSplit(text, raw) {
+export function buildSplit(text, raw, referenceDuration) {
   const paragraphs = scriptParagraphs(text);
   if (!paragraphs.length) invalid("拆分剧集", "剧本为空");
   const index = new Map(paragraphs.map((_, i) => [paragraphNumber(i), i]));
@@ -50,6 +69,8 @@ export function buildSplit(text, raw) {
   };
   let next = skip(0);
   const coverageErrors = [];
+  const capacityErrors = [];
+  const budget = referenceDuration === undefined ? null : splitBudget(referenceDuration);
   const episodes = rows.map((row, i) => {
     if (row.序号 !== i + 1) invalid("拆分剧集.序号", "需从1连续递增");
     const start = index.get(row.起始段落),
@@ -63,13 +84,17 @@ export function buildSplit(text, raw) {
     if (end < start) invalid(`第${row.序号}集`, "结束段落早于起始段落");
     if (!Number.isInteger(row.预估时长秒) || row.预估时长秒 < 1)
       invalid(`第${row.序号}集.预估时长秒`, "需为正整数");
+    const units = paragraphs.slice(start, end + 1).filter((_, offset) => !excluded.has(start + offset));
+    if (budget && row.预估时长秒 > budget.max_seconds && units.length > 1)
+      capacityErrors.push(`第${row.序号}集（${row.起始段落}—${row.结束段落}）预估${row.预估时长秒}秒，超过参考${budget.target_seconds}秒的容量上限${budget.max_seconds}秒；请在范围内完整句/发言结束处提前切集并增加集数，重新估时。不得仅调小预估数字、删减剧情或加速对白。`);
     next = skip(end + 1);
-    const plot = paragraphs.slice(start, end + 1).filter((_, offset) => !excluded.has(start + offset)).join("");
+    const plot = units.join("");
     if (!plot.trim()) coverageErrors.push(`第${row.序号}集：没有可写入的剧情`);
     return { sequence: row.序号, duration_seconds: row.预估时长秒, plot };
   });
   if (next !== paragraphs.length)
     coverageErrors.push(`最后一集未到剧本结尾：遗漏${paragraphNumber(next)}—${paragraphNumber(paragraphs.length - 1)}；结束段落应为${paragraphNumber(paragraphs.length - 1)}`);
+  if (capacityErrors.length) coverageErrors.push(...capacityErrors);
   if (coverageErrors.length) invalid("拆分剧集", coverageErrors.join('\n'));
   const kept = paragraphs.filter((_, at) => !excluded.has(at)).join("");
   if (episodes.map((e) => e.plot).join("") !== kept)

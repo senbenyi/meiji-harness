@@ -95,7 +95,7 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
     const priorAiReview = step.kind === 'revise' && lastReview?.name && reviewType(lastReview) === 'program'
       ? rejectedReviews.find(row => row.name && reviewType(row) === 'ai') : null;
     const priorOpinion = priorAiReview && `此前AI审核意见（对照最新候选核查，已解决项不重复修改；同时满足本轮程序审核）：\n${priorAiReview.result?.原因 || priorAiReview.error_reason}`;
-    value.opinion = [...new Set([step.kind === 'revise' ? lastReview?.result?.原因 || lastReview?.error_reason : '', priorOpinion, task.opinion].filter(Boolean).flatMap(value => value.split('\n')).map(value => value.trim()).filter(Boolean))].join('\n');
+    value.opinion = [...new Set([step.kind === 'revise' ? lastReview?.result?.原因 || lastReview?.error_reason : '', priorOpinion, step.kind === 'revise' ? lastReview?.result?.修订进展?.提示 : '', task.opinion].filter(Boolean).flatMap(value => value.split('\n')).map(value => value.trim()).filter(Boolean))].join('\n');
     const source = action === 'review' ? draft : draft || nodeOf(project, business, task.target_id);
     value.content = candidate(business, source);
     if (business === 'script-split') {
@@ -110,7 +110,7 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
     const previous = (snapshot.steps || []).filter(row => row.task_id === task.id
       && ['generate', 'revise'].includes(row.kind) && row.step_status === 'done'
       && row.seq < step.seq).sort((a, b) => b.seq - a.seq)[0];
-    if (previous) value.content = structuredClone(previous.result);
+    if (previous) value.content = structuredClone(business === 'shots' && previous.result?.mode === 'patch' ? previous.prompt?.input?.content || previous.result : previous.result);
   }
   const { contract } = nodeAction(business, action);
   return Object.fromEntries(Object.keys(contract.input).map(key => [key, value[key]]));

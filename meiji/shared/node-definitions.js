@@ -170,7 +170,7 @@ export const OPERATION_DEFINITIONS = freezeDefinitions({
     handler: "text",
     output: "episodes",
     programReview: true,
-    aiReview: false,
+    aiReview: true,
     retryRounds: 2,
   },
   "character-delete": {

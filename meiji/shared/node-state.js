@@ -1,3 +1,4 @@
+import { assertShotDialogue, assertPromptDialogue } from './dialogue-integrity.js';
 import { nodeOf, invalid, locateTarget } from "./task_contract.js";
 import { validateProject } from "./project_contract.js";
 import { TEXT_BUSINESSES } from "./node-definitions.js";
@@ -102,10 +103,13 @@ export function assertProgramReview(project, business, targetId) {
       if (Math.abs(start - end) > 1e-9 || next <= start) invalid("时段", "必须从0开始连续覆盖，不能重叠、倒序或留空隙");
       end = next;
     }
+    assertShotDialogue(object, node);
     // 视频请求时长取镜头参考时长，节拍时间线必须与之精确一致。
     if (Math.abs(end - object.duration_seconds) > 1e-9)
       invalid("每秒分镜", `节拍总时长 ${end} 秒需等于本镜参考 ${object.duration_seconds} 秒`);
   }
+  if (business === 'storyboard') assertPromptDialogue(object.seconds_storyboard,
+    [node.integrated_multimodal_description, node.overall_soundscape, node.non_diegetic_music].join('\n'));
   if (business === 'video') {
     const actual = object.actual_duration_seconds;
     if (actual < 4 || actual > 15 || Math.abs(actual - object.duration_seconds) > 5 + 1e-9)

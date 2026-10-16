@@ -1,3 +1,4 @@
+import { reviewPolicy, validateReviewIssues } from '../prompts/review-policy.js';
 import { parseSections } from '../prompts/parse-sections.js';
 import { decodeImageData } from '../media/decode-image-data.js';
 import { nodeRoutes } from './nodes/index.js';
@@ -19,7 +20,7 @@ export function nodeAction(node, action) {
   const route = Object.hasOwn(nodeRoutes, node) && nodeRoutes[node];
   const contract = route && Object.hasOwn(route.actions, action) && route.actions[action];
   if (!contract) throw Object.assign(new Error('AI 节点或动作不存在'), { status: 404 });
-  return { route, contract };
+  return reviewPolicy(node, action, route, contract);
 }
 
 export function validateInput(input, schema) {
@@ -42,9 +43,15 @@ export function composeNodePrompt(node, action, input, model) {
 
 export function validateNodeResult(node, action, value, input) {
   const { route, contract } = nodeAction(node, action);
-  if (['JSON', '图片', '视频'].includes(contract.output.type)) validateShape(value, contract.output.structure);
+  value = route.normalizeResult?.(value, input, action) ?? value;
+  if (['JSON', '图片', '视频'].includes(contract.output.type)) {
+    const optional = contract.output.optionalStructure || {};
+    const present = Object.fromEntries(Object.entries(optional).filter(([key]) => Object.hasOwn(value || {}, key)));
+    validateShape(value, { ...contract.output.structure, ...present });
+  }
   else if (typeof value !== 'string' || !value.trim()) invalid('响应', '需为非空文本');
   if (contract.output.sections) parseSections(value, contract.output.sections);
+  if (action === 'review' && contract.output.structure?.是否通过 === true) validateReviewIssues(node, value);
   if (action === 'review' && (value.是否通过 ? value.原因 !== '' : !value.原因.trim())) invalid('响应.原因', '通过时应为空，不通过时需说明原因');
   route.validateResult?.(value, input, action);
   return value;
@@ -81,9 +88,12 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
         result = await complete({ ...options, messages: prompt.messages });
         signal?.throwIfAborted();
         if (contract.output.type === 'JSON' && typeof result === 'string') result = parseJsonValue(result);
-        try { validateNodeResult(node, action, result, input); }
+        try {
+          if (route.normalizeResult && result?.mode === 'patch') prompt.patch = structuredClone(result);
+          result = validateNodeResult(node, action, result, input);
+        }
         catch (error) {
-          if (contract.output.type === 'JSON' && action !== 'review' && error.code === 'INVALID_CONTRACT')
+          if ((contract.output.type === 'JSON' || error.validationKind === 'dialogue-preservation') && action !== 'review' && error.code === 'INVALID_CONTRACT')
             Object.assign(error, { candidate: structuredClone(result), prompt });
           throw error;
         }

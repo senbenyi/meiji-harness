@@ -1,3 +1,4 @@
+import { assertPromptDialogue } from '../../../shared/dialogue-integrity.js';
 import promptModel from '../../prompts/models/storyboard.js';
 import { commonValues } from '../../prompts/inputs.js';
 
@@ -26,6 +27,7 @@ export default {
       本镜角色资料: input.characters,
     };
   },
+  validateResult(value, input, action) { if (action !== 'review') assertPromptDialogue(input.storyboard, value); },
   actions: {
     generate: {
       input: {"language":"string","requirements":"string","storyboard":"object","duration":"number","characters":"array"},

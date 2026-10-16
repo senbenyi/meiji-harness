@@ -129,7 +129,7 @@ test('同一节点 HTTP 路由四项业务输入，切换两个来源，统一�
 test('路由在调用模型前拒绝未声明动作与参数', async () => {
   let reads = 0, requests = 0;
   const ai = createAiRoutes({ readConfig: async () => { reads++; return config; }, gateway: { chat: async () => { requests++; return '结果'; } } });
-  await assert.rejects(ai('script-split', 'review', input), /不存在/);
+  await assert.rejects(ai('script-split', 'unknown-action', input), /不存在/);
   await assert.rejects(ai('project-summary', 'generate', { ...input, prompt: '绕过' }), /未定义参数/);
   await assert.rejects(ai('project-summary', 'generate', { ...input, rules: [{}] }), /未定义参数/);
   assert.equal(reads, 0); assert.equal(requests, 0);

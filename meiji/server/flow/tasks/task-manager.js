@@ -1,3 +1,4 @@
+import { upstreamFailure, revisionProgress } from '../../handlers/repair-policy.js';
 import { videoType, videoPack } from '../../../shared/video-inputs.js';
 import { taskName, groupName } from "../../../shared/task-labels.js";
 import {
@@ -556,6 +557,16 @@ export class TaskService {
             for (const pending of s.steps.filter(x => x.task_id === id && x.step_status === "ready")) {
               pending.step_status = "cancelled";
               pending.ended_at = now();
+            }
+            const upstream = upstreamFailure(s.project, t, review);
+            const progress = revisionProgress(s, t, step, review);
+            if (progress) st.result = { ...review, 修订进展: progress };
+            if (upstream || progress?.重复程序错误) {
+              // 上游问题和无进展不提交本轮候选，不污染原正式内容及依赖。
+              const reason = upstream || progress.提示;
+              st.error_reason = reason;
+              this.#finish(s, t, "rejected", reason);
+              return {};
             }
             // 剧本审核任务只审核；只有按意见修改的任务才在未通过时继续修改。
             const reviewOnly = t.business_type === "script-review" && t.action !== "revise";

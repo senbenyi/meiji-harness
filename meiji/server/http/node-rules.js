@@ -1,3 +1,4 @@
+import { nodeAction } from './ai-routes.js';
 import { nodeRoutes } from './nodes/index.js';
 import { BUSINESS_DEFINITIONS } from '../../shared/node-definitions.js';
 
@@ -14,8 +15,9 @@ export function nodeRules(business) {
   if (!route || !definition || definition.retired)
     throw Object.assign(new Error('AI 节点不存在'), { status: 404 });
   const action = name => {
-    const stage = route.promptModel?.[name];
-    const output = route.actions[name]?.output;
+    const resolved = route.actions[name] ? nodeAction(business, name) : null;
+    const stage = resolved?.route.promptModel?.[name];
+    const output = resolved?.contract.output;
     return stage ? [text(stage.system), stage.user?.任务 ? `任务：\n${stage.user.任务}` : '', output ? `输出要求：\n${output.requirements}` : ''].filter(Boolean).join('\n\n') : '';
   };
   const program = definition.programReview ? '本节点另有程序审核，按节点结构、时长或引用约束判定。' : '';

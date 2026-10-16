@@ -1,3 +1,4 @@
+import { outlineBudget } from '../../prompts/duration-policy.js';
 import promptModel from '../../prompts/models/outline.js';
 import { commonValues } from '../../prompts/inputs.js';
 
@@ -13,7 +14,7 @@ const output0 = {
       }
     ]
   },
-  "requirements": "仅返回 JSON，不附解释或 Markdown 围栏。sequence 从 1 连续递增；duration_seconds 为有限正数，允许小数；body 为完整剧情的非空字符串；causal 为字符串。先规划并锁定段数、顺序和逐段时长，duration_seconds 合计等于本集参考时长，再以各段自身已锁定的 duration_seconds 为时间约束，保留对应原剧情，并在原剧情明显不足以自然撑满参考时长时补充合理情节，填写 body 与 causal；整集参考时长仅用于规划分配和总和校验，填充阶段不重新估时。每项剧情必须保留在 body；仅输出最终完整 segments，不输出规划草稿或计算过程。"
+  "requirements": "仅返回 JSON，不附解释或 Markdown 围栏。sequence 从 1 连续递增；duration_seconds 为有限正数，允许小数；body 为完整剧情的非空字符串；causal 为字符串。先规划并锁定段数、顺序和逐段时长，duration_seconds 合计以本集参考时长为目标，允许上下30秒，选择可正常呈现的总量并锁定，再以各段自身已锁定的 duration_seconds 为时间约束，保留对应原剧情，并在原剧情明显不足以匹配允许范围下限时补充合理情节，填写 body 与 causal；整集参考时长仅用于规划分配和总和校验，填充阶段不重新估时。每项剧情必须保留在 body；仅输出最终完整 segments，不输出规划草稿或计算过程。"
 };
 
 const output1 = {
@@ -30,6 +31,7 @@ export default {
   compose(input) {
     return {
       ...commonValues(input),
+      时长规划: outlineBudget(input.duration),
       本集剧情: input.plot,
       本集时长秒: input.duration,
       本集要求: input.requirements,

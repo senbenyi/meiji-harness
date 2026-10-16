@@ -1,3 +1,4 @@
+import { splitBudget } from '../../prompts/duration-policy.js';
 import promptModel from '../../prompts/models/script-split.js';
 import { commonValues } from '../../prompts/inputs.js';
 import { numberedScript } from '../../handlers/script-split.js';
@@ -23,6 +24,7 @@ export default {
   compose(input) {
     return {
       ...commonValues(input),
+      时长规划: splitBudget(input.duration),
       编号剧本: numberedScript(input.script),
       参考单集时长秒: input.duration,
     };
@@ -35,6 +37,14 @@ export default {
     regenerate: {
       input: {"language":"string","requirements":"string","script":"string","duration":"number","opinion":"string","content":"object"},
       output: output0,
+    },
+    review: {
+      input: {language:"string", requirements:"string", script:"string", duration:"number", opinion:"string", content:"object"},
+      output: {
+        type: "JSON",
+        structure: {"是否通过": true, "原因": ""},
+        requirements: "只返回JSON。是否通过为布尔值，通过时原因为空；拒绝时一次列出具体剧集、P编号、对白/剧情/动作的容量冲突及最小切点或估时修正方向。不按字数换算，不输出修订切点数组。",
+      },
     },
   },
 };

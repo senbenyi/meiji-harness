@@ -5,7 +5,7 @@ export function renderPrompt(model, action, values, output, provider) {
   const stage = model[action];
   if (!stage) invalid('动作', '节点不支持该动作');
   const template = { input: {
-    system: { ...stage.system, 输出格式: { 类型: output.type, ...(output.type === "JSON" ? { 结构: output.structure } : {}), 要求: output.requirements } },
+    system: { ...stage.system, 输出格式: { 类型: output.type, ...(output.type === "JSON" ? { 结构: output.structure } : {}), ...(output.optionalStructure ? { 可选字段结构: output.optionalStructure } : {}), ...(output.patchStructure ? { 局部修订结构: output.patchStructure } : {}), 要求: output.requirements } },
     user: stage.user,
   } };
   assertRecord(values, "占位符资料");
