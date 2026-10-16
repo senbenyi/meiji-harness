@@ -108,8 +108,8 @@ export default {
     regenerate: {
       input: {"language":"string","requirements":"string","segments":"array","duration":"number","characters":"array","scenes":["array","undefined"],"opinion":"string","content":"object"},
       output: { ...output0,
-        patchStructure: { mode: 'patch', shots: [{ id: '完整基稿中的镜头ID', changes: { body: '只返回需要修改字段的新值' } }] },
-        requirements: '只有待修改镜头在完整基稿中已有非空且唯一ID时才优先使用另列局部修订结构；要修改id为空的新镜头必须用mode=replace返回完整表，新镜头id仍为空，不能用空ID做patch或编造ID。以下原镜头表规则仅约束mode=replace全表中的镜头对象。局部patch允许shots为空，changes只包含所改字段。\n' + output0.requirements.replace('只返回完整镜头表', '增删、拆并或重排时用mode=replace并返回完整镜头表') + '\n局部修订返回mode=patch及shots[{id,changes}]，changes只含需要修改的字段；未返回镜头和字段由程序保留。嵌套字段修改时返回该嵌套对象完整值。不能修改ID；新增、删除、拆并、重排必须显式mode=replace并返回完整表。问题已解决可返回空patch。',
+        patchStructure: { mode: 'patch', shots: [{ id: '已有镜头的非空完整ID', changes: { body: '只返回需要修改字段的新值' } }, { candidate_index: 0, title: 'id为空时从完整基稿原样复制本镜标题', changes: { body: '只返回需要修改字段的新值' } }] },
+        requirements: '局部修订的两种定位形式互斥：已有非空唯一ID用id；id为空的新候选用candidate_index（完整基稿从0开始的数组位置）与原title共同定位，不含id。程序同时核对位置、标题及空ID状态。优先只返回出错镜头的changes，其他镜头和字段由程序保留，不要为修改一处重写全表。不能以空ID做patch、编造ID；定位用title须原样复制。以下原镜头表规则仅约束mode=replace全表中的镜头对象。局部patch允许shots为空，changes只包含所改字段。\n' + output0.requirements.replace('只返回完整镜头表', '增删、拆并或重排时用mode=replace并返回完整镜头表') + '\n局部修订返回mode=patch，逐项选择{id,changes}或{candidate_index,title,changes}；changes只含需要修改的字段；未返回镜头和字段由程序保留。嵌套字段修改时返回该嵌套对象完整值。不能修改ID；新增、删除、拆并、重排必须显式mode=replace并返回完整表。问题已解决可返回空patch。',
       },
     },
     review: {

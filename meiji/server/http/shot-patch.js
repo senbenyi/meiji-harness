@@ -11,15 +11,26 @@ export function resolveShotPatch(value, input, shape, action) {
     base.forEach((row, index) => { if (row.id) { if (ids.has(row.id)) invalid('局部修订', '基稿镜头ID重复'); ids.set(row.id, index); } });
     const merged = structuredClone(base);
     for (const row of value.shots) {
-      assertFields(row, ['id', 'changes'], '局部修订.shots[]');
-      if (typeof row.id !== 'string' || !row.id || !ids.has(row.id) || seen.has(row.id)) invalid('局部修订.id', '未知、重复或空镜头ID；从完整基稿原样复制' + (base.some(item => !item.id) ? '。基稿含尚未分配ID的新镜头；要修改这些镜头必须使用mode=replace返回完整表，新增镜头的id仍为空，不使用空ID patch、不编造ID或按数组位置猜测' : ''));
-      seen.add(row.id);
+      let index;
+      if (Object.hasOwn(row, 'candidate_index')) {
+        assertFields(row, ['candidate_index', 'title', 'changes'], '局部修订.shots[]');
+        index = row.candidate_index;
+        if (!Number.isInteger(index) || index < 0 || index >= base.length || base[index].id
+          || typeof row.title !== 'string' || row.title !== base[index].title || seen.has(index))
+          invalid('局部修订.candidate_index', '仅可定位完整基稿中id为空的新镜头；从0开始的数组位置与原title必须同时一致，不能越界、重复或代替已有正式ID');
+      } else {
+        assertFields(row, ['id', 'changes'], '局部修订.shots[]');
+        if (typeof row.id !== 'string' || !row.id || !ids.has(row.id) || seen.has(ids.get(row.id)))
+          invalid('局部修订.id', '未知、重复或空镜头ID；从完整基稿原样复制' + (base.some(item => !item.id) ? '。基稿含尚未分配ID的新镜头：局部修改使用candidate_index（从0开始）与原title共同定位，不含id；或用mode=replace返回完整表，新镜头id仍为空' : ''));
+        index = ids.get(row.id);
+      }
+      seen.add(index);
       if (!row.changes || typeof row.changes !== 'object' || Array.isArray(row.changes) || !Object.keys(row.changes).length)
         invalid('局部修订.changes', '需为非空字段对象');
       const keys = Object.keys(row.changes);
       if (keys.some(key => key === 'id' || !Object.hasOwn(shape, key))) invalid('局部修订.changes', '只能改镜头内容字段，不能改ID或新增字段');
       validateShape(row.changes, Object.fromEntries(keys.map(key => [key, shape[key]])), '局部修订.changes');
-      Object.assign(merged[ids.get(row.id)], structuredClone(row.changes));
+      Object.assign(merged[index], structuredClone(row.changes));
     }
     return { shots: merged };
   }

@@ -12,6 +12,11 @@ function shotTable(value) {
   return { shots: (value?.shots || []).map(shot => Object.fromEntries(fields.map(key => [key, structuredClone(shot[key])]))) };
 }
 
+function shotRepairBase(step) {
+  const rows = [step.result?.mode === 'patch' ? null : step.result, step.prompt?.input?.content];
+  return rows.find(value => Array.isArray(value?.shots) && value.shots.length) || null;
+}
+
 function candidate(business, value) {
   if (['project-summary', 'episode-summary', 'script-review'].includes(business)) return typeof value === 'string' ? value : value?.body || '';
   if (business === 'project-characters') {
@@ -109,10 +114,10 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
       && nodeOf(project, business, task.target_id).node_state.status === 'rejected') {
       const previous = (snapshot.tasks || []).filter(row => row.id !== task.id && row.business_type === business
         && row.target_id === task.target_id).sort((a,b) => b.queue_order - a.queue_order)[0];
-      const failed = previous?.task_status === 'rejected' && steps.filter(row => row.task_id === previous.id
-        && ['generate','revise'].includes(row.kind) && row.step_status === 'done').sort((a,b) => b.seq - a.seq)[0];
-      const base = failed?.result?.mode === 'patch' ? failed.prompt?.input?.content : failed?.result;
-      if (Array.isArray(base?.shots) && base.shots.length) value.content = structuredClone(base);
+      const base = previous?.task_status === 'rejected' && steps.filter(row => row.task_id === previous.id
+        && ['generate','revise'].includes(row.kind) && row.step_status === 'done').sort((a,b) => b.seq - a.seq)
+        .map(shotRepairBase).find(Boolean);
+      if (base) value.content = structuredClone(base);
     }
     if (business === 'script-split') {
       const previous = (snapshot.tasks || []).filter(row => row.id !== task.id && row.business_type === business).sort((a, b) => b.queue_order - a.queue_order)[0];
@@ -126,7 +131,7 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
     const previous = (snapshot.steps || []).filter(row => row.task_id === task.id
       && ['generate', 'revise'].includes(row.kind) && row.step_status === 'done'
       && row.seq < step.seq).sort((a, b) => b.seq - a.seq)[0];
-    if (previous) value.content = structuredClone(business === 'shots' && previous.result?.mode === 'patch' ? previous.prompt?.input?.content || previous.result : previous.result);
+    if (previous) value.content = structuredClone(business === 'shots' ? shotRepairBase(previous) || previous.result : previous.result);
   }
   const { contract } = nodeAction(business, action);
   return Object.fromEntries(Object.keys(contract.input).map(key => [key, value[key]]));

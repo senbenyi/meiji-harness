@@ -137,15 +137,30 @@ test('多处人物引用错误与同时超出集预算在同次反馈列出，�
     return true;
   });
 });
-test('未分配镜头ID的候选明确改用完整replace，不以空ID做patch',()=>{
+test('未分配镜头ID的候选明确提供位置标题定位或完整replace，不以空ID做patch',()=>{
   const {p,e,snapshot}=withScene(),input=taskNodeInput(snapshot,taskFixture(p,'shots',e.id),null,'regenerate');
   input.content.shots.forEach(row=>{row.id='';});
   const prompt=composeNodePrompt('shots','regenerate',input,'codex-gpt');
-  assert.match(prompt.system,/id为空的新镜头/);
+  assert.match(prompt.system,/id为空的新候选用candidate_index/);
   assert.throws(()=>validateNodeResult('shots','regenerate',{mode:'patch',shots:[{id:'',changes:{body:'修复正文'}}]},input),/mode=replace返回完整表/);
   const replacement=structuredClone(input.content.shots);replacement[0].body='修复正文';
   const result=validateNodeResult('shots','regenerate',{mode:'replace',shots:replacement},input);
   assert.equal(result.shots[0].body,'修复正文');assert.equal(result.shots[0].id,'');
+});
+test('空ID候选用数组位置和原标题共同定位，只改目标字段并拒绝歧义定位',()=>{
+  const {p,e,snapshot}=withScene(),input=taskNodeInput(snapshot,taskFixture(p,'shots',e.id),null,'regenerate');
+  input.content.shots.forEach((row,index)=>{row.id='';row.title=`候选${index}`;});
+  const before=structuredClone(input.content),patch=row=>({mode:'patch',shots:[row]});
+  const row={candidate_index:0,title:'候选0',changes:{body:'仅修正本镜正文'}};
+  const result=validateNodeResult('shots','regenerate',patch(row),input);
+  assert.equal(result.shots[0].body,'仅修正本镜正文');assert.equal(result.shots[0].id,'');
+  assert.deepEqual(result.shots[1],before.shots[1]);assert.deepEqual(input.content,before);
+  for(const bad of [{...row,candidate_index:-1},{...row,candidate_index:9},{...row,candidate_index:0.5},
+    {...row,title:'别的标题'},{...row,id:''}])
+    assert.throws(()=>validateNodeResult('shots','regenerate',patch(bad),input),/局部修订/);
+  assert.throws(()=>validateNodeResult('shots','regenerate',{mode:'patch',shots:[row,row]},input),/局部修订/);
+  input.content.shots[0].id='s_existing';
+  assert.throws(()=>validateNodeResult('shots','regenerate',patch(row),input),/已有正式ID/);
 });
 test('拒绝镜头表的修复读取最近同目标失败候选，正常原结果修订仍读正式表',()=>{
   const {p,e,snapshot}=withScene(),current=taskFixture(p,'shots',e.id,{action:'revise',queue_order:3});
@@ -164,6 +179,10 @@ test('拒绝镜头表的修复读取最近同目标失败候选，正常原结�
   snapshot.steps[0].result={mode:'patch',shots:[{id:'',changes:{body:'无法定位'}}]};
   snapshot.steps[0].prompt={input:{content:failed}};
   assert.deepEqual(taskNodeInput(snapshot,current,null,'regenerate').content,failed);
+  snapshot.steps.push({task_id:old.id,kind:'revise',seq:8,step_status:'done',result:{是否通过:true,原因:''},prompt:{input:{content:{shots:[]}}}});
+  assert.deepEqual(taskNodeInput(snapshot,current,null,'regenerate').content,failed);
+  snapshot.steps.push({task_id:current.id,kind:'generate',seq:2,step_status:'done',result:{是否通过:true,原因:''},prompt:{input:{content:failed}}});
+  assert.deepEqual(taskNodeInput(snapshot,current,null,'regenerate',{kind:'revise',seq:5}).content,failed);
 });
 test('连续接拍须同地点同状态；换场、反打、回到旧场景使用场景参考而非前镜尾帧',()=>{
   const {e}=withScene(),[a,b]=e.shot_list.shots;
