@@ -104,10 +104,11 @@ test('千问：聊天通过公开服务同步，不依赖媒体密钥，正确�
 test('千问：所有文本生成/审核/修订保留 system/user 分工，媒体不追加文本约定', async () => {
   let textCount = 0, mediaCount = 0
   for (const [node, route] of Object.entries(nodeRoutes)) for (const [action, contract] of Object.entries(route.actions)) {
-    const prompt = composeNodePrompt(node, action, sampleInput(contract.input), 'qwen3.5:27b')
+    const input = sampleInput(contract.input)
+    const prompt = composeNodePrompt(node, action, input, 'qwen3.5:27b')
     assert.equal(prompt.body, node === 'video' ? prompt.user : prompt.messages.map(message => message.content).join("\n\n"))
     assert.ok(!prompt.user.includes('# 输出格式'))
-    if (node !== 'video') assert.ok(prompt.user.includes(route.promptModel[action].user.任务))
+    if (node !== 'video') assert.ok(prompt.user.includes(route.promptModel[action].user.任务.replaceAll('{{输出语言}}', input.language)))
     if (['JSON', '文本'].includes(prompt.output.type)) {
       textCount++
       assert.match(prompt.system, /# 响应约定/)
@@ -118,7 +119,7 @@ test('千问：所有文本生成/审核/修订保留 system/user 分工，媒�
       assert.ok(!prompt.body.includes('# 响应约定'))
     }
   }
-  assert.equal(textCount, 26)
+  assert.equal(textCount, 25)
   assert.equal(mediaCount, 4)
 })
 

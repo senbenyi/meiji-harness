@@ -40,7 +40,8 @@ export function renderPrompt(model, action, values, output, provider) {
       .map(([key, v]) => {
         if (v === null || v === "" || (Array.isArray(v) && !v.length))
           return "";
-        if (typeof v === "object" && !Array.isArray(v) && key !== "结构") {
+        // 待审核对象是完整候选数据，空值也有业务含义，不能按模板章节省略。
+        if (typeof v === "object" && !Array.isArray(v) && !["结构", "待审核内容"].includes(key)) {
           const body = section(v, level + 1);
           return body ? `${"#".repeat(level)} ${key}\n${body}` : "";
         }

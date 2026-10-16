@@ -424,3 +424,31 @@ test("新建项目没有剧集时概览可以渲染，占位按钮打开对应�
     dom.window.close();
   }
 });
+
+test('编辑剧情可调整本集时长，保存走项目命令并完整保留原剧情', async () => {
+  const dom = new JSDOM('<main></main>'), savedDocument = globalThis.document, savedFetch = globalThis.fetch;
+  globalThis.document = dom.window.document;
+  const calls = [];
+  globalThis.fetch = async (path, options) => {
+    calls.push({ path, ...JSON.parse(options.body) });
+    return { ok: true, json: async () => ({}) };
+  };
+  try {
+    const snapshot = snapshotFixture(), e = snapshot.project.episodes[0], root = document.querySelector('main');
+    const original = e.plot;
+    renderTaskPanel(root, snapshot, { session_id: 'session-test', view: { page: 'episode', episode_id: e.id, tab: 'script' }, refresh: async () => {}, paint: () => {}, onError: () => {} });
+    [...root.querySelectorAll('button')].find(b => b.textContent === '编辑剧情').click();
+    const dialog = root.querySelector('dialog');
+    dialog.close = () => dialog.remove();
+    assert.equal(dialog.querySelector('[name="plot"]').value, original);
+    assert.equal(Number(dialog.querySelector('[name="duration_seconds"]').value), e.duration_seconds);
+    dialog.querySelector('[name="duration_seconds"]').value = '240';
+    await dialog.querySelector('form').onsubmit({ preventDefault() {} });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].path, '/api/meiji/project-command');
+    assert.equal(calls[0].command.type, 'edit-episode');
+    assert.equal(calls[0].command.episode_id, e.id);
+    assert.deepEqual(calls[0].command.fields, { plot: original, duration_seconds: 240 });
+    assert.equal(e.plot, original);
+  } finally { globalThis.document = savedDocument; globalThis.fetch = savedFetch; dom.window.close(); }
+});

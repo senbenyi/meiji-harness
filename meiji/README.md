@@ -50,9 +50,9 @@ DeepSeek Harness 短剧制作插件。按项目 Model 保存剧本、角色与�
 
 运行时每次读取当前选择的模型一次；`qwen3.5:27b` 与 `codex-gpt` 都使用 `server/http/llm-server/` 的单例与参数组装，`server/http/elysium/` 文本客户端已不在设置选项中。PromptModel 不持有输出格式，提示词和响应校验共同引用路由输出契约。请求历史保留当次业务输入、模型、提示词及脱敏 HTTP 记录。
 
-### HTTP 阶段契约（2026-10-14）
+### HTTP 阶段契约（2026-10-16）
 
-目前注册 11 个 AI 节点、30 个动作。`shot-characters` 支持生成/审核/修订：输入 `language/requirements/shot/characters/previous`，人物目录包含 `number/name/costumes`，服装目录包含 `number/name`；结果为 `{"on_screen_characters":[{"character_number":"C1","costume_number":"C1F1"}]}`。无出镜人物返回空数组；无服装目录时服装编号为空。服务检查编号归属与重复。审核/修订额外传 `content/opinion`。正式任务已接入统一执行链；编号映射为项目 ID，保存到 `character_binding`，以 `has_result` 区分未识别与确认无人。
+目前注册 11 个 AI 节点、29 个动作（25 个文本动作、4 个媒体动作）。`script-split` 生成切点后由程序审核，没有 AI 审核动作；`script-review` 提供审核与改写，不提供独立生成剧本动作。已退役 `shot-characters`，人物和服装绑定直接由镜头表的 `on_screen_characters[].character_id/costume_id` 保存，不再使用角色编号、`character_binding` 或 `has_result`。不具名群演保存到 `background_characters`；卡内人物 ID 及其服装归属由程序校验。
 
 `storyboard` 的输入为 `language/requirements/storyboard/duration/characters`，审核/修订增加 `content/opinion`。人物只传所需文字资料，包含仅发声人物；不再接收 `assets/previous`。输出仍为固定三个非空段落。`costume-image.references` 最多一张图。
 

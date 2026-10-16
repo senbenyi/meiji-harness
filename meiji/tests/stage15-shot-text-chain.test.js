@@ -255,3 +255,22 @@ test('镜头详情只读展示镜头表出镜，无独立识别节点', () => {
     assert.equal(root.querySelector('[data-business=seconds] .seconds-summary p').textContent, '结尾状态：人物站在原位，动作已结束，持物保持不变。');
   } finally { globalThis.document = previous; dom.window.close(); }
 });
+
+test('未知说话人ID反馈精确节拍、错误值及同名目录ID，拒绝而不自动纠正', async () => {
+  const { prepareContent } = await import('../server/handlers/content.js');
+  const p = fixtureProject(), shot = p.episodes[0].shot_list.shots[0], person = p.character_library.characters[0];
+  const raw = structuredClone(shot.seconds_storyboard);
+  delete raw.node_state;
+  const bad = `${person.id}-wrong-costume-suffix`;
+  raw.storyboard[0].dialogue = [{ speaker_id: bad, speaker_name: person.name, mode: '画内', dialogue_text: '测试对白' }];
+  const saved = structuredClone(raw);
+  const task = { business_type: 'seconds', target_id: shot.id };
+  assert.throws(() => prepareContent({ project: p }, task, raw), error => {
+    assert.equal(error.code, 'INVALID_CONTRACT');
+    for (const text of ['storyboard[0].dialogue[0]', raw.storyboard[0].time_range, bad, `${person.name}=${person.id}`]) assert.ok(error.message.includes(text), text);
+    return true;
+  });
+  assert.deepEqual(raw, saved);
+  raw.storyboard[0].dialogue[0].speaker_id = person.id;
+  assert.doesNotThrow(() => prepareContent({ project: p }, task, raw));
+});

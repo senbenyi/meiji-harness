@@ -45,10 +45,15 @@ export function prepareContent(snapshot, task, raw) {
   } else {
     content = structuredClone(raw);
     if (business === "seconds")
-      for (const beat of content.storyboard)
-        for (const line of beat.dialogue) {
-          if (line.speaker_id && !project.character_library.characters.some(c => c.id === line.speaker_id))
-            invalid("speaker_id", "未知角色");
+      for (const [beatIndex, beat] of content.storyboard.entries())
+        for (const [lineIndex, line] of beat.dialogue.entries()) {
+          if (line.speaker_id && !project.character_library.characters.some(c => c.id === line.speaker_id)) {
+            const catalog = project.character_library.characters;
+            const named = catalog.filter(c => c.name === line.speaker_name);
+            const candidates = (named.length === 1 ? named : catalog).map(c => `${c.name}=${c.id}`).join('；');
+            invalid(`speaker_id（storyboard[${beatIndex}].dialogue[${lineIndex}]，${beat.time_range}）`,
+              `未知角色ID ${line.speaker_id}，说话人${line.speaker_name}；从角色目录原样复制对应ID，不得拼接服装ID。目录：${candidates}`);
+          }
         }
   }
   // 这里只检验可保存结构。业务审核单独执行，失败候选仍能进入修订和最终未通过态。

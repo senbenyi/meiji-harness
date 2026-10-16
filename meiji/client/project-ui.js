@@ -565,7 +565,7 @@ export function renderEpisode(root, env, entries) {
     plotHead.append(plotTitles);
     plotActions.append(
       button("编辑剧情", () =>
-        detailsDialog(root, "编辑剧情", { plot: e.plot }, (fields) =>
+        detailsDialog(root, "编辑剧情", { plot: e.plot, duration_seconds: e.duration_seconds }, (fields) =>
           act({ type: "edit-episode", episode_id: e.id, fields }, true),
         ),
       ),

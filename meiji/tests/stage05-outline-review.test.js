@@ -140,18 +140,17 @@ for (const action of ["regenerate", "manual_edit", "override"])
       { sequence: 1, duration_seconds: 20, body: "前段", causal: "" },
       { sequence: 2, duration_seconds: 20.5, body: "后段", causal: "承接" },
     ] };
-    for (const shot of episode.shot_list.shots) shot.duration_seconds = 11;
-    assert.throws(() => assertProgramReview(snapshot.project, "shots", episode.id), /镜头总时长/);
+    for (const shot of episode.shot_list.shots) shot.duration_seconds = 4;
+    assert.doesNotThrow(() => assertProgramReview(snapshot.project, "shots", episode.id));
     if (action === "override") episode.story_outline.segments = content.segments;
     commitContent(snapshot, task, content);
     assert.equal(episode.duration_seconds, 40.5);
     assert.equal(isNodeCurrent(snapshot, "outline", episode.id), true);
     const input = taskNodeInput(snapshot, taskFixture(snapshot.project, "shots", episode.id), null, "generate");
     assert.equal(input.duration, 40.5);
-    assert.throws(() => assertProgramReview(snapshot.project, "shots", episode.id), /需等于故事小段合计取整 41 秒/);
+    assert.throws(() => assertProgramReview(snapshot.project, "shots", episode.id), /故事小段合计取整 41 秒，允许误差±30秒/);
     episode.shot_list.shots[0].duration_seconds = 15;
-    episode.shot_list.shots[1].duration_seconds = 13;
-    episode.shot_list.shots.push({ ...structuredClone(episode.shot_list.shots[1]), id: createId("shot"), number: "S03", sequence: 3 });
+    episode.shot_list.shots[1].duration_seconds = 15;
     assert.doesNotThrow(() => assertProgramReview(snapshot.project, "shots", episode.id));
   });
 

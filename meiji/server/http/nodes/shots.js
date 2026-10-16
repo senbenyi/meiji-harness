@@ -30,7 +30,7 @@ const output0 = {
       }
     ]
   },
-  "requirements": "1. 只返回上述JSON结构；字段只能为 title、id、duration_seconds、shot_scale、hook、body、continuity_transition、reference_anchor、audio_arrangement、on_screen_characters、background_characters 及其规定子字段。\n2. shots 必须为非空数组。每镜及两个嵌套对象的所有规定字段必须齐全；duration_seconds 为整数；on_screen_characters 为数组，每项仅含character_id、costume_id两个字符串；其余叶字段均为字符串。id为旧镜头ID或新增时的空字符串，禁止返回number、sequence或小段编号等额外字段。\n3. duration_seconds 为4至15秒整数；每段镜头时长合计等于按规则统一分配的该段整数预算，整集合计等于原始小段总时长四舍五入；先锁定镜头骨架和时长，再填写其余字段。\n4. 钩子使用规则规定的枚举；无旁白、对白或音效时对应值为空字符串。\n5. 只返回完整镜头表，不附解释或Markdown代码围栏。\n6. " + shotJsonRules
+  "requirements": "1. 只返回上述JSON结构；字段只能为 title、id、duration_seconds、shot_scale、hook、body、continuity_transition、reference_anchor、audio_arrangement、on_screen_characters、background_characters 及其规定子字段。\n2. shots 必须为非空数组。每镜及两个嵌套对象的所有规定字段必须齐全；duration_seconds 为整数；on_screen_characters 为数组，每项仅含character_id、costume_id两个字符串；其余叶字段均为字符串。id为旧镜头ID或新增时的空字符串，禁止返回number、sequence或小段编号等额外字段。\n3. duration_seconds 为4至15秒整数；全表合计与故事小段合计取整相差不超过30秒即可通过，该范围只是通过条件。修订意见涉及时长时，仍须逐段修改该段镜头的 duration_seconds 和正文，不能原样保留旧时长或旧剧情铺陈。\n4. 钩子使用规则规定的枚举；无旁白、对白或音效时对应值为空字符串。\n5. 只返回完整镜头表，不附解释或Markdown代码围栏。\n6. " + shotJsonRules
 };
 
 const output1 = {

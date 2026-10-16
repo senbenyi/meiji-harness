@@ -5,12 +5,18 @@ import { composeNodePrompt, validateNodeResult } from '../server/http/ai-routes.
 import { parseJsonValue } from '../server/prompts/parse-json.js';
 import { sampleInput } from './fixtures/ai.js';
 
-test('两个文本来源生成修订均明确锚点闭合顺序，与输出契约同源', () => {
+test('两个文本来源生成修订提供合法层级示例，与输出契约一致', () => {
   for (const model of ['qwen3.5:27b', 'codex-gpt']) for (const action of ['generate', 'regenerate']) {
     const prompt = composeNodePrompt('shots', action, sampleInput(shots.actions[action].input), model);
-    assert.match(prompt.system, /不能在departed_characters后提前写右花括号/);
-    assert.match(prompt.output.requirements, /lighting不得作为镜头根字段/);
-    assert.match(prompt.output.requirements, /写完audio_arrangement后才关闭当前镜头对象/);
+    const matched = prompt.system.match(/正确层级示例：(\{[^\n]+\})。/);
+    assert.ok(matched, '实际提示词需给出完整可解析的JSON层级示例');
+    const example = JSON.parse(matched[1]);
+    assert.deepEqual(Object.keys(example.reference_anchor), Object.keys(prompt.output.structure.shots[0].reference_anchor));
+    assert.equal(typeof example.reference_anchor.lighting, 'string');
+    assert.ok(Object.hasOwn(example, 'body'));
+    assert.ok(Object.hasOwn(example, 'audio_arrangement'));
+    assert.equal(Object.hasOwn(example.reference_anchor, 'body'), false);
+    assert.equal(Object.hasOwn(example, 'lighting'), false);
     assert.deepEqual(Object.keys(prompt.output.structure.shots[0].reference_anchor), ['fixed_landmark', 'character_positions', 'departed_characters', 'lighting']);
   }
 });

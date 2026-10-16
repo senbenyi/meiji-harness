@@ -72,3 +72,26 @@ test('参与角色外貌文字影响最终提示词指纹，图片及无关人�
   const input = taskNodeInput(snapshot, task, null, 'generate');
   assert.equal(Object.hasOwn(input.characters[0], 'facial_features'), false);
 });
+
+test('同一说话人在不同镜头子集及目录重排后使用同一标记，标记进入实际提示词', async () => {
+  const { snapshot, shot, visible, voiceOnly } = fixture();
+  const { shotTextInputs } = await import('../shared/shot-text-inputs.js');
+  const { composeNodePrompt } = await import('../server/http/ai-routes.js');
+  const episode = snapshot.project.episodes[0];
+  const input = shotTextInputs(snapshot.project, episode, shot, 'storyboard');
+  const tags = new Map(input.characters.map(person => [person.id, person.speaker_tag]));
+  assert.match(tags.get(visible.id), /^\(S\d+\)$/);
+  assert.notEqual(tags.get(visible.id), tags.get(voiceOnly.id));
+  const next = structuredClone(shot);
+  next.on_screen_characters = [{ character_id: voiceOnly.id, costume_id: '' }];
+  next.seconds_storyboard.storyboard.forEach(beat => { beat.dialogue = []; });
+  const nextInput = () => shotTextInputs(snapshot.project, episode, next, 'storyboard');
+  assert.deepEqual(nextInput().characters.map(person => [person.id, person.speaker_tag]), [[voiceOnly.id, tags.get(voiceOnly.id)]]);
+  snapshot.project.character_library.characters.reverse();
+  assert.deepEqual(nextInput().characters.map(person => [person.id, person.speaker_tag]), [[voiceOnly.id, tags.get(voiceOnly.id)]]);
+  for (const model of ['qwen3.5:27b', 'codex-gpt']) {
+    const prompt = composeNodePrompt('storyboard', 'generate', { ...nextInput(), language: 'zh-CN', requirements: '' }, model);
+    assert.ok(prompt.user.includes(tags.get(voiceOnly.id)));
+    assert.ok(prompt.system.includes('不得按本镜出场顺序重新编号'));
+  }
+});

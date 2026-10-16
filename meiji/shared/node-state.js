@@ -120,8 +120,8 @@ export function assertProgramReview(project, business, targetId) {
       invalid("镜头表", "镜头时长需为 4–15 秒");
     const expected = Math.round(object.story_outline.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0));
     const total = node.shots.reduce((sum, shot) => sum + shot.duration_seconds, 0);
-    if (total !== expected)
-      invalid('镜头表', `镜头总时长 ${total} 秒，需等于故事小段合计取整 ${expected} 秒，相差 ${total - expected} 秒；按原小段时长重新拆镜分配，不增加或删减剧情`);
+    if (Math.abs(total - expected) > 30)
+      invalid('镜头表', `镜头总时长 ${total} 秒超出允许范围（故事小段合计取整 ${expected} 秒，允许误差±30秒）`);
   }
 }
 

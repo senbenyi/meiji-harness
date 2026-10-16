@@ -32,10 +32,13 @@ export function shotTextInputs(project, episode, shot, business) {
   if (business === 'seconds') return { shot: table, characters, previous: previousSeconds(episode, shot) };
   const speakerIds = new Set(shot.seconds_storyboard.storyboard.flatMap(beat => beat.dialogue.map(line => line.speaker_id)).filter(Boolean));
   const visible = new Set(shot.on_screen_characters.map(row => row.character_id));
+  // 使用完整目录生成跨镜统一标记；不按本镜子集重新编号，目录重排也不改变编号。
+  const speakerTags = new Map([...characters].sort((a, b) => a.id.localeCompare(b.id))
+    .map((person, index) => [person.id, `(S${index + 1})`]));
   const participants = characters.flatMap((person, index) => {
     const source = project.character_library.characters[index];
     return speakerIds.has(person.id) || visible.has(person.id)
-      ? [{ ...person, nationality: source.nationality, height: source.height, facial_features: source.facial_features }] : [];
+      ? [{ ...person, speaker_tag: speakerTags.get(person.id), nationality: source.nationality, height: source.height, facial_features: source.facial_features }] : [];
   });
   return { duration: shot.duration_seconds, characters: participants,
     storyboard: { on_screen_characters: structuredClone(shot.on_screen_characters), background_characters: shot.background_characters, shot_setup: shotSceneSetup(shot), ...secondsEnding(shot.seconds_storyboard), storyboard: shot.seconds_storyboard.storyboard.map(beat => structuredClone(beat)) } };

@@ -307,7 +307,7 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 /* 项目详情页角色库：一行固定 5 个，窄屏同样 5 个，头像随格子缩小。 */
 .overview-page .characters-strip.library-card-strip-characters{grid-template-columns:repeat(5,minmax(0,1fr));justify-content:stretch}
 .overview-page .library-card-characters{padding:10px 6px}
-.overview-page .library-card-characters .library-card-avatar{width:min(56px,100%);height:auto;aspect-ratio:1}
+.overview-page .library-card-characters .library-card-avatar{width:min(56px,100%);height:auto;aspect-ratio:1;object-fit:cover;object-position:center top}
 .overview-page .library-card-characters .library-card-info{width:100%}
 .overview-page .library-card{display:flex;align-items:center;gap:10px;width:100%;min-width:0;padding:10px;border:1px solid #353840;border-radius:10px;background:#1b1c21;text-align:left;color:inherit}
 .overview-page .library-card:hover{border-color:#dfc196;background:#23242a}
