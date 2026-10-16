@@ -55,6 +55,45 @@ export function imageParameters({ baseUrl, model, prompt, aspectRatio, quality, 
   };
 }
 
+const videoRatios = {
+  '1344x768': '16:9', '768x1344': '9:16', '16:9': '16:9', '9:16': '9:16',
+  '21:9': '21:9', '4:3': '4:3', '1:1': '1:1', '3:4': '3:4',
+}
+const videoModes = { text: '文生', first_frame: '首尾帧', reference: '多模态' }
+
+// 三种方式都调用 MiniMax-H3。mode 只用文生、首尾帧、多模态；比例规则随方式变化。
+export function videoParameters({ baseUrl, model, prompt, duration, aspectRatio, mode, inputReference, referenceImages, taskId }) {
+  if (model !== 'MiniMax-H3') throw Object.assign(new Error('llm-server 视频模型无效'), { status: 400 })
+  const kind = videoModes[mode]
+  if (!kind) throw Object.assign(new Error('视频方式必须是文生、首尾帧或多模态'), { status: 400 })
+  if (typeof prompt !== 'string' || !prompt.trim()) throw Object.assign(new Error('需要非空提示词'), { status: 400 })
+  if (prompt.length > 7000) throw Object.assign(new Error('提示词最长 7000 个字符'), { status: 400 })
+  if (!Number.isInteger(duration) || duration < 4 || duration > 15) throw Object.assign(new Error('时长必须是 4 到 15 的整数秒'), { status: 400 })
+  const ratio = videoRatios[aspectRatio]
+  const body = { model: 'MiniMax-H3', mode: kind, prompt, duration, resolution: '768P' }
+  if (kind === '文生') {
+    if (inputReference !== undefined || referenceImages !== undefined) throw Object.assign(new Error('文生视频不能带画面素材'), { status: 400 })
+    if (!ratio) throw Object.assign(new Error('文生视频画幅不受支持'), { status: 400 })
+    body.ratio = ratio
+  } else if (kind === '首尾帧') {
+    if (referenceImages !== undefined) throw Object.assign(new Error('首尾帧不能带参考素材'), { status: 400 })
+    if (typeof inputReference !== 'string' || !inputReference.trim()) throw Object.assign(new Error('首尾帧需要首帧'), { status: 400 })
+    body.first_frame = inputReference
+  } else {
+    if (inputReference !== undefined) throw Object.assign(new Error('多模态不能带首尾帧'), { status: 400 })
+    if (!Array.isArray(referenceImages) || !referenceImages.length || referenceImages.length > 9) throw Object.assign(new Error('多模态需要 1 到 9 张参考图'), { status: 400 })
+    if (referenceImages.some(item => typeof item !== 'string' || !item.trim())) throw Object.assign(new Error('参考图不能为空'), { status: 400 })
+    body.images = [...referenceImages]
+    if (ratio) body.ratio = ratio
+  }
+  return {
+    url: new URL(`${gatewayBaseUrl(baseUrl)}/videos/generations`),
+    apiKey: 'ollama',
+    headers: requestHeaders(taskId),
+    body,
+  }
+}
+
 export function chatParameters({ baseUrl, model, messages }) {
   if (!['qwen3.5:27b', 'codex-gpt'].includes(model)) throw Object.assign(new Error('llm-server 文本模型无效'), { status: 400 });
   // 部署采样参数由 llm-server 补齐，不携带媒体网关密钥。

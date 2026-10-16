@@ -12,7 +12,7 @@ import { createTaskHttpHandler } from '../server/http/task-routes.js'
 import { syncChatModel } from '../server/host/harness-chat-model.js'
 import { emptyProject } from '../shared/project_contract.js'
 
-const selection = { output_language: 'zh-CN', text: { model: 'qwen3.5:27b' }, image: { model: 'gpt-image' }, video: { model: 'elysium-video' } }
+const selection = { output_language: 'zh-CN', text: { model: 'qwen3.5:27b' }, image: { model: 'gpt-image' }, video: { model: 'MiniMax-H3' } }
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}/v1`)))
 
 test('设置 Model 拒绝未知选项、图片冒用文本，聊天和制作同源', () => {
@@ -23,9 +23,10 @@ test('设置 Model 拒绝未知选项、图片冒用文本，聊天和制作同�
   for (const [purpose, model] of [['text', 'elysium-chat'], ['image', 'elysium-image']]) {
     assert.throws(() => new SettingsModel({ ...selection, [purpose]: { model } }), /请选择有效模型/)
   }
-  assert.equal(modelRoute(config, 'video').model, 'elysium-video')
-  assert.equal(modelRoute(config, 'video').baseUrl, 'https://gateway.test/v1')
-  assert.equal(modelRoute(config, 'video').apiKey, 'private')
+  assert.equal(new SettingsModel({ ...selection, video: { model: 'elysium-video' } }).video.model, 'MiniMax-H3')
+  assert.equal(modelRoute(config, 'video').model, 'MiniMax-H3')
+  assert.equal(modelRoute(config, 'video').baseUrl, 'http://localhost:11435/v1')
+  assert.equal(modelRoute(config, 'video').apiKey, 'ollama')
   const gpt = modelRoute(config, 'image')
   assert.equal(gpt.model, 'gpt-image')
   assert.equal(gpt.baseUrl, 'http://localhost:11435/v1')

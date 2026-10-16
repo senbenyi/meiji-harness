@@ -86,6 +86,27 @@ test('程序失败再AI失败共用两次修订；修订收到最新候选与对
   return { end_state: "人物位于镜末位置，动作已完成。", pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: [beat(step.kind === 'generate' ? '0–11s' : '0–5s')] };
 }));
 
+test('AI拒绝后的程序拒绝不丢失业务意见，再修订仍使用最新候选', () => withRuntime(async ({ model, command, calls }) => {
+  const task = await command('seconds', 'regenerate');
+  assert.equal(task.task_status, 'completed', task.end_reason);
+  const generations = calls.filter(call => call.task.id === task.id && call.step.kind !== 'review');
+  assert.equal(generations.length, 3);
+  const final = generations[2];
+  assert.match(final.messages.at(-1).content, /允许误差±5秒/);
+  assert.match(final.messages.at(-1).content, /结束状态必须明确门已打开/);
+  assert.match(final.messages.at(-1).content, /已解决项不重复修改/);
+  assert.equal(JSON.parse(final.messages[2].content).storyboard[0].time_range, '0–11s');
+  assert.equal(JSON.parse(final.messages[2].content).end_state, '门已打开。');
+  const steps = model.read().steps.filter(step => step.task_id === task.id);
+  assert.equal(steps.find(step => step.round === 1 && step.name.includes('AI审核')).step_status, 'cancelled');
+  assert.equal(model.read().project.episodes[0].shot_list.shots[0].seconds_storyboard.end_state, '门已打开。');
+}, ({ task, step }) => {
+  if (task.business_type !== 'seconds') return;
+  if (step.kind === 'review') return { 是否通过: step.round !== 0, 原因: step.round === 0 ? '结束状态必须明确门已打开' : '' };
+  return { end_state: step.round === 0 ? '门仍关闭。' : '门已打开。', pending_actions: '', pending_dialogue: '', continuing_audio: '',
+    storyboard: [beat(step.round === 1 ? '0–11s' : '0–5s')] };
+}));
+
 test('程序审核耗尽保存最后候选为rejected，保留旧成功hash与下游', () => withRuntime(async ({ p, model, command, calls }) => {
   const before = model.read().project.episodes[0].shot_list.shots[0];
   const task = await command('seconds', 'regenerate');

@@ -490,7 +490,7 @@ test("UI-6 设置选项自动保存、刷新恢复、失败回退，运行中冻
         "dsh.sessions.current",
         JSON.stringify({ sessionId: "session-" + randomUUID() }),
       );
-      const settings = { output_language: "zh-CN", text: { model: "qwen3.5:27b" }, image: { model: "gpt-image" }, video: { model: "elysium-video" } };
+      const settings = { output_language: "zh-CN", text: { model: "qwen3.5:27b" }, image: { model: "gpt-image" }, video: { model: "MiniMax-H3" } };
       let fail = false;
       globalThis.fetch = async (url, options = {}) => {
         if (options.method === "POST") {
@@ -511,7 +511,7 @@ test("UI-6 设置选项自动保存、刷新恢复、失败回退，运行中冻
       let language = content.querySelector("[name=output_language]"), model = content.querySelector("[name=text]");
       assert.deepEqual([...model.options].map(o => o.textContent), ["Qwen3.5 27B", "GPT（Codex 套餐）"]);
       assert.deepEqual([...content.querySelector("[name=image]").options].map(o => o.textContent), ["GPT（Codex 套餐）"]);
-      assert.deepEqual([...content.querySelector("[name=video]").options].map(o => o.textContent), ["elysium-video"]);
+      assert.deepEqual([...content.querySelector("[name=video]").options].map(o => o.textContent), ["MiniMax H3"]);
       model.value = "codex-gpt";
       await model.onchange();
       assert.equal(settings.text.model, "codex-gpt");

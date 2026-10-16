@@ -6,8 +6,9 @@ export const languageOptions = [
 export const modelOptions = {
   text: [{ value: 'qwen3.5:27b', label: 'Qwen3.5 27B' }, { value: 'codex-gpt', label: 'GPT（Codex 套餐）' }],
   image: [{ value: 'krea2 turbo V2.5', label: 'krea2 turbo V2.5' }, { value: 'gpt-image', label: 'GPT（Codex 套餐）' }],
-  video: [{ value: 'elysium-video', label: 'elysium-video' }],
+  video: [{ value: 'MiniMax-H3', label: 'MiniMax H3' }],
 }
+const legacyModels = { video: { 'elysium-video': 'MiniMax-H3' } }
 export class SettingsModel {
   constructor(value) {
     const language = value?.output_language ?? 'zh-CN'
@@ -16,7 +17,7 @@ export class SettingsModel {
     }
     this.output_language = language
     for (const purpose of Object.keys(modelOptions)) {
-      const model = value?.[purpose]?.model
+      const model = legacyModels[purpose]?.[value?.[purpose]?.model] || value?.[purpose]?.model
       if (!modelOptions[purpose].some(option => option.value === model)) {
         throw Object.assign(new Error(`${purpose}：请选择有效模型`), { status: 400 })
       }

@@ -92,6 +92,11 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
         if (kind === 'image') {
           const generate = gateway.image || (['krea2 turbo V2.5', 'gpt-image'].includes(connection.model) ? llmServerClient.generateImage : generateGatewayImage);
           bytes = await generate({ ...options, prompt: prompt.body, aspectRatio: input.aspectRatio, references: input.references.map(value => decodeImageData(value)) });
+        } else if (connection.model === 'MiniMax-H3' && !gateway.submitVideo) {
+          const generated = await (gateway.video || llmServerClient.generateVideo)({ ...options, ...prompt.request });
+          prompt.parameters = { remote_id: generated.taskId };
+          await record({ result: { remote_id: generated.taskId }, prompt });
+          bytes = generated.bytes;
         } else {
           const remote = await (gateway.submitVideo || submitGatewayVideo)({ ...options, ...prompt.request });
           prompt.parameters = { remote_id: remote.id };

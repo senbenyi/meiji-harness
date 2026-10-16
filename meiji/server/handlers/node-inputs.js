@@ -4,6 +4,7 @@ import { shotCharacterContext } from '../../shared/node-dependencies.js';
 import { aiProjection } from './content.js';
 import { scriptParagraphs, paragraphNumber } from './script-split.js';
 import { nodeAction } from '../http/ai-routes.js';
+import { reviewType } from '../../shared/task-plan.js';
 
 function shotTable(value) {
   const fields = ['title', 'id', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement', 'on_screen_characters', 'background_characters'];
@@ -88,8 +89,13 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
     value.requirements = [value.requirements, task.opinion.trim()].filter(Boolean).join('\n');
   if (action !== 'generate') {
     const steps = snapshot.steps || [];
-    const lastReview = steps.filter(row => row.task_id === task.id && row.kind === 'review' && row.step_status === 'rejected' && row.seq < (step.seq ?? Infinity)).sort((a, b) => b.seq - a.seq)[0];
-    value.opinion = [...new Set([step.kind === 'revise' ? lastReview?.result?.原因 || lastReview?.error_reason : '', task.opinion].filter(Boolean).flatMap(value => value.split('\n')).map(value => value.trim()).filter(Boolean))].join('\n');
+    const rejectedReviews = steps.filter(row => row.task_id === task.id && row.kind === 'review' && row.step_status === 'rejected' && row.seq < (step.seq ?? Infinity)).sort((a, b) => b.seq - a.seq);
+    const lastReview = rejectedReviews[0];
+    // 程序拒绝会跳过本轮AI审核，不能因此丢失上一轮尚未复审的业务意见。
+    const priorAiReview = step.kind === 'revise' && lastReview?.name && reviewType(lastReview) === 'program'
+      ? rejectedReviews.find(row => row.name && reviewType(row) === 'ai') : null;
+    const priorOpinion = priorAiReview && `此前AI审核意见（对照最新候选核查，已解决项不重复修改；同时满足本轮程序审核）：\n${priorAiReview.result?.原因 || priorAiReview.error_reason}`;
+    value.opinion = [...new Set([step.kind === 'revise' ? lastReview?.result?.原因 || lastReview?.error_reason : '', priorOpinion, task.opinion].filter(Boolean).flatMap(value => value.split('\n')).map(value => value.trim()).filter(Boolean))].join('\n');
     const source = action === 'review' ? draft : draft || nodeOf(project, business, task.target_id);
     value.content = candidate(business, source);
     if (business === 'script-split') {

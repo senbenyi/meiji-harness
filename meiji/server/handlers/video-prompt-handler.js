@@ -21,7 +21,7 @@ export function createVideoPromptHandler({ media }) {
       ...(type === '首尾帧' ? { firstFrame: images[0] } : { referenceImages: images }) });
     const body = videoParameters({ model: 'elysium-video', ...request });
     // 文件地址保存到 Model；发送时按地址读取数据，避免将 Base64 重复写进项目。
-    const content = { model: body.model, prompt: body.prompt, seconds: Number(body.seconds), size: body.size,
+    const content = { model: 'MiniMax-H3', prompt: body.prompt, seconds: Number(body.seconds), size: body.size,
       ...(type === '首尾帧' ? { input_reference: addresses[0] } : { reference_images: addresses.map(address => ({ address })) }) };
     return { content, result: content };
   };

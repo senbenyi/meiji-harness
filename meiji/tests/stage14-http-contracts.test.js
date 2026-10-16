@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import { createAiRoutes, composeNodePrompt, validateNodeResult } from '../server/http/ai-routes.js';
 import { videoRequest } from '../server/http/video-request.js';
 import { submitGatewayVideo } from '../server/gateway/model-gateway.js';
@@ -32,6 +33,44 @@ test('视频三种类型实际发出互斥协议，生成三段原文不被系�
     assert.doesNotMatch(payload.prompt, /# 角色|# 输出格式|视频制作执行器/);
     assert.deepEqual(Object.keys(payload).sort(), ['model', 'prompt', 'seconds', 'size', ...(input.type === '首尾帧' ? ['input_reference'] : input.type === '多模态' ? ['reference_images'] : [])].sort());
     if (input.type !== '首尾帧') assert.equal(payload.prompt, text);
+  }
+});
+
+test('三种视频方式都发给 MiniMax H3，mode 固定为文生、首尾帧、多模态', async () => {
+  const seen = [];
+  const server = createServer(async (req, res) => {
+    if (req.method === 'GET') { res.end(Buffer.from('mp4')); return; }
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    seen.push({ authorization: req.headers.authorization, body: JSON.parse(raw) });
+    res.end(JSON.stringify({ task_id: `task-${seen.length}`, url: `http://127.0.0.1:${server.address().port}/out.mp4` }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const textBaseUrl = `http://127.0.0.1:${server.address().port}/v1`;
+    const ai = createAiRoutes({ readConfig: async () => ({ ...config, textBaseUrl }) });
+    for (const input of [video, { ...video, type: '首尾帧', firstFrame: image }, { ...video, type: '多模态', referenceImages: [image] }]) {
+      const { result, prompt } = await ai('video', 'generate', input);
+      assert.equal(result.mime, 'video/mp4');
+      assert.equal(Buffer.from(result.data, 'base64').toString(), 'mp4');
+      assert.equal(prompt.model, 'MiniMax-H3');
+      assert.equal(prompt.parameters.remote_id, `task-${seen.length}`);
+    }
+    assert.deepEqual(seen.map(item => item.body.mode), ['文生', '首尾帧', '多模态']);
+    assert.equal(seen[0].authorization, 'Bearer ollama');
+    assert.equal(seen[0].body.model, 'MiniMax-H3');
+    assert.equal(seen[0].body.ratio, '16:9');
+    assert.equal(seen[0].body.resolution, '768P');
+    assert.equal('first_frame' in seen[0].body, false);
+    assert.equal(seen[1].body.ratio, undefined);
+    assert.equal(seen[1].body.first_frame, image);
+    assert.equal(seen[2].body.ratio, '16:9');
+    assert.deepEqual(seen[2].body.images, [image]);
+    assert.equal('first_frame' in seen[2].body, false);
+    assert.doesNotMatch(JSON.stringify(seen), /test-only/);
+  } finally {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
   }
 });
 

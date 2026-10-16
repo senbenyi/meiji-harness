@@ -18,7 +18,7 @@ DeepSeek Harness 短剧制作插件。按项目 Model 保存剧本、角色与�
 
 图片和视频沿用现有网关协议，尾帧和合片使用 FFmpeg，所有产物在保存前校验。停止视频任务只停止本地等待，网关不提供远端取消接口。不要同时运行多个写入同一 DSH_HOME 的实例。
 
-设置页提供「语言」和「模型」卡片，选择后自动保存，不绑定当前项目。语言和模型只作用于之后的生成，不改写已有内容。文本固定为「Qwen3.5 27B」（本地 HTTP `qwen3.5:27b`）或「GPT（Codex 套餐）」（`codex-gpt`）。聊天与制作文本共同读取 `SettingsModel` 的文本选择。图片可选「krea2 turbo V2.5」（默认，经 `textBaseUrl` 调用 llm-server `POST /v1/images/comfy`）或「GPT（Codex 套餐）」（`gpt-image`，`POST /v1/images/generations`）。两者都不使用媒体密钥。视频选项名为 `elysium-video`。界面不再编辑地址、密钥或自由模型名。
+设置页提供「语言」和「模型」卡片，选择后自动保存，不绑定当前项目。语言和模型只作用于之后的生成，不改写已有内容。文本固定为「Qwen3.5 27B」（本地 HTTP `qwen3.5:27b`）或「GPT（Codex 套餐）」（`codex-gpt`）。聊天与制作文本共同读取 `SettingsModel` 的文本选择。图片可选「krea2 turbo V2.5」（默认，经 `textBaseUrl` 调用 llm-server `POST /v1/images/comfy`）或「GPT（Codex 套餐）」（`gpt-image`，`POST /v1/images/generations`）。两者都不使用媒体密钥。视频固定为「MiniMax H3」（`MiniMax-H3`，经 `textBaseUrl` 调用 llm-server `POST /v1/videos/generations`）。已保存的 `elysium-video` 会按 MiniMax H3 读取。界面不再编辑地址、密钥或自由模型名。
 
 连接配置仍在 `$DSH_HOME/storages/meiji/models.json`：`baseUrl/apiKey` 为网关，`textBaseUrl` 为独立 [llm-server](../../llm-server/README.md) 的 HTTP 接口（默认 `http://127.0.0.1:11435/v1`，由该服务管理 SSH 隧道并连接 CloudGPU Ollama）。本地请求仅使用占位密钥 `ollama`。`text/image/video.model` 为设置 Model 的唯一选择来源；旧 `chat/story` 已移除。已有配置执行 `node meiji/scripts/migrate-settings-model.js`（可传 DSH_HOME 路径）后重启：先备份，保留地址、密钥、并发配置及当前文本选择；不更改项目数据。未知模型配置迁移时直接报错，需明确修正，不作运行时兜底。
 
@@ -73,11 +73,11 @@ DeepSeek Harness 短剧制作插件。按项目 Model 保存剧本、角色与�
 
 `textPrompt` 也可为三段正文字符串，原文保留。`duration` 必须为 4–15 的整数秒。
 
-| type | 额外业务参数 | 发送的素材字段 |
+| type | 额外业务参数 | 发给 MiniMax H3 的字段 |
 |---|---|---|
-| 文生 | 无 | 无 |
-| 首尾帧 | `firstFrame`：上一镜尾帧 data URL 或裸 Base64 | `input_reference` |
-| 多模态 | `referenceImages`：1–9 张 PNG/JPEG/WebP data URL | `reference_images` |
+| 文生 | 无 | `mode` 为 `文生`，`ratio` 由项目画幅决定 |
+| 首尾帧 | `firstFrame`：上一镜尾帧 data URL | `mode` 为 `首尾帧`，`first_frame`；不传 `ratio` |
+| 多模态 | `referenceImages`：1–9 张 PNG/JPEG/WebP data URL | `mode` 为 `多模态`，`images`；`ratio` 由项目画幅决定 |
 
 非当前类型的素材字段必须省略，不能传空数组或空字符串。首尾帧在三段前加固定 0.00 秒对齐行；多模态保留三段原文。`video/regenerate` 额外传非空 `opinion`，只追加本轮意见。视频不再接收 `language/requirements/previous/referenceDescriptions`。
 
