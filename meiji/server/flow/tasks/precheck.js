@@ -99,7 +99,9 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       if (!episode.plot.trim())
         invalid("precheck", "本集剧情为空，请先填写剧情或拆分剧集");
     },
-    shots: () => { requireNode("outline", episode.id); requireNode("project-characters", p.id); },
+    'episode-scenes': () => { requireNode('outline', episode.id); },
+    'scene-image': () => { if (![object.name, object.description, object.layout].some(value => value.trim())) invalid('precheck','场景资料为空'); },
+    shots: () => { requireNode("outline", episode.id); requireNode('episode-scenes', episode.id, '提取场景'); requireNode("project-characters", p.id); },
     seconds: () => {
       requireNode("shots", episode.id);
       requireNode("project-characters", p.id);
@@ -116,8 +118,8 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       if (videoPack(type) !== business) invalid('precheck', '视频类型已变化，请重新提交视频任务');
       if (type === '多模态') {
         const refs = videoImages(p, object);
-        if (refs.length > 9) invalid('precheck', '多模态最多9张定妆照');
-        for (const row of refs) requireNode('costume-image', row.id);
+        if (refs.length > 9) invalid('precheck', '人物与场景参考图合计最多9张');
+        for (const row of refs) requireNode(row.business_type, row.id, row.kind === 'scene' ? '场景参考图' : '定妆照');
       } else requireNode('tail', previousShot(episode, object).id);
     },
     video: () => {
@@ -126,7 +128,7 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       const type = videoType(episode, object), pack = videoPack(type);
       if (object.video_generation_type !== type) invalid('precheck', '视频类型尚未确定');
       if (pack) requireNode(pack, object.id);
-      if (type === '多模态') for (const row of videoImages(p, object)) requireNode('costume-image', row.id);
+      if (type === '多模态') for (const row of videoImages(p, object)) requireNode(row.business_type, row.id, row.kind === 'scene' ? '场景参考图' : '定妆照');
       if (type === '首尾帧') requireNode('tail', previousShot(episode, object).id);
     },
     assembly: () => {

@@ -10,6 +10,7 @@ const output0 = {
     "shots": [
       {
         "title": "镜头标题",
+        "scene_id": "", "scene_state": "本镜昼夜、天气及有依据的变化；无则为空", "scene_transition": "切换机位",
         "id": "",
         "duration_seconds": 12,
         "shot_scale": "景别",
@@ -32,7 +33,7 @@ const output0 = {
       }
     ]
   },
-  "requirements": "1. 只返回上述JSON结构；字段只能为 title、id、duration_seconds、shot_scale、hook、body、continuity_transition、reference_anchor、audio_arrangement、on_screen_characters、background_characters 及其规定子字段。\n2. shots 必须为非空数组。每镜及两个嵌套对象的所有规定字段必须齐全；duration_seconds 为整数；on_screen_characters 为数组，每项仅含character_id、costume_id两个字符串；其余叶字段均为字符串。id为旧镜头ID或新增时的空字符串，禁止返回number、sequence或小段编号等额外字段。\n3. duration_seconds 为4至15秒整数；全表合计与故事小段合计取整相差不超过30秒即可通过，该范围只是通过条件。修订意见涉及时长时先核对最新候选；纯数值分配错误只修正必要时长，真实节奏冲突才联动正文；已合规且正常可执行的段保留，不强制同时重写正文和时间。\n4. 钩子使用规则规定的枚举；无旁白、对白或音效时对应值为空字符串。\n5. 只返回完整镜头表，不附解释或Markdown代码围栏。\n6. " + shotJsonRules
+  "requirements": "1. 只返回上述JSON结构；字段只能为 title、id、scene_id、scene_state、scene_transition、duration_seconds、shot_scale、hook、body、continuity_transition、reference_anchor、audio_arrangement、on_screen_characters、background_characters 及其规定子字段。\n2. shots 必须为非空数组。每镜及两个嵌套对象的所有规定字段必须齐全；duration_seconds 为整数；on_screen_characters 为数组，每项仅含character_id、costume_id两个字符串；其余叶字段均为字符串。id为旧镜头ID或新增时的空字符串，禁止返回number、sequence或小段编号等额外字段。\n3. duration_seconds 为4至15秒整数；全表合计须同时符合故事小段合计取整±30秒和固定本集参考±30秒，以时长规划min_seconds/max_seconds交集为准；该范围只是通过条件，不逐层加时。修订意见涉及时长时先核对最新候选；纯数值分配错误只修正必要时长，真实节奏冲突才联动正文；已合规且正常可执行的段保留，不强制同时重写正文和时间。\n4. 钩子使用规则规定的枚举；无旁白、对白或音效时对应值为空字符串。\n5. 只返回完整镜头表，不附解释或Markdown代码围栏。\n6. scene_id只绑定本集场景目录；一次性不重要地点为空，不为绑定强建场景。scene_state仅描述本镜昼夜、天气等状态。scene_transition为连续接拍、切换机位或换场，跨地点不能连续接拍。\n7. " + shotJsonRules
 };
 
 const output1 = {
@@ -46,19 +47,34 @@ const output1 = {
 
 export default {
   promptModel,
+  validateInput(input) {
+    if (!input.segments.length || input.segments.some(part => !Number.isFinite(part?.duration_seconds) || part.duration_seconds <= 0))
+      invalid('上游故事大纲', '需要非空小段及有限正数预算');
+    const total = input.segments.reduce((sum, part) => sum + part.duration_seconds, 0);
+    if (Math.abs(total - input.duration) > 30)
+      invalid('上游故事大纲', `小段合计 ${total} 秒不在固定本集参考 ${input.duration} 秒±30秒内；请先修正大纲或人工调整本集参考时长，不继续让镜头表反复修订`);
+  },
   compose(input) {
     return {
       ...commonValues(input),
-      时长规划: shotsBudget(input.segments),
+      时长规划: shotsBudget(input.segments, input.duration),
       本集故事小段: input.segments,
       本集时长秒: input.duration,
       本集角色资料: input.characters,
+      本集场景资料: input.scenes || [],
     };
   },
-  normalizeResult(value, input, action) { return resolveShotPatch(value, input, output0.structure.shots[0], action); },
+  normalizeResult(value, input, action) {
+    const result = resolveShotPatch(value, input, output0.structure.shots[0], action);
+    if (action !== 'review' && !input.scenes?.length && Array.isArray(result?.shots))
+      for (const row of result.shots) { row.scene_id ??= ''; row.scene_state ??= ''; row.scene_transition ??= '切换机位'; }
+    return result;
+  },
   validateResult(value, input, action) {
     if (action === 'review') return;
     for (const shot of value.shots) {
+      if (!['连续接拍','切换机位','换场'].includes(shot.scene_transition)) invalid('响应.scene_transition','需为连续接拍、切换机位或换场');
+      if (shot.scene_id && !(input.scenes || []).some(scene => scene.id === shot.scene_id)) invalid('响应.scene_id','需引用本集已提取场景；一次性不重要地点为空');
       const seen = new Set();
       for (const row of shot.on_screen_characters) {
         const person = input.characters.find(person => person.id === row.character_id);
@@ -71,18 +87,18 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","requirements":"string","segments":"array","duration":"number","characters":"array"},
+      input: {"language":"string","requirements":"string","segments":"array","duration":"number","characters":"array","scenes":["array","undefined"]},
       output: output0,
     },
     regenerate: {
-      input: {"language":"string","requirements":"string","segments":"array","duration":"number","characters":"array","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","segments":"array","duration":"number","characters":"array","scenes":["array","undefined"],"opinion":"string","content":"object"},
       output: { ...output0,
         patchStructure: { mode: 'patch', shots: [{ id: '完整基稿中的镜头ID', changes: { body: '只返回需要修改字段的新值' } }] },
         requirements: '本修订动作优先使用另列局部修订结构；以下原镜头表规则仅约束mode=replace全表中的镜头对象。局部patch允许shots为空，changes只包含所改字段。\n' + output0.requirements.replace('只返回完整镜头表', '增删、拆并或重排时用mode=replace并返回完整镜头表') + '\n局部修订优先返回mode=patch及shots[{id,changes}]，changes只含需要修改的字段；未返回镜头和字段由程序保留。嵌套字段修改时返回该嵌套对象完整值。不能修改ID；新增、删除、拆并、重排必须显式mode=replace并返回完整表。问题已解决可返回空patch。',
       },
     },
     review: {
-      input: {"language":"string","requirements":"string","segments":"array","characters":"array","duration":"number","opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","segments":"array","characters":"array","scenes":["array","undefined"],"duration":"number","opinion":"string","content":"object"},
       output: output1,
     },
   },

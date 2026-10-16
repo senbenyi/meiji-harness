@@ -62,7 +62,7 @@ const videoRatios = {
 const videoModes = { text: '文生', first_frame: '首尾帧', reference: '多模态' }
 
 // 三种方式都调用 MiniMax-H3。mode 只用文生、首尾帧、多模态；比例规则随方式变化。
-export function videoParameters({ baseUrl, model, prompt, duration, aspectRatio, mode, inputReference, referenceImages, taskId }) {
+export function videoPayload({ model, prompt, duration, aspectRatio, mode, inputReference, lastFrame, referenceImages }) {
   if (model !== 'MiniMax-H3') throw Object.assign(new Error('llm-server 视频模型无效'), { status: 400 })
   const kind = videoModes[mode]
   if (!kind) throw Object.assign(new Error('视频方式必须是文生、首尾帧或多模态'), { status: 400 })
@@ -71,26 +71,39 @@ export function videoParameters({ baseUrl, model, prompt, duration, aspectRatio,
   if (!Number.isInteger(duration) || duration < 4 || duration > 15) throw Object.assign(new Error('时长必须是 4 到 15 的整数秒'), { status: 400 })
   const ratio = videoRatios[aspectRatio]
   const body = { model: 'MiniMax-H3', mode: kind, prompt, duration, resolution: '768P' }
+  const image = value => {
+    if (typeof value !== 'string' || !value.trim() || value.length > 48 * 1024 * 1024 ||
+        !(/^(?:https:\/\/|mm_file:\/\/)/i.test(value) || /^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]+={0,2}$/i.test(value))) {
+      throw Object.assign(new Error('视频图片需为 https、mm_file 或非空 image data URL'), { status: 400 })
+    }
+    return value
+  }
   if (kind === '文生') {
-    if (inputReference !== undefined || referenceImages !== undefined) throw Object.assign(new Error('文生视频不能带画面素材'), { status: 400 })
+    if (inputReference !== undefined || lastFrame !== undefined || referenceImages !== undefined) throw Object.assign(new Error('文生视频不能带画面素材'), { status: 400 })
     if (!ratio) throw Object.assign(new Error('文生视频画幅不受支持'), { status: 400 })
     body.ratio = ratio
   } else if (kind === '首尾帧') {
     if (referenceImages !== undefined) throw Object.assign(new Error('首尾帧不能带参考素材'), { status: 400 })
-    if (typeof inputReference !== 'string' || !inputReference.trim()) throw Object.assign(new Error('首尾帧需要首帧'), { status: 400 })
-    body.first_frame = inputReference
+    body.first_frame = image(inputReference)
+    if (lastFrame !== undefined) body.last_frame = image(lastFrame)
+    body.ratio = 'adaptive'
   } else {
-    if (inputReference !== undefined) throw Object.assign(new Error('多模态不能带首尾帧'), { status: 400 })
+    if (inputReference !== undefined || lastFrame !== undefined) throw Object.assign(new Error('多模态不能带首尾帧'), { status: 400 })
     if (!Array.isArray(referenceImages) || !referenceImages.length || referenceImages.length > 9) throw Object.assign(new Error('多模态需要 1 到 9 张参考图'), { status: 400 })
-    if (referenceImages.some(item => typeof item !== 'string' || !item.trim())) throw Object.assign(new Error('参考图不能为空'), { status: 400 })
-    body.images = [...referenceImages]
-    if (ratio) body.ratio = ratio
+    body.images = referenceImages.map(image)
+    if (aspectRatio !== undefined && aspectRatio !== 'adaptive' && !ratio) throw Object.assign(new Error('多模态视频画幅不受支持'), { status: 400 })
+    body.ratio = ratio || 'adaptive'
   }
+  return body
+}
+
+export function videoParameters(options) {
+  const { baseUrl, taskId } = options
   return {
     url: new URL(`${gatewayBaseUrl(baseUrl)}/videos/generations`),
     apiKey: 'ollama',
     headers: requestHeaders(taskId),
-    body,
+    body: videoPayload(options),
   }
 }
 

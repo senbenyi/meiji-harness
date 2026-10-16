@@ -92,7 +92,7 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
         .filter((b) => b.textContent === "AI生成")
         .every((b) => !b.disabled),
     );
-    assert.ok(!root.textContent.includes("场景"));
+    assert.ok(root.textContent.includes("场景：本镜描述"));
     assert.ok(!root.textContent.includes("道具"));
     assert.ok(!root.textContent.includes("生成要求"));
     const episode = snapshot.project.episodes[0];

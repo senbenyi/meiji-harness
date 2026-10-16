@@ -44,7 +44,7 @@ test('时长预算累计舍入，不把各段独立取整误差带入镜头目�
   assert.deepEqual(budget.segments.map(s => s.budget_seconds), [11, 10, 11]);
   assert.equal(budget.target_seconds, 32);
   assert.ok(budget.segments.every(s => s.min_shots === 1 && s.max_shots === 2));
-  const input = { language: 'zh-CN', requirements: '', segments, duration: 150, characters: [] };
+  const input = { language: 'zh-CN', requirements: '', segments, duration: 31.5, characters: [] };
   for (const action of ['generate', 'regenerate', 'review']) {
     const prompt = composeNodePrompt('shots', action, action === 'generate' ? input : { ...input, opinion: '检查时长', content: { shots: [] } }, 'codex-gpt');
     assert.match(prompt.messages[1].content, /"target_seconds": 32/);

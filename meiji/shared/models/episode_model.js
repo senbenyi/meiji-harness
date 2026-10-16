@@ -1,11 +1,12 @@
 // 剧集及其摘要、大纲、镜头表和合片模型。
+import { emptySceneCatalogModel } from './scene_model.js';
 import { createId } from "../task_contract.js";
 import { emptyEpisodeSummaryModel } from "./episode_summary_model.js";
 import { emptyStoryOutlineModel } from "./story_outline_model.js";
 import { emptyShotListModel } from "./shot_list_model.js";
 import { emptyAssemblyModel } from "./assembly_model.js";
-// 参考时长初始取拆分预算；故事大纲成功保存后取小段时长合计，允许小数秒。
-export const emptyEpisodeModel = (sequence = 1, duration_seconds = 150, fields = {}) => ({ id: createId("episode"), sequence, duration_seconds, actual_duration_seconds: 0, episode_requirements: "", plot: "", cover: "", summary: emptyEpisodeSummaryModel(), story_outline: emptyStoryOutlineModel(), shot_list: emptyShotListModel(), assembly: emptyAssemblyModel(), ...fields });
+// 固定参考预算取拆分或人工编辑；大纲保存不自动回写，允许小数秒。
+export const emptyEpisodeModel = (sequence = 1, duration_seconds = 150, fields = {}) => ({ id: createId("episode"), sequence, duration_seconds, actual_duration_seconds: 0, episode_requirements: "", plot: "", cover: "", summary: emptyEpisodeSummaryModel(), story_outline: emptyStoryOutlineModel(), scene_catalog: emptySceneCatalogModel(), shot_list: emptyShotListModel(), assembly: emptyAssemblyModel(), ...fields });
 
 // 实际时长只累计镜头视频实测值，不使用参考时长或合片文件时长。
 export function updateEpisodeActualDuration(episode) {

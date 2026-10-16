@@ -1,3 +1,4 @@
+import { sceneCatalog, sceneText } from './scene-inputs.js';
 import { videoType, videoPack, previousShot, videoImages } from './video-inputs.js';
 import { shotTextInputs } from './shot-text-inputs.js';
 import { primaryCostumeImage } from "./models/character_model.js";
@@ -61,6 +62,11 @@ function dependencyMaterial(snapshot, business, id) {
       reference: first ? { address: character.reference_image.address } : { address: primary.address, dependency_hash: primary.node_state.dependency_hash },
     };
   }
+  if (business === 'episode-scenes') {
+    const e = locateTarget(project,business,id).episode;
+    return { segments:e.story_outline.segments, script:project.script.body || project.episodes.map(e=>e.plot).join('\n\n'), upstream:upstream('outline',id) };
+  }
+  if (business === 'scene-image') return sceneText(locateTarget(project,business,id).object);
   if (business === "episode-summary")
     return { 剧情: locateTarget(project, business, id).episode.plot };
   if (business === "outline") {
@@ -78,6 +84,7 @@ function dependencyMaterial(snapshot, business, id) {
       })),
       参考时长秒: episode.duration_seconds,
       角色资料: shotCharacterContext(project),
+      ...(episode.scene_catalog.scene_ids.length ? { 场景资料:sceneCatalog(project,episode) } : {}),
       上游: upstream("outline", episode.id),
     };
   }
@@ -187,6 +194,7 @@ export function downstream(snapshot, business, id) {
         ? "character-image"
         : business === "costume-setting"
           ? "costume-image"
+          : business === "scene-setting" ? "scene-image"
           : ["episode-plot", "episode-plot-sync", "episode-duration"].includes(business)
             ? "outline"
             : business,
@@ -210,7 +218,10 @@ export function downstream(snapshot, business, id) {
   if (business === "script-review") return [one("project-summary", p.id), one("project-characters", p.id)];
   if (business === "project-characters") return roleContext();
   if (business === "script-split") return [];
-  if (business === "outline") return [one("shots", id)];
+  if (business === "outline") return [one('episode-scenes',id), one("shots", id)];
+  if (business === 'episode-scenes') return [one('shots',id)];
+  if (business === 'scene-setting') return [one('scene-image',id), ...p.episodes.filter(e => e.scene_catalog.scene_ids.includes(id)).map(e => ({...one('shots',e.id),context_only:true}))];
+  if (business === 'scene-image') return p.episodes.flatMap(e => e.shot_list.shots.filter(shot => shot.scene_id === id && videoType(e,shot) === '多模态').flatMap(shot => [one('multimodal',shot.id),one('video',shot.id)]));
   if (business === "shots")
     return [
       ...e.shot_list.shots.map((x) => one("seconds", x.id)),

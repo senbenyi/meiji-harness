@@ -27,7 +27,7 @@ for (const action of ['generate','regenerate','review']) test(`镜头表${action
 test('目录精简不改变依赖资料，逐镜角色资料仍保留完整文字', () => {
   const project=projectFixture();project.character_library.characters=[structuredClone(character)];
   const before=shotCharacterContext(project);
-  composeNodePrompt('shots','generate',{language:'zh-CN',requirements:'',segments:[],duration:10,characters:before},'qwen3.5:27b');
+  composeNodePrompt('shots','generate',{language:'zh-CN',requirements:'',segments:project.episodes[0].story_outline.segments,duration:10,characters:before},'qwen3.5:27b');
   assert.deepEqual(shotCharacterContext(project),before);
   const full=characterTextCatalog(project)[0];
   for(const key of ['position','age_range','body_type','hairstyle','signature_props','immutable_traits'])assert.deepEqual(full[key],character[key]);

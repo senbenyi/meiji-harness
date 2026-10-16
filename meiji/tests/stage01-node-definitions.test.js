@@ -1,3 +1,4 @@
+import { emptySceneModel } from '../shared/models/scene_model.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NODE_DEFINITIONS, OPERATION_DEFINITIONS, TEXT_BUSINESSES } from "../shared/node-definitions.js";
@@ -13,7 +14,9 @@ test("统一节点目录描述定位和审核规则", async () => {
   const costume = emptyCostumeModel();
   const character = emptyCharacterModel({ costumes: [costume], costume_images: [emptyCostumeImageModel(costume.id)] });
   project.character_library.characters = [character];
+  const scene = emptySceneModel(); project.scene_library.scenes = [scene];
   const targetByKind = {
+    scene: scene.id,
     project: project.id,
     character: character.id,
     costume: character.costumes[0].id,
@@ -23,6 +26,7 @@ test("统一节点目录描述定位和审核规则", async () => {
   for (const [business, definition] of Object.entries(NODE_DEFINITIONS)) {
     const node = nodeOf(project, business, targetByKind[definition.targetKind]);
     const targetObject = {
+      scene,
       project,
       character,
       costume: character.costumes[0],

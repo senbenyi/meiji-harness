@@ -61,7 +61,8 @@ export function replaceShots(project, episodeId, rows, tasks = []) {
   if (!episode) invalid("episode_id", "剧集不存在");
   const byId = new Map(episode.shot_list.shots.map(shot => [shot.id, shot])), seen = new Set();
   const next = rows.map((row, index) => {
-    assertFields(row, shotFields, "shots[]");
+    const sceneKeys = ['scene_id','scene_state','scene_transition'];
+    assertFields(row, [...shotFields, ...sceneKeys.filter(key => Object.hasOwn(row,key))], "shots[]");
     assertText(row.id, "shot.id");
     if (row.id && (!byId.has(row.id) || seen.has(row.id))) invalid(`shots[${index}].id`, `未知或重复镜头ID ${row.id}；旧镜头原样复制id且不可重复，新增镜头id为空。可关联旧镜头：${JSON.stringify(episode.shot_list.shots.map(shot => ({ id: shot.id, title: shot.title })))}`);
     if (row.id) seen.add(row.id);

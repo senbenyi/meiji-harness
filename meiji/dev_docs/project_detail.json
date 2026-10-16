@@ -96,7 +96,7 @@
     {
       "id": "e_uuid（当前对象的唯一标识。）",
       "sequence": "1（剧集、故事段落或镜头在列表中的顺序号。；数值）",
-      "duration_seconds": "150（本集参考时长，有限正数，单位秒；初始为拆分预算，故事大纲成功保存后回写小段时长总和，保留小数，供镜头表生成与审核共用。）",
+      "duration_seconds": "150（本集参考时长，有限正数，单位秒；由切集或人工编辑确定的固定预算锚；大纲保存不自动回写。大纲及镜头表合计均按该参考±30秒校验。）",
       "actual_duration_seconds": "0（当前正式镜头视频实测时长总和，单位秒；由本集各镜头 actual_duration_seconds 累加，视频生成、导入或镜头集合变化后重算，不从参考时长推算，也不被合片实测时长覆盖。）",
       "episode_requirements": "（本集额外的制作要求。）",
       "plot": "（本集剧情正文。）",
@@ -146,7 +146,7 @@
               "end_state": "（镜末人物、物件与环境的已知状态。）",
               "pending_actions": "（未完成动作及进度；无则为空。）",
               "pending_dialogue": "（未结束对白、说话人与进度；无则为空。）",
-              "continuing_audio": "（切点仍持续的声音及声源；无则为空。）" ,
+              "continuing_audio": "（切点仍持续的声音及声源；无则为空。）",
               "node_state": {
                 "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
                 "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
@@ -193,8 +193,8 @@
               "model": "（调用的生成模型名称。）",
               "prompt": "（提交给生成模型的提示词。）",
               "seconds": "0（请求使用的本镜参考时长，单位秒；最终视频实际时长另记在 actual_duration_seconds。）",
-              "size": "（视频生成画面尺寸。）",
-              "input_reference": "（首帧使用的参考图片。）"
+              "size": "（内部兼容画幅快照，不作为MiniMax HTTP字段；新视频请求使用resolution=768P和项目ratio。）",
+              "input_reference": "（上一镜尾帧的本地媒体地址，发送前读图转为first_frame；不是本镜目标尾帧。）"
             },
             "multimodal_prompt": {
               "node_state": {
@@ -206,7 +206,7 @@
               "model": "（调用的生成模型名称。）",
               "prompt": "（提交给生成模型的提示词。）",
               "seconds": "0（请求使用的本镜参考时长，单位秒；最终视频实际时长另记在 actual_duration_seconds。）",
-              "size": "（视频生成画面尺寸。）",
+              "size": "（内部兼容画幅快照，不作为MiniMax HTTP字段；新视频请求使用resolution=768P和项目ratio。）",
               "reference_images": []
             },
             "video_generation_type": "（本镜实际使用的视频生成类型。）",
@@ -242,8 +242,16 @@
               "dialogue": "（本镜对白和说话人安排。）",
               "sound_effects": "（本镜关键音效安排。）"
             },
-            "on_screen_characters": [{"character_id":"c_uuid（镜头表确定的卡内出镜人物ID。）","costume_id":"co_uuid（所属服装ID；仅无服装目录时为空。）"}],
-            "background_characters": "（镜头表确定的不具名群演及可见行为；无则为空，不关联角色卡。）"
+            "on_screen_characters": [
+              {
+                "character_id": "c_uuid（镜头表确定的卡内出镜人物ID。）",
+                "costume_id": "co_uuid（所属服装ID；仅无服装目录时为空。）"
+              }
+            ],
+            "background_characters": "（镜头表确定的不具名群演及可见行为；无则为空，不关联角色卡。）",
+            "scene_id": "（本集已提取场景ID；普通地点为空。）",
+            "scene_state": "（本镜昼夜、天气及有依据的状态变化，不新建场景图。）",
+            "scene_transition": "切换机位（连续接拍、切换机位、换场。）"
           }
         ]
       },
@@ -255,7 +263,40 @@
           "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
         },
         "address": "（图片、视频或文件的存储地址。）"
+      },
+      "scene_catalog": {
+        "scene_ids": [
+          "sc_UUID（本集选中地点；可为空，不包含一次性不重要地点。）"
+        ],
+        "has_result": "false（是否完成选择；空结果也可为true。）",
+        "node_state": {
+          "status": "empty（未生成、已生成、未通过或已过期。）",
+          "reason": "（未通过或过期原因。）",
+          "fail_message": "（节点不保存任务失败原因。）",
+          "dependency_hash": "（依赖指纹。）"
+        }
       }
     }
-  ]
+  ],
+  "scene_library": {
+    "scenes": [
+      {
+        "id": "sc_UUID（项目内唯一ID，跨镜头和剧集复用。）",
+        "name": "（反复出现、重要或明确指定的地点名称。）",
+        "description": "（空间身份与风格。）",
+        "layout": "（固定布局、门窗与地标相对关系。）",
+        "materials": "（主要材质及色彩。）",
+        "lighting": "（基础光源；昼夜变化写镜头状态。）",
+        "reference_image": {
+          "address": "（按需生成或导入的一张无人物空间参考图。）",
+          "node_state": {
+            "status": "empty（未生成、已生成、未通过或已过期。）",
+            "reason": "（未通过或过期原因。）",
+            "fail_message": "（节点不保存任务失败原因。）",
+            "dependency_hash": "（依赖指纹。）"
+          }
+        }
+      }
+    ]
+  }
 }

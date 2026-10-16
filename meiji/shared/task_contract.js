@@ -50,6 +50,7 @@ export const ACTIONS = Object.freeze([
 ]);
 export { BUSINESS_TARGET, NODE_TYPES };
 export const ID_PREFIX = Object.freeze({
+  scene: "sc",
   project: "p",
   episode: "e",
   character: "c",
@@ -152,6 +153,10 @@ export function locateTarget(project, business, targetId) {
       if (kind === "costume" && costume)
         return { kind, object: costume, character, episode: null };
     }
+  }
+  if (kind === 'scene') {
+    const scene = project.scene_library.scenes.find(item => item.id === targetId);
+    if (scene) return { kind, object: scene, scene, episode: null };
   }
   for (const episode of project.episodes) {
     if (kind === "episode" && episode.id === targetId)

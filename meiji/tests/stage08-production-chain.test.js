@@ -41,6 +41,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
             "script-review": { story_continuous: true, continuity: "单一场景连贯", filmable: true, filmability: "静物特写可直接拍摄", suggestions: "" },
             "project-summary": "钟表静物", "episode-summary": "钟表静物",
             "project-characters": { characters: [] },
+            "episode-scenes": { scenes: [] },
             outline: { segments: [{ sequence: 1, duration_seconds: 5, body: "秒针向前走动", causal: "" }] },
             shots: { shots: [{ title: "钟表", id: "", duration_seconds: 5, shot_scale: "特写", hook: "揭示", body: "秒针向前走动", continuity_transition: "", reference_anchor: { fixed_landmark: "", character_positions: "", departed_characters: "", lighting: "" }, on_screen_characters: [], background_characters: "", audio_arrangement: { narration: "", dialogue: "", sound_effects: "" } }] },
             seconds: { end_state: "人物位于镜末位置，动作已完成。", pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: [beat] },
@@ -75,7 +76,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
     const e = model.read().project.episodes[0];
     assert.equal(e.plot, "五秒钟表静物");
     assert.equal(e.duration_seconds, 5);
-    for (const b of ["outline", "shots"])
+    for (const b of ["outline", "episode-scenes", "shots"])
       await submit(b, e.id);
     const s = model.read().project.episodes[0].shot_list.shots[0];
     const first = await runtime.tasks.command({

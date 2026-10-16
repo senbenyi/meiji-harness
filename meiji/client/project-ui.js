@@ -577,9 +577,20 @@ export function renderEpisode(root, env, entries) {
     );
     body.append(
       nodeCard("outline", e.id, e.story_outline),
+      nodeCard("episode-scenes", e.id, e.scene_catalog),
       summary,
       plot,
     );
+  }
+  if (state.tab === 'script') {
+    for (const id of e.scene_catalog.scene_ids) {
+      const scene = p.scene_library.scenes.find(item => item.id === id);
+      const card = element('section','','session-project scene-setting');
+      card.dataset.sceneId = id;
+      card.append(element('h3',scene.name),element('p',[scene.description,scene.layout,scene.materials,scene.lighting].filter(Boolean).join('\n'),'prompt full'));
+      card.append(nodeCard('scene-image',id,scene.reference_image));
+      body.append(card);
+    }
   }
   if (state.tab === "shots") {
     body.append(nodeCard("shots", e.id, e.shot_list));
@@ -615,6 +626,8 @@ export function renderEpisode(root, env, entries) {
         h = element("div", "", "outline-head"),
         title = element("div", "", "shot-card-title");
       title.append(element("h3", `${s.number} ${s.title} · ${s.duration_seconds}s`));
+      const scene = p.scene_library.scenes.find(item => item.id === s.scene_id);
+      title.append(element('p',scene ? `场景：${scene.name} · ${s.scene_state || '基础状态'} · ${s.scene_transition}` : '场景：本镜描述（无需独立参考图）','meta'));
       h.append(title);
       if (state.tab === "film") h.append(
         button(
@@ -654,7 +667,17 @@ export function renderEpisode(root, env, entries) {
           shotResultStrip(p, e, s, media),
         ] : []),
       );
-      if (state.tab === "shots") {
+      if (state.tab === 'script') {
+    for (const id of e.scene_catalog.scene_ids) {
+      const scene = p.scene_library.scenes.find(item => item.id === id);
+      const card = element('section','','session-project scene-setting');
+      card.dataset.sceneId = id;
+      card.append(element('h3',scene.name),element('p',[scene.description,scene.layout,scene.materials,scene.lighting].filter(Boolean).join('\n'),'prompt full'));
+      card.append(nodeCard('scene-image',id,scene.reference_image));
+      body.append(card);
+    }
+  }
+  if (state.tab === "shots") {
         const details = element("div", "", "shot-details prompt full");
         details.append(element("p", readable({
           body: s.body,

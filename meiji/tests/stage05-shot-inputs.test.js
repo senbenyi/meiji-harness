@@ -6,7 +6,7 @@ import { prepareContent } from '../server/handlers/content.js';
 import { emptyCharacterModel } from '../shared/models/character_model.js';
 import { snapshotFixture, taskFixture } from './fixtures/project.js';
 
-const fields = ['title', 'id', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement', 'on_screen_characters', 'background_characters'];
+const fields = ['title', 'id', 'scene_id', 'scene_state', 'scene_transition', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement', 'on_screen_characters', 'background_characters'];
 for (const suffix of ['generate', 'regenerate']) test(`镜头表${suffix}返回与现行 dots 一致的字段`, async () => {
   const snapshot = snapshotFixture(), project = snapshot.project, episode = project.episodes[0];
   const character = emptyCharacterModel({ name: '周巡检', position: '军中巡检', age_range: '四十岁', voice: '不参与镜头依赖的声线标记' });

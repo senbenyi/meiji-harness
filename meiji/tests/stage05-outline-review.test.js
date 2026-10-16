@@ -122,18 +122,19 @@ test("摘要和大纲修订注入候选；大纲三种模板均有参考值与�
 });
 
 
-test("大纲通过后回写小数合计并保持依赖有效，镜头表下游过期", async () => {
+test("大纲通过后保留固定参考与小数预算，依赖有效且镜头表下游过期", async () => {
   const { after, first } = await outlineScenario({ durations: [137.5] });
   const episode = after.project.episodes[0];
   assert.equal(after.tasks.find(task => task.id === first.task_id).task_status, "completed");
-  assert.equal(episode.duration_seconds, 137.5);
+  assert.equal(episode.duration_seconds, 150);
+  assert.equal(episode.story_outline.segments[0].duration_seconds, 137.5);
   assert.equal(episode.actual_duration_seconds, 0);
   assert.equal(isNodeCurrent(after, "outline", episode.id), true);
   assert.equal(episode.shot_list.node_state.status, "expired");
 });
 
 for (const action of ["regenerate", "manual_edit", "override"])
-  test(`大纲 ${action} 回写多个小段合计，镜头表输入及审核共用新参考`, () => {
+  test(`大纲 ${action} 保留固定参考，镜头表同时受集预算与大纲目标约束`, () => {
     const snapshot = snapshotFixture(), episode = snapshot.project.episodes[0];
     episode.duration_seconds = 60;
     const task = taskFixture(snapshot.project, "outline", episode.id, { action });
@@ -141,14 +142,15 @@ for (const action of ["regenerate", "manual_edit", "override"])
       { sequence: 1, duration_seconds: 20, body: "前段", causal: "" },
       { sequence: 2, duration_seconds: 20.5, body: "后段", causal: "承接" },
     ] };
-    for (const shot of episode.shot_list.shots) shot.duration_seconds = 4;
+    for (const shot of episode.shot_list.shots) shot.duration_seconds = 15;
     assert.doesNotThrow(() => assertProgramReview(snapshot.project, "shots", episode.id));
     if (action === "override") episode.story_outline.segments = content.segments;
     commitContent(snapshot, task, content);
-    assert.equal(episode.duration_seconds, 40.5);
+    assert.equal(episode.duration_seconds, 60);
     assert.equal(isNodeCurrent(snapshot, "outline", episode.id), true);
     const input = taskNodeInput(snapshot, taskFixture(snapshot.project, "shots", episode.id), null, "generate");
-    assert.equal(input.duration, 40.5);
+    assert.equal(input.duration, 60);
+    for (const shot of episode.shot_list.shots) shot.duration_seconds = 4;
     assert.throws(() => assertProgramReview(snapshot.project, "shots", episode.id), /故事小段合计取整 41 秒，允许误差±30秒/);
     episode.shot_list.shots[0].duration_seconds = 15;
     episode.shot_list.shots[1].duration_seconds = 15;

@@ -22,7 +22,7 @@ for (const status of ['queued', 'running', 'failed', 'completed', 'cancelled', '
       assert.ok(actions);
       assert.equal(card.querySelector('.episode-head'), null);
       assert.deepEqual([...actions.children].map((node) => node.className), ['node-ui-buttons', 'node-ui-task-status']);
-      assert.deepEqual([...actions.querySelectorAll('button')].map(button => button.textContent), ['queued', 'running'].includes(status) ? ['任务历史', '取消'] : ['重新生成', '任务历史']);
+      assert.deepEqual([...actions.querySelectorAll('button')].map(button => button.textContent), ['queued', 'running'].includes(status) ? ['任务历史', '取消', '查看规则'] : ['重新生成', '任务历史', '查看规则']);
       const notice = card.querySelector('.node-ui .error');
       if (status === 'failed') {
         assert.equal(card.querySelector('.node-ui-task-status').textContent, '最新任务：失败');

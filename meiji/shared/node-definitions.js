@@ -91,6 +91,8 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     retryRounds: 2,
     precheck: "outline",
   },
+  'episode-scenes': { targetKind: 'episode', field: 'scene_catalog', label: '提取场景', handler: 'text', output: 'text', programReview: false, aiReview: true, retryRounds: 2, precheck: 'episode-scenes' },
+  'scene-image': { targetKind: 'scene', field: 'reference_image', label: '场景参考图', handler: 'media', output: 'image', programReview: false, aiReview: false, retryRounds: 0, precheck: 'scene-image' },
   shots: {
     targetKind: "episode",
     field: "shot_list",

@@ -104,7 +104,7 @@ test('v19→v20迁移绑定到镜头表，媒体及已完成历史保留，取�
     assert.ok(restored.tasks.every(t=>t.task_status==='cancelled'));
     assert.ok(restored.steps.every(s=>s.step_status==='cancelled'));
     await repo.close();db=new DatabaseSync(path);
-    assert.equal(db.prepare('pragma user_version').get().user_version,20);
+    assert.equal(db.prepare('pragma user_version').get().user_version,21);
     assert.equal(db.prepare('pragma integrity_check').get().integrity_check,'ok');
     const before=db.prepare('select data_json,revision from projects').all();db.close();
     repo=new ModelRepository(root);await repo.close();db=new DatabaseSync(path);

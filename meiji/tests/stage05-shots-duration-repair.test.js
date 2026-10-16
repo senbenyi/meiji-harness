@@ -16,6 +16,7 @@ async function runScenario({ repairDurations, invalidShape = false, episodeDurat
   episode.duration_seconds = episodeDuration;
   episode.story_outline.segments[0].duration_seconds = episodeDuration;
   stampDependencyHash({ project }, "outline", episode.id);
+  stampDependencyHash({project}, "episode-scenes", episode.id);
   const oldHash = "a".repeat(64);
   episode.shot_list.node_state.dependency_hash = oldHash;
   const repository = new ModelRepository(root), model = await repository.create(project), prompts = [];

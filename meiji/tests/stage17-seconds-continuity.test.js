@@ -162,7 +162,7 @@ test('v12迁移保留正文/历史/任务终态，过期节点与排队快照且
     db = new DatabaseSync(path);
     assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(), steps);
     assert.deepEqual(db.prepare('SELECT id,task_status FROM tasks').all(), tasks);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 20);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 21);
     assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
     db.close();
     store = new SQLiteStore(path);

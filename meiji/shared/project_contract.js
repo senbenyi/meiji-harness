@@ -5,6 +5,7 @@ import {
   assertFields,
   invalid,
 } from "./task_contract.js";
+import { emptySceneModel } from './models/scene_model.js';
 import { emptyProjectModel } from "./models/project_model.js";
 import { emptyScriptRevisionModel } from "./models/script_revision_model.js";
 import { emptyCharacterModel } from "./models/character_model.js";
@@ -25,6 +26,7 @@ export const emptyShot = (fields = {}) =>
   emptyShotModel(fields.sequence ?? 1, fields);
 
 const arrayModels = {
+  "project.scene_library.scenes": emptySceneModel,
   "project.script.revision_history": emptyScriptRevisionModel,
   "project.character_library.characters": emptyCharacterModel,
   "project.character_library.characters[].costume_images": () => emptyCostumeImageModel(),
@@ -38,6 +40,7 @@ const arrayModels = {
   "project.episodes[].shot_list.shots[].multimodal_prompt.reference_images": emptyReferenceImageModel,
 };
 const stringArrays = new Set([
+  "project.episodes[].scene_catalog.scene_ids",
   "project.character_library.characters[].signature_props",
   "project.character_library.characters[].immutable_traits",
   "project.character_library.characters[].costumes[].props",
@@ -108,6 +111,8 @@ export function validateProject(project) {
   if (!Number.isInteger(project.reference_episode_duration_seconds) || project.reference_episode_duration_seconds < 1)
     invalid("project.reference_episode_duration_seconds", "需为正整数");
 
+  const scenes = new Map();
+  for (const scene of project.scene_library.scenes) { register(scene.id, 'scene.id'); scenes.set(scene.id, scene); }
   const characters = new Map();
   const costumes = new Map();
   const numbers = new Set();
@@ -161,6 +166,7 @@ export function validateProject(project) {
       if (!Number.isInteger(segment.sequence) || segment.sequence < 1) invalid("story_outline.segments.sequence", "需为正整数");
       if (!Number.isFinite(segment.duration_seconds) || segment.duration_seconds <= 0) invalid("story_outline.segments.duration_seconds", "需为有限正数");
     }
+    if (new Set(episode.scene_catalog.scene_ids).size !== episode.scene_catalog.scene_ids.length || episode.scene_catalog.scene_ids.some(id => !scenes.has(id))) invalid('scene_catalog.scene_ids', '未知或重复场景引用');
     const shotNumbers = new Set();
     for (const shot of episode.shot_list.shots) {
       register(shot.id, "episodes.shot_list.shots.id");
@@ -171,6 +177,8 @@ export function validateProject(project) {
         invalid("shots.duration_seconds", "镜头时长需为正整数");
       if (!Number.isFinite(shot.actual_duration_seconds) || shot.actual_duration_seconds < 0)
         invalid("shots.actual_duration_seconds", "需为非负秒数");
+      if (shot.scene_id && !scenes.has(shot.scene_id)) invalid('shots.scene_id', '场景不存在');
+      assertEnum(shot.scene_transition, ['连续接拍', '切换机位', '换场'], 'shots.scene_transition');
       const bound = new Set();
       for (const appearing of shot.on_screen_characters) {
         if (bound.has(appearing.character_id)) invalid("on_screen_characters", "人物重复");

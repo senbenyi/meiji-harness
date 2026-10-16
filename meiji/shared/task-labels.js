@@ -14,7 +14,7 @@ export const businessNames = Object.freeze({
 export function taskName(task, project) {
   if (task.name) return task.name;
   const business = businessNames[task.business_type] || task.business_type;
-  let target = "";
+  let target = project.scene_library.scenes.find(scene => scene.id === task.target_id)?.name || "";
   for (const c of project.character_library.characters) {
     if (c.id === task.target_id) target = c.name;
     for (const co of c.costumes) if (co.id === task.target_id) target = `${c.name}·${co.name}`;

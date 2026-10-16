@@ -9,6 +9,7 @@ const nodeTypeNames = {
   "character-image": "角色图片",
   "costume-image": "角色定妆照",
   "episode-summary": "展示摘要",
+  "episode-scenes": "提取场景", "scene-image": "场景参考图",
   outline: "故事大纲",
   "episode-characters": "已移除的历史任务",
   shots: "镜头表",

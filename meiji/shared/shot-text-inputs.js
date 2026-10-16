@@ -1,3 +1,4 @@
+import { shotScene } from './scene-inputs.js';
 import { previousShot } from './video-inputs.js';
 
 export function characterTextCatalog(project) {
@@ -28,6 +29,8 @@ export function shotSceneSetup(shot) {
 export function shotTextInputs(project, episode, shot, business) {
   const fields = ['title', 'number', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement', 'on_screen_characters', 'background_characters'];
   const table = Object.fromEntries(fields.map(key => [key, structuredClone(shot[key])]));
+  const scene = shotScene(project, shot);
+  if (scene) { table.scene = scene; table.scene_transition = shot.scene_transition; }
   const characters = characterTextCatalog(project);
   if (business === 'seconds') return { shot: table, characters, previous: previousSeconds(episode, shot) };
   const speakerIds = new Set(shot.seconds_storyboard.storyboard.flatMap(beat => beat.dialogue.map(line => line.speaker_id)).filter(Boolean));
@@ -41,5 +44,5 @@ export function shotTextInputs(project, episode, shot, business) {
       ? [{ ...person, speaker_tag: speakerTags.get(person.id), nationality: source.nationality, height: source.height, facial_features: source.facial_features }] : [];
   });
   return { duration: shot.duration_seconds, characters: participants,
-    storyboard: { on_screen_characters: structuredClone(shot.on_screen_characters), background_characters: shot.background_characters, shot_setup: shotSceneSetup(shot), ...secondsEnding(shot.seconds_storyboard), storyboard: shot.seconds_storyboard.storyboard.map(beat => structuredClone(beat)) } };
+    storyboard: { on_screen_characters: structuredClone(shot.on_screen_characters), background_characters: shot.background_characters, shot_setup: { ...shotSceneSetup(shot), ...(scene ? { scene, scene_transition: shot.scene_transition } : {}) }, ...secondsEnding(shot.seconds_storyboard), storyboard: shot.seconds_storyboard.storyboard.map(beat => structuredClone(beat)) } };
 }

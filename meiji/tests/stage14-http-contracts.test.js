@@ -29,7 +29,7 @@ test('视频三种类型实际发出互斥协议，生成三段原文不被系�
     assert.equal(payload.seconds, '5');
     assert.equal(payload.size, '1024x576');
     assert.ok(payload.prompt.includes(text));
-    if (input.type === '首尾帧') assert.equal(payload.prompt, "<Picture 1> aligns with 0.00 seconds. It is the previous shot's last frame.\n\n" + text);
+    if (input.type === '首尾帧') assert.equal(payload.prompt, "首帧为上一镜的尾帧，用作本镜0秒的开场画面。后续动作、运镜与声音按下文已审核分镜执行，不将首帧误作本镜目标尾帧。\n\n" + text);
     assert.doesNotMatch(payload.prompt, /# 角色|# 输出格式|视频制作执行器/);
     assert.deepEqual(Object.keys(payload).sort(), ['model', 'prompt', 'seconds', 'size', ...(input.type === '首尾帧' ? ['input_reference'] : input.type === '多模态' ? ['reference_images'] : [])].sort());
     if (input.type !== '首尾帧') assert.equal(payload.prompt, text);
@@ -43,7 +43,7 @@ test('三种视频方式都发给 MiniMax H3，mode 固定为文生、首尾帧�
     let raw = '';
     for await (const chunk of req) raw += chunk;
     seen.push({ authorization: req.headers.authorization, body: JSON.parse(raw) });
-    res.end(JSON.stringify({ task_id: `task-${seen.length}`, url: `http://127.0.0.1:${server.address().port}/out.mp4` }));
+    res.end(JSON.stringify({ task_id: `task-${seen.length}`, status: 'succeeded', url: `http://127.0.0.1:${server.address().port}/out.mp4` }));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
@@ -62,7 +62,7 @@ test('三种视频方式都发给 MiniMax H3，mode 固定为文生、首尾帧�
     assert.equal(seen[0].body.ratio, '16:9');
     assert.equal(seen[0].body.resolution, '768P');
     assert.equal('first_frame' in seen[0].body, false);
-    assert.equal(seen[1].body.ratio, undefined);
+    assert.equal(seen[1].body.ratio, 'adaptive');
     assert.equal(seen[1].body.first_frame, image);
     assert.equal(seen[2].body.ratio, '16:9');
     assert.deepEqual(seen[2].body.images, [image]);

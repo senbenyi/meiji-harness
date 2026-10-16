@@ -1,3 +1,4 @@
+import { sceneCatalog } from '../shared/scene-inputs.js';
 import { latestNodeTask, taskStatusRow, taskFailureRow } from './node-task-status.js';
 import { NODE_DEFINITIONS } from '../shared/node-definitions.js';
 import { shotSceneSetup } from '../shared/shot-text-inputs.js';
@@ -41,6 +42,7 @@ const names = {
   "project-summary": "项目摘要",
   "project-characters": "角色库",
   "episode-summary": "展示摘要",
+  "episode-scenes": "提取场景", "scene-image": "场景参考图",
   outline: "故事大纲",
   "script-split": "拆分剧集",
   shots: "镜头表",
@@ -254,6 +256,10 @@ export function renderTaskPanel(root, snapshot, context) {
       }
       card.append(element('h4', '节拍时间线'));
       card.append(secondsView(node));
+    } else if (business === 'episode-scenes') {
+      const episode = p.episodes.find(item => item.id === id);
+      const scenes = sceneCatalog(p,episode);
+      card.append(element('p', node.has_result && !scenes.length ? '本集没有需要固定的场景；一次性不重要地点保留在镜头正文。' : scenes.map(scene => scene.name).join('、') || '在大纲之后选择性提取重要、反复出现或指定的场景。','meta'));
     } else if (business === "outline") {
       const segments = element("div", "", "outline-segments");
       for (const part of [...(node.segments || [])].sort((a, b) => a.sequence - b.sequence))
@@ -326,6 +332,7 @@ export function renderTaskPanel(root, snapshot, context) {
     const isMedia = [
       "character-image",
       "costume-image",
+      "scene-image",
       "video",
       "tail",
       "assembly",
@@ -372,8 +379,10 @@ export function renderTaskPanel(root, snapshot, context) {
                 ? node.body
                 : business === "storyboard"
                   ? `integrated_multimodal_description:\n${node.integrated_multimodal_description}\noverall_soundscape:\n${node.overall_soundscape}\nnon_diegetic_music:\n${node.non_diegetic_music}`
+                : business === 'episode-scenes'
+                  ? { scenes: sceneCatalog(p,p.episodes.find(item => item.id === id)) }
                 : business === "shots"
-                  ? { shots: node.shots.map((shot) => Object.fromEntries(["title", "id", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement", "on_screen_characters", "background_characters"].map((key) => [key, structuredClone(shot[key])]))) }
+                  ? { shots: node.shots.map((shot) => Object.fromEntries(["title", "id", "scene_id", "scene_state", "scene_transition", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement", "on_screen_characters", "background_characters"].map((key) => [key, structuredClone(shot[key])]))) }
                 : business === "project-characters"
                   ? { characters: node.characters.map((character) => ({
                       ...Object.fromEntries(Object.keys(blankCharacter()).filter((key) => key !== "costumes").map((key) => [key, character[key]])),

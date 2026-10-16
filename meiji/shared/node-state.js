@@ -55,6 +55,7 @@ export function hasNodeContent(project, business, targetId) {
   const node = nodeOf(project, business, targetId);
   if (!node) return false;
   if (business === "project-characters") return node.characters.length > 0;
+  if (business === 'episode-scenes') return node.has_result;
   if (business === "outline") return node.segments.length > 0;
   if (business === "shots") return node.shots.length > 0;
   if (business === "script-review") return Boolean(node.body.trim());
@@ -76,7 +77,8 @@ export function assertOutput(project, business, targetId) {
   if (business.endsWith("-delete")) return;
   if (business === "script-review") return nonempty(node.body, "剧本");
   if (["project-summary", "episode-summary"].includes(business)) nonempty(node.body, business);
-  if (["character-image", "costume-image", "video", "tail", "assembly"].includes(business)) nonempty(node.address, business);
+  if (["scene-image", "character-image", "costume-image", "video", "tail", "assembly"].includes(business)) nonempty(node.address, business);
+  if (business === 'episode-scenes' && !node.has_result) invalid('提取场景', '本集场景为空');
   if (business === "outline") {
     if (!node.segments.length) invalid("故事大纲", "产出内容为空");
     for (const part of node.segments) nonempty(part.body, "故事大纲");
@@ -115,6 +117,7 @@ export function assertProgramReview(project, business, targetId) {
     if (actual < 4 || actual > 15 || Math.abs(actual - object.duration_seconds) > 5 + 1e-9)
       invalid('视频时长', `实测 ${actual} 秒，需为4–15秒且与计划 ${object.duration_seconds} 秒相差不超过±5秒`);
   }
+  if (business === 'episode-scenes' && !node.has_result) invalid('提取场景', '本集场景为空');
   if (business === "outline") {
     const total = node.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0);
     if (Math.abs(total - object.duration_seconds) > 30)
@@ -127,6 +130,8 @@ export function assertProgramReview(project, business, targetId) {
     const total = node.shots.reduce((sum, shot) => sum + shot.duration_seconds, 0);
     if (Math.abs(total - expected) > 30)
       invalid('镜头表', `镜头总时长 ${total} 秒超出允许范围（故事小段合计取整 ${expected} 秒，允许误差±30秒）`);
+    if (Math.abs(total - object.duration_seconds) > 30)
+      invalid('镜头表', `镜头总时长 ${total} 秒超出固定集预算（本集参考 ${object.duration_seconds} 秒，允许误差±30秒）；不能叠加大纲与镜头表容差，请在现有预算内重分配，确需加时先人工调整本集参考时长`);
   }
 }
 

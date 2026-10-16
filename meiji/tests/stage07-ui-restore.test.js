@@ -510,7 +510,7 @@ test("UI-6 设置选项自动保存、刷新恢复、失败回退，运行中冻
       assert.ok(![...content.querySelectorAll("button")].some(b => b.textContent === "保存"));
       let language = content.querySelector("[name=output_language]"), model = content.querySelector("[name=text]");
       assert.deepEqual([...model.options].map(o => o.textContent), ["Qwen3.5 27B", "GPT（Codex 套餐）"]);
-      assert.deepEqual([...content.querySelector("[name=image]").options].map(o => o.textContent), ["GPT（Codex 套餐）"]);
+      assert.deepEqual([...content.querySelector("[name=image]").options].map(o => o.textContent), ["krea2 turbo V2.5", "GPT（Codex 套餐）"]);
       assert.deepEqual([...content.querySelector("[name=video]").options].map(o => o.textContent), ["MiniMax H3"]);
       model.value = "codex-gpt";
       await model.onchange();

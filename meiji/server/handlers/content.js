@@ -1,3 +1,4 @@
+import { mergeScenes, sceneCatalog } from '../../shared/scene-inputs.js';
 import storyboardRoute from '../http/nodes/storyboard.js';
 import { parseSections } from '../prompts/parse-sections.js';
 import { expireDownstream, stampDependencyHash } from "../../shared/node-dependencies.js";
@@ -29,7 +30,9 @@ export function prepareContent(snapshot, task, raw) {
   const target = locateTarget(project, business, task.target_id);
   if (business === "script-split") return structuredClone(raw);
   let content;
-  if (business === "project-characters") {
+  if (business === 'episode-scenes') {
+    content = mergeScenes(project, raw.scenes);
+  } else if (business === "project-characters") {
     content = { ...mergeCharacters(project, raw.characters), changes: structuredClone(raw.characters) };
   } else if (business === "script-review") {
     // 按审核意见改写后的完整剧本。
@@ -86,10 +89,6 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   if (task.action === "delete") { applyDelete(snapshot, task); return []; }
   if (task.action === "override") {
     assertOverride(project, business, task.target_id);
-    if (business === "outline") {
-      const episode = locateTarget(project, business, task.target_id).episode;
-      episode.duration_seconds = episode.story_outline.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0);
-    }
     stampDependencyHash(snapshot, business, task.target_id);
     if (business === "project-characters") expireCharacterImages(snapshot);
     return [];
@@ -115,14 +114,19 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
     stampDependencyHash(snapshot, business, task.target_id);
     return [];
   }
-  if (business === "project-characters") {
+  if (business === 'episode-scenes') {
+    if (!passed) return [];
+    project.scene_library.scenes = structuredClone(content.scenes);
+    node.scene_ids = [...content.scene_ids];
+    node.has_result = true;
+  } else if (business === "project-characters") {
     node.characters = structuredClone(content.characters);
     // 即使没有角色增量，也补齐每个角色的图片槽位；槽位不是虚构的服装资料。
     for (const character of node.characters)
       for (const costume_id of character.costumes.length ? character.costumes.map(costume => costume.id) : [""])
         if (!character.costume_images.some(image => image.costume_id === costume_id))
           character.costume_images.push(emptyCostumeImageModel(costume_id));
-  } else if (["costume-image", "video", "tail", "assembly"].includes(business)) {
+  } else if (["scene-image", "costume-image", "video", "tail", "assembly"].includes(business)) {
     node.address = content.address;
     if (business === 'video') {
       const shot = locateTarget(project, business, task.target_id).object;
@@ -139,12 +143,11 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   validateProject(project);
   if (!passed) return [];
   assertOutput(project, business, task.target_id);
-  if (business === "outline") {
-    const episode = locateTarget(project, business, task.target_id).episode;
-    episode.duration_seconds = node.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0);
-  }
   stampDependencyHash(snapshot, business, task.target_id);
   if (business === 'video') stampDependencyHash(snapshot, 'tail', task.target_id);
+  if (business === 'episode-scenes') {
+    for (const id of node.scene_ids) expireDownstream(snapshot, 'scene-setting', id, '场景资料已更新');
+  }
   if (business !== "project-characters") return [];
   // 正式资料可能已保存过拒绝候选，是否过期须与图片生成时的依赖 hash 比较。
   expireCharacterImages(snapshot);

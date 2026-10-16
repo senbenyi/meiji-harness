@@ -120,8 +120,8 @@ test('千问：所有文本生成/审核/修订保留 system/user 分工，媒�
       assert.ok(!prompt.body.includes('# 响应约定'))
     }
   }
-  assert.equal(textCount, 26)
-  assert.equal(mediaCount, 4)
+  assert.equal(textCount, 29)
+  assert.equal(mediaCount, 6)
 })
 
 test('千问：真实 runtime 经独立文本 HTTP 完成生成、审核及修订；设置 API 保留媒体密钥', async () => {

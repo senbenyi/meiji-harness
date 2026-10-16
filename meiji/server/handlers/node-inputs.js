@@ -1,3 +1,4 @@
+import { sceneCatalog } from '../../shared/scene-inputs.js';
 import { shotTextInputs, characterTextCatalog } from '../../shared/shot-text-inputs.js';
 import { nodeOf, locateTarget } from '../../shared/task_contract.js';
 import { shotCharacterContext } from '../../shared/node-dependencies.js';
@@ -7,7 +8,7 @@ import { nodeAction } from '../http/ai-routes.js';
 import { reviewType } from '../../shared/task-plan.js';
 
 function shotTable(value) {
-  const fields = ['title', 'id', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement', 'on_screen_characters', 'background_characters'];
+  const fields = ['title', 'id', 'scene_id', 'scene_state', 'scene_transition', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement', 'on_screen_characters', 'background_characters'];
   return { shots: (value?.shots || []).map(shot => Object.fromEntries(fields.map(key => [key, structuredClone(shot[key])]))) };
 }
 
@@ -20,6 +21,7 @@ function candidate(business, value) {
       costumes: character.costumes.map(costume => Object.fromEntries(['name', 'color', 'material', 'props'].map(key => [key, costume[key]]))),
     })) };
   }
+  if (business === 'episode-scenes') return { scenes: value?.scenes ? value.scenes.filter(scene => value.scene_ids?.includes(scene.id) ?? true).map(({id,name,description,layout,materials,lighting}) => ({id,name,description,layout,materials,lighting})) : [] };
   if (business === 'shots') return shotTable(value);
   return aiProjection(value || {});
 }
@@ -73,8 +75,9 @@ const inputs = {
   'script-split': ({ project }) => ({ script: project.script.body, duration: project.reference_episode_duration_seconds }),
   'episode-summary': ({ episode }) => ({ plot: episode.plot }),
   outline: ({ episode }) => ({ plot: episode.plot, duration: episode.duration_seconds, requirements: episode.episode_requirements || '' }),
+  'episode-scenes': ({project,episode}) => ({segments:episode.story_outline.segments,scenes:sceneCatalog(project),script:project.script.body || project.episodes.map(e=>e.plot).join('\n\n')}),
   shots: ({ project, episode }) => ({ segments: episode.story_outline.segments, duration: episode.duration_seconds,
-    characters: shotCharacterContext(project) }),
+    characters: shotCharacterContext(project), scenes: sceneCatalog(project, episode) }),
   seconds: ({ project, episode, object }) => shotTextInputs(project, episode, object, 'seconds'),
   storyboard: ({ project, episode, object }) => shotTextInputs(project, episode, object, 'storyboard'),
 };
@@ -96,7 +99,7 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
       ? rejectedReviews.find(row => row.name && reviewType(row) === 'ai') : null;
     const priorOpinion = priorAiReview && `此前AI审核意见（对照最新候选核查，已解决项不重复修改；同时满足本轮程序审核）：\n${priorAiReview.result?.原因 || priorAiReview.error_reason}`;
     value.opinion = [...new Set([step.kind === 'revise' ? lastReview?.result?.原因 || lastReview?.error_reason : '', priorOpinion, step.kind === 'revise' ? lastReview?.result?.修订进展?.提示 : '', task.opinion].filter(Boolean).flatMap(value => value.split('\n')).map(value => value.trim()).filter(Boolean))].join('\n');
-    const source = action === 'review' ? draft : draft || nodeOf(project, business, task.target_id);
+    const source = action === 'review' ? draft : draft || (business === 'episode-scenes' ? {scenes:sceneCatalog(project,target.episode)} : nodeOf(project, business, task.target_id));
     value.content = candidate(business, source);
     if (business === 'script-split') {
       const previous = (snapshot.tasks || []).filter(row => row.id !== task.id && row.business_type === business).sort((a, b) => b.queue_order - a.queue_order)[0];

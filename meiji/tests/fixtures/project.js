@@ -15,12 +15,15 @@ export function projectFixture() {
   e.summary.node_state.status = "generated";
   e.story_outline.node_state.status = "generated";
   e.story_outline.segments = [{ ...emptyStorySegmentModel(), duration_seconds: 10, body: "故事" }];
+  e.scene_catalog.has_result = true;
+  e.scene_catalog.node_state.status = "generated";
   e.shot_list.node_state.status = "generated";
   e.assembly.node_state.status = "generated";
   e.assembly.address = "film.mp4";
   for (let n = 1; n <= 2; n++) {
     const s = emptyShot({ sequence: n, number: `S0${n}`, duration_seconds: 5, body: "剧情" });
     s.continuity_transition = "尾帧衔接";
+    s.scene_transition = n > 1 ? "连续接拍" : "切换机位";
     s.seconds_storyboard.node_state.status = "generated";
     s.seconds_storyboard.end_state = "人物站在原位，动作已结束，持物保持不变。";
     s.seconds_storyboard.storyboard = [{ ...emptyStoryboardBeatModel(), time_range: "0–5s", action: "动作", camera: "镜头", space: "空间", audio: "声音", handoff: "结束" }];
@@ -38,7 +41,7 @@ export function projectFixture() {
   const snapshot = { project: p, tasks: [], steps: [] };
   stampDependencyHash(snapshot, "project-summary", p.id);
   stampDependencyHash(snapshot, "project-characters", p.id);
-  for (const business of ["episode-summary", "outline", "shots"])
+  for (const business of ["episode-summary", "outline", "episode-scenes", "shots"])
     stampDependencyHash(snapshot, business, e.id);
   for (const shot of e.shot_list.shots)
     for (const business of ["seconds", "storyboard", "first-last-frame", "multimodal", "video", "tail"])

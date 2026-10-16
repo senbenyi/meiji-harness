@@ -132,14 +132,14 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **llm-dsh-plugins** (3005 symbols, 8497 relationships, 192 execution flows).
+This project is indexed by GitNexus as **meiji-harness**（当前统计以索引状态为准）.
 
-> Index stale? Run `node ../../../.gitnexus/indexes/llm-dsh-plugins-033e0c85dfd2/run.cjs analyze --index-only` from the project root — it auto-selects an available runner. No `../../../.gitnexus/indexes/llm-dsh-plugins-033e0c85dfd2/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
+> Index stale? Run `node .gitnexus/run.cjs analyze --index-only` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
 
 ## Always Do
 
-- **MUST run impact before editing.** Use `impact({target: "symbolName", direction: "upstream"})` or `node ../../../.gitnexus/indexes/llm-dsh-plugins-033e0c85dfd2/run.cjs impact "symbolName" --direction upstream --repo .`; report callers, processes, and risk. Never substitute grep for graph analysis.
-- **MUST analyze graph changes before committing.** Use `detect_changes({scope: "all"})` (MCP) or `node ../../../.gitnexus/indexes/llm-dsh-plugins-033e0c85dfd2/run.cjs detect-changes --scope all --repo .` (CLI fallback). `partial: true` or `truncated: true` is not a clean check — a zero means unseen, not unaffected; re-run it. For regression review: `detect_changes({scope: "compare", base_ref: "main"})` or `node ../../../.gitnexus/indexes/llm-dsh-plugins-033e0c85dfd2/run.cjs detect-changes --scope compare --base-ref "main" --repo .`.
+- **MUST run impact before editing.** Use `impact({target: "symbolName", direction: "upstream"})` or `node .gitnexus/run.cjs impact "symbolName" --direction upstream --repo .`; report callers, processes, and risk. Never substitute grep for graph analysis.
+- **MUST analyze graph changes before committing.** Use `detect_changes({scope: "all"})` (MCP) or `node .gitnexus/run.cjs detect-changes --scope all --repo .` (CLI fallback). `partial: true` or `truncated: true` is not a clean check — a zero means unseen, not unaffected; re-run it. For regression review: `detect_changes({scope: "compare", base_ref: "main"})` or `node .gitnexus/run.cjs detect-changes --scope compare --base-ref "main" --repo .`.
 - MUST warn on HIGH/CRITICAL `risk` pre-edit; never use `riskSharedAxes` to waive a HIGH/CRITICAL `risk` warning. Compare File/symbol: MCP File omits axes; Graph-RAG expands File.
 - **MUST treat `risk: UNKNOWN` as unresolved, not as low.** An empty caller set is not evidence the symbol is unused — it can also mean the callers are not resolvable by the index (plain-object property access, dynamic dispatch, cross-language calls). `impact` pairs `UNKNOWN` with a `riskNote` saying so. Confirm with a text search before treating the symbol as safe to change or delete; do not proceed on the strength of a zero.
 - **MUST use `query({search_query: "concept"})` for concepts/flows, `context({name: "symbolName"})` for a named symbol, or `impact` for blast radius, on read-only callers, dependencies, imports, or execution flow.** Graph first; text search only for empty/`UNKNOWN`/literals.
@@ -156,10 +156,10 @@ This project is indexed by GitNexus as **llm-dsh-plugins** (3005 symbols, 8497 r
 
 | Resource | Use for |
 | --- | --- |
-| `gitnexus://repo/llm-dsh-plugins/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/llm-dsh-plugins/clusters` | All functional areas |
-| `gitnexus://repo/llm-dsh-plugins/processes` | All execution flows |
-| `gitnexus://repo/llm-dsh-plugins/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/meiji-harness/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/meiji-harness/clusters` | All functional areas |
+| `gitnexus://repo/meiji-harness/processes` | All execution flows |
+| `gitnexus://repo/meiji-harness/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

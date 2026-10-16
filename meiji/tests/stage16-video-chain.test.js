@@ -77,6 +77,11 @@ for (const mode of ['文生','首尾帧','多模态']) test(`真实视频链 ${m
   assert.equal(Boolean(calls[0].inputReference),mode==='首尾帧');
   assert.equal(Boolean(calls[0].referenceImages),mode==='多模态');
   if(mode==='多模态') assert.equal(calls[0].referenceImages.length,1);
+  if(mode!=='文生') {
+    const packed = mode==='首尾帧' ? shot.first_last_frame_prompt : shot.multimodal_prompt;
+    assert.equal(calls[0].prompt, packed.prompt, '实际发送必须采用已保存编排正文');
+    if(mode==='多模态') assert.match(calls[0].prompt,/第1张参考图：[\s\S]*甲[\s\S]*\(S1\)/);
+  }
 }, { setup:({episode,person,stamp})=>{
   if(mode==='多模态') {
     episode.shot_list.shots[1].on_screen_characters=[{character_id:person.id,costume_id:''}];
@@ -91,7 +96,7 @@ test('有角色缺图阻断视频；改为无人后继续重新判型，不复�
   const target=episode.shot_list.shots[0];
   const task=await submit(target);
   assert.equal(task.task_status,'cancelled');assert.equal(calls.length,0);
-  const failed=model.read().tasks.find(t=>t.task_status==='rejected');assert.equal(failed.business_type,'multimodal');assert.match(failed.end_reason,/costume-image/);
+  const failed=model.read().tasks.find(t=>t.task_status==='rejected');assert.equal(failed.business_type,'multimodal');assert.match(failed.end_reason,/定妆照/);
   const old=model.read().tasks;
   await model.update('change-binding',{},s=>{
     const shot=s.project.episodes[0].shot_list.shots[0];shot.on_screen_characters=[];
@@ -215,7 +220,10 @@ test('界面显示适用程序编排；尾帧是视频内步骤，失败时可�
     const failed=root.querySelector('[data-business="video"] [data-business="tail"]');
     assert.equal(failed.querySelector('.node-ui'),null);
     assert.deepEqual([...failed.querySelectorAll('button')].map(button=>button.textContent),['重新提取']);
-    assert.match(root.textContent,/最新任务：失败，原因：截帧失败/);assert.match(root.textContent,/视频类型：首尾帧/);
+    const failedVideo = root.querySelector('[data-business="video"]');
+    assert.equal(failedVideo.querySelector('.node-ui-task-status').textContent, '最新任务：失败');
+    assert.equal(failedVideo.querySelector('.node-ui-failure').textContent, '失败原因：截帧失败');
+    assert.match(root.textContent,/视频类型：首尾帧/);
     const calls=[];
     globalThis.fetch=async(_url,options)=>{calls.push(JSON.parse(options.body).command);return {ok:true,json:async()=>({})};};
     failed.querySelector('button').click();

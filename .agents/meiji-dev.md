@@ -1,8 +1,8 @@
 # meiji 开发指引
 
-Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGENTS.md)。每次修改 `meiji/` 代码前，必须先完整阅读 [制作工作流](../meiji/dev_docs/制作工作流.md)，并以它作为当前业务规格入口；未读完不得开始改代码。修改配置、skill 或测试也遵循同一要求。普通咨询和只读调研不要求通读。项目级节点对齐的依据和证据见 [计划](../docs/plans/1013-计划-项目级节点对齐.md) 与 [实施记录](../docs/implement/1013-实施-项目级节点对齐.md)；剧集级见 [计划](../docs/plans/1013-计划-剧集级节点对齐.md) 与 [实施记录](../docs/implement/1013-实施-剧集级节点对齐.md)。历史计划和实施记录仅用于追溯。
+Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGENTS.md)。修改代码、配置或测试前必须完整阅读[制作工作流](../meiji/dev_docs/制作工作流.md)，作为当前业务规格入口；普通咨询和只读调研不要求通读。历史计划和实施记录只供追溯，不覆盖当前工作流。
 
-镜头级识别、视频类型编排及尾帧并入视频任务已接入，见[视频阶段计划](../docs/plans/1014-计划-视频类型与尾帧任务接入.md)。角色子代理调度仍待后续明确。
+逐镜节拍、视频类型编排及尾帧处理已接入；接口见[视频接口与成片编排设计](../docs/implement/1016-视频接口与成片编排设计.md)。角色子代理调度仍待后续明确。
 
 ## 项目配置
 
@@ -10,7 +10,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - `meiji/docs/`、`meiji/reports/`、`meiji/dev_docs/` 和其他纯文档修改按文档流程处理，不要求开发计划。
 - 不修改上游 Harness 源码。数据根为 `$DSH_HOME/storages/meiji/`，未设置 DSH_HOME 时为 `~/.dsh/storages/meiji/`。
 - 同一个 DSH_HOME 只运行一个写入服务实例。项目级事务与制作任务串行；不同项目可独立运行。
-- GitNexus 仓库名为 `llm-dsh-plugins`，索引放在 `$HOME/.gitnexus/indexes`。根目录执行 `node ../../../.gitnexus/indexes/llm-dsh-plugins-033e0c85dfd2/run.cjs status`；更新执行同一 runner 的 `analyze --index-only`。索引符号身份异常时使用 `--force` 全量重建。MCP 可用时优先使用，UNKNOWN 必须补查实际源码与动态注册。
+- GitNexus 仓库名为 `meiji-harness`，索引放在 `$HOME/.gitnexus/indexes`。根目录执行 `node .gitnexus/run.cjs status`；更新执行同一 runner 的 `analyze --index-only`。索引符号身份异常时使用 `--force` 全量重建。MCP 可用时优先使用，UNKNOWN 必须补查实际源码与动态注册。
 - 根 `CLAUDE.md`、`.claude/AGENTS.md`、`.cursor/AGENTS.md` 引用通用规范；`.claude/meiji-dev.md`、`.cursor/meiji-dev.md` 链接本文。`.claude/guard.mjs` 的计划检查不拦截 `meiji/dev_docs/`、`meiji/docs/`、`meiji/reports/`，也不适用于普通咨询、只读调研和纯文档修改。
 
 ## 模块与唯一执行链
@@ -48,9 +48,9 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 唯一数据库为 `$DSH_HOME/storages/meiji/meiji.sqlite`，使用 Node 内置 `node:sqlite`（^22.19.0 或 >=24）。`schema.sql` 定义 projects、task_groups、tasks、task_steps、command_requests、notification_outbox、schema_migrations 七表；任务必须归组，步骤必须归任务，顺序唯一且同项目最多一个 running 任务。`sqlite-store.js` 使用 WAL/foreign_keys/FULL、短同步事务及 revision 条件校验，变化记录增量写入；不在持锁期间调用模型或等待异步工作。ProjectModel 的写接口只允许 repository 提供的事务闭包，项目内容/任务/步骤/幂等/通知一起提交，事件发生在持久化后。卸载时等待任务和通知结束，再关闭连接。
 
-`projects/<p_UUID>/` 作为宿主工作区目录，同时保存 `project.json` 项目镜像。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 固定字段及 `node_state.{status,reason,fail_message,dependency_hash}`。当前 schema v20。v20将旧character_binding移入镜头on_screen_characters，增加background_characters，旧镜头表及下游生成态过期，保留媒体/历史；退役识别任务不能恢复执行。v19 移除正式角色和服装资料的 number，保留原ID、媒体及绑定；按ID输入投影重写已生成节点依赖指纹，历史任务提示词与结果不改。剧本本身是节点（`script.node_state`）：v16–v18 归一为该形态，早期 v16 的独立 `script_review` 并入剧本状态，v17 的 `script.review` 结论字段移除，保留状态、原因与依赖指纹；更早版本的迁移在校验前同样先归一。v14 移除项目暂停字段；v15 将节点执行状态显式迁移为四种数据状态，保留正文、任务历史及审核原因，无法确认有效性的数据标为 expired。v9 删除项目 rules，v10 删除项目 output_language；两步都按新指纹重写已生成的角色识别、每秒分镜和文生提示词及其排队快照，不改写正文。v11 把失败节点的 `reason` 移到 `fail_message`。v8 及更早明确拒绝，不在运行时自动删除或兼容。模型配置和独立素材库保留。
+`projects/<p_UUID>/` 作为宿主工作区目录，同时保存 `project.json` 项目镜像。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 固定字段及 `node_state.{status,reason,fail_message,dependency_hash}`。当前 schema v21。v21新增项目共用场景库、剧集场景选择节点和镜头场景绑定；缺绑定的旧镜头表及下游过期，正文、媒体与历史保留。v20将旧character_binding移入镜头on_screen_characters，增加background_characters，旧镜头表及下游生成态过期，保留媒体/历史；退役识别任务不能恢复执行。v19 移除正式角色和服装资料的 number，保留原ID、媒体及绑定；按ID输入投影重写已生成节点依赖指纹，历史任务提示词与结果不改。剧本本身是节点（`script.node_state`）：v16–v18 归一为该形态，早期 v16 的独立 `script_review` 并入剧本状态，v17 的 `script.review` 结论字段移除，保留状态、原因与依赖指纹；更早版本的迁移在校验前同样先归一。v14 移除项目暂停字段；v15 将节点执行状态显式迁移为四种数据状态，保留正文、任务历史及审核原因，无法确认有效性的数据标为 expired。v9 删除项目 rules，v10 删除项目 output_language；两步都按新指纹重写已生成的角色识别、每秒分镜和文生提示词及其排队快照，不改写正文。v11 把失败节点的 `reason` 移到 `fail_message`。v8 及更早明确拒绝，不在运行时自动删除或兼容。模型配置和独立素材库保留。
 
-项目、剧集、角色、服装、镜头、任务、组和步骤使用创建时生成的带前缀 UUID。角色和服装的AI输入输出、界面与正式引用统一使用创建时唯一ID，程序核对唯一性和归属；仅镜头保留S编号。重生成保留同一对象 ID，不按列表位置重建身份、不无声删除引用对象。独立素材继续使用原 `assets/<category>/<UUID>/metadata.json` 和 `original.<ext>` 文件格式；场景、道具及指导素材入口退出，但磁盘数据不会在启动时被删除。
+项目、剧集、角色、服装、镜头、任务、组和步骤使用创建时生成的带前缀 UUID。角色和服装的AI输入输出、界面与正式引用统一使用创建时唯一ID，程序核对唯一性和归属；仅镜头保留S编号。重生成保留同一对象 ID，不按列表位置重建身份、不无声删除引用对象。独立素材继续使用原 `assets/<category>/<UUID>/metadata.json` 和 `original.<ext>` 文件格式；独立素材库的旧场景、道具及指导素材入口退出，但磁盘数据不会在启动时被删除。v21的项目场景库是制作资料，不恢复旧独立素材入口。
 
 旧格式项目/旧会话不迁移、不适配。旧项目目录名称可以出现在片库拒绝提示中，不读取旧正文；只允许用户显式删除。历史任务保留原 ID 和执行时资料，不能按当前项目资料重建历史请求。
 
@@ -84,13 +84,13 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 业务与输出结构以制作工作流、step_model、project_detail 和 dots 为开发依据；`server/http/nodes/` 按节点和动作定义业务输入与输出格式，提示词渲染、模型返回校验及人工编辑共用输出契约。`server/prompts/models/` 保存生成、审核、按意见重新生成要求，节点文件的 `compose` 编排该节点业务参数；视频使用 `http/video-request.js` 直接编排已审核三段，无 PromptModel，`render.js` 渲染正文。输出格式只在 system，user 的任务是 Model 固定正文。占位符缺失直接失败；注入资料不二次展开。配置变更不追溯改写历史。
 
-文本按对应节点声明解析：项目/剧集摘要为纯文本，人物和切点等按 JSON 结构校验；分镜提示词保留其既定段落协议。可解析 JSON 缺少必填字段时由程序审核判 rejected 并按既有轮次修订，原始候选留任务历史；耗尽后保留旧正式内容和 hash，仅写节点未通过及原因。不属于缺字段的 JSON 结构/解析错误仍 failed 并保留旧内容；网络、接口异常仅记失败，不自动带入提示词；可用候选的业务审核未通过时按节点轮次修订，耗尽后将最后内容及 rejected 原因存正式节点，不刷新 hash、不传播、不派生。拆分先做程序覆盖与声明时长审核，再按对白、剧情、动作和串并行关系做AI容量审核，不按字数换算；两类审核共用原有修订预算，拒绝候选留任务历史且不替换剧集。定妆照的姓名、性别、年代、定位、年龄段、身材、发型、签名道具、不可改特征任一项去除首尾空白后非空即可生成；全部为空时拒绝。首套可有或没有用户参考图；后续定妆照固定且唯一地引用首套定妆照，所有生成/修订动作一致。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图，后续镜头使用前镜尾帧及交接资料；远端 ID 在提交后记录。
+文本按对应节点声明解析：项目/剧集摘要为纯文本，人物和切点等按 JSON 结构校验；分镜提示词保留其既定段落协议。可解析 JSON 缺少必填字段时由程序审核判 rejected 并按既有轮次修订，原始候选留任务历史；耗尽后保留旧正式内容和 hash，仅写节点未通过及原因。不属于缺字段的 JSON 结构/解析错误仍 failed 并保留旧内容；网络、接口异常仅记失败，不自动带入提示词；可用候选的业务审核未通过时按节点轮次修订，耗尽后将最后内容及 rejected 原因存正式节点，不刷新 hash、不传播、不派生。拆分先做程序覆盖与声明时长审核，再按对白、剧情、动作和串并行关系做AI容量审核，不按字数换算；两类审核共用原有修订预算，拒绝候选留任务历史且不替换剧集。定妆照的姓名、性别、年代、定位、年龄段、身材、发型、签名道具、不可改特征任一项去除首尾空白后非空即可生成；全部为空时拒绝。首套可有或没有用户参考图；后续定妆照固定且唯一地引用首套定妆照，所有生成/修订动作一致。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图；仅首尾帧类型使用前镜尾帧，节拍文本继承前镜交接资料。生成与下载阶段均保留HTTP详情。
 
-文本由 `shared/models/settings_model.js` 的 SettingsModel 固定选择：独立 llm-server 提供的 `qwen3.5:27b` 或 `codex-gpt`。图片固定为 `gpt-image`（显示为 GPT（Codex 套餐）），视频选项名为 `elysium-video`。`elysium-chat`、`elysium-image` 已移出选项，保存或读取时按无效模型拒绝；旧配置用迁移脚本改为默认值。选择 Qwen、Codex 文本或 `gpt-image` 时，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 messages、stream=false（生成/审核为 system/user，文本修订为 system/user/assistant/user）；Qwen 的 reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5 默认参数已迁到独立 llm-server；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由节点路由契约注入提示词，并按同一契约进行本地校验。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../meiji/README.md)。
+文本由 `shared/models/settings_model.js` 的 SettingsModel 固定选择：独立 llm-server 提供的 `qwen3.5:27b` 或 `codex-gpt`。图片可选krea2 turbo V2.5或gpt-image；视频固定为MiniMax-H3，旧配置elysium-video映射到该模型。`elysium-chat`、`elysium-image` 已移出选项，保存或读取时按无效模型拒绝；旧配置用迁移脚本改为默认值。选择 Qwen、Codex 文本或 `gpt-image` 时，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 messages、stream=false（生成/审核为 system/user，文本修订为 system/user/assistant/user）；Qwen 的 reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5 默认参数已迁到独立 llm-server；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由节点路由契约注入提示词，并按同一契约进行本地校验。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../meiji/README.md)。
 
-当前网关图片协议为 `images/generations` 或 multipart `images/edits`；视频为 `videos` 提交、状态轮询与 content 下载；文本使用 chat/completions。沿用实际网关的地址和参数，不依赖旧 README 所述异步图片取消协议。网关不提供远端视频取消接口：取消停止本地等待并阻止晚到结果提交，如实保留远端可能继续运行的原因。新增视频/合片在本地保持比例缩放并填充到项目画幅的像素尺寸，保留音轨；网关请求仍使用兼容尺寸，旧媒体不追溯改写。生成文件须通过 FFprobe 及 FFmpeg 完整解码；不能只根据扩展名或 HTTP 成功判为有效。
+当前媒体接口按模型分派：gpt-image调用images/generations，krea调用images/comfy，MiniMax-H3调用videos/generations等待成功URL后下载；均为本机服务。参数、素材与取消边界以视频接口设计为准，不再使用旧网关视频提交/轮询/content协议。新增视频和合片按项目像素归一化、保留音轨，文件经FFprobe及FFmpeg解码校验。
 
-配置为运行目录 `models.json`，默认值来自 `config/models.json` 和被忽略的 `config/models.local.json`；测试覆盖使用 `MEIJI_MODELS_LOCAL`。已有配置须显式运行 `meiji/scripts/migrate-settings-model.js`，先备份、保留连接与并发设置、将 chat/story 合并为 text，不在固定选项内的选择改为默认值，不用运行时旧配置兜底替代迁移。密钥不得写入 Git、浏览器响应或日志。设置页只显示语言与模型选项，选择自动保存，且不依赖已打开的项目。语言保存在 output_language，模型选择保存在 text/image/video.model；两者只作用于之后的生成。缺省语言为 zh-CN。聊天通过公开 credentials/settings 同步选中服务；Qwen 使用 ollama 与上下文 32768，网关使用服务端密钥与接口文档声明的 65536。`gpt-image` 走本地 `POST /v1/images/generations`，占位密钥 `ollama`，`size` 为 `auto`，画幅写入提示词；其余图片与视频保留原网关。设置 API 仅公开和接收选择，不公开连接地址与凭据。
+配置为运行目录 `models.json`，默认值来自 `config/models.json` 和被忽略的 `config/models.local.json`；测试覆盖使用 `MEIJI_MODELS_LOCAL`。已有配置须显式运行 `meiji/scripts/migrate-settings-model.js`，先备份、保留连接与并发设置、将 chat/story 合并为 text，不在固定选项内的选择改为默认值，不用运行时旧配置兜底替代迁移。密钥不得写入 Git、浏览器响应或日志。设置页只显示语言与模型选项，选择自动保存，且不依赖已打开的项目。语言保存在 output_language，模型选择保存在 text/image/video.model；两者只作用于之后的生成。缺省语言为 zh-CN。聊天通过公开 credentials/settings 同步选中服务；Qwen 使用 ollama 与上下文 32768，网关使用服务端密钥与接口文档声明的 65536。`gpt-image` 走本地 `POST /v1/images/generations`，占位密钥 `ollama`，`size` 为 `auto`，画幅写入提示词；krea经本机images/comfy；MiniMax-H3经本机videos/generations。设置 API 仅公开和接收选择，不公开连接地址与凭据。
 
 ## 双端与通知
 
@@ -111,7 +111,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - 收尾执行 `git diff --check`、入口依赖/旧文件检查、必要 shell 语法检查，再更新图谱。
 - `configure-harness.sh` 链接插件并启动；`restart-harness.sh` 验证进程归属、停止旧实例并确认端口释放后启动。SQLite schema 升级由数据库启动事务自动执行；端口被非预期进程占用或旧进程不退出则拒绝启动新实例。
 
-逐镜文本：镜头表直接保存on_screen_characters（character_id/costume_id）和background_characters。不再有独立识别节点；镜头表、每秒分镜及文生提示词要求有效角色库，不要求定妆照。episode-seconds只安排逐镜每秒分镜。文本输入与hash共用shared/shot-text-inputs.js，图片不影响文本；seconds仍由程序审核连续覆盖和±5秒误差。
+逐镜文本：镜头表直接保存on_screen_characters（character_id/costume_id）和background_characters。不再有独立识别节点；镜头表、每秒分镜及文生提示词要求有效角色库，不要求定妆照。episode-seconds只安排逐镜每秒分镜。文本输入与hash共用shared/shot-text-inputs.js，图片不影响文本；seconds按节拍连续覆盖，末段结束须精确等于本镜参考时长，不使用±5秒误差。
 
 每秒分镜新增 end_state、pending_actions、pending_dialogue、continuing_audio；后镜 previous 读取前镜已审核交接与末尾3秒相交的完整节拍，首镜 null。镜末交接在每秒阶段生成，不在镜头表预生成。v13迁移保留旧正文和历史，将缺交接的生成态每秒节点及相关下游标为过期并同步排队快照；按镜头顺序重生成。
 
@@ -124,3 +124,9 @@ Codex 制作模型：`codex-gpt` 使用本地 textBaseUrl 和 llmServerClient，
 镜头表的可解析JSON在shots[]及内部对象出现未知字段（如reference_anchor.body）时，也沿用已有结构修订通路与两次预算，保留原候选；不静默搬移字段，不将该规则扩大到其他节点或根响应未知字段。出镜人物与服装使用分组DOM，服装与描述归属对应人物，ID存储结构不变。
 
 修复链路公共规则见制作工作流：结构化上游问题停止下游自动修订；同一候选重复同一确定性程序错误提前结束，AI同文拒绝只加定向反馈。镜头修订优先按ID的mode=patch，增删拆并重排需显式mode=replace完整表，合并后再全表校验。明确对白和最终<d>序列做逐字检查，不按字数推算时间。以上提前结束保留旧正文与hash，候选及诊断留步骤历史，原有修订上限不变。
+
+视频固定MiniMax-H3，发送到本机textBaseUrl的`/videos/generations`；编排与发送共用videoPayload。首尾帧用前镜尾帧作first_frame且ratio=adaptive，多模态按images顺序注明人物/稳定speaker_tag/服装。实际发送已保存编排正文，发送前核对三段与当前已审核正文一致。新HTTP使用duration/resolution/ratio而非内部兼容seconds/size。设计与验收限制见[视频接口与成片编排设计](../docs/implement/1016-视频接口与成片编排设计.md)。
+
+每集参考时长由切集或人工编辑确定；大纲保存不再自动回写。大纲与镜头表共用该固定参考±30秒，镜头表还需符合大纲取整目标±30秒，取交集，不逐层增加容差。节拍、对白字段与摄影职责详见当前制作工作流。
+
+场景流程：大纲后独立执行episode-scenes，只提取反复出现、重要或人为明确指定地点，空结果合法。scene-image以sc_ID为目标，单张按需生成或人工导入，不批量派生。镜头按scene_id/state/transition引用；多模态同时引用人物图与场景图，合计最多9张。规则见制作工作流及dots/剧集-提取场景.md。

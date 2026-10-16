@@ -48,10 +48,12 @@ export function assertPromptDialogue(storyboard, text) {
   const fragments = [...text.matchAll(/<d>([\s\S]*?)<\/d>/g)].map(match => match[1]);
   try {
     if (fragments.join('') !== expected) mismatch(expected, fragments.join(''), '最终提示词<d>对白序列');
-    const boundaries = promptDialogueBoundaries(lines);
+    const { boundaries, speakerChanges } = promptDialogueBoundaries(lines);
     let offset = 0;
     for (const [index, fragment] of fragments.entries()) {
+      const start = offset;
       offset += fragment.length;
+      if (speakerChanges.some(at => at > start && at < offset)) invalid('对白完整性', `第${index + 1}个<d>合并了不同说话人或心声/实际发声通道；每个人物及心声与实际发声必须分别标记。`);
       if (!fragment.trim() || !boundaries.has(offset)) {
         invalid('对白完整性', `第${index + 1}个<d>在第${offset}个字符处拆开了一句台词，附近原话=${JSON.stringify(expected.slice(Math.max(0, offset - 15), offset + 15))}。一句台词必须完整放在同一个<d>中，不能拆成多个片段；同一人物连续说多句台词时，可以全部放在一个<d>中，也可以在完整句子之间分开。请合并同句片段，停顿与动作写在标签外，不改原文字词和标点，不补写下一镜。`);
       }
@@ -63,11 +65,12 @@ function promptDialogueBoundaries(lines) {
   // 先跨节拍恢复同一人的连续发言；dialogue_text 的字段边界不是句子边界。
   const runs = [];
   for (const line of lines) {
-    const speaker = JSON.stringify([line.speaker_id || line.speaker_name || '', line.mode || '']);
+    // 画内/画外转换不意味着换人或一句话结束。
+    const speaker = JSON.stringify([line.speaker_id || line.speaker_name || '', line.mode === '心声' ? '心声' : '实际发声']);
     if (runs.at(-1)?.speaker === speaker) runs.at(-1).text += line.dialogue_text;
     else runs.push({ speaker, text: line.dialogue_text });
   }
-  const boundaries = new Set(), segmenter = new Intl.Segmenter('zh', { granularity: 'sentence' });
+  const boundaries = new Set(), speakerChanges = [], segmenter = new Intl.Segmenter('zh', { granularity: 'sentence' });
   let offset = 0;
   for (const run of runs) {
     for (const { segment, index } of segmenter.segment(run.text)) {
@@ -83,6 +86,7 @@ function promptDialogueBoundaries(lines) {
     offset += run.text.length;
     // 换人或本镜末尾的原始片段可完整保留，不强行补句号或越镜续写。
     boundaries.add(offset);
+    if (run !== runs.at(-1)) speakerChanges.push(offset);
   }
-  return boundaries;
+  return { boundaries, speakerChanges };
 }

@@ -1,3 +1,4 @@
+import { migrateScenes } from './scene-migration.js';
 import { migrateShotCast } from './shot-cast-migration.js';
 import { removeCharacterNumbers, migrateCharacterIds } from './character-id-migration.js';
 import { migrateNodeDataStates } from './node-data-state-migration.js';
@@ -5,8 +6,10 @@ import { migrateSecondsContinuity } from './seconds-continuity-migration.js';
 import { normalizeScriptNode, isScriptNodeNormalized } from './script-review-migration.js';
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, chmodSync, lstatSync } from "node:fs";
-import { validateProject } from "../../shared/project_contract.js";
+import { validateProject as validateCurrentProject } from "../../shared/project_contract.js";
 import { detachOutputLanguage, removeProjectRules, splitFailureMessages } from "../../shared/node-dependencies.js";
+
+const validateProject = project => validateCurrentProject(migrateScenes(project));
 
 const columns = {
   task_groups: "id project_id episode_id name group_type action source shot_ids_json created_at position".split(" "),
@@ -33,7 +36,7 @@ export class SQLiteStore {
         try {
           this.#db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
           this.#db.exec("COMMIT");
-          version = 20;
+          version = 21;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
       }
       if (version === 9) {
@@ -216,7 +219,28 @@ export class SQLiteStore {
           version = 20;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
       }
-      if (version !== 20) throw new Error(`不支持的数据库版本：${version}`);
+      if (version === 20) {
+        this.#db.exec('BEGIN IMMEDIATE');
+        try {
+          for (const row of this.#db.prepare('SELECT id,data_json FROM projects').all()) {
+            const project = migrateScenes(JSON.parse(row.data_json));
+            validateProject(project);
+            if (JSON.stringify(project) !== row.data_json) this.#db.prepare('UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?').run(JSON.stringify(project), row.id);
+          }
+          const reason = '请先提取场景并重新生成带场景绑定的镜头表';
+          for (const row of this.#db.prepare("SELECT id,previous_node_state_json FROM tasks WHERE task_status IN ('queued','running') AND business_type IN ('shots','seconds','storyboard','first-last-frame','multimodal','video','tail','assembly')").all()) {
+            const state = JSON.parse(row.previous_node_state_json);
+            if (state?.status === 'generated') {
+              Object.assign(state, {status:'expired',reason,fail_message:''});
+              this.#db.prepare('UPDATE tasks SET previous_node_state_json=? WHERE id=?').run(JSON.stringify(state),row.id);
+            }
+          }
+          this.#db.prepare("INSERT INTO schema_migrations VALUES (21,strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec('PRAGMA user_version=21; COMMIT');
+          version = 21;
+        } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
+      }
+      if (version !== 21) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => f !== "id").map(f => `${f}=excluded.${f}`).join(",")}`));
       }

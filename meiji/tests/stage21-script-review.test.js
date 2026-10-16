@@ -183,8 +183,8 @@ test("v15→v18：旧项目补剧本节点状态；v16 独立 script_review 并�
     }
     await repo.close();
     db = new DatabaseSync(join(root, "meiji.sqlite"));
-    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 20);
-    assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20]);
+    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 21);
+    assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21]);
     db.close();
   } finally { await rm(root, { recursive: true, force: true }); }
 });

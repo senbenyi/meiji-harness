@@ -19,6 +19,7 @@ export function sampleInput(schema) {
     if (key === 'type') return [key, '文生'];
     if (key === 'aspectRatio') return [key, '16:9'];
     if (key === 'textPrompt') return [key, { integrated_multimodal_description: 'A scene.', overall_soundscape: 'Wind.', non_diegetic_music: 'None.' }];
+    if (key === 'segments') return [key, [{ sequence: 1, duration_seconds: 10, body: '剧情资料-{{保持原文}}', causal: '' }]];
     if (key === 'content' && schema.shot && !schema.duration && !schema.storyboard) return [key, { on_screen_characters: [] }];
     const type = [value].flat()[0];
     return [key, type === 'array' ? [] : type === 'object' ? {} : type === 'number' ? 10 : `资料-${key}-{{保持原文}}`];

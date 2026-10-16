@@ -22,6 +22,7 @@ async function scenario(business, respond, check, setup = () => {}) {
     const p = projectFixture(); setup(p);
     const snap = { project: p, tasks: [], steps: [] };
     stampDependencyHash(snap, 'outline', p.episodes[0].id);
+    stampDependencyHash(snap, 'episode-scenes', p.episodes[0].id);
     stampDependencyHash(snap, 'shots', p.episodes[0].id);
     const calls = [];
     runtime = await createAppRuntime({ home, gateway: { chat: async options => {

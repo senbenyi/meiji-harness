@@ -93,11 +93,11 @@ for (const business of ["outline", "shots"])
       await service.idle(project.id);
       assert.equal(model.read().tasks.find(task => task.id === edit.task_id).task_status, "completed");
       assert.equal(node(model.read()).node_state.status, "generated");
-      if (business === "outline") assert.equal(model.read().project.episodes[0].duration_seconds, 119);
+      if (business === "outline") assert.equal(model.read().project.episodes[0].duration_seconds, 150);
       const savedContent = structuredClone(node(model.read()));
       const reject = async (key, repair) => model.update(key, {}, snapshot => {
         const current = node(snapshot);
-        // 独立构造原参考150秒的未通过候选，验证放行不能先回写再审核。
+        // 独立构造原参考150秒的未通过候选，验证放行始终使用固定集参考审核。
         if (business === "outline") snapshot.project.episodes[0].duration_seconds = 150;
         current.node_state.status = "rejected";
         current.node_state.reason = "尚有待处理意见";
@@ -122,7 +122,7 @@ for (const business of ["outline", "shots"])
       const accepted = model.read();
       assert.equal(accepted.tasks.find(task => task.id === allowed.task_id).task_status, "completed");
       assert.equal(node(accepted).node_state.status, "generated");
-      if (business === "outline") assert.equal(accepted.project.episodes[0].duration_seconds, 137.5);
+      if (business === "outline") assert.equal(accepted.project.episodes[0].duration_seconds, 150);
       assert.deepEqual(accepted.steps.filter(step => step.task_id === allowed.task_id).map(step => step.kind), ["precheck", "override"]);
     } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
   });

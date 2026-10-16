@@ -65,13 +65,22 @@ for (const latestStatus of ['running', 'completed', 'failed']) test(`恢复组�
     s.tasks = [{id:'old-task',group_id:'old',target_id:shot.id,episode_id:e.id,business_type:'video',task_status:'failed',end_reason:'旧错误',queue_order:1}, {id:'new-task',group_id:'new',target_id:shot.id,episode_id:e.id,business_type:'video',task_status:latestStatus,end_reason:latestStatus==='failed'?'新错误':'',queue_order:2}];
     const root = document.querySelector('main'), view = {page:'history'};
     renderTaskPanel(root,s,{session_id:'session-test',view,refresh:async()=>{},paint:()=>{},onError:()=>{}});
-    const notices = [...root.querySelectorAll('.notice')];
-    assert.equal(notices.length, latestStatus==='failed'?1:0);
-    if (notices.length) assert.match(notices[0].textContent,/新错误/);
-    assert.match(root.textContent,/旧错误/); // 不抹除历史失败
+    const rows = [...root.querySelectorAll('.run-list-row')];
+    assert.equal(rows.length, 2);
+    const rowFor = id => rows.find(row => row.querySelector('[data-record-id]')?.dataset.recordId === id);
+    const oldRow = rowFor('old'), newRow = rowFor('new');
+    assert.ok(oldRow); assert.ok(newRow);
+    assert.match(oldRow.textContent, /旧错误/); // 不抹除历史失败
+    assert.doesNotMatch(oldRow.textContent, /新错误/);
+    assert.equal(newRow.querySelector('.task-history-status').textContent, {running:'生成中',completed:'已完成',failed:'失败'}[latestStatus]);
+    if (latestStatus === 'failed') assert.match(newRow.textContent, /新错误/);
+    else assert.doesNotMatch(newRow.textContent, /新错误/);
+    assert.doesNotMatch(newRow.textContent, /旧错误/);
+    assert.equal([...root.querySelectorAll('button')].some(button => button.textContent === '继续'), false);
     view.history_business='project-summary';
     renderTaskPanel(root,s,{session_id:'session-test',view,refresh:async()=>{},paint:()=>{},onError:()=>{}});
-    assert.equal(root.querySelector('.notice'),null);
+    assert.equal(root.querySelector('.run-list-row'),null);
+    assert.doesNotMatch(root.textContent, /旧错误|新错误/);
   } finally {globalThis.document=previous;dom.window.close();}
 });
 

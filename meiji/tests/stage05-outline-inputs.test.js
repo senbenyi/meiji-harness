@@ -173,6 +173,8 @@ test("B-8 镜头表要求有效故事大纲与角色库", () => {
   stampDependencyHash({ project: p }, "outline", e.id);
   stampDependencyHash({project:p}, "project-characters", p.id);
   p.character_library.node_state.status="generated";
+  e.scene_catalog.has_result = true; e.scene_catalog.node_state.status = "generated";
+  stampDependencyHash({project:p}, "episode-scenes", e.id);
   assert.equal(precheck({ project: p }, s).passed, true);
 });
 

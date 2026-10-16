@@ -69,18 +69,35 @@ async function generateVideo(options) {
   signal?.throwIfAborted();
   if (!response.ok) {
     const message = data?.error?.message || (typeof data === 'string' ? data.replace(/\s+/g, ' ').slice(0, 180) : `视频生成失败：HTTP ${response.status}`);
-    throw Object.assign(new Error(message), { status: response.status === 401 ? 401 : 502 });
+    throw Object.assign(new Error(message), { status: response.status });
   }
+  if (data?.status !== 'succeeded') throw Object.assign(new Error(`视频服务未返回成功状态：${data?.status || '缺少status'}`), { status: 502 });
   if (typeof data?.url !== 'string' || !data.url || typeof data.task_id !== 'string' || !data.task_id) {
     throw Object.assign(new Error('模型未返回视频'), { status: 502 });
   }
-  const file = await fetchImpl(data.url, {
-    dispatcher: requestDispatcher, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)]) : AbortSignal.timeout(requestTimeoutMs),
-  });
-  if (!file.ok) throw Object.assign(new Error(`视频下载失败：HTTP ${file.status}`), { status: 502 });
-  const bytes = Buffer.from(await file.arrayBuffer());
-  if (!bytes.length) throw Object.assign(new Error('模型返回的视频是空的'), { status: 502 });
-  return { bytes, taskId: data.task_id };
+  let target;
+  try { target = new URL(data.url); } catch { throw Object.assign(new Error('视频下载地址无效'), { status: 502 }); }
+  if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password) throw Object.assign(new Error('视频下载地址无效'), { status: 502 });
+  const downloadPath = `${target.origin}${target.pathname}`;
+  const download = { fn: 'downloadVideo', method: 'GET', path: downloadPath, request: { method: 'GET', path: downloadPath, headers: {} } };
+  const downloadStarted = Date.now();
+  await recordTransfer(download);
+  let file;
+  try {
+    // 结果地址可能带临时签名，详情只记录下载阶段及字节数，不记录签名或发送本地凭据。
+    file = await fetchImpl(target, {
+      dispatcher: requestDispatcher, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)]) : AbortSignal.timeout(requestTimeoutMs),
+    });
+    if (!file.ok) throw Object.assign(new Error(`视频下载失败：HTTP ${file.status}`), { status: 502 });
+    const bytes = Buffer.from(await file.arrayBuffer());
+    signal?.throwIfAborted();
+    if (!bytes.length) throw Object.assign(new Error('模型返回的视频是空的'), { status: 502 });
+    await recordTransfer(Object.assign(download, { durationMs: Date.now() - downloadStarted, status: file.status, ok: true, bytes: bytes.length }));
+    return { bytes, taskId: data.task_id };
+  } catch (error) {
+    await recordTransfer(Object.assign(download, { durationMs: Date.now() - downloadStarted, status: file?.status ?? null, ok: false, error: redactJson(error.message, apiKey) }));
+    throw error;
+  }
 }
 
 export const llmServerClient = Object.freeze({
