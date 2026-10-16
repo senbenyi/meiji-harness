@@ -114,15 +114,16 @@ test('AI拒绝后的程序拒绝不丢失业务意见，再修订仍使用最新
     storyboard: [beat(step.round === 1 ? '0–11s' : '0–5s')] };
 }));
 
-test('程序审核耗尽保存最后候选为rejected，保留旧成功hash与下游', () => withRuntime(async ({ p, model, command, calls }) => {
+test('程序审核重复无进展提前结束且保留旧内容，保留旧成功hash与下游', () => withRuntime(async ({ p, model, command, calls }) => {
   const before = model.read().project.episodes[0].shot_list.shots[0];
   const task = await command('seconds', 'regenerate');
   assert.equal(task.task_status, 'rejected');
   const after = model.read().project.episodes[0].shot_list.shots[0];
-  assert.deepEqual(after.seconds_storyboard.storyboard, [beat('0–11s')]);
+  assert.deepEqual(after.seconds_storyboard.storyboard, before.seconds_storyboard.storyboard);
+  assert.match(task.end_reason, /修订无进展/);
   assert.equal(after.seconds_storyboard.node_state.dependency_hash, before.seconds_storyboard.node_state.dependency_hash);
   assert.deepEqual(after.text_to_video_prompt, before.text_to_video_prompt);
-  assert.equal(calls.filter(call => call.task.business_type === 'seconds').length, 3);
+  assert.equal(calls.filter(call => call.task.business_type === 'seconds').length, 2);
 }, ({ task }) => task.business_type === 'seconds' ? { end_state: "人物位于镜末位置，动作已完成。", pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: [beat('0–11s')] } : undefined));
 
 test('episode-seconds 逐镜安排识别后每秒', () => withRuntime(async ({ runtime, p, model, calls }) => {

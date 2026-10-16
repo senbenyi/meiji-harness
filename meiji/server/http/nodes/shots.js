@@ -78,7 +78,7 @@ export default {
       input: {"language":"string","requirements":"string","segments":"array","duration":"number","characters":"array","opinion":"string","content":"object"},
       output: { ...output0,
         patchStructure: { mode: 'patch', shots: [{ id: '完整基稿中的镜头ID', changes: { body: '只返回需要修改字段的新值' } }] },
-        requirements: output0.requirements.replace('只返回完整镜头表', '增删、拆并或重排时用mode=replace并返回完整镜头表') + '\n局部修订优先返回mode=patch及shots[{id,changes}]，changes只含需要修改的字段；未返回镜头和字段由程序保留。嵌套字段修改时返回该嵌套对象完整值。不能修改ID；新增、删除、拆并、重排必须显式mode=replace并返回完整表。问题已解决可返回空patch。',
+        requirements: '本修订动作优先使用另列局部修订结构；以下原镜头表规则仅约束mode=replace全表中的镜头对象。局部patch允许shots为空，changes只包含所改字段。\n' + output0.requirements.replace('只返回完整镜头表', '增删、拆并或重排时用mode=replace并返回完整镜头表') + '\n局部修订优先返回mode=patch及shots[{id,changes}]，changes只含需要修改的字段；未返回镜头和字段由程序保留。嵌套字段修改时返回该嵌套对象完整值。不能修改ID；新增、删除、拆并、重排必须显式mode=replace并返回完整表。问题已解决可返回空patch。',
       },
     },
     review: {

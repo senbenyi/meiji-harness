@@ -16,7 +16,7 @@ export function nodeRules(business) {
     throw Object.assign(new Error('AI 节点不存在'), { status: 404 });
   const action = name => {
     const resolved = route.actions[name] ? nodeAction(business, name) : null;
-    const stage = resolved?.route.promptModel?.[name];
+    const stage = resolved?.route.promptModel?.[name] || route.promptModel?.[name];
     const output = resolved?.contract.output;
     return stage ? [text(stage.system), stage.user?.任务 ? `任务：\n${stage.user.任务}` : '', output ? `输出要求：\n${output.requirements}` : ''].filter(Boolean).join('\n\n') : '';
   };

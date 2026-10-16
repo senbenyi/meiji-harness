@@ -47,6 +47,7 @@ async function scenario({ businessError = '', businessRounds = 0, badJson = fals
           : [{ character_id: character.id, costume_id: 'co_wrong' }];
     }
     if (emptyFirst && count === 1) candidate.shots = [];
+    if (options.step.kind === 'revise' && business === 'shots') candidate.mode = 'replace';
     return JSON.stringify(candidate);
   } });
   const service = new TaskService({ repository, execute: createHandlerRegistry({ text }), commitOutput: commitContent });
@@ -70,17 +71,18 @@ test('镜头表缺字段进入程序审核未通过，携带原始候选和原�
   assert.ok(revise.messages[3].content.includes(rejected.error_reason));
 });
 
-for (const empty of [false, true]) test(`缺字段修订耗尽为未通过，保留${empty ? '空节点' : '旧正文及hash'}`, async () => {
+for (const empty of [false, true]) test(`缺字段重复不变提前结束为未通过，保留${empty ? '空节点' : '旧正文及hash'}`, async () => {
   const { snapshot, taskId, count, before } = await scenario({ missingRounds: Infinity, empty });
   const task = snapshot.tasks.find(t => t.id === taskId), node = snapshot.project.episodes[0].shot_list;
   assert.equal(task.task_status, 'rejected');
-  assert.equal(count, 3);
+  assert.equal(count, 2);
+  assert.match(task.end_reason, /修订无进展/);
   assert.equal(node.node_state.status, 'rejected');
   assert.equal(node.node_state.reason, task.end_reason);
   assert.deepEqual(node.shots, before.shots);
   assert.equal(node.node_state.dependency_hash, before.node_state.dependency_hash);
   const steps = snapshot.steps.filter(s => s.task_id === taskId);
-  assert.equal(steps.filter(s => s.step_status === 'rejected').length, 3);
+  assert.equal(steps.filter(s => s.step_status === 'rejected').length, 2);
   assert.equal(Object.hasOwn(steps.find(s => s.kind === 'generate').result.shots[0], 'audio_arrangement'), false);
   assert.ok(steps.every(s => s.step_status !== 'failed'));
 });
@@ -110,10 +112,10 @@ test('镜头表锚点重复body进入原轮次修订，保留错误候选及字�
   assert.match(revise.messages.at(-1).content,/reference_anchor.body.*未定义字段/);
   assert.equal(Object.hasOwn(snapshot.project.episodes[0].shot_list.shots[0].reference_anchor,'body'),false);
 });
-test('镜头表嵌套错误耗尽两次修订，不覆盖旧正文及hash', async () => {
+test('镜头表嵌套错误重复不变提前结束，不覆盖旧正文及hash', async () => {
   const {snapshot,taskId,count,before} = await scenario({unknownRounds:Infinity});
   const task=snapshot.tasks.find(t=>t.id===taskId),node=snapshot.project.episodes[0].shot_list;
-  assert.equal(task.task_status,'rejected'); assert.equal(count,3);
+  assert.equal(task.task_status,'rejected'); assert.equal(count,2); assert.match(task.end_reason,/修订无进展/);
   assert.deepEqual(node.shots,before.shots);
   assert.equal(node.node_state.dependency_hash,before.node_state.dependency_hash);
   assert.ok(snapshot.steps.every(s=>s.step_status!=='failed'));
@@ -130,7 +132,7 @@ for (const businessError of ['unknown', 'duplicate', 'costume', 'duplicate-shot'
     const { snapshot, taskId, calls, count, before } = await scenario({ businessError, businessRounds });
     const task = snapshot.tasks.find(t => t.id === taskId);
     assert.equal(task.task_status, businessRounds === 1 ? 'completed' : 'rejected', task.end_reason);
-    assert.equal(count, businessRounds === 1 ? 2 : 3);
+    assert.equal(count, 2);
     assert.ok(snapshot.steps.every(s => s.step_status !== 'failed'));
     const review = snapshot.steps.find(s => s.step_status === 'rejected');
     assert.match(review.error_reason, businessError.endsWith('-shot') ? /镜头ID/ : businessError === 'costume' ? /costume_id/ : /on_screen_characters/);

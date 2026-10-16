@@ -371,7 +371,7 @@ for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucc
     await service.idle(project.id);
     const snapshot = model.read(), task = snapshot.tasks.find(item => item.id === result.task_id);
     assert.equal(task.task_status, repairSucceeds ? "completed" : "rejected", task.end_reason);
-    assert.equal(generations, repairSucceeds ? 2 : 3);
+    assert.equal(generations, 2);
     const rejected = snapshot.steps.filter(item => item.task_id === task.id && item.step_status === "rejected");
     assert.ok(rejected.every(item => item.name.includes("程序审核") && item.error_reason.includes("遗漏")));
     assert.match(prompts[1], /P005/);

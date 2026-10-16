@@ -109,7 +109,7 @@ export function assertProgramReview(project, business, targetId) {
       invalid("每秒分镜", `节拍总时长 ${end} 秒需等于本镜参考 ${object.duration_seconds} 秒`);
   }
   if (business === 'storyboard') assertPromptDialogue(object.seconds_storyboard,
-    [node.integrated_multimodal_description, node.overall_soundscape, node.non_diegetic_music].join('\n'));
+    node.integrated_multimodal_description);
   if (business === 'video') {
     const actual = object.actual_duration_seconds;
     if (actual < 4 || actual > 15 || Math.abs(actual - object.duration_seconds) > 5 + 1e-9)

@@ -8,7 +8,7 @@ const sources = {
 export function reviewPolicy(node, action, route, contract) {
   if (action !== 'review' || contract.output?.structure?.是否通过 !== true) return { route, contract };
   const allowed = sources[node] || [];
-  const rule = `拒绝时优先附加问题数组，一次列出本轮仍存在的问题；每项为修复范围（本节点或上游）、来源、位置、依据、建议。来源只能为本节点或${allowed.join('、') || '本节点'}。候选遗漏/写错属于本节点；只有输入事实本身矛盾或缺少执行必需资料且本节点不能合法修复时才标上游。依据须引用实际原文，不把缺少参考图、个人偏好或候选自身错误标为上游。上游问题应给出来源和具体位置，不能要求下游杜撰修补。对照最新候选核实历史意见；已解决项不重复报。通过时问题为空数组或省略。`;
+  const rule = `拒绝时附加问题数组，一次列出本轮仍存在的问题；每项为修复范围（本节点或上游）、来源、位置、依据、建议。来源只能为本节点或${allowed.join('、') || '本节点'}。候选遗漏/写错属于本节点；只有输入事实本身矛盾或缺少执行必需资料且本节点不能合法修复时才标上游。依据只填输入资料中的一段连续原文，不加自写段号、解释或引号；解释写在建议，不把缺少参考图、个人偏好或候选自身错误标为上游。上游问题应给出来源和具体位置，不能要求下游杜撰修补。对照最新候选核实历史意见；已解决项不重复报。通过时问题为空数组或省略。`;
   const stage = route.promptModel.review;
   const output = { ...contract.output,
     optionalStructure: { 问题: [{ 修复范围: '本节点', 来源: '本节点', 位置: '小段/镜头/节拍位置', 依据: '实际原文', 建议: '最小修复方向' }] },
@@ -21,7 +21,7 @@ export function reviewPolicy(node, action, route, contract) {
     contract: { ...contract, output },
   };
 }
-export function validateReviewIssues(node, value) {
+export function validateReviewIssues(node, value, input) {
   if (!Object.hasOwn(value, '问题')) return;
   if (!Array.isArray(value.问题) || (value.是否通过 && value.问题.length) || (!value.是否通过 && !value.问题.length))
     invalid('响应.问题', '通过时应为空，拒绝时列出具体问题');
@@ -29,6 +29,15 @@ export function validateReviewIssues(node, value) {
     if (!['本节点', '上游'].includes(issue.修复范围)) invalid('响应.问题.修复范围', '仅允许本节点或上游');
     if (!['本节点', ...(sources[node] || [])].includes(issue.来源) || (issue.修复范围 === '上游' && issue.来源 === '本节点'))
       invalid('响应.问题.来源', '需为本节点实际输入来源；上游不得指向本节点');
+    if (issue.修复范围 === '上游') {
+      const source = { 剧本: input.script, 本集剧情: input.plot, 故事大纲: input.segments,
+        镜头表: input.shot || input.storyboard?.shot_setup, 前镜交接: input.previous,
+        节拍分镜: input.storyboard, 角色资料: input.characters }[issue.来源];
+      if (source == null) invalid('响应.问题.来源', '本次没有提供该上游资料，不能虚构上游阻断');
+      const leaves = value => typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(leaves) : [];
+      const { content, opinion, requirements, language, ...upstream } = input;
+      if (!leaves(upstream).some(text => text.includes(issue.依据))) invalid('响应.问题.依据', '需引用本次真实上游资料中的原文');
+    }
     for (const key of ['位置', '依据', '建议']) if (!issue[key].trim()) invalid(`响应.问题.${key}`, '需明确具体内容');
   }
 }

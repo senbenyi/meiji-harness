@@ -23,6 +23,7 @@ export function resolveShotPatch(value, input, shape, action) {
     }
     return { shots: merged };
   }
+  if (value?.mode === 'replace') assertFields(value, ['mode', 'shots'], '全表修订');
   if (value?.mode !== undefined && value.mode !== 'replace') invalid('响应.mode', '仅允许patch或replace');
   if (Array.isArray(base) && Array.isArray(value?.shots) && value.mode !== 'replace') {
     const oldIds = base.map(row => row.id), nextIds = value.shots.map(row => row.id);

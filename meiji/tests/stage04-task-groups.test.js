@@ -171,7 +171,8 @@ test("继续只给停点任务带拒绝原因，组不保存意见或来源组",
     const before = model.read();
     const continued = await service.command({ type: "continue-group", project_id: p.id, request_id: "resume", group_id: first.group_id });
     const current = model.read(), tasks = current.tasks.filter(t => t.group_id === continued.group_id), nextGroup = current.groups.find(g => g.id === continued.group_id);
-    assert.equal(tasks[0].opinion, "停点审核拒绝");
+    assert.equal(tasks[0].opinion, before.tasks.find(t => t.end_reason.includes("停点审核拒绝")).end_reason);
+    assert.match(tasks[0].opinion, /停点审核拒绝/);
     assert.equal(tasks[1].opinion, "");
     assert.deepEqual(tasks.map(t => t.group_seq), [1,2]);
     assert.equal("opinion" in nextGroup, false);

@@ -26,7 +26,7 @@ async function runScenario({ repairDurations, invalidShape = false, episodeDurat
     prompts.push({ step, prompt });
     const durations = repairDurations[generationCount++] || [15, 5];
     if (invalidShape) return { shots: [], invalid: true };
-    return { shots: durations.map((duration_seconds, index) => ({
+    return { ...(step.kind === "revise" ? { mode: "replace" } : {}), shots: durations.map((duration_seconds, index) => ({
       title: "测试镜头", id: "", duration_seconds,
       shot_scale: "中景", hook: "", body: index === 0 ? "超限候选事件标记" : "测试收尾", continuity_transition: "",
       reference_anchor: { fixed_landmark: "", character_positions: "", departed_characters: "", lighting: "" },
@@ -72,9 +72,9 @@ for (const durations of [[[16, 4], [17, 4], [18, 4]], [[10, 10], [11, 10], [12, 
     assert.equal(snapshot.steps.filter(step => step.task_id === taskId && step.step_status === "rejected").length, 3);
   });
 
-test("响应结构错误进入修订，耗尽后未通过", async () => {
+test("响应结构错误重复不变提前停止修订", async () => {
   const { snapshot, taskId, generationCount } = await runScenario({ repairDurations: [[15, 5]], invalidShape: true });
   assert.equal(snapshot.tasks.find(task => task.id === taskId).task_status, "rejected");
-  assert.equal(generationCount, 3);
-  assert.equal(snapshot.steps.filter(step => step.task_id === taskId && step.kind === "revise").length, 2);
+  assert.equal(generationCount, 2);
+  assert.equal(snapshot.steps.filter(step => step.task_id === taskId && step.kind === "revise").length, 1);
 });

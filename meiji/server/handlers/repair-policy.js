@@ -1,5 +1,5 @@
 import { locateTarget } from '../../shared/task_contract.js';
-const canonical = value => JSON.stringify(value, (_, v) => v && typeof v === 'object' && !Array.isArray(v)
+const canonical = value => JSON.stringify(value?.mode === 'replace' && Array.isArray(value.shots) ? Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'mode')) : value, (_, v) => v && typeof v === 'object' && !Array.isArray(v)
   ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v);
 
 export function upstreamFailure(project, task, review) {

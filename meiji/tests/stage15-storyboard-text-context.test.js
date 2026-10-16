@@ -8,7 +8,7 @@ import { dependencyHash } from '../shared/node-dependencies.js';
 import { snapshotFixture, taskFixture } from './fixtures/project.js';
 import { config } from './fixtures/ai.js';
 
-const resultText = 'integrated_multimodal_description:\n黑暗火场中，一只戴消防手套的手推门。\n\noverall_soundscape:\n警报持续。\n\nnon_diegetic_music:\nN/A';
+const resultText = 'integrated_multimodal_description:\n黑暗火场中，一只戴消防手套的手推门，画外队长说出<d>保持联系。</d>。\n\noverall_soundscape:\n警报持续。\n\nnon_diegetic_music:\nN/A';
 function fixture() {
   const snapshot = snapshotFixture(), shot = snapshot.project.episodes[0].shot_list.shots[0];
   const person = (name, number) => emptyCharacterModel({ name, number, nationality: `${name}国籍哨兵`, height: `${name}身高哨兵`, facial_features: `${name}面部哨兵`, voice: `${name}声线哨兵`,

@@ -1,4 +1,4 @@
-import { reviewPolicy, validateReviewIssues } from '../prompts/review-policy.js';
+import { validateReviewIssues } from '../prompts/review-policy.js';
 import { parseSections } from '../prompts/parse-sections.js';
 import { decodeImageData } from '../media/decode-image-data.js';
 import { nodeRoutes } from './nodes/index.js';
@@ -20,7 +20,7 @@ export function nodeAction(node, action) {
   const route = Object.hasOwn(nodeRoutes, node) && nodeRoutes[node];
   const contract = route && Object.hasOwn(route.actions, action) && route.actions[action];
   if (!contract) throw Object.assign(new Error('AI 节点或动作不存在'), { status: 404 });
-  return reviewPolicy(node, action, route, contract);
+  return { route, contract };
 }
 
 export function validateInput(input, schema) {
@@ -51,7 +51,7 @@ export function validateNodeResult(node, action, value, input) {
   }
   else if (typeof value !== 'string' || !value.trim()) invalid('响应', '需为非空文本');
   if (contract.output.sections) parseSections(value, contract.output.sections);
-  if (action === 'review' && contract.output.structure?.是否通过 === true) validateReviewIssues(node, value);
+  if (action === 'review' && contract.output.structure?.是否通过 === true) validateReviewIssues(node, value, input);
   if (action === 'review' && (value.是否通过 ? value.原因 !== '' : !value.原因.trim())) invalid('响应.原因', '通过时应为空，不通过时需说明原因');
   route.validateResult?.(value, input, action);
   return value;
