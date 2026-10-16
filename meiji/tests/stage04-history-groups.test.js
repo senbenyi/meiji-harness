@@ -87,7 +87,7 @@ test('提取不派生图片，逐套定妆照中途失败后继续新组并保�
 
 test('逐套组与已有定妆照任务冲突时整组拒绝，旧角色图命令拒绝',()=>fixture(async({p,repository,model})=>{
  const {emptyCharacterModel}=await import('../shared/models/character_model.js');
- const character=emptyCharacterModel({number:'C01',name:'武松'});
+ const character=emptyCharacterModel({name:'武松'});
  await model.update('role',{},s=>{s.project.character_library.characters=[character];});
  const service=new TaskService({repository,commitOutput:commitContent,execute:async()=>{throw Error('不应执行');}});
  try{

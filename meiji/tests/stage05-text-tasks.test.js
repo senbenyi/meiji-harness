@@ -45,14 +45,16 @@ test("角色生成与修订执行器要求性别，拒绝遗漏或空白并保�
         const output = await run();
         assert.match(output.validationFailure, /gender.*缺少字段/);
         assert.equal(output.content, null);
-      } else if (!gender.trim()) await assert.rejects(run, /gender/);
+      } else if (!gender.trim()) {
+        assert.match((await run()).validationFailure, /gender/);
+      }
       else assert.equal((await run()).content.characters.at(-1).gender, gender);
     }
   }
 });
 function output(p, business) {
   const episode = p.episodes[0], shot = episode.shot_list.shots[0];
-  const fields = ["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"];
+  const fields = ["title", "id", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement", "on_screen_characters", "background_characters"];
   return {
     "project-summary": "新项目摘要",
     "project-characters": { characters: [] },
@@ -87,7 +89,7 @@ for (const business of cases)
                 原因: ending === "rejected" ? "未落实剧情" : "",
               };
             if (task.business_type === business) generated++;
-            if (ending === "failed") return { 非法: "字段" };
+            if (ending === "failed") throw new Error("HTTP 503 网络接口异常");
             return output(p, task.business_type);
           },
         });
@@ -254,7 +256,7 @@ for (const change of ["character", "costume"])
 
 test("首次生成和重新提取使用同一提示词，且不提交已有角色库", async () => {
   const project = projectFixture();
-  const character = emptyCharacterModel({ number: "C01", name: "库内独有姓名甲", gender: "男", era: "宋代" });
+  const character = emptyCharacterModel({ name: "库内独有姓名甲", gender: "男", era: "宋代" });
   project.character_library.characters = [character];
   project.script.body = "剧本只写了另一人。";
   const snapshot = { project, tasks: [], steps: [] };

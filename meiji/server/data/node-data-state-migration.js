@@ -33,6 +33,6 @@ export function migrateNodeDataStates(snapshot) {
     apply('costume-image',image.costume_id||c.id,image);
   for(const e of project.episodes){
     for(const [b,key] of [['episode-summary','summary'],['outline','story_outline'],['shots','shot_list'],['assembly','assembly']])apply(b,e.id,e[key]);
-    for(const shot of e.shot_list.shots) for(const [b,key] of [['shot-characters','character_binding'],['seconds','seconds_storyboard'],['storyboard','text_to_video_prompt'],['first-last-frame','first_last_frame_prompt'],['multimodal','multimodal_prompt'],['video','video'],['tail','last_frame']])apply(b,shot.id,shot[key]);
+    for(const shot of e.shot_list.shots) for(const [b,key] of [['seconds','seconds_storyboard'],['storyboard','text_to_video_prompt'],['first-last-frame','first_last_frame_prompt'],['multimodal','multimodal_prompt'],['video','video'],['tail','last_frame']])apply(b,shot.id,shot[key]);
   }
 }

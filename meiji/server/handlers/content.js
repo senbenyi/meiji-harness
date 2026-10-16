@@ -16,7 +16,7 @@ export function aiProjection(value) {
   const walk = (item) => Array.isArray(item) ? item.map(walk) : item && typeof item === "object"
     ? Object.fromEntries(Object.entries(item).flatMap(([key, data]) => {
         if (["id", "node_state", "address", "reference_image", "revision_history", "new_ids", "removed_ids"].includes(key)) return [];
-        if (key === "speaker_id") return [[key, ""]];
+        if (key === "speaker_id") return [[key, data]];
         if (key.endsWith("_id")) return [];
 
         return [[key, walk(data)]];
@@ -31,14 +31,7 @@ export function prepareContent(snapshot, task, raw) {
   let content;
   if (business === "project-characters") {
     content = { ...mergeCharacters(project, raw.characters), changes: structuredClone(raw.characters) };
-  } else if (business === "shot-characters") {
-    content = { has_result: true, on_screen_characters: raw.on_screen_characters.map(row => {
-      const person = project.character_library.characters.find(person => person.number === row.character_number);
-      if (!person) invalid("镜头角色识别", "未知角色编号");
-      const costume = person.costumes.find(costume => costume.number === row.costume_number);
-      if (row.costume_number && !costume || person.costumes.length && !costume) invalid("镜头角色识别", "需指定该人物的有效服装编号");
-      return { character_id: person.id, costume_id: costume?.id || '' };
-    }) };  } else if (business === "script-review") {
+  } else if (business === "script-review") {
     // 按审核意见改写后的完整剧本。
     if (typeof raw !== "string" || !raw.trim()) invalid("剧本", "修改后的剧本为空");
     content = { body: raw.trim() };
@@ -54,10 +47,8 @@ export function prepareContent(snapshot, task, raw) {
     if (business === "seconds")
       for (const beat of content.storyboard)
         for (const line of beat.dialogue) {
-          const character = project.character_library.characters.find(c => c.name === line.speaker_name);
           if (line.speaker_id && !project.character_library.characters.some(c => c.id === line.speaker_id))
             invalid("speaker_id", "未知角色");
-          line.speaker_id = character?.id || line.speaker_id;
         }
   }
   // 这里只检验可保存结构。业务审核单独执行，失败候选仍能进入修订和最终未通过态。

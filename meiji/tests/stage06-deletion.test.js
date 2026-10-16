@@ -27,7 +27,7 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
       e = p.episodes[0],
       shot = e.shot_list.shots[0];
     c.default_costume_id = c.costumes[0].id;
-    shot.character_binding.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
+    shot.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
     const repo = new ModelRepository(root),
       model = await repo.create(p);
     let refs = [];
@@ -55,24 +55,24 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
       await service.idle(p.id);
       return model.read().tasks.find((t) => t.id === result.task_id);
     };
-    assert.equal((await del("character-delete", c.id)).task_status, "failed");
+    assert.equal((await del("character-delete", c.id)).task_status, "rejected");
     assert.equal(
       (await del("costume-delete", c.default_costume_id)).task_status,
-      "failed",
+      "rejected",
     );
     refs = [co.id];
-    assert.equal((await del("costume-delete", co.id)).task_status, "failed");
+    assert.equal((await del("costume-delete", co.id)).task_status, "rejected");
     refs = [];
     assert.equal((await del("costume-delete", co.id)).task_status, "completed");
     const next = model.read();
     assert.equal(next.project.character_library.characters[0].costumes.length, 1);
     assert.equal(
-      next.project.episodes[0].shot_list.shots[0].character_binding.on_screen_characters[0].costume_id,
+      next.project.episodes[0].shot_list.shots[0].on_screen_characters[0].costume_id,
       c.default_costume_id,
     );
     assert.equal(next.project.episodes[0].shot_list.shots[0].video.node_state.status, "expired");
     assert.equal(next.project.episodes[0].shot_list.shots[0].video.address, shot.video.address);
-    assert.ok(next.tasks.slice(0, 3).every((t) => t.task_status === "failed"));
+    assert.ok(next.tasks.slice(0, 3).every((t) => t.task_status === "rejected"));
   } finally {
     await service?.dispose();
     await rm(root, { recursive: true, force: true });

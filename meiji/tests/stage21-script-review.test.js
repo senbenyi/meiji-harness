@@ -75,7 +75,7 @@ test("审核未通过：剧本节点未通过、原因为修改意见，审核�
     assert.equal(s.project.script.body, script);
     for (const business of ["script-split", "project-characters"]) {
       const blocked = await run(runtime, opened, { business_type: business });
-      assert.equal(blocked.task_status, "failed");
+      assert.equal(blocked.task_status, "rejected");
       assert.match(blocked.end_reason, /剧本审核未通过.*连夜上冈.*按审核意见修改，或人工放行/);
     }
     assert.equal(calls.length, 1, "被拦截的任务不调用模型");
@@ -183,8 +183,8 @@ test("v15→v18：旧项目补剧本节点状态；v16 独立 script_review 并�
     }
     await repo.close();
     db = new DatabaseSync(join(root, "meiji.sqlite"));
-    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 18);
-    assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18]);
+    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 20);
+    assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20]);
     db.close();
   } finally { await rm(root, { recursive: true, force: true }); }
 });

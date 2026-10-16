@@ -102,12 +102,11 @@ test("S3-05 图片变化只使实际使用该参考图的视频过期（基于�
   p.character_library.characters = [
     emptyCharacterModel({
       id,
-      number: "C01",
       costume_images: [{ costume_id: "", ...{ node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "c.png" } }],
       costumes: [],
     }),
   ];
-  s.character_binding.on_screen_characters = [{ character_id: id, costume_id: "" }];
+  s.on_screen_characters = [{ character_id: id, costume_id: "" }];
   const t = taskFixture(p, "video", s.id, { task_status: "completed" });
   snapshot.tasks = [t];
   snapshot.steps = [
@@ -168,7 +167,6 @@ test("声音不改变角色图片指纹，不可改特征变化使图片和引�
   project.character_library.characters = [
     emptyCharacterModel({
       id,
-      number: "C01",
       name: "甲",
       nationality: "",
       position: "",
@@ -218,7 +216,7 @@ test("首套服装变化使后续定妆照过期，次套变化不影响首套",
   const snapshot = snapshotFixture(), character = emptyCharacterModel({ name: "甲", body_type: "强壮", position: "主角", age_range: "青年", reference_image: { address: "reference.png" } });
   character.costume_images[0].address = "character.png";
   character.costume_images[0].node_state.status = "generated";
-  character.costumes = ["常服", "夜行服"].map((name, index) => ({ id: createId("costume"), number: `C01-0${index+1}`, name, color: "黑", material: "布", props: [], description: "" }));
+  character.costumes = ["常服", "夜行服"].map((name, index) => ({ id: createId("costume"), name, color: "黑", material: "布", props: [], description: "" }));
   character.costume_images = character.costumes.map(costume => ({ costume_id: costume.id, address: `${costume.id}.png`, node_state: { status: "generated", reason: "", dependency_hash: "" } }));
   snapshot.project.character_library.characters = [character];
   stampDependencyHash(snapshot, "character-image", character.id);
@@ -320,8 +318,8 @@ for (const [field, value] of [
 function withCharacter() {
   const snapshot = snapshotFixture();
   snapshot.project.character_library.characters = [emptyCharacterModel({
-    number: "C01", name: "甲", body_type: "瘦削", position: "主角",
-    costumes: [emptyCostumeModel({ number: "C01-01", name: "常服", color: "黑" })],
+    name: "甲", body_type: "瘦削", position: "主角",
+    costumes: [emptyCostumeModel({ name: "常服", color: "黑" })],
   })];
   stampGenerated(snapshot);
   return snapshot;
@@ -404,13 +402,13 @@ test("删除或重排镜头保留剩余身份并使合片及新的前镜引用�
     const snapshot = snapshotFixture(), e = snapshot.project.episodes[0];
     stampGenerated(snapshot);
     const oldSecond = e.shot_list.shots[1], oldVideo = oldSecond.video.address;
-    const fields = ["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"];
+    const fields = ["title", "id", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement", "on_screen_characters", "background_characters"];
     let rows = e.shot_list.shots.map(shot => Object.fromEntries(fields.map(field => [field, structuredClone(shot[field])])));
     rows = remove ? rows.slice(1) : rows.reverse();
     e.shot_list.shots = replaceShots(snapshot.project, e.id, rows).shots;
     expireDownstream(snapshot, "shots", e.id);
     const retained = e.shot_list.shots.find(shot => shot.id === oldSecond.id);
-    assert.equal(retained.seconds_storyboard.node_state.status, "generated");
+    assert.equal(retained.seconds_storyboard.node_state.status, "expired");
     assert.equal(retained.video.node_state.status, "expired");
     assert.equal(retained.video.address, oldVideo);
     assert.equal(e.assembly.node_state.status, "expired");

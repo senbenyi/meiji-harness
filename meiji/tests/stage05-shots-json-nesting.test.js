@@ -17,6 +17,7 @@ test('两个文本来源生成修订均明确锚点闭合顺序，与输出契�
 
 test('正确完整嵌套及字符串转义可解析，提前闭合错误不被静默修补', () => {
   const content = structuredClone(shots.actions.generate.output.structure);
+  content.shots[0].on_screen_characters = [];
   content.shots[0].body = '他说："保持联系"。\n门边有\\标记。';
   const raw = JSON.stringify(content);
   const parsed = parseJsonValue(raw);

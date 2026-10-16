@@ -60,7 +60,7 @@ test('各AI节点可在运行时进入三栏规则并返回原位置，程序节
       ['overview', {}, ['script-review', 'project-summary', 'project-characters']],
       ['episode', { episode_id: e.id, shot_id: null, tab: 'script' }, ['outline', 'episode-summary']],
       ['episode', { episode_id: e.id, shot_id: null, tab: 'shots' }, ['shots']],
-      ['episode', { episode_id: e.id, shot_id: shot.id, tab: 'film' }, ['shot-characters', 'seconds', 'storyboard', 'video']],
+      ['episode', { episode_id: e.id, shot_id: shot.id, tab: 'film' }, ['seconds', 'storyboard', 'video']],
       ['character', { character_id: person.id, costume_id: '' }, ['costume-image']],
     ];
     for (const [page, fields, businesses] of cases) for (const business of businesses) {
@@ -91,7 +91,7 @@ test('各AI节点可在运行时进入三栏规则并返回原位置，程序节
     view.page = 'overview'; context.paint();
     const split = [...root.querySelectorAll('.episode-node-ui button, .node-ui button')].find(b => b.textContent === '查看规则' && !b.closest('[data-business]'));
     assert.ok(split); split.click(); await settle(); assert.equal(view.rule_business, 'script-split');
-    assert.equal(requests, 12);
+    assert.equal(requests, 11);
   } finally { globalThis.document = previous.document; globalThis.fetch = previous.fetch; dom.window.close(); }
 });
 

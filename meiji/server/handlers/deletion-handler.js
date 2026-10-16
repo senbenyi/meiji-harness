@@ -8,9 +8,14 @@ export function applyDelete(snapshot, task) {
   else {
     for (const e of p.episodes)
       for (const s of e.shot_list.shots)
-        for (const r of s.character_binding.on_screen_characters)
+        for (const r of s.on_screen_characters)
           if (r.costume_id === object.id) {
             r.costume_id = character.default_costume_id;
+            if (e.shot_list.node_state.status === "generated") {
+              e.shot_list.node_state.status = "expired";
+              e.shot_list.node_state.reason = "引用服装已删除，请确认镜头表出镜服装";
+            }
+            expireDownstream(snapshot, "shots", e.id, "引用服装已删除");
             const node = nodeOf(p, "video", s.id);
             if (node.node_state.status === "generated") {
               node.node_state.status = "expired";

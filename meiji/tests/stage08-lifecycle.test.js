@@ -39,8 +39,8 @@ test("重启仅排队组合：全组取消并保留统一原因，节点和媒�
     const beforeProject = model.read().project;
     let executed = 0;
     const service = new TaskService({ repository, commitOutput: commitContent, execute: async () => { executed++; throw new Error("旧组合不应执行"); } });
-    await seedQueuedTasks(model, p.episodes[0].shot_list.shots.flatMap(shot => ['shot-characters','seconds','storyboard','video'].map(b => [b,shot.id])));
-    assert.equal(model.read().tasks.length, 8);
+    await seedQueuedTasks(model, p.episodes[0].shot_list.shots.flatMap(shot => ['seconds','storyboard','video'].map(b => [b,shot.id])));
+    assert.equal(model.read().tasks.length, 6);
     const restored = await new ModelRepository(root).open(p.id);
     await service.recover(restored);
     const s = restored.read();

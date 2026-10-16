@@ -32,7 +32,7 @@ const output0 = {
       }
     ]
   },
-  "requirements": "1. 只返回上述JSON结构；依据完整剧本返回应保留的全部重要角色，不要返回空数组表示沿用旧资料。没有明确服装时 costumes 为 []。\n2. 角色及服装字段严格遵守上述源结构；不在返回中生成ID、编号、图片地址或额外字段，由程序保留、分配并维护。\n3. 不附解释或Markdown代码围栏。\n4. signature_props、immutable_traits、costumes[].props 必须为字符串数组，每项一条；没有内容时返回 []。禁止将这些字段返回为字符串、对象或 null。其余人物和服装资料字段按结构返回字符串。"
+  "requirements": "1. 只返回上述JSON结构；依据完整剧本返回应保留的全部重要角色，不要返回空数组表示沿用旧资料。没有明确服装时 costumes 为 []。\n2. 角色及服装字段严格遵守上述源结构；本提取步骤只返回资料，不生成ID、number、图片地址或额外字段；程序首次保存时为角色和服装各分配唯一ID，后续识别与成片原样引用该ID，不另设编号。\n3. 不附解释或Markdown代码围栏。\n4. signature_props、immutable_traits、costumes[].props 必须为字符串数组，每项一条；没有内容时返回 []。禁止将这些字段返回为字符串、对象或 null。其余人物和服装资料字段按结构返回字符串。"
 };
 
 const output1 = {

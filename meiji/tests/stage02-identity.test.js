@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { mergeCharacters, replaceShots } from "../shared/collection-identity.js";
 import { emptyProject, emptyEpisode, emptyShot } from "../shared/project_contract.js";
 const character = (name = "甲", costumes = [{ name: "常服", color: "蓝", material: "布", props: [] }]) => ({ name, gender: "男", era: "宋代", position: "主角", age_range: "三十来岁", body_type: "高大", hairstyle: "束发", signature_props: [], immutable_traits: [], costumes });
-const shot = (number = "S01") => {
-  const value = emptyShot({ number, title: "镜头", body: "剧情", duration_seconds: 5 });
-  return Object.fromEntries(["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"].map(key => [key, value[key]]));
+const shot = (id = "") => {
+  const value = emptyShot({ id, title: "镜头", body: "剧情", duration_seconds: 5 });
+  return Object.fromEntries(["title", "id", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement", "on_screen_characters", "background_characters"].map(key => [key, value[key]]));
 };
 
 test("角色提取性别必填，更新性别保留已有身份与图片", () => {
@@ -39,7 +39,7 @@ test("角色提取年代必填，有效年代保存且保留角色身份", () =>
   assert.equal(updated.id, p.character_library.characters[0].id);
 });
 
-test("S2-07 姓名增量合并保留 ID、编号、资源与未参与输出的资料", () => {
+test("S2-07 姓名增量合并保留 ID、资源与未参与输出的资料", () => {
   const p = emptyProject();
   p.character_library.characters = mergeCharacters(p, [character()]).characters;
   const first = p.character_library.characters[0];
@@ -56,7 +56,7 @@ test("S2-07 姓名增量合并保留 ID、编号、资源与未参与输出的�
   assert.deepEqual(mergeCharacters(p, []).characters, merged.characters);
   const before = structuredClone(p);
   assert.throws(() => mergeCharacters(p, [character(), character()]), /重复/);
-  assert.throws(() => mergeCharacters(p, [{ ...character(), number: "C99" }]), /字段/);
+  assert.throws(() => mergeCharacters(p, [{ ...character(), number: "C01" }]), /字段/);
   assert.deepEqual(p, before);
 });
 
@@ -76,10 +76,26 @@ test("S2-07 镜头重生成保留身份与资源，移除受占用镜头", () =>
   e.shot_list.shots = replaceShots(p, e.id, [shot()]).shots;
   const id = e.shot_list.shots[0].id;
   e.shot_list.shots[0].video.address = "keep.mp4";
-  const replaced = replaceShots(p, e.id, [shot(), shot("S02")]);
+  const replaced = replaceShots(p, e.id, [shot(id), shot()]);
   assert.equal(replaced.shots[0].id, id);
   assert.equal(replaced.shots[0].video.address, "keep.mp4");
   assert.notEqual(replaced.shots[1].id, id);
   assert.throws(() => replaceShots(p, e.id, [], [{ target_id: id, task_status: "running" }]), /未结束/);
   assert.deepEqual(replaceShots(p, e.id, [], [{ target_id: id, task_status: "completed" }]).removed_ids, [id]);
+});
+
+
+test('镜头编号按播放顺序生成，按内部ID重排保留资源，新增不复用身份', () => {
+  const p = emptyProject(), e = emptyEpisode(); p.episodes = [e];
+  e.shot_list.shots = replaceShots(p, e.id, [shot(), shot()]).shots;
+  const [a,b] = e.shot_list.shots;
+  a.video.address = 'a.mp4'; b.video.address = 'b.mp4';
+  const result = replaceShots(p, e.id, [shot(b.id), shot(), shot(a.id)]);
+  assert.deepEqual(result.shots.map(s => s.number), ['S01','S02','S03']);
+  assert.deepEqual([result.shots[0].id,result.shots[2].id], [b.id,a.id]);
+  assert.deepEqual([result.shots[0].video.address,result.shots[2].video.address], ['b.mp4','a.mp4']);
+  assert.ok(![a.id,b.id].includes(result.shots[1].id));
+  assert.throws(() => replaceShots(p,e.id,[shot(a.id),shot(a.id)]), /重复镜头ID/);
+  assert.throws(() => replaceShots(p,e.id,[shot('s_unknown')]), /未知或重复镜头ID/);
+  assert.throws(() => replaceShots(p,e.id,[{...shot(),number:'S01'}]), /字段/);
 });

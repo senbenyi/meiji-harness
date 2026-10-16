@@ -128,5 +128,5 @@ test('定妆照全量完成后补齐不重复请求，首套过期则连同后�
 
 for(const kind of ['script-split','project-characters','costume-image']) test(`${kind} 前置资料空缺失败，不调用模型`,()=>scenario(async x=>{
  await x.model.update('empty-input',{},s=>{if(kind==='costume-image'){const c=s.project.character_library.characters[0];for(const key of ['name','gender','era','position','age_range','body_type','hairstyle'])c[key]='';}else s.project.script.body='';});
- await x.service.command(x.command(kind));await x.service.idle(x.project.id);assert.equal(x.calls,0);assert.equal(x.model.read().tasks[0].task_status,'failed');assert.equal(x.model.read().steps[0].kind,'precheck');assert.equal(x.model.read().steps[0].step_status,'failed');
+ await x.service.command(x.command(kind));await x.service.idle(x.project.id);assert.equal(x.calls,0);assert.equal(x.model.read().tasks[0].task_status,'rejected');assert.equal(x.model.read().steps[0].kind,'precheck');assert.equal(x.model.read().steps[0].step_status,'rejected');
 }));

@@ -60,7 +60,7 @@ test("视频写回立即累计剧集实测时长；整集导入不覆盖，删�
     assert.equal(model.read().project.episodes[0].actual_duration_seconds, 11.3);
     assert.equal(model.read().steps.at(-1).result.actual_duration_seconds, 99);
     const shot = model.read().project.episodes[0].shot_list.shots[1];
-    const fields = ["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"];
+    const fields = ["title", "id", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement", "on_screen_characters", "background_characters"];
     await service.command({ type: "manual-edit", project_id: project.id, request_id: "remove-shot", business_type: "shots", target_id: episode.id, content: { shots: [Object.fromEntries(fields.map(key => [key, shot[key]]))] } });
     await service.idle(project.id);
     const after = model.read();

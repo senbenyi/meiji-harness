@@ -83,7 +83,7 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
         if (contract.output.type === 'JSON' && typeof result === 'string') result = parseJsonValue(result);
         try { validateNodeResult(node, action, result, input); }
         catch (error) {
-          if (contract.output.type === 'JSON' && action !== 'review' && error.validationKind === 'missing-field')
+          if (contract.output.type === 'JSON' && action !== 'review' && error.code === 'INVALID_CONTRACT')
             Object.assign(error, { candidate: structuredClone(result), prompt });
           throw error;
         }

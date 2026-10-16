@@ -46,7 +46,7 @@ async function fixture(run, options = {}) {
       stampDependencyHash(snapshot,'project-characters',p.id);
       stampDependencyHash(snapshot,'costume-image',person.id);
       stampDependencyHash(snapshot,'shots',episode.id);
-      for(const shot of episode.shot_list.shots) for(const b of ['shot-characters','seconds','storyboard','first-last-frame','multimodal','video','tail']) stampDependencyHash(snapshot,b,shot.id);
+      for(const shot of episode.shot_list.shots) for(const b of ['seconds','storyboard','first-last-frame','multimodal','video','tail']) stampDependencyHash(snapshot,b,shot.id);
     }
     stamp();
     await options.setup?.({ p, episode, person, image, stamp });
@@ -79,7 +79,7 @@ for (const mode of ['文生','首尾帧','多模态']) test(`真实视频链 ${m
   if(mode==='多模态') assert.equal(calls[0].referenceImages.length,1);
 }, { setup:({episode,person,stamp})=>{
   if(mode==='多模态') {
-    episode.shot_list.shots[1].character_binding.on_screen_characters=[{character_id:person.id,costume_id:''}];
+    episode.shot_list.shots[1].on_screen_characters=[{character_id:person.id,costume_id:''}];
     // 多模态后镜不依赖前镜尾帧，即使该尾帧失效也应成功。
     episode.shot_list.shots[0].last_frame.node_state.status='expired'; episode.shot_list.shots[0].last_frame.node_state.reason='缺尾帧';
   }
@@ -91,18 +91,18 @@ test('有角色缺图阻断视频；改为无人后继续重新判型，不复�
   const target=episode.shot_list.shots[0];
   const task=await submit(target);
   assert.equal(task.task_status,'cancelled');assert.equal(calls.length,0);
-  const failed=model.read().tasks.find(t=>t.task_status==='failed');assert.equal(failed.business_type,'multimodal');assert.match(failed.end_reason,/costume-image/);
+  const failed=model.read().tasks.find(t=>t.task_status==='rejected');assert.equal(failed.business_type,'multimodal');assert.match(failed.end_reason,/costume-image/);
   const old=model.read().tasks;
   await model.update('change-binding',{},s=>{
-    const shot=s.project.episodes[0].shot_list.shots[0];shot.character_binding.on_screen_characters=[];
-    stampDependencyHash(s,'shot-characters',shot.id);stampDependencyHash(s,'seconds',shot.id);stampDependencyHash(s,'storyboard',shot.id);
+    const shot=s.project.episodes[0].shot_list.shots[0];shot.on_screen_characters=[];
+    stampDependencyHash(s,shot.id);stampDependencyHash(s,'seconds',shot.id);stampDependencyHash(s,'storyboard',shot.id);
   });
   const group=await runtime.tasks.command({type:'continue-group',project_id:p.id,request_id:'resume-new-type',group_id:task.group_id});
   await runtime.tasks.idle(p.id);
   assert.deepEqual(model.read().tasks.filter(t=>t.group_id===group.group_id).map(t=>[t.business_type,t.task_status]),[['video','completed']]);
   assert.deepEqual(model.read().tasks.filter(t=>old.some(o=>o.id===t.id)),old);assert.equal(calls[0].mode,'text');
 },{setup:({episode,person,stamp})=>{
-  episode.shot_list.shots[0].character_binding.on_screen_characters=[{character_id:person.id,costume_id:''}];
+  episode.shot_list.shots[0].on_screen_characters=[{character_id:person.id,costume_id:''}];
   person.costume_images[0].node_state.status='empty';person.costume_images[0].address='';stamp();
 }}));
 
@@ -159,20 +159,18 @@ test('人工导入无需文本节点，同任务校验并保存视频和尾帧',
   await runtime.media.validate(after.project.episodes[0].shot_list.shots[0].last_frame.address,p.id,'image');
 }));
 
-test('排队时尚未识别，不猜文生；识别实际产出角色后插入多模态，组内序号唯一且合片一次',async()=>{
-  let number;
+test('镜头表已指定角色，执行视频前按绑定插入多模态，组内序号唯一且合片一次',async()=>{
   await fixture(async({runtime,p,episode,model,calls})=>{
     const target=episode.shot_list.shots[0];
     const group=await runtime.tasks.command({type:'submit-group',project_id:p.id,request_id:'late-binding',group_type:'episode-film',episode_id:episode.id,shot_id:target.id,action:'generate'});
     await runtime.tasks.idle(p.id);
     const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
-    assert.deepEqual(tasks.filter(t=>t.business_type!=='assembly').map(t=>t.business_type),['shot-characters','seconds','storyboard','multimodal','video']);
+    assert.deepEqual(tasks.filter(t=>t.business_type!=='assembly').map(t=>t.business_type),['seconds','storyboard','multimodal','video']);
     assert.ok(tasks.every(t=>t.task_status==='completed'),tasks.map(t=>t.end_reason).join(';'));
     assert.equal(new Set(tasks.map(t=>t.group_seq)).size,tasks.length);
     assert.equal(calls[0].mode,'reference');assert.ok(tasks.filter(t=>t.business_type==='assembly').length<=1);
-  },{setup:({episode,person})=>{number=person.number;episode.shot_list.shots[0].character_binding.has_result=false;episode.shot_list.shots[0].character_binding.node_state.status='empty';},chat:({task,step})=>{
+  },{setup:({episode,person})=>{episode.shot_list.shots[0].on_screen_characters=[{character_id:person.id,costume_id:''}];},chat:({task,step})=>{
     if(step.kind==='review')return {是否通过:true,原因:''};
-    if(task.business_type==='shot-characters')return {on_screen_characters:[{character_number:number,costume_number:''}]};
     if(task.business_type==='seconds')return {end_state:'甲站在门口，动作已结束。',pending_actions:'',pending_dialogue:'',continuing_audio:'风声',storyboard:[{time_range:'0–5s',action:'甲站立',camera:'固定',space:'门口',audio:'风声',handoff:'站立',dialogue:[]}]};
     return 'integrated_multimodal_description:\nA woman stands.\noverall_soundscape:\nWind.\nnon_diegetic_music:\nNone.';
   }});
@@ -182,14 +180,14 @@ test('依赖按实际类型传播：多模态不依赖前尾帧，首尾帧不�
   const snapshot=snapshotFixture(),p=snapshot.project,e=p.episodes[0],[first,second]=e.shot_list.shots;
   const person=mergeCharacters(p,[{name:'甲',gender:'女',era:'现代',position:'',age_range:'',body_type:'',hairstyle:'',signature_props:[],immutable_traits:[],costumes:[]}]).characters[0];
   p.character_library.characters=[person];person.costume_images[0].address='a.png';person.costume_images[0].node_state.status='generated';
-  second.character_binding.on_screen_characters=[{character_id:person.id,costume_id:''}];
+  second.on_screen_characters=[{character_id:person.id,costume_id:''}];
   for(const b of ['multimodal','video'])stampDependencyHash(snapshot,b,second.id);
   const hash=dependencyHash(snapshot,'video',second.id);
   first.last_frame.address='changed-tail.png';expireDownstream(snapshot,'tail',first.id);
   assert.equal(dependencyHash(snapshot,'video',second.id),hash);assert.equal(second.video.node_state.status,'generated');
   person.costume_images[0].address='b.png';expireDownstream(snapshot,'costume-image',person.id);
   assert.equal(second.video.node_state.status,'expired');assert.equal(first.video.node_state.status,'generated');
-  second.character_binding.on_screen_characters=[];second.video.node_state.status='generated';second.video.node_state.reason='';
+  second.on_screen_characters=[];second.video.node_state.status='generated';second.video.node_state.reason='';
   second.first_last_frame_prompt.node_state.status='generated';second.first_last_frame_prompt.node_state.reason='';
   for(const b of ['first-last-frame','video'])stampDependencyHash(snapshot,b,second.id);
   const firstFrameHash=dependencyHash(snapshot,'video',second.id);

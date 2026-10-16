@@ -62,8 +62,16 @@ export class MediaStore {
   }
   async validate(address, projectId, kind) {
     const path = this.path(address, projectId);
-    await this.read(address, projectId);
-    return inspectMedia(path, kind);
+    try { await this.read(address, projectId); }
+    catch (error) {
+      if (error.code === 'ENOENT') invalid('媒体', '文件不存在');
+      throw error;
+    }
+    try { return await inspectMedia(path, kind); }
+    catch (error) {
+      if (typeof error.code === 'number') invalid('媒体', '文件损坏或无法解码');
+      throw error;
+    }
   }
   async put(projectId, bytes, ext, signal) {
     assertId(projectId, "project_id");

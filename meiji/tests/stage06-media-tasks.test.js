@@ -60,11 +60,11 @@ test("S6-01/02/03/04 仅姓名角色通过前置，真实媒体经过图片、�
       s = e.shot_list.shots[0];
     s.text_to_video_prompt.overall_soundscape = "Natural ambience.";
     s.text_to_video_prompt.non_diegetic_music = "None.";
-    s.character_binding.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
+    s.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
     const snapshot = { project: p, tasks: [], steps: [] };
     for (const business of ["episode-summary", "outline", "shots"])
       stampDependencyHash(snapshot, business, e.id);
-    for (const business of ["shot-characters", "seconds", "storyboard", "video", "tail"])
+    for (const business of ["seconds", "storyboard", "video", "tail"])
       stampDependencyHash(snapshot, business, s.id);
     stampDependencyHash(snapshot, "assembly", e.id);
     const repository = new ModelRepository(join(root, "projects")),
@@ -137,7 +137,6 @@ test("图片提示词的人物资料组装为一句话，省略编号、必出�
   const { personSentence } = await import("../server/handlers/media-handler.js");
   const { composeNodePrompt } = await import("../server/http/ai-routes.js");
   const sentence = personSentence({
-    number: "C6",
     name: "郓哥",
     nationality: "中国",
     position: "水果贩",
@@ -170,8 +169,8 @@ test("项目图片请求遵循可选用户参考和定妆照固定角色图，�
   const { emptyCostumeModel } = await import("../shared/models/costume_model.js");
   const { emptyCostumeImageModel } = await import("../shared/models/costume_image_model.js");
   const p = projectFixture();
-  const c = emptyCharacterModel({ number: "C01", name: "甲", position: "主角", age_range: "中年", body_type: "健壮", hairstyle: "短发", signature_props: ["纸扇"], immutable_traits: ["左眉疤痕"] });
-  const costume = emptyCostumeModel({ number: "C01-01", name: "常服", color: "蓝色", material: "棉", props: ["腰带"] });
+  const c = emptyCharacterModel({ name: "甲", position: "主角", age_range: "中年", body_type: "健壮", hairstyle: "短发", signature_props: ["纸扇"], immutable_traits: ["左眉疤痕"] });
+  const costume = emptyCostumeModel({ name: "常服", color: "蓝色", material: "棉", props: ["腰带"] });
   c.costume_images[0].address = "role.png";
   c.costume_images[0].node_state.status = "generated";
   c.costumes = [costume];
@@ -212,7 +211,7 @@ function stampAssemblyInputs(project) {
   for (const business of ["episode-summary", "outline", "shots"])
     stampDependencyHash(snapshot, business, episode.id);
   for (const shot of [...episode.shot_list.shots].sort((a, b) => a.sequence - b.sequence))
-    for (const business of ["shot-characters", "seconds", "storyboard", "video", "tail"])
+    for (const business of ["seconds", "storyboard", "video", "tail"])
       stampDependencyHash(snapshot, business, shot.id);
   stampDependencyHash(snapshot, "assembly", episode.id);
 }
@@ -280,13 +279,14 @@ test("合片缺失、损坏、跨项目或依赖过期的视频在前置失败�
         const submitted = await service.command({ type: "submit", project_id: p.id, request_id: "assembly", business_type: "assembly", target_id: e.id, action: "regenerate" });
         await service.idle(p.id);
         const after = model.read(), task = after.tasks.find(t => t.id === submitted.task_id), steps = after.steps.filter(st => st.task_id === task.id);
-        assert.equal(task.task_status, "failed", kind);
+        assert.equal(task.task_status, "rejected", kind);
         assert.equal(steps[0].kind, "precheck");
-        assert.equal(steps[0].step_status, "failed", kind);
+        assert.equal(steps[0].step_status, "rejected", kind);
         assert.equal(steps[1].step_status, "cancelled", kind);
         assert.equal(calls.includes("generate"), false, kind);
         assert.equal(after.project.episodes[0].assembly.address, old.address);
-        assert.deepEqual(after.project.episodes[0].assembly.node_state, e.assembly.node_state);
+        assert.equal(after.project.episodes[0].assembly.node_state.status, "rejected");
+        assert.equal(after.project.episodes[0].assembly.node_state.dependency_hash, e.assembly.node_state.dependency_hash);
       } finally { await service.dispose(); }
     }
   } finally { await rm(root, { recursive: true, force: true }); }

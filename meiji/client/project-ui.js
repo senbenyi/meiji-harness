@@ -1,3 +1,4 @@
+import { BUSINESS_DEFINITIONS } from '../shared/node-definitions.js';
 import { latestNodeTask, taskStatusRow, taskFailureRow } from './node-task-status.js';
 import { primaryCostumeImage } from "../shared/models/character_model.js";
 import { nodeOf } from "../shared/task_contract.js";
@@ -19,7 +20,7 @@ function stoppedNodeMessage(project, tasks) {
   return node?.node_state.reason || stopped.end_reason || "";
 }
 function canResumeGroup(entry, groups) {
-  if (!entry) return false;
+  if (!entry || entry.tasks.some(task => BUSINESS_DEFINITIONS[task.business_type]?.retired && task.task_status !== "completed")) return false;
   const newer = groups.some((row) => row.group.id !== entry.group.id && row.tasks.some((task) => entry.tasks.some((old) => old.business_type === task.business_type && old.target_id === task.target_id && task.queue_order > old.queue_order)));
   return !newer && ["failed", "rejected", "cancelled", "superseded"].includes(entry.status) && entry.tasks.every((task) => !["queued", "running"].includes(task.task_status));
 }
@@ -86,7 +87,6 @@ function packNode(episode, shot) {
 }
 function filmNodes(episode, shot) {
   return [
-    ["角色识别", shot.character_binding],
     ["每秒分镜", shot.seconds_storyboard],
     ["文本提示词", shot.text_to_video_prompt],
     packNode(episode, shot),
@@ -477,7 +477,7 @@ export function renderOverview(root, env) {
       image.alt = c.name;
     }
     const info = element("div", "", "library-card-info");
-    info.append(element("strong", c.name), element("p", `${c.number} · ${c.position}`, "meta"));
+    info.append(element("strong", c.name), element("p", c.position, "meta"));
     b.append(image, info);
     strip.append(b);
   }
@@ -540,10 +540,9 @@ export function renderEpisode(root, env, entries) {
     video.append(tailStep(shot, { button, act, media }));
     body.append(
         element("p", `参考 ${shot.duration_seconds} 秒${shot.actual_duration_seconds > 0 ? ` · 实际 ${shot.actual_duration_seconds} 秒` : ""}`, "meta"),
-        nodeCard("shot-characters", shot.id, shot.character_binding),
         nodeCard("seconds", shot.id, shot.seconds_storyboard),
         nodeCard("storyboard", shot.id, shot.text_to_video_prompt),
-        element('p', '视频类型：' + (shot.video_generation_type || '待角色识别完成后确定'), 'meta'),
+        element('p', '视频类型：' + (shot.video_generation_type || '待视频任务执行时确定'), 'meta'),
         ...(shot.video_generation_type === '首尾帧' ? [nodeCard('first-last-frame', shot.id, shot.first_last_frame_prompt)] : shot.video_generation_type === '多模态' ? [nodeCard('multimodal', shot.id, shot.multimodal_prompt)] : []),
         video,
       );
@@ -655,14 +654,32 @@ export function renderEpisode(root, env, entries) {
           shotResultStrip(p, e, s, media),
         ] : []),
       );
-      if (state.tab === "shots")
-        card.append(element("p", readable({
+      if (state.tab === "shots") {
+        const details = element("div", "", "shot-details prompt full");
+        details.append(element("p", readable({
           body: s.body,
           shot_scale: s.shot_scale, hook: s.hook, continuity_transition: s.continuity_transition,
           reference_anchor: s.reference_anchor, audio_arrangement: s.audio_arrangement,
-        }), "prompt full"));
+        }), "shot-details-text"));
+        details.append(shotCastDetails(p, s));
+        card.append(details);
+      }
       body.append(card);
     }
   }
   root.append(body);
+}
+
+export function shotCastDetails(project, shot) {
+  const entries = shot.on_screen_characters.map(row => {
+    const person = project.character_library.characters.find(person => person.id === row.character_id);
+    const costume = person.costumes.find(costume => costume.id === row.costume_id);
+    const description = costume ? [costume.description, costume.color && `颜色：${costume.color}`,
+      costume.material && `材质：${costume.material}`, costume.props.length && `道具：${costume.props.join("、")}`].filter(Boolean).join("；") : '';
+    return `角色：${person.name} 服装：${costume?.name || '未指定服装'} 服装描述：${description || '未明确'}。`;
+  });
+  if (shot.background_characters) entries.push(`不具名群演：${shot.background_characters}`);
+  const line = element('p', `出镜人物与服装：【${entries.join(' ') || '无卡内人物及群演'}】`, 'shot-cast');
+  line.setAttribute('aria-label', '出镜人物与服装');
+  return line;
 }

@@ -61,6 +61,7 @@ export function projectDialog(root, save) {
     o.value = v;
     aspect.append(o);
   }
+  aspect.value = "768x1344";
   const premiseGroup = element("div", "", "create-premise-fields"),
     label = element("label", "AI 创作方向（必填）"),
     premise = element("textarea");

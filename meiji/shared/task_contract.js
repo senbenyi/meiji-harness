@@ -197,7 +197,7 @@ export function validateTask(t, p) {
   if (Object.hasOwn(t, "name")) { assertText(t.name, "task.name"); if (!t.name.trim()) invalid("task.name", "不可为空"); }
   for (const k of ["id", "project_id", "target_id"])
     assertId(t[k], `task.${k}`);
-  const removedBusiness = ["episode-characters", "script"].includes(t.business_type);
+  const removedBusiness = ["episode-characters", "script", "shot-characters"].includes(t.business_type);
   if (removedBusiness && !TERMINAL_TASKS.includes(t.task_status))
     invalid("task.business_type", "已移除的任务只能保留为历史终态");
   assertEnum(t.business_type, [
@@ -205,7 +205,7 @@ export function validateTask(t, p) {
     ...(removedBusiness ? [t.business_type] : []),
   ], "task.business_type");
   if (t.episode_id !== null) assertId(t.episode_id, "task.episode_id");
-  if (NODE_TYPES.includes(t.business_type) || t.business_type === "episode-characters") {
+  if (NODE_TYPES.includes(t.business_type) || ["episode-characters", "shot-characters"].includes(t.business_type)) {
     if (!Object.hasOwn(t.previous_node_state, "fail_message")) t.previous_node_state.fail_message = "";
     assertFields(
       t.previous_node_state,
@@ -358,6 +358,7 @@ export function validateCommand(command) {
     );
   if (command.business_type === 'tail' && command.type !== 'query') invalid('business_type', '尾帧已并入视频任务');
   if (['first-last-frame', 'multimodal'].includes(command.business_type) && !['query','submit'].includes(command.type)) invalid('business_type', '程序编排只支持执行或查询');
+  if (command.business_type === "shot-characters" && command.type !== "query") invalid("command.business_type", "角色与服装已并入镜头表，请重新生成镜头表");
   if (command.business_type === "character-image" && command.type !== "query")
     invalid("business_type", "独立角色图已移除，请生成人物定妆照");
   if (command.type === "submit-costumes") assertEnum(command.action, ["generate", "regenerate"], "command.action");
@@ -408,82 +409,4 @@ export function validateCommand(command) {
   if (command.business_type === "script-review" && command.type === "manual-edit")
     invalid("command.business_type", "剧本只支持审核、按审核意见修改与人工放行");
   return command;
-}
-const references = {
-  角色编号: { field: "character_id", kind: "character" },
-  服装编号: { field: "costume_id", kind: "costume" },
-  说话人编号: { field: "speaker_id", kind: "character" },
-  默认服装编号: { field: "default_costume_id", kind: "costume" },
-  镜头编号: { field: "shot_id", kind: "shot" },
-};
-function catalogs(project, episodeId) {
-  const map = new Map();
-  const add = (number, id, kind) => {
-    if (!number || map.has(number)) invalid("编号", "重复或空编号");
-    map.set(number, { id, kind });
-  };
-  for (const c of project.character_library.characters) {
-    add(c.number, c.id, "character");
-    for (const co of c.costumes) add(co.number, co.id, "costume");
-  }
-  const e = episodeId ? project.episodes.find((e) => e.id === episodeId) : null;
-  if (episodeId && !e) invalid("episode_id", "剧集不存在");
-  if (e) for (const s of e.shot_list.shots) add(s.number, s.id, "shot");
-  return map;
-}
-export function projectNumberCatalog(project, episodeId) {
-  const map = catalogs(project, episodeId),
-    inverse = new Map([...map].map(([n, row]) => [row.id, n]));
-  const fields = Object.fromEntries(
-    Object.entries(references).map(([n, row]) => [row.field, n]),
-  );
-  const strip = (value) =>
-    Array.isArray(value)
-      ? value.map(strip)
-      : value && typeof value === "object"
-        ? Object.fromEntries(
-            Object.entries(value).flatMap(([k, v]) => {
-              if (["id", "node_state", "address"].includes(k))
-                return [];
-              if (fields[k]) {
-                if (v && !inverse.has(v)) invalid(k, "引用无法映射为编号");
-                return [[fields[k], v ? inverse.get(v) : ""]];
-              }
-              if (k.endsWith("id")) return [];
-
-              if (k === "reference_image") return [];
-              return [[k, strip(v)]];
-            }),
-          )
-        : value;
-  return {
-    characters: project.character_library.characters.map(character => ({ ...strip(character), has_image: Boolean(primaryCostumeImage(character).address) })),
-    shots: episodeId
-      ? project.episodes.find((e) => e.id === episodeId).shot_list.shots.map(strip)
-      : [],
-  };
-}
-export function translateNumbers(value, project, episodeId) {
-  const map = catalogs(project, episodeId);
-  const walk = (v) =>
-    Array.isArray(v)
-      ? v.map(walk)
-      : v && typeof v === "object"
-        ? Object.fromEntries(
-            Object.entries(v).map(([k, data]) => {
-              const ref = references[k];
-              if (ref) {
-                if (data === "") return [ref.field, ""];
-                const row = map.get(data);
-                if (!row || row.kind !== ref.kind)
-                  invalid(k, `未知或类型不符的编号 ${data}`);
-                return [ref.field, row.id];
-              }
-              if (k === "id" || k.endsWith("id"))
-                invalid(k, "AI 不得返回内部 ID");
-              return [k, walk(data)];
-            }),
-          )
-        : v;
-  return walk(value);
 }

@@ -1,3 +1,5 @@
+import { migrateShotCast } from './shot-cast-migration.js';
+import { removeCharacterNumbers, migrateCharacterIds } from './character-id-migration.js';
 import { migrateNodeDataStates } from './node-data-state-migration.js';
 import { migrateSecondsContinuity } from './seconds-continuity-migration.js';
 import { normalizeScriptNode, isScriptNodeNormalized } from './script-review-migration.js';
@@ -31,7 +33,7 @@ export class SQLiteStore {
         try {
           this.#db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
           this.#db.exec("COMMIT");
-          version = 18;
+          version = 20;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
       }
       if (version === 9) {
@@ -119,7 +121,7 @@ export class SQLiteStore {
             migrateSecondsContinuity({ project, tasks, steps: [] });
             const validating = structuredClone({ project, tasks });
             migrateNodeDataStates(validating);
-            validateProject(normalizeScriptNode(validating.project));
+            validateProject(normalizeScriptNode(migrateShotCast(removeCharacterNumbers(validating.project))));
             updateProject.run(JSON.stringify(project), row.id);
             for (const task of tasks) if (task.previous_node_state) updateTask.run(JSON.stringify(task.previous_node_state), task.id);
           }
@@ -146,7 +148,7 @@ export class SQLiteStore {
             const tasks=this.#db.prepare("SELECT * FROM tasks WHERE project_id=? ORDER BY queue_order").all(row.id)
               .map(t=>({...t,previous_node_state:t.previous_node_state_json?JSON.parse(t.previous_node_state_json):null}));
             migrateNodeDataStates({project,tasks});
-            validateProject(normalizeScriptNode(structuredClone(project)));
+            validateProject(normalizeScriptNode(migrateShotCast(removeCharacterNumbers(structuredClone(project)))));
             this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?").run(JSON.stringify(project),row.id);
             for(const task of tasks.filter(t=>['queued','running'].includes(t.task_status)))
               this.#db.prepare("UPDATE tasks SET previous_node_state_json=? WHERE id=?").run(JSON.stringify(task.previous_node_state),task.id);
@@ -165,7 +167,7 @@ export class SQLiteStore {
           for (const row of this.#db.prepare("SELECT id,data_json FROM projects").all()) {
             const project = JSON.parse(row.data_json);
             if (isScriptNodeNormalized(project)) continue;
-            validateProject(normalizeScriptNode(project));
+            validateProject(normalizeScriptNode(migrateShotCast(removeCharacterNumbers(project))));
             this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?").run(JSON.stringify(project), row.id);
           }
           this.#db.prepare(`INSERT INTO schema_migrations VALUES (${to},strftime('%Y-%m-%dT%H:%M:%fZ','now'))`).run();
@@ -173,7 +175,48 @@ export class SQLiteStore {
           version = to;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
       }
-      if (version !== 18) throw new Error(`不支持的数据库版本：${version}`);
+      if (version === 18) {
+        this.#db.exec("BEGIN IMMEDIATE");
+        try {
+          for (const row of this.#db.prepare("SELECT id,data_json FROM projects").all()) {
+            const project = JSON.parse(row.data_json);
+            migrateCharacterIds(project);
+            validateProject(project);
+            if (JSON.stringify(project) !== row.data_json)
+              this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?").run(JSON.stringify(project), row.id);
+
+          }
+          this.#db.prepare("INSERT INTO schema_migrations VALUES (19,strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec("PRAGMA user_version=19; COMMIT");
+          version = 19;
+        } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
+      }
+      if (version === 19) {
+        this.#db.exec("BEGIN IMMEDIATE");
+        try {
+          for (const row of this.#db.prepare("SELECT id,data_json FROM projects").all()) {
+            const project = migrateShotCast(JSON.parse(row.data_json));
+            validateProject(project);
+            if (JSON.stringify(project) !== row.data_json)
+              this.#db.prepare("UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?").run(JSON.stringify(project), row.id);
+          }
+          const reason = '角色与服装识别已并入镜头表，请重新生成镜头表';
+          const now = new Date().toISOString();
+          this.#db.prepare("UPDATE task_steps SET step_status='cancelled',error_reason=?,ended_at=? WHERE step_status IN ('ready','running') AND task_id IN (SELECT id FROM tasks WHERE business_type='shot-characters' AND task_status IN ('queued','running'))").run(reason, now);
+          this.#db.prepare("UPDATE tasks SET task_status='cancelled',end_reason=?,ended_at=? WHERE business_type='shot-characters' AND task_status IN ('queued','running')").run(reason, now);
+          for (const task of this.#db.prepare("SELECT id,previous_node_state_json FROM tasks WHERE task_status IN ('queued','running') AND business_type IN ('shots','seconds','storyboard','first-last-frame','multimodal','video','tail','assembly')").all()) {
+            const state = JSON.parse(task.previous_node_state_json);
+            if (state?.status === 'generated') {
+              Object.assign(state, { status: 'expired', reason });
+              this.#db.prepare('UPDATE tasks SET previous_node_state_json=? WHERE id=?').run(JSON.stringify(state), task.id);
+            }
+          }
+          this.#db.prepare("INSERT INTO schema_migrations VALUES (20,strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec("PRAGMA user_version=20; COMMIT");
+          version = 20;
+        } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
+      }
+      if (version !== 20) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => f !== "id").map(f => `${f}=excluded.${f}`).join(",")}`));
       }

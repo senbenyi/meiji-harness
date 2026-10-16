@@ -2,7 +2,7 @@
   "id": "p_uuid（当前对象的唯一标识。）",
   "name": "（项目或资料的名称。）",
   "creation_mode": "剧本（项目的创作模式。）",
-  "aspect_ratio": "1344x768（项目画面的宽高尺寸。）",
+  "aspect_ratio": "768x1344（项目画面的宽高尺寸，默认竖版 9:16，可选横版 1344x768。）",
   "creative_direction": "（项目整体创作方向。）",
   "reference_episode_duration_seconds": "150（拆分剧集使用的参考单集时长，单位秒；各集大纲和镜头表审核读取该集 duration_seconds。）",
   "project_summary": {
@@ -44,7 +44,6 @@
     "characters": [
       {
         "id": "c_uuid（当前对象的唯一标识。）",
-        "number": "C01（角色或镜头的展示编号。）",
         "name": "（项目或资料的名称。）",
         "age_range": "（角色年龄段；对应角色节点“年龄段”，只保存来源明确给出的范围，不推算精确年龄。）",
         "nationality": "（角色国籍或所属族群。）",
@@ -74,7 +73,6 @@
         "costumes": [
           {
             "id": "co_uuid（当前对象的唯一标识。）",
-            "number": "C01-01（角色或镜头的展示编号。）",
             "name": "（服装名称；数组允许为空，剧本未明确描述服装时不创建服装项。）",
             "color": "（该套服装的颜色；角色级资料不再重复存服装颜色。）",
             "material": "（服装材质描述。）",
@@ -244,16 +242,8 @@
               "dialogue": "（本镜对白和说话人安排。）",
               "sound_effects": "（本镜关键音效安排。）"
             },
-            "character_binding": {
-              "node_state": {
-                "status": "empty",
-                "reason": "",
-                "fail_message": "",
-                "dependency_hash": ""
-              },
-              "has_result": false,
-              "on_screen_characters": []
-            }
+            "on_screen_characters": [{"character_id":"c_uuid（镜头表确定的卡内出镜人物ID。）","costume_id":"co_uuid（所属服装ID；仅无服装目录时为空。）"}],
+            "background_characters": "（镜头表确定的不具名群演及可见行为；无则为空，不关联角色卡。）"
           }
         ]
       },

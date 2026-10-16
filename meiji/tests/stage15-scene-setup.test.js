@@ -16,7 +16,7 @@ function setup() {
     body: '场景背景：黑暗火场，门后透出火光。事件：消防员推门。摄影安排：固定机位观察门面，对焦手掌接触位置。',
     shot_scale: '特写', continuity_transition: '从黑暗开场，末尾门已推开。',
     reference_anchor: { fixed_landmark: '门框位于画面右侧，门面占中央。', character_positions: '只有戴手套的手与袖口入镜，手从画面左侧进入。', departed_characters: '', lighting: '门后暖色火光为主光。' },
-    audio_arrangement: { narration: '', dialogue: '', sound_effects: '近处呼吸器警报与门后火焰声。' },
+    on_screen_characters: [], background_characters: "", audio_arrangement: { narration: '', dialogue: '', sound_effects: '近处呼吸器警报与门后火焰声。' },
   });
   return { snapshot, episode, shot };
 }

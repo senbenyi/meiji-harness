@@ -18,8 +18,8 @@ import { createStepModel } from "../shared/models/step_model.js";
 
 test("项目模型的每个嵌套数组项都由独立模型构造并通过完整结构校验", () => {
   const project = emptyProjectModel();
-  const character = emptyCharacterModel({ number: "C01", name: "角色" });
-  const costume = emptyCostumeModel({ number: "C01-01", name: "常服" });
+  const character = emptyCharacterModel({ name: "角色" });
+  const costume = emptyCostumeModel({ name: "常服" });
   character.costumes.push(costume);
   character.default_costume_id = costume.id;
   character.costume_images.push(emptyCostumeImageModel(costume.id));
@@ -28,7 +28,7 @@ test("项目模型的每个嵌套数组项都由独立模型构造并通过完�
   const episode = emptyEpisodeModel();
   episode.story_outline.segments.push(emptyStorySegmentModel());
   const shot = emptyShotModel();
-  shot.character_binding.on_screen_characters.push(emptyOnScreenCharacterModel({ character_id: character.id, costume_id: costume.id }));
+  shot.on_screen_characters.push(emptyOnScreenCharacterModel({ character_id: character.id, costume_id: costume.id }));
   const beat = emptyStoryboardBeatModel();
   beat.time_range = "0–1s";
   beat.dialogue.push(emptyDialogueModel());

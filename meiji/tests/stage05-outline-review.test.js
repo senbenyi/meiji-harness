@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createId } from "../shared/task_contract.js";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -147,6 +148,10 @@ for (const action of ["regenerate", "manual_edit", "override"])
     assert.equal(isNodeCurrent(snapshot, "outline", episode.id), true);
     const input = taskNodeInput(snapshot, taskFixture(snapshot.project, "shots", episode.id), null, "generate");
     assert.equal(input.duration, 40.5);
+    assert.throws(() => assertProgramReview(snapshot.project, "shots", episode.id), /需等于故事小段合计取整 41 秒/);
+    episode.shot_list.shots[0].duration_seconds = 15;
+    episode.shot_list.shots[1].duration_seconds = 13;
+    episode.shot_list.shots.push({ ...structuredClone(episode.shot_list.shots[1]), id: createId("shot"), number: "S03", sequence: 3 });
     assert.doesNotThrow(() => assertProgramReview(snapshot.project, "shots", episode.id));
   });
 

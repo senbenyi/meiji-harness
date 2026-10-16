@@ -12,8 +12,6 @@ import {
   validateTask,
   validateStep,
   validateCommand,
-  projectNumberCatalog,
-  translateNumbers,
 } from "../shared/task_contract.js";
 import {
   emptyProject,
@@ -28,15 +26,15 @@ import { deliverTaskNotice } from "../server/host/task-notices.js";
 
 const projectFixture = () => {
   const p = emptyProject({ name: "新项目", creation_mode: "自由创作", creative_direction: "测试故事" });
-  const c = emptyCharacterModel({ number: "C01", name: "甲", required_appearance: true });
-  const co = emptyCostumeModel({ number: "C01-01", name: "常服", description: "常服" });
+  const c = emptyCharacterModel({ name: "甲", required_appearance: true });
+  const co = emptyCostumeModel({ name: "常服", description: "常服" });
   c.costume_images = [emptyCostumeImageModel(co.id)];
   c.costumes = [co];
   c.default_costume_id = co.id;
   p.character_library.characters = [c];
   const e = emptyEpisode({ sequence: 1 });
   const s = emptyShot({ sequence: 1, number: "S01" });
-  s.character_binding.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
+  s.on_screen_characters = [{ character_id: c.id, costume_id: co.id }];
   e.shot_list.shots = [s];
   p.episodes = [e];
   return p;
@@ -110,29 +108,14 @@ test("S1-02 ID 一次生成，编号排序与 ID 独立", () => {
     assert.match(createId(kind), /^[a-z]+_[0-9a-f-]{36}$/);
   assert.throws(() => createId("unknown"), /类型/);
 });
-test("S1-03 AI 资料与编号引用不泄漏内部 ID，未知与重复编号失败", () => {
-  const p = projectFixture(),
-    catalog = projectNumberCatalog(p, p.episodes[0].id);
-  const source = JSON.stringify(catalog);
-  assert.ok(!source.includes(p.id));
-  assert.ok(!source.includes(p.character_library.characters[0].id));
-  const value = translateNumbers(
-    {
-      角色编号: "C01",
-      服装编号: "C01-01",
-      对白: [{ 说话人编号: "C01", 台词: "你好" }],
-    },
-    p,
-    p.episodes[0].id,
-  );
-  assert.equal(value.character_id, p.character_library.characters[0].id);
-  assert.equal(value.对白[0].speaker_id, p.character_library.characters[0].id);
-  assert.throws(() => translateNumbers({ 角色编号: "C99" }, p), /未知/);
-  assert.throws(() => translateNumbers({ 角色编号: "C01-01" }, p), /类型/);
-  assert.equal(catalog.characters[0].默认服装编号, "C01-01");
-  assert.equal(catalog.shots[0].character_binding.on_screen_characters[0].角色编号, "C01");
-  p.character_library.characters.push({ ...p.character_library.characters[0], id: createId("character") });
-  assert.throws(() => projectNumberCatalog(p), /重复/);
+test("角色与服装只保留ID，禁止第二套编号", () => {
+  const p = projectFixture();
+  const character = p.character_library.characters[0], costume = character.costumes[0];
+  assert.equal(Object.hasOwn(character, 'number'), false);
+  assert.equal(Object.hasOwn(costume, 'number'), false);
+  assert.equal(validateProject(p), p);
+  character.number = 'C01';
+  assert.throws(() => validateProject(p), /number/);
 });
 test("S1-04 任务目标归属和字段协议严格校验，剧本无状态", () => {
   const p = projectFixture(),

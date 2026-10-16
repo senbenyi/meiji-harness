@@ -6,6 +6,7 @@ import { editor, fieldsForm } from "../client/content-forms.js";
 import { renderTaskPanel } from "../client/task-panel.js";
 import { mergeCharacters } from "../shared/collection-identity.js";
 import { snapshotFixture } from "./fixtures/project.js";
+import { emptyProjectModel } from "../shared/models/project_model.js";
 import { blankCharacter } from "../client/resource-ui.js";
 const tick = () => new Promise((r) => setTimeout(r, 0));
 async function domTest(work) {
@@ -115,7 +116,7 @@ test("UI-1 原创建表单默认剧本；本地导入、移除和自由模式提
     await tick();
     assert.equal(output.creation_mode, "剧本");
     assert.equal(output.script.body, "第一幕");
-    assert.equal(output.aspect_ratio, "1344x768");
+    assert.equal(output.aspect_ratio, "768x1344");
     const second = projectDialog(root, (v) => {
       output = v;
     });
@@ -257,13 +258,39 @@ test("UI-4 人物文字网格/服装详情和编号，运行冻结；不显示�
         paint: () => renderTaskPanel(root, snap, context),
       };
     context.paint();
+    assert.equal(root.querySelector(".wardrobe-image .costume-picture-preview"), null);
+    role.costume_images[0].address = "/portrait.png";
+    context.paint();
+    const thumbnail = root.querySelector(".wardrobe-image .costume-picture-preview");
+    assert.ok(thumbnail);
+    const source = thumbnail.querySelector("img").src;
+    thumbnail.click();
+    assert.equal(root.querySelector("dialog.still-preview img").src, source);
+    assert.equal(view.costume_id, undefined);
+    root.querySelector('dialog.still-preview [aria-label="关闭图片预览"]').click();
+    assert.equal(root.querySelector("dialog.still-preview"), null);
+    assert.equal(root.querySelector(".panel-dialog-overlay"), null);
+    thumbnail.click();
+    window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" }));
+    assert.equal(root.querySelector("dialog.still-preview"), null);
     assert.ok(root.querySelector(".image-text-editor .image-text-grid"));
     assert.ok(root.querySelector(".character-wardrobe .wardrobe-name"));
+    const clothes = root.querySelector(".image-text-editor .character-costumes");
+    assert.equal(clothes.querySelector("h4").textContent, "服装");
+    assert.equal(clothes.querySelectorAll("fieldset").length, 1);
+    assert.match(clothes.textContent, /日常服/);
+    assert.equal(clothes.querySelector(".costume-id").textContent, `ID：${role.costumes[0].id}`);
+    assert.match(clothes.textContent, /颜色：灰色/);
+    assert.match(clothes.textContent, /材质：未明确/);
+    assert.ok([...clothes.querySelectorAll("button")].some(b => b.textContent === "＋ 添加服装"));
     assert.equal(root.querySelector("[data-business=costume-image]"), null);
-    assert.deepEqual([...root.querySelectorAll(".character-detail-actions button")].map((item) => item.textContent), ["生成定妆照", "上传参考图", "删除角色"]);
-    assert.equal(root.textContent.includes(role.id), false);
-    root.querySelector(".wardrobe-name").click();
+    assert.deepEqual([...root.querySelectorAll(".character-detail-actions button")].map((item) => item.textContent), ["重新生成定妆照", "上传参考图", "删除角色"]);
+    assert.equal(root.textContent.includes(role.id), true);
+    clothes.querySelector("fieldset button").click();
     assert.ok(root.querySelector(".costume-detail"));
+    root.querySelector(".character-primary-picture img").click();
+    assert.equal(root.querySelector("dialog.still-preview img").src, source);
+    root.querySelector('dialog.still-preview [aria-label="关闭图片预览"]').click();
     assert.equal(root.querySelector("[data-business=costume-image]")?.dataset.business, "costume-image");
     assert.ok(root.querySelector("[name=color]"));
     snap.tasks = [{ task_status: "running" }];
@@ -519,7 +546,7 @@ test("无服装角色可直接打开定妆照卡；新增服装后旧空图只�
     const { emptyCostumeModel } = await import("../shared/models/costume_model.js");
     const { emptyCostumeImageModel } = await import("../shared/models/costume_image_model.js");
     const snap = snapshotFixture();
-    const c = emptyCharacterModel({ name: "甲", number: "C01", body_type: "健壮", costume_images: [emptyCostumeImageModel()] });
+    const c = emptyCharacterModel({ name: "甲", body_type: "健壮", costume_images: [emptyCostumeImageModel()] });
     snap.project.character_library.characters = [c];
     const view = { page: "character", character_id: c.id, costume_id: "" };
     const context = { view, session_id: "s", refresh: async () => {}, onError: () => {}, paint: () => renderTaskPanel(root, snap, context) };
@@ -527,7 +554,7 @@ test("无服装角色可直接打开定妆照卡；新增服装后旧空图只�
     let card = root.querySelector('[data-business="costume-image"]');
     assert.ok([...card.querySelectorAll("button")].some((button) => button.textContent === "AI生成"));
     c.costume_images[0].address = "old.png";
-    c.costumes = [emptyCostumeModel({ name: "常服", number: "C01-01" })];
+    c.costumes = [emptyCostumeModel({ name: "常服" })];
     c.costume_images.push(emptyCostumeImageModel(c.costumes[0].id));
     context.paint();
     card = root.querySelector('[data-business="costume-image"]');
@@ -574,4 +601,52 @@ test('旧提取组内图片失败不冒充提取失败，也不显示已移除�
  assert.match(card.textContent,/已生成/);assert.doesNotMatch(card.textContent,/旧角色图失败/);assert.equal([...card.querySelectorAll('button')].some(b=>b.textContent==='继续'),false);
  const costumes=[...root.querySelectorAll('section')].find(card=>card.querySelector('h3')?.textContent==='生成定妆照');
  assert.doesNotMatch(costumes.textContent,/旧角色图失败/);assert.equal([...costumes.querySelectorAll('button')].some(b=>b.textContent==='继续'),false);
+}));
+
+test("项目模型默认竖版，显式横版保持不变", () => {
+  assert.equal(emptyProjectModel().aspect_ratio, "768x1344");
+  assert.equal(emptyProjectModel({ aspect_ratio: "1344x768" }).aspect_ratio, "1344x768");
+});
+
+test("出镜角色按ID展示姓名、服装名称与描述，不展示关联UUID", () => domTest(root => {
+  const snap = snapshotFixture();
+  snap.project.character_library.characters = mergeCharacters(snap.project, [
+    { ...blankCharacter(), name: "甲", gender: "男", era: "现代", costumes: [{ name: "常服", color: "白色", material: "棉", props: ["腰带"] }] },
+    { ...blankCharacter(), name: "乙", gender: "女", era: "现代", costumes: [{ name: "常服", color: "黑色", material: "丝", props: [] }] },
+  ]).characters;
+  const [a, b] = snap.project.character_library.characters, episode = snap.project.episodes[0], shot = episode.shot_list.shots[0];
+  a.costumes[0].description = "长袖上衣配长裤";
+  shot.on_screen_characters = [{ character_id: a.id, costume_id: a.costumes[0].id }];
+  const context = { session_id: "s", view: { page: "episode", episode_id: episode.id, shot_id: shot.id, tab: "film" }, refresh: async () => {}, onError: assert.fail };
+  const text = () => root.querySelector('.shot-cast').textContent;
+  renderTaskPanel(root, snap, context);
+  const cast = root.querySelector('.shot-cast');
+  assert.equal(cast.tagName, 'P');
+  assert.equal(cast.textContent, '出镜人物与服装：【角色：甲 服装：常服 服装描述：长袖上衣配长裤；颜色：白色；材质：棉；道具：腰带。】');
+  assert.ok(root.querySelector('.seconds-shot-setup .shot-cast'));
+  assert.equal(root.querySelectorAll('.shot-cast').length, 1);
+  assert.equal(root.querySelector('.session-body > dl.shot-cast-costume'), null);
+  assert.match(text(), /角色：甲/);
+  assert.match(text(), /服装：常服/);
+  for (const value of ["长袖上衣配长裤", "颜色：白色", "材质：棉", "道具：腰带"]) assert.ok(text().includes(value));
+  assert.equal(text().includes(a.id), false);
+  assert.equal(text().includes(a.costumes[0].id), false);
+  shot.on_screen_characters.push({ character_id: b.id, costume_id: b.costumes[0].id });
+  renderTaskPanel(root, snap, context);
+  assert.match(text(), /角色：甲.*角色：乙/);
+  assert.equal(root.querySelectorAll('.shot-cast').length, 1);
+  shot.on_screen_characters = [{ character_id: b.id, costume_id: b.costumes[0].id }];
+  renderTaskPanel(root, snap, context);
+  assert.match(text(), /角色：乙/); assert.match(text(), /颜色：黑色/); assert.doesNotMatch(text(), /白色|长袖上衣/);
+  b.costumes = []; shot.on_screen_characters[0].costume_id = "";
+  renderTaskPanel(root, snap, context);
+  assert.match(text(), /未指定服装/); assert.match(text(), /服装描述：未明确/);
+  context.view.shot_id = null; context.view.tab = 'shots';
+  renderTaskPanel(root, snap, context);
+  assert.ok(root.querySelector('.shot-card .shot-details p.shot-cast'));
+  assert.equal(root.querySelector('.shot-card').querySelectorAll('.shot-cast').length, 1);
+  const details = root.querySelector('.shot-card .shot-details.prompt.full');
+  assert.ok(details.querySelector('.shot-details-text'));
+  assert.ok(details.querySelector('.shot-cast'));
+  assert.equal(details.querySelector('.shot-details-text.prompt'), null);
 }));

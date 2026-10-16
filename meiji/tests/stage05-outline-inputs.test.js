@@ -154,7 +154,7 @@ for (const mode of ["剧本", "自由创作"]) {
         request_id: "missing", business_type: "outline", target_id: e.id, action: "generate" });
       await service.idle(p.id);
       const snapshot = model.read(), task = snapshot.tasks.find(t => t.id === result.task_id);
-      assert.equal(task.task_status, "failed");
+      assert.equal(task.task_status, "rejected");
       assert.match(task.end_reason, /本集剧情为空/);
       assert.equal(calls, 0);
       assert.deepEqual(snapshot.project.project_summary, p.project_summary);
@@ -162,7 +162,7 @@ for (const mode of ["剧本", "自由创作"]) {
   });
 }
 
-test("B-8 镜头表以有效故事大纲为唯一剧集前置", () => {
+test("B-8 镜头表要求有效故事大纲与角色库", () => {
   const { p, e } = fixture("剧本"),
     s = { business_type: "shots", target_id: e.id, action: "generate",
       previous_node_state: { status: "empty", reason: "" } };
@@ -171,6 +171,8 @@ test("B-8 镜头表以有效故事大纲为唯一剧集前置", () => {
   e.story_outline.node_state.status = "generated";
   e.story_outline.segments = [{ sequence: 1, duration_seconds: 10, body: "完整故事", causal: "" }];
   stampDependencyHash({ project: p }, "outline", e.id);
+  stampDependencyHash({project:p}, "project-characters", p.id);
+  p.character_library.node_state.status="generated";
   assert.equal(precheck({ project: p }, s).passed, true);
 });
 

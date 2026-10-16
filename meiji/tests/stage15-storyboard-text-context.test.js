@@ -17,7 +17,7 @@ function fixture() {
   });
   const visible = person('消防员', 'C01'), voiceOnly = person('队长', 'C02'), unrelated = person('无关人物', 'C03');
   snapshot.project.character_library.characters = [visible, voiceOnly, unrelated];
-  shot.character_binding.on_screen_characters = [{ character_id: visible.id, costume_id: '' }];
+  shot.on_screen_characters = [{ character_id: visible.id, costume_id: '' }];
   shot.body = '场景背景哨兵：黑暗火场。摄影安排哨兵：固定特写，仅手及袖口入镜。';
   shot.reference_anchor.fixed_landmark = '门框位置哨兵';
   shot.seconds_storyboard.storyboard[0].dialogue = [{ speaker_id: voiceOnly.id, speaker_name: '队长别称', mode: '画外', dialogue_text: '保持联系。' }];

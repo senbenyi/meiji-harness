@@ -13,7 +13,7 @@ import { emptyCharacterModel } from "../shared/models/character_model.js";
 test("首套定妆照只需任一人物资料字段，全部空白或仅有管理字段仍拒绝", () => {
   const fields = ["name", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits"];
   const project = projectFixture();
-  const character = emptyCharacterModel({ number: "C01", required_appearance: true });
+  const character = emptyCharacterModel({ required_appearance: true });
   project.character_library.characters = [character];
   const task = { business_type: "costume-image", target_id: character.id, action: "generate" };
   for (const field of fields) {
@@ -72,10 +72,12 @@ test("大纲结构允许有限正数，程序审核按参考时长±30；镜头�
   episode.duration_seconds = 10;
   for (const duration of [4, 15]) {
     episode.shot_list.shots[0].duration_seconds = duration;
+    episode.story_outline.segments[0].duration_seconds = duration + 5;
     assert.doesNotThrow(() => assertProgramReview(project, "shots", episode.id));
   }
   for (const duration of [3, 16]) {
     episode.shot_list.shots[0].duration_seconds = duration;
+    episode.story_outline.segments[0].duration_seconds = duration + 5;
     assert.doesNotThrow(() => assertOutput(project, "shots", episode.id));
     assert.throws(() => assertProgramReview(project, "shots", episode.id), /4–15/);
   }

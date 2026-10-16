@@ -102,11 +102,6 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     retryRounds: 2,
     precheck: "shots",
   },
-  "shot-characters": {
-    targetKind: "shot", field: "character_binding", label: "镜头角色与服装",
-    handler: "text", output: "text", programReview: true, aiReview: true,
-    retryRounds: 2, precheck: "shot-characters",
-  },
   seconds: {
     targetKind: "shot",
     field: "seconds_storyboard",
@@ -168,6 +163,7 @@ export const NODE_DEFINITIONS = freezeDefinitions({
 });
 
 export const OPERATION_DEFINITIONS = freezeDefinitions({
+  "shot-characters": { retired: true, targetKind: "shot", label: "镜头角色与服装（已并入镜头表）", handler: "program", output: "none", programReview: false, aiReview: false, retryRounds: 0 },
   "script-split": {
     targetKind: "project",
     label: "拆分剧集",

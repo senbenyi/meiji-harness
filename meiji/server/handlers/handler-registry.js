@@ -26,7 +26,7 @@ export function createHandlerRegistry({ text, media, videoPrompt }) {
     if (task.action === "delete") {
       const { object } = locateTarget(project, business, task.target_id);
       if (step.kind === "impact") {
-        const shots = project.episodes.flatMap(episode => episode.shot_list.shots).filter(shot => shot.character_binding.on_screen_characters.some(row => row.costume_id === object.id));
+        const shots = project.episodes.flatMap(episode => episode.shot_list.shots).filter(shot => shot.on_screen_characters.some(row => row.costume_id === object.id));
         return { result: { affected_video_ids: shots.map(shot => shot.id) } };
       }
       if (step.kind === "apply") return { content: { delete_id: object.id }, result: { deleted_id: object.id } };

@@ -53,7 +53,7 @@ test("S6-05/06 人工编辑与放行均两步，AI 不调用；非法内容保�
     });
     await service.idle(p.id);
     assert.equal(model.read().project.project_summary.body, "人工新稿");
-    assert.equal(model.read().tasks[1].task_status, "failed");
+    assert.equal(model.read().tasks[1].task_status, "rejected");
     await model.update("set-rejected", {}, (s) => {
       s.project.project_summary.node_state.status = "rejected";
       s.project.project_summary.node_state.reason = "审核不通过";
@@ -68,7 +68,7 @@ test("S6-05/06 人工编辑与放行均两步，AI 不调用；非法内容保�
     await service.idle(p.id);
     assert.equal(model.read().tasks[2].task_status, "completed");
     assert.equal(model.read().project.project_summary.node_state.status, "generated");
-    assert.equal(model.read().tasks[1].task_status, "failed");
+    assert.equal(model.read().tasks[1].task_status, "rejected");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -79,7 +79,7 @@ for (const business of ["outline", "shots"])
     const root = await mkdtemp(join(tmpdir(), "meiji-manual-duration-")), repository = new ModelRepository(root), project = projectFixture();
     const episode = project.episodes[0];
     episode.duration_seconds = business === "outline" ? 150 : 10;
-    const fields = ["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"];
+    const fields = ["title", "id", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement", "on_screen_characters", "background_characters"];
     const content = business === "outline"
       ? { segments: [{ sequence: 1, duration_seconds: 119, body: "人工保留完整剧情", causal: "承接前段" }] }
       : { shots: episode.shot_list.shots.map((shot, index) => ({ ...Object.fromEntries(fields.map(key => [key, structuredClone(shot[key])])), duration_seconds: index === 0 ? 3 : 5 })) };
@@ -104,7 +104,7 @@ for (const business of ["outline", "shots"])
         current.node_state.fail_message = "";
         if (repair) {
           if (business === "outline") current.segments[0].duration_seconds = 137.5;
-          else current.shots[0].duration_seconds = 4;
+          else current.shots[0].duration_seconds = 5;
         }
         return {};
       });
@@ -112,8 +112,8 @@ for (const business of ["outline", "shots"])
       const blocked = await service.command({ ...base, type: "override", request_id: "outside-range" });
       await service.idle(project.id);
       const blockedSnapshot = model.read(), blockedTask = blockedSnapshot.tasks.find(task => task.id === blocked.task_id);
-      assert.equal(blockedTask.task_status, "failed");
-      assert.equal(blockedSnapshot.steps.find(step => step.task_id === blocked.task_id && step.step_status === "failed").kind, "precheck");
+      assert.equal(blockedTask.task_status, "rejected");
+      assert.equal(blockedSnapshot.steps.find(step => step.task_id === blocked.task_id && step.step_status === "rejected").kind, "precheck");
       assert.match(blockedTask.end_reason, business === "outline" ? /允许误差±30秒/ : /4–15/);
       assert.deepEqual(business === "outline" ? node(blockedSnapshot).segments : node(blockedSnapshot).shots, business === "outline" ? savedContent.segments : savedContent.shots);
       await reject("repair-rejected", true);

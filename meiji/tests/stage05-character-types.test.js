@@ -26,7 +26,9 @@ for (const kind of ['generate', 'revise']) {
         candidate = structuredClone(person);
         if (field === 'props') candidate.costumes[0].props = invalid;
         else candidate[field] = invalid;
-        await assert.rejects(run, new RegExp(field));
+        const rejected = await run();
+        assert.match(rejected.validationFailure, new RegExp(field));
+        assert.equal(rejected.content, null);
       }
     }
   });

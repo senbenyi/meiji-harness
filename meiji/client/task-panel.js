@@ -1,12 +1,12 @@
 import { latestNodeTask, taskStatusRow, taskFailureRow } from './node-task-status.js';
 import { NODE_DEFINITIONS } from '../shared/node-definitions.js';
-import { bindingNumbers, shotSceneSetup } from '../shared/shot-text-inputs.js';
+import { shotSceneSetup } from '../shared/shot-text-inputs.js';
 import { editor, fieldLabels, readable } from "./content-forms.js";
-import { renderOverview, renderEpisode, backHeader } from "./project-ui.js";
+import { renderOverview, renderEpisode, backHeader, shotCastDetails } from "./project-ui.js";
 import { renderResource, blankCharacter } from "./resource-ui.js";
 import { renderHistory } from "./history-ui.js";
 import { renderSkillDetail } from './skill-detail.js';
-import { element, showPanelDialog, appendJsonCopy } from "./panel-dom.js";
+import { element, showPanelDialog, showImagePreview, appendJsonCopy } from "./panel-dom.js";
 import { sendCommand, request } from "./task-client.js";
 const labels = {
   empty: "未生成",
@@ -44,7 +44,6 @@ const names = {
   outline: "故事大纲",
   "script-split": "拆分剧集",
   shots: "镜头表",
-  "shot-characters": "镜头角色与服装",
   seconds: "每秒分镜",
   storyboard: "文本提示词",
   video: "视频",
@@ -241,32 +240,16 @@ export function renderTaskPanel(root, snapshot, context) {
       if (asset.tagName === "IMG") {
         asset.alt = names[business];
         asset.style.cursor = "zoom-in";
-        asset.onclick = () => {
-          const d = element("dialog", "", "still-preview"),
-            image = element("img"),
-            close = element("button", "×", "cancel");
-          image.src = asset.src;
-          image.alt = asset.alt;
-          close.setAttribute("aria-label", "关闭图片预览");
-          close.onclick = () => d.close();
-          d.append(image, close);
-          root.append(d);
-          d.addEventListener("close", () => d.remove(), { once: true });
-          showPanelDialog(d);
-        };
+        asset.onclick = () => showImagePreview(root, asset);
       }
       card.append(asset);
     } else if (business === "script-review") {
       // 剧本节点的正文在剧本详情页展示，卡片只放公共节点 UI。
-    } else if (business === 'shot-characters') {
-      card.append(element('p', !node.has_result ? '尚未识别' : !node.on_screen_characters.length
-        ? (node.node_state.status === 'generated' ? '已确认无人出镜' : '候选：无人出镜')
-        : readable(bindingNumbers(p, node)), 'prompt full'));
     } else if (business === "seconds") {
       const shot = p.episodes.flatMap(episode => episode.shot_list.shots).find(shot => shot.id === id);
       if (shot) {
         const setup = element('section', '', 'seconds-shot-setup');
-        setup.append(element('h4', '整镜设定（来自镜头表）'), element('p', readable(shotSceneSetup(shot)), 'prompt full'));
+        setup.append(element('h4', '整镜设定（来自镜头表）'), element('p', readable(shotSceneSetup(shot)), 'prompt full'), shotCastDetails(p, shot));
         card.append(setup);
       }
       card.append(element('h4', '逐秒时间线'));
@@ -389,10 +372,8 @@ export function renderTaskPanel(root, snapshot, context) {
                 ? node.body
                 : business === "storyboard"
                   ? `integrated_multimodal_description:\n${node.integrated_multimodal_description}\noverall_soundscape:\n${node.overall_soundscape}\nnon_diegetic_music:\n${node.non_diegetic_music}`
-                : business === "shot-characters"
-                  ? bindingNumbers(p, node)
                 : business === "shots"
-                  ? { shots: node.shots.map((shot) => Object.fromEntries(["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"].map((key) => [key, structuredClone(shot[key])]))) }
+                  ? { shots: node.shots.map((shot) => Object.fromEntries(["title", "id", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement", "on_screen_characters", "background_characters"].map((key) => [key, structuredClone(shot[key])]))) }
                 : business === "project-characters"
                   ? { characters: node.characters.map((character) => ({
                       ...Object.fromEntries(Object.keys(blankCharacter()).filter((key) => key !== "costumes").map((key) => [key, character[key]])),

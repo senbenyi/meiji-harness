@@ -14,12 +14,12 @@ test('成片展示四节点且视频按钮提交单镜完整组，剧集无每�
   const nameOf=node=>node.querySelector('.shot-step-name').textContent;
   const steps=[...root.querySelectorAll('.shot-card .shot-step')];
   assert.equal(steps.find(node=>nameOf(node)==='每秒分镜').classList.contains('is-done'),true);
-  assert.equal(steps.find(node=>nameOf(node)==='角色识别').classList.contains('is-done'),true);
+  assert.equal(steps.some(node=>nameOf(node)==='角色识别'),false);
   const listed=[...root.querySelectorAll('.shot-card')];
-  assert.deepEqual([...listed[0].querySelectorAll('.shot-step-name')].map(node=>node.textContent),['角色识别','每秒分镜','文本提示词','文生','视频']);
-  assert.deepEqual([...listed[1].querySelectorAll('.shot-step-name')].map(node=>node.textContent),['角色识别','每秒分镜','文本提示词','首尾帧','视频']);
-  assert.equal(listed[0].querySelectorAll('.shot-result').length,5);
-  assert.equal(listed[1].querySelectorAll('.shot-result').length,5);
+  assert.deepEqual([...listed[0].querySelectorAll('.shot-step-name')].map(node=>node.textContent),['每秒分镜','文本提示词','文生','视频']);
+  assert.deepEqual([...listed[1].querySelectorAll('.shot-step-name')].map(node=>node.textContent),['每秒分镜','文本提示词','首尾帧','视频']);
+  assert.equal(listed[0].querySelectorAll('.shot-result').length,4);
+  assert.equal(listed[1].querySelectorAll('.shot-result').length,4);
   shot.text_to_video_prompt.node_state.status='rejected';
   shot.video.node_state.status='empty';
   context.paint();
@@ -36,7 +36,7 @@ test('成片展示四节点且视频按钮提交单镜完整组，剧集无每�
   assert.equal(requests[0].command.type,'submit-group');assert.equal(requests[0].command.group_type,'episode-film');assert.equal(requests[0].command.action,'regenerate');assert.equal(requests[0].command.shot_id,shot.id);assert.equal(requests[0].command.episode_id,e.id);
   assert.equal(filmCard.querySelector('.shot-body h4').textContent,'本镜内容');
   assert.equal(filmCard.querySelector('.shot-body').nextElementSibling.classList.contains('shot-results'),true);
-  assert.equal(filmCard.querySelectorAll('.shot-result').length,5);
+  assert.equal(filmCard.querySelectorAll('.shot-result').length,4);
   assert.equal([...root.querySelectorAll('button')].some(button=>button.textContent==='查看详情'),true);
   assert.equal([...root.querySelectorAll('button')].some(button=>button.textContent==='打开镜头'),false);
   view.shot_id=shot.id;shot.actual_duration_seconds=5.2;context.paint();

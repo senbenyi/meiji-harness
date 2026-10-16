@@ -29,7 +29,7 @@ const output0 = {
       }
     ]
   },
-  "requirements": "1. 仅返回上述JSON结构；顶层为 storyboard、end_state、pending_actions、pending_dialogue、continuing_audio；storyboard 节拍字段为 time_range、action、camera、space、audio、handoff、dialogue 及其 speaker_id、speaker_name、mode、dialogue_text。end_state 必须明确且非空；其他镜末事项没有时为空字符串。末段 handoff 留空，统一以顶层镜末字段记录跨镜交接。无对白时 dialogue 为 []。\n2. 从0秒起按镜头表参考时长连续覆盖；普通节拍按秒划分，只有钩子所在秒可包含亚秒节拍。\n3. 音频字段承载对应时间段的对白、旁白、音效、呼吸或无声；不新增镜头表没有的台词。\n4. 动作、镜头、空间及交接符合镜头表；不附解释或Markdown代码围栏。"
+  "requirements": "1. 仅返回上述JSON结构；顶层为 storyboard、end_state、pending_actions、pending_dialogue、continuing_audio；storyboard 节拍字段为 time_range、action、camera、space、audio、handoff、dialogue 及其 speaker_id、speaker_name、mode、dialogue_text。end_state 必须明确且非空；其他镜末事项没有时为空字符串。末段 handoff 留空，统一以顶层镜末字段记录跨镜交接。无对白时 dialogue 为 []。目录内说话人的 speaker_id 必须原样使用角色ID，speaker_name 只作显示；目录外人物及独立旁白的 speaker_id 为空，不生成ID。\n2. 从0秒起按镜头表参考时长连续覆盖；普通节拍按秒划分，只有钩子所在秒可包含亚秒节拍。\n3. 音频字段承载对应时间段的对白、旁白、音效、呼吸或无声；不新增镜头表没有的台词。\n4. 动作、镜头、空间及交接符合镜头表；不附解释或Markdown代码围栏。"
 };
 
 const output1 = {
@@ -49,7 +49,7 @@ export default {
       本镜镜头表: input.shot,
       前镜交接资料: input.previous,
       本集角色资料: input.characters,
-      已确认出镜绑定: input.bindings,
+      镜头表出镜绑定: input.shot.on_screen_characters,
     };
   },
   validateInput(input) {
@@ -63,15 +63,15 @@ export default {
   },
   actions: {
     generate: {
-      input: {"language":"string","requirements":"string","shot":"object","characters":"array","bindings":"array","previous":["object","null"]},
+      input: {"language":"string","requirements":"string","shot":"object","characters":"array","previous":["object","null"]},
       output: output0,
     },
     regenerate: {
-      input: {"language":"string","requirements":"string","shot":"object","characters":"array","bindings":"array","previous":["object","null"],"opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","shot":"object","characters":"array","previous":["object","null"],"opinion":"string","content":"object"},
       output: output0,
     },
     review: {
-      input: {"language":"string","requirements":"string","shot":"object","characters":"array","bindings":"array","previous":["object","null"],"opinion":"string","content":"object"},
+      input: {"language":"string","requirements":"string","shot":"object","characters":"array","previous":["object","null"],"opinion":"string","content":"object"},
       output: output1,
     },
   },

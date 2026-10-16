@@ -13,7 +13,6 @@ const text = Object.entries(sections).map(([k, v]) => `${k}:\n${v}`).join('\n\n'
 const video = { type: '文生', textPrompt: text, duration: 5, aspectRatio: '16:9' };
 const image = 'data:image/png;base64,aW1hZ2U=';
 const common = { language: 'zh-CN', requirements: '' };
-const binding = { ...common, shot: { body: '甲穿白衣走进门。' }, previous: '', characters: [{ number: 'C1', name: '甲', costumes: [{ number: 'C1F1', name: '白衣' }] }, { number: 'C2', name: '乙', costumes: [] }] };
 
 test('视频三种类型实际发出互斥协议，生成三段原文不被系统正文包裹', async () => {
   for (const input of [video, { ...video, type: '首尾帧', firstFrame: image }, { ...video, type: '多模态', referenceImages: [image] }]) {
@@ -48,27 +47,10 @@ test('视频错误类型/素材/时长/修订意见在读取配置前拒绝', as
   assert.equal(video.textPrompt, text);
 });
 
-test('镜头识别三动作共用两个来源契约并校验编号归属，无人是合法候选', async () => {
-  for (const model of ['codex-gpt', 'qwen3.5:27b']) {
-    let response = { on_screen_characters: [{ character_number: 'C1', costume_number: 'C1F1' }] };
-    const ai = createAiRoutes({ readConfig: async () => ({ ...config, text: { model } }), gateway: { chat: async () => JSON.stringify(response) } });
-    assert.deepEqual((await ai('shot-characters', 'generate', binding)).result, response);
-    await ai('shot-characters', 'regenerate', { ...binding, content: response, opinion: '校正衣服' });
-    response = { 是否通过: true, 原因: '' };
-    await ai('shot-characters', 'review', { ...binding, content: { on_screen_characters: [] }, opinion: '' });
-    for (const rows of [[{ character_number: 'missing', costume_number: '' }], [{ character_number: 'C1', costume_number: '' }], [{ character_number: 'C2', costume_number: 'C1F1' }], [{ character_number: 'C2', costume_number: '' }, { character_number: 'C2', costume_number: '' }]]) {
-      response = { on_screen_characters: rows };
-      await assert.rejects(ai('shot-characters', 'generate', binding), /编号|服装/);
-    }
-    response = { on_screen_characters: [] };
-    assert.deepEqual((await ai('shot-characters', 'generate', binding)).result, response);
-  }
-});
-
 test('storyboard 输入不携带图片状态/前镜资料，但保留只发声人物的文字身份', () => {
-  const p = projectFixture(), shot = p.episodes[0].shot_list.shots[0], person = emptyCharacterModel({ number: 'C1', name: '甲' });
+  const p = projectFixture(), shot = p.episodes[0].shot_list.shots[0], person = emptyCharacterModel({ name: '甲' });
   p.character_library.characters.push(person);
-  shot.character_binding.on_screen_characters = [];
+  shot.on_screen_characters = [];
   shot.seconds_storyboard.storyboard[0].dialogue = [{ speaker_id: person.id, speaker_name: person.name, mode: '画外音', dialogue_text: '你好' }];
   const input = taskNodeInput({ project: p, tasks: [], steps: [] }, { business_type: 'storyboard', target_id: shot.id }, null, 'generate');
   assert.ok(input.characters.some(row => row.name === person.name));

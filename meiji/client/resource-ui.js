@@ -1,5 +1,5 @@
 import { primaryCostumeImage } from "../shared/models/character_model.js";
-import { element } from "./panel-dom.js";
+import { element, showImagePreview } from "./panel-dom.js";
 import { editor, fieldsForm } from "./content-forms.js";
 import { backHeader } from "./project-ui.js";
 import { emptyCostumeImageModel } from "../shared/models/costume_image_model.js";
@@ -36,7 +36,7 @@ export function renderResource(root, env) {
     card.append(imageCard);
     if (historical) card.append(element("p", "此图为尚无明确服装时的历史定妆照，内容与任务历史保留。", "meta"));
   }
-  card.append(element("p", costume?.number || character.number, "meta"));
+  card.append(element("p", costume?.id || character.id, "meta"));
   if (!costumeView || costume) {
     const keys = costume ? ["name", "color", "material", "props"]
       : ["name", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits", "gender", "nationality", "era", "height", "facial_features", "voice", "required_appearance"];
@@ -51,7 +51,7 @@ export function renderResource(root, env) {
       select.setAttribute("aria-label", "默认服装");
       const none = element("option", "不指定"); none.value = ""; select.append(none);
       for (const outfit of character.costumes) {
-        const option = element("option", `${outfit.number} ${outfit.name}`);
+        const option = element("option", outfit.name);
         option.value = outfit.id; select.append(option);
       }
       select.value = character.default_costume_id; select.disabled = busy;
@@ -114,12 +114,28 @@ export function renderResource(root, env) {
       img.alt = "角色参考图"; preview.append(img); card.insertBefore(preview, card.querySelector("form"));
     }
     const wardrobe = element("section", "", "character-wardrobe"), head = element("div", "", "image-text-head");
-    head.append(element("h4", "定妆照与服装"), button("＋ 添加服装", () =>
+    head.append(element("h4", "定妆照"));
+    const clothes = element("section", "", "image-text-wide character-costumes");
+    const clothesHead = element("div", "", "image-text-head");
+    clothesHead.append(element("h4", "服装"), button("＋ 添加服装", () =>
       editor(root, "添加服装", { name: "", color: "", material: "", props: [] }, (outfit) =>
         act({ type: "manual-edit", business_type: "project-characters", target_id: p.id,
           content: { characters: [{ ...Object.fromEntries(Object.keys(blankCharacter()).filter((key) => key !== "costumes").map((key) => [key, character[key]])), costumes: [outfit] }] } }),
       ),
     ));
+    clothes.append(clothesHead);
+    for (const outfit of character.costumes) {
+      const row = element("fieldset", "", "overview-card");
+      row.append(button(outfit.name, () => go("character", { costume_id: outfit.id }), false));
+      const identity = element("p", `ID：${outfit.id}`, "meta costume-id");
+      identity.style.overflowWrap = "anywhere";
+      row.append(identity);
+      for (const [label, value] of [["颜色", outfit.color], ["材质", outfit.material], ["道具", outfit.props.join("、")]])
+        row.append(element("p", `${label}：${value || "未明确"}`, "meta"));
+      clothes.append(row);
+    }
+    const form = card.querySelector(".image-text-editor");
+    form.querySelector(".image-text-grid").append(clothes);
     const gallery = element("div", "", "wardrobe-images"); wardrobe.append(head, gallery);
     const entries = character.costumes.map((outfit) => ({ outfit, image: character.costume_images.find((entry) => entry.costume_id === outfit.id) }));
     const unbound = character.costume_images.find((entry) => entry.costume_id === "");
@@ -127,7 +143,15 @@ export function renderResource(root, env) {
     for (const entry of entries) {
       const item = element("article", "", "wardrobe-image");
       const label = entry.outfit?.name || (character.costumes.length ? "未绑定服装定妆照（历史）" : "未绑定服装定妆照");
-      if (entry.image?.address) { const img = element("img"); img.src = media(entry.image.address); img.alt = label; item.append(img); }
+      if (entry.image?.address) {
+        const img = element("img"), preview = element("button", "", "costume-picture-preview");
+        img.src = media(entry.image.address); img.alt = label;
+        preview.type = "button";
+        preview.style.cursor = "zoom-in";
+        preview.setAttribute("aria-label", `放大查看${label}`);
+        preview.onclick = () => showImagePreview(root, img);
+        preview.append(img); item.append(preview);
+      }
       const open = button(label, () => go("character", { costume_id: entry.outfit?.id || "" }), false);
       open.className = "wardrobe-name"; item.append(open);
       gallery.append(item);

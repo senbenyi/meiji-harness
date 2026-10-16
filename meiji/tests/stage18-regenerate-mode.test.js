@@ -62,7 +62,7 @@ for (const action of ['regenerate', 'revise'])
     const snapshot = snapshotFixture(), episode = snapshot.project.episodes[0];
     episode.shot_list.shots[0].body = '旧镜头正文独有标记';
     const task = taskFixture(snapshot.project, 'shots', episode.id, { action, opinion: '本次镜头要求' });
-    const fields = ['title', 'number', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement'];
+    const fields = ['title', 'id', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement', 'on_screen_characters', 'background_characters'];
     let sent;
     const handler = createTestTextHandler({ chat: async ({ messages }) => {
       sent = messages;

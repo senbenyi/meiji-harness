@@ -27,10 +27,10 @@ async function runScenario({ repairDurations, invalidShape = false, episodeDurat
     const durations = repairDurations[generationCount++] || [15, 5];
     if (invalidShape) return { shots: [], invalid: true };
     return { shots: durations.map((duration_seconds, index) => ({
-      title: "测试镜头", number: `S${String(index + 1).padStart(2, "0")}`, duration_seconds,
+      title: "测试镜头", id: "", duration_seconds,
       shot_scale: "中景", hook: "", body: index === 0 ? "超限候选事件标记" : "测试收尾", continuity_transition: "",
       reference_anchor: { fixed_landmark: "", character_positions: "", departed_characters: "", lighting: "" },
-      audio_arrangement: { narration: "", dialogue: "", sound_effects: "" },
+      on_screen_characters: [], background_characters: "", audio_arrangement: { narration: "", dialogue: "", sound_effects: "" },
     })) };
   } });
   const service = new TaskService({ repository, execute: createHandlerRegistry({ text: handler, media: () => { throw Error("unexpected media"); } }), commitOutput: commitContent });
@@ -43,8 +43,8 @@ async function runScenario({ repairDurations, invalidShape = false, episodeDurat
 
 for (const scenario of [
   { name: "单镜超限", repairDurations: [[16, 4], [15, 5]], total: 20 },
-  { name: "总时长下界", episodeDuration: 60, repairDurations: [[15, 14], [15, 15]], total: 30 },
-  { name: "总时长上界", repairDurations: [[15, 15, 15, 6], [15, 15, 15, 5]], total: 50 },
+  { name: "总时长下界", episodeDuration: 60, repairDurations: [[15, 14], [15, 15, 15, 15]], total: 60 },
+  { name: "总时长上界", repairDurations: [[15, 15, 15, 6], [15, 5]], total: 20 },
 ]) test(`${scenario.name}在独立程序审核后带原候选修订`, async () => {
   const { snapshot, taskId, prompts, generationCount } = await runScenario(scenario);
   const task = snapshot.tasks.find(item => item.id === taskId), steps = snapshot.steps.filter(step => step.task_id === taskId);
@@ -72,9 +72,9 @@ for (const durations of [[[16, 4], [17, 4], [18, 4]], [[10, 10], [11, 10], [12, 
     assert.equal(snapshot.steps.filter(step => step.task_id === taskId && step.step_status === "rejected").length, 3);
   });
 
-test("响应结构错误直接失败，不进入业务修订", async () => {
+test("响应结构错误进入修订，耗尽后未通过", async () => {
   const { snapshot, taskId, generationCount } = await runScenario({ repairDurations: [[15, 5]], invalidShape: true });
-  assert.equal(snapshot.tasks.find(task => task.id === taskId).task_status, "failed");
-  assert.equal(generationCount, 1);
-  assert.ok(!snapshot.steps.some(step => step.task_id === taskId && step.kind === "revise"));
+  assert.equal(snapshot.tasks.find(task => task.id === taskId).task_status, "rejected");
+  assert.equal(generationCount, 3);
+  assert.equal(snapshot.steps.filter(step => step.task_id === taskId && step.kind === "revise").length, 2);
 });

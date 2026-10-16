@@ -251,7 +251,7 @@ test("镜头表九字段按序直接展开，时长在标题旁且不重复展�
         body: `镜头正文${index + 1}`, shot_scale: "近景", hook: "人物察觉异样",
         continuity_transition: "承接前镜抬头动作",
         reference_anchor: { fixed_landmark: "门槛", character_positions: "门内左侧", departed_characters: "王婆已离场", lighting: "窗外冷光" },
-        audio_arrangement: { narration: "日色将晚", dialogue: "且慢", sound_effects: "落碗声" },
+        on_screen_characters: [], background_characters: "", audio_arrangement: { narration: "日色将晚", dialogue: "且慢", sound_effects: "落碗声" },
         actual_duration_seconds: 9.75,
       });
       shot.seconds_storyboard.storyboard[0].action = "不应展示的每秒分镜";
@@ -355,7 +355,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     project.project_summary.node_state.reason = "摘要缺少结局";
     project.character_library.node_state.status = "rejected";
     project.character_library.node_state.reason = "未通过";
-    project.character_library.characters = [{ id: "c1", number: "C01", name: "武松", position: "好汉", costumes: [], costume_images: [{ costume_id: "", address: "" }] }];
+    project.character_library.characters = [{ id: "c1", name: "武松", position: "好汉", costumes: [], costume_images: [{ costume_id: "", address: "" }] }];
     snapshot.tasks = [{
       id: "script-task",
       business_type: "script",

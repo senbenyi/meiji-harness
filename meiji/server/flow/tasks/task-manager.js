@@ -208,8 +208,8 @@ export class TaskService {
             expireDownstream(prospective, task.business_type, task.target_id, "队列前序即将重新生成", { compareHash: false });
         for (const id of scope)
           for (const business of type === "episode-seconds"
-             ? ["shot-characters", "seconds"]
-             : ["shot-characters", "seconds", "storyboard", "video"]) {
+             ? ["seconds"]
+             : ["seconds", "storyboard", "video"]) {
             if (action === "generate" && isNodeCurrent(prospective, business, id)) continue;
             planned.push({ business, id });
             expireDownstream(prospective, business, id, "本组前序即将重新生成", { compareHash: false });
@@ -433,7 +433,7 @@ export class TaskService {
           const t = s.tasks.find(item => item.id === task.id);
           if (t.task_status !== 'queued') return { inserted: false };
           const { object: shot, episode } = locateTarget(s.project, 'video', t.target_id);
-          if (!isNodeCurrent(s, 'shot-characters', shot.id) || !isNodeCurrent(s, 'storyboard', shot.id)) return { inserted: false };
+          if (!isNodeCurrent(s, 'shots', episode.id) || !isNodeCurrent(s, 'storyboard', shot.id)) return { inserted: false };
           const type = videoType(episode, shot), business = videoPack(type);
           shot.video_generation_type = type;
           if (!business || isNodeCurrent(s, business, shot.id)) return { inserted: false };
@@ -464,6 +464,7 @@ export class TaskService {
       } catch (error) {
         // 取消由命令结算，关闭由 recover 结算；中断请求不是模型失败。
         if (signal.aborted) return;
+        const status = ["INVALID_CONTRACT", "INVALID_MODEL_JSON"].includes(error.code) ? "rejected" : "failed";
         await model.update(
           `fail:${task.id}`,
           { failure: error.message },
@@ -474,11 +475,11 @@ export class TaskService {
               (x) => x.task_id === t.id && x.step_status === "running",
             );
             if (st) {
-              st.step_status = "failed";
+              st.step_status = status;
               st.error_reason = error.message;
               st.ended_at = now();
             }
-            this.#finish(s, t, "failed", error.message);
+            this.#finish(s, t, status, error.message);
             return {};
           },
         );

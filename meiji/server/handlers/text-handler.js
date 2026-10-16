@@ -10,11 +10,16 @@ export function createTextHandler({ ai, readLanguage = async () => 'zh-CN' }) {
     let response;
     try { response = await ai(task.business_type, action, input, { signal, record, task, step }); }
     catch (error) {
-      if (action !== 'review' && error.validationKind === 'missing-field' && Object.hasOwn(error, 'candidate'))
+      if (action !== 'review' && Object.hasOwn(error, 'candidate'))
         return { result: error.candidate, prompt: error.prompt, content: null, validationFailure: error.message };
       throw error;
     }
     if (step.kind === 'review') return response;
-    return { ...response, content: prepareContent(snapshot, task, response.result) };
+    try { return { ...response, content: prepareContent(snapshot, task, response.result) }; }
+    catch (error) {
+      if (error.code === 'INVALID_CONTRACT')
+        return { ...response, content: null, validationFailure: error.message };
+      throw error;
+    }
   };
 }

@@ -6,20 +6,12 @@ import { emptyCostumeImageModel } from "./models/costume_image_model.js";
 
 const characterFields = ["name", "gender", "era", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits", "costumes"];
 const costumeFields = ["name", "color", "material", "props"];
-const shotFields = ["title", "number", "duration_seconds", "shot_scale", "hook", "body", "continuity_transition", "reference_anchor", "audio_arrangement"];
+const shotFields = ["title", "id", "duration_seconds", "shot_scale", "hook", "body", "on_screen_characters", "background_characters", "continuity_transition", "reference_anchor", "audio_arrangement"];
 
-// AI 只提供资料增量，身份和编号由程序维护；未返回的对象不表示删除。
+// AI 只提供资料增量，唯一ID由程序维护；未返回的对象不表示删除。
 export function mergeCharacters(project, rows) {
   if (!Array.isArray(rows)) invalid("characters", "需为数组");
   const draft = structuredClone(project), characters = draft.character_library.characters;
-  const numbers = new Set(characters.flatMap(c => [c.number, ...c.costumes.map(co => co.number)]));
-  const allocate = (prefix) => {
-    let index = 1;
-    while (numbers.has(`${prefix}${String(index).padStart(2, "0")}`)) index++;
-    const number = `${prefix}${String(index).padStart(2, "0")}`;
-    numbers.add(number);
-    return number;
-  };
   const seen = new Set(), new_ids = [];
   for (const row of rows) {
     assertFields(row, characterFields, "characters[]");
@@ -32,7 +24,7 @@ export function mergeCharacters(project, rows) {
     if (matches.length > 1) invalid("character.name", "已有角色同名，无法唯一关联");
     let character = matches[0];
     if (!character) {
-      character = emptyCharacterModel({ number: allocate("C") });
+      character = emptyCharacterModel();
       characters.push(character);
       new_ids.push(character.id);
     }
@@ -47,7 +39,7 @@ export function mergeCharacters(project, rows) {
       if (matches.length > 1) invalid("costume.name", "已有服装同名，无法唯一关联");
       let costume = matches[0];
       if (!costume) {
-        costume = emptyCostumeModel({ number: allocate(`${character.number}-`) });
+        costume = emptyCostumeModel();
         character.costumes.push(costume);
         new_ids.push(costume.id);
       }
@@ -67,13 +59,14 @@ export function replaceShots(project, episodeId, rows, tasks = []) {
   if (!Array.isArray(rows)) invalid("shots", "需为数组");
   const draft = structuredClone(project), episode = draft.episodes.find(e => e.id === episodeId);
   if (!episode) invalid("episode_id", "剧集不存在");
-  const byNumber = new Map(episode.shot_list.shots.map(shot => [shot.number, shot])), seen = new Set();
+  const byId = new Map(episode.shot_list.shots.map(shot => [shot.id, shot])), seen = new Set();
   const next = rows.map((row, index) => {
     assertFields(row, shotFields, "shots[]");
-    assertText(row.number, "shot.number");
-    if (!row.number || seen.has(row.number)) invalid("shot.number", "重复或空编号");
-    seen.add(row.number);
-    return { ...(byNumber.get(row.number) || emptyShot()), ...structuredClone(row), sequence: index + 1 };
+    assertText(row.id, "shot.id");
+    if (row.id && (!byId.has(row.id) || seen.has(row.id))) invalid(`shots[${index}].id`, `未知或重复镜头ID ${row.id}；旧镜头原样复制id且不可重复，新增镜头id为空。可关联旧镜头：${JSON.stringify(episode.shot_list.shots.map(shot => ({ id: shot.id, title: shot.title })))}`);
+    if (row.id) seen.add(row.id);
+    const { id, ...content } = structuredClone(row);
+    return { ...(byId.get(id) || emptyShot()), ...content, number: `S${String(index + 1).padStart(2, '0')}`, sequence: index + 1 };
   });
   const retained = new Set(next.map(shot => shot.id)), removed = episode.shot_list.shots.filter(shot => !retained.has(shot.id));
   for (const shot of removed) {

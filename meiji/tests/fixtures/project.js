@@ -21,8 +21,6 @@ export function projectFixture() {
   for (let n = 1; n <= 2; n++) {
     const s = emptyShot({ sequence: n, number: `S0${n}`, duration_seconds: 5, body: "剧情" });
     s.continuity_transition = "尾帧衔接";
-    s.character_binding.has_result = true;
-    s.character_binding.node_state.status = "generated";
     s.seconds_storyboard.node_state.status = "generated";
     s.seconds_storyboard.end_state = "人物站在原位，动作已结束，持物保持不变。";
     s.seconds_storyboard.storyboard = [{ ...emptyStoryboardBeatModel(), time_range: "0–5s", action: "动作", camera: "镜头", space: "空间", audio: "声音", handoff: "结束" }];
@@ -43,7 +41,7 @@ export function projectFixture() {
   for (const business of ["episode-summary", "outline", "shots"])
     stampDependencyHash(snapshot, business, e.id);
   for (const shot of e.shot_list.shots)
-    for (const business of ["shot-characters", "seconds", "storyboard", "first-last-frame", "multimodal", "video", "tail"])
+    for (const business of ["seconds", "storyboard", "first-last-frame", "multimodal", "video", "tail"])
       stampDependencyHash(snapshot, business, shot.id);
   stampDependencyHash(snapshot, "assembly", e.id);
   approveScriptReview(p);

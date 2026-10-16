@@ -184,7 +184,7 @@ test("S4-07 运行取消后晚到模型不写内容，剩余任务全部取消",
     },
   );
 });
-test("S4-03 precheck 失败不调用 AI，原因写节点，旧稿保留", () =>
+test("S4-03 precheck 未通过不调用 AI，原因写节点，旧稿保留", () =>
   withService(
     async ({ p, model, service }) => {
       await model.update("expire-upstream", {}, (s) => {
@@ -193,7 +193,7 @@ test("S4-03 precheck 失败不调用 AI，原因写节点，旧稿保留", () =>
       });
       await service.command(submit(p));
       await service.idle(p.id);
-      assert.equal(model.read().tasks[0].task_status, "failed");
+      assert.equal(model.read().tasks[0].task_status, "rejected");
       assert.equal(model.read().project.episodes[0].summary.body, "展示摘要");
     },
     async () => {

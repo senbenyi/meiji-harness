@@ -29,7 +29,7 @@ function chain() {
     dialogue: [{ speaker_id: '', speaker_name: '旁白', mode: '画外', dialogue_text: `台词${i}` }],
   }));
   Object.assign(first.seconds_storyboard, { end_state: '甲右手扶门，身体尚未跨入。', pending_actions: '尚未跨过门槛', pending_dialogue: '', continuing_audio: '屋外雨声持续' });
-  for (const shot of e.shot_list.shots) for (const business of ['shot-characters', 'seconds', 'storyboard', 'first-last-frame', 'multimodal', 'video', 'tail']) stampDependencyHash(s, business, shot.id);
+  for (const shot of e.shot_list.shots) for (const business of ['seconds', 'storyboard', 'first-last-frame', 'multimodal', 'video', 'tail']) stampDependencyHash(s, business, shot.id);
   stampDependencyHash(s, 'assembly', e.id);
   return { s, e, first, second, third };
 }
@@ -157,7 +157,7 @@ test('v12迁移保留正文/历史/任务终态，过期节点与排队快照且
     db = new DatabaseSync(path);
     assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(), steps);
     assert.deepEqual(db.prepare('SELECT id,task_status FROM tasks').all(), tasks);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 18);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 20);
     assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
     db.close();
     store = new SQLiteStore(path);

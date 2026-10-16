@@ -8,7 +8,12 @@ export function validateShape(value, shape, path = "响应") {
   }
   if (shape && typeof shape === "object") {
     if (!value || typeof value !== "object" || Array.isArray(value)) invalid(path, "需为对象");
-    for (const key of Object.keys(value)) if (!Object.hasOwn(shape, key)) invalid(path + "." + key, "未定义字段");
+    for (const key of Object.keys(value)) if (!Object.hasOwn(shape, key)) {
+      const field = path + "." + key;
+      throw Object.assign(new Error(`${field}：未定义字段；本层仅允许 ${Object.keys(shape).join('、')}`), {
+        code: 'INVALID_CONTRACT', status: 422, path: field, validationKind: 'unknown-field',
+      });
+    }
     for (const key of Object.keys(shape)) {
       if (!Object.hasOwn(value, key)) {
         const field = path + "." + key;

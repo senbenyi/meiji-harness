@@ -32,7 +32,7 @@ const arrayModels = {
   "project.episodes": () => emptyEpisodeModel(),
   "project.episodes[].story_outline.segments": () => emptyStorySegmentModel(),
   "project.episodes[].shot_list.shots": () => emptyShotModel(),
-  "project.episodes[].shot_list.shots[].character_binding.on_screen_characters": emptyOnScreenCharacterModel,
+  "project.episodes[].shot_list.shots[].on_screen_characters": emptyOnScreenCharacterModel,
   "project.episodes[].shot_list.shots[].seconds_storyboard.storyboard": emptyStoryboardBeatModel,
   "project.episodes[].shot_list.shots[].seconds_storyboard.storyboard[].dialogue": emptyDialogueModel,
   "project.episodes[].shot_list.shots[].multimodal_prompt.reference_images": emptyReferenceImageModel,
@@ -127,12 +127,10 @@ export function validateProject(project) {
 
   for (const character of project.character_library.characters) {
     register(character.id, "character_library.characters.id");
-    numbered(character.number, "character_library.characters.number");
     characters.set(character.id, character);
     const characterCostumes = new Set();
     for (const costume of character.costumes) {
       register(costume.id, "character_library.characters.costumes.id");
-      numbered(costume.number, "character_library.characters.costumes.number");
       costumes.set(costume.id, character.id);
       characterCostumes.add(costume.id);
     }
@@ -174,13 +172,13 @@ export function validateProject(project) {
       if (!Number.isFinite(shot.actual_duration_seconds) || shot.actual_duration_seconds < 0)
         invalid("shots.actual_duration_seconds", "需为非负秒数");
       const bound = new Set();
-      for (const appearing of shot.character_binding.on_screen_characters) {
-        if (bound.has(appearing.character_id)) invalid("character_binding", "人物重复");
+      for (const appearing of shot.on_screen_characters) {
+        if (bound.has(appearing.character_id)) invalid("on_screen_characters", "人物重复");
         bound.add(appearing.character_id);
         const character = characters.get(appearing.character_id);
-        if (!character) invalid("shots.character_binding.on_screen_characters.character_id", "角色引用不存在");
+        if (!character) invalid("shots.on_screen_characters.character_id", "角色引用不存在");
         if (appearing.costume_id && costumes.get(appearing.costume_id) !== character.id)
-          invalid("shots.character_binding.on_screen_characters.costume_id", "服装不属于该角色");
+          invalid("shots.on_screen_characters.costume_id", "服装不属于该角色");
       }
       for (const beat of shot.seconds_storyboard.storyboard) {
         checkTimeRange(beat, "seconds_storyboard.storyboard");

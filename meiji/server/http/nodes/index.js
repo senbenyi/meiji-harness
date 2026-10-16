@@ -8,7 +8,6 @@ import node6 from './seconds.js';
 import node7 from './shots.js';
 import node8 from './storyboard.js';
 import node9 from './video.js';
-import shotCharacters from './shot-characters.js';
 import scriptReview from './script-review.js';
 
 export const nodeRoutes = {
@@ -22,6 +21,5 @@ export const nodeRoutes = {
   'shots': node7,
   'storyboard': node8,
   'video': node9,
-  'shot-characters': shotCharacters,
   'script-review': scriptReview,
 };

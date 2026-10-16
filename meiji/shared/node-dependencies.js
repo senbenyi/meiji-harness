@@ -26,10 +26,10 @@ const characterMaterial = character => ({
 // 提示词与依赖使用同一份角色文字；图片、声线和默认服装配置不参与。
 export function shotCharacterContext(project) {
   return project.character_library.characters.map(character => ({
-    number: character.number,
+    id: character.id,
     ...characterMaterial(character),
     costumes: character.costumes.map(costume => ({
-      number: costume.number, name: costume.name, color: costume.color,
+      id: costume.id, name: costume.name, description: costume.description, color: costume.color,
       material: costume.material, props: costume.props,
     })),
   }));
@@ -81,11 +81,10 @@ function dependencyMaterial(snapshot, business, id) {
       上游: upstream("outline", episode.id),
     };
   }
-  if (['shot-characters', 'seconds', 'storyboard'].includes(business)) {
+  if (['seconds', 'storyboard'].includes(business)) {
     const { episode, object } = locateTarget(project, business, id);
     return { ...shotTextInputs(project, episode, object, business), requirements: project.creative_direction,
-      upstream: business === 'shot-characters' ? upstream('shots', episode.id)
-        : business === 'seconds' ? upstream('shot-characters', id) : upstream('seconds', id) };
+      upstream: business === 'seconds' ? upstream('shots', episode.id) : upstream('seconds', id) };
   }
   if (['video', 'first-last-frame', 'multimodal'].includes(business)) {
     const { object: shot, episode } = locateTarget(project, business, id);
@@ -149,7 +148,7 @@ export function stampDependencyHash(snapshot, business, id) {
   return node.node_state.dependency_hash;
 }
 
-const shotTextBusinesses = ["shot-characters", "seconds", "storyboard"];
+const shotTextBusinesses = ["seconds", "storyboard"];
 
 function restampShotText(snapshot) {
   for (const episode of snapshot.project.episodes || []) {
@@ -198,7 +197,7 @@ export function downstream(snapshot, business, id) {
   const one = (b, target) => ({ business_type: b, target_id: target });
   const roleContext = () => p.episodes.flatMap(episode => [
     { ...one("shots", episode.id), context_only: true },
-    ...episode.shot_list.shots.flatMap(shot => ['shot-characters', 'seconds', 'storyboard'].map(business => ({ ...one(business, shot.id), context_only: true }))),
+    ...episode.shot_list.shots.flatMap(shot => ['seconds', 'storyboard'].map(business => ({ ...one(business, shot.id), context_only: true }))),
   ]);
   if (business === "script") return [one("script-review", p.id), one("project-summary", p.id), one("project-characters", p.id)];
   // 剧集剧情（剧本原文）不是节点：拆分写入或人工编辑使摘要与故事大纲过期；
@@ -214,16 +213,11 @@ export function downstream(snapshot, business, id) {
   if (business === "outline") return [one("shots", id)];
   if (business === "shots")
     return [
-      ...e.shot_list.shots.map((x) => one("shot-characters", x.id)),
+      ...e.shot_list.shots.map((x) => one("seconds", x.id)),
       // 集合顺序也影响前镜尾帧和合片，不能依赖每秒分镜变化才触达。
       ...e.shot_list.shots.flatMap(x => [one('first-last-frame', x.id), one('multimodal', x.id), one('video', x.id)]),
       one("assembly", e.id),
     ];
-  if (business === 'shot-characters') {
-    const shots = [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence);
-    const next = shots[shots.findIndex(shot => shot.id === id) + 1];
-    return [one('seconds', id), one('first-last-frame', id), one('multimodal', id), one('video', id), ...(next ? [one('shot-characters', next.id)] : [])];
-  }
   if (business === "seconds") {
     const shots = [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence);
     const next = shots[shots.findIndex(shot => shot.id === id) + 1];

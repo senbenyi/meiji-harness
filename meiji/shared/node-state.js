@@ -2,10 +2,6 @@ import { nodeOf, invalid, locateTarget } from "./task_contract.js";
 import { validateProject } from "./project_contract.js";
 import { TEXT_BUSINESSES } from "./node-definitions.js";
 
-export const SHOT_DURATION_TOLERANCE_SECONDS = 30;
-export function shotDurationRange(referenceSeconds) {
-  return { min: Math.max(1, referenceSeconds - SHOT_DURATION_TOLERANCE_SECONDS), max: referenceSeconds + SHOT_DURATION_TOLERANCE_SECONDS };
-}
 export { TEXT_BUSINESSES };
 export function setNodeState(node, status, reason = "") {
   const state = node.node_state;
@@ -44,7 +40,6 @@ export function releaseQueuedNodeStatus(project, tasks) {
     apply("shots", episode.id, episode.shot_list);
     apply("assembly", episode.id, episode.assembly);
     for (const shot of episode.shot_list?.shots || []) {
-      apply("shot-characters", shot.id, shot.character_binding);
       apply("seconds", shot.id, shot.seconds_storyboard);
       apply("storyboard", shot.id, shot.text_to_video_prompt);
       apply("first-last-frame", shot.id, shot.first_last_frame_prompt);
@@ -62,7 +57,6 @@ export function hasNodeContent(project, business, targetId) {
   if (business === "outline") return node.segments.length > 0;
   if (business === "shots") return node.shots.length > 0;
   if (business === "script-review") return Boolean(node.body.trim());
-  if (business === "shot-characters") return node.has_result;
   if (business === "seconds") return node.storyboard.length > 0;
   if (business === "storyboard") return Boolean(node.integrated_multimodal_description.trim());
   return Boolean((node.body ?? node.prompt ?? node.address ?? "").trim());
@@ -87,13 +81,6 @@ export function assertOutput(project, business, targetId) {
     for (const part of node.segments) nonempty(part.body, "故事大纲");
   }
   if (business === "shots" && !node.shots.length) invalid("镜头表", "产出内容为空");
-  if (business === "shot-characters") {
-    if (!node.has_result) invalid("镜头角色识别", "尚未识别");
-    for (const row of node.on_screen_characters) {
-      const person = project.character_library.characters.find(person => person.id === row.character_id);
-      if (person.costumes.length && !row.costume_id) invalid("镜头角色识别", "需明确本镜服装");
-    }
-  }
   if (['first-last-frame', 'multimodal'].includes(business)) nonempty(node.prompt, '视频编排');
   if (business === 'video') { nonempty(object.last_frame.address, '视频尾帧'); if (!(object.actual_duration_seconds > 0)) invalid('视频时长', '缺少实测时长'); }
   if (business === "seconds") {
@@ -131,9 +118,10 @@ export function assertProgramReview(project, business, targetId) {
   if (business === "shots") {
     if (node.shots.some(shot => shot.duration_seconds < 4 || shot.duration_seconds > 15))
       invalid("镜头表", "镜头时长需为 4–15 秒");
-    const { min, max } = shotDurationRange(object.duration_seconds), total = node.shots.reduce((n, x) => n + x.duration_seconds, 0);
-    if (total < min || total > max)
-      invalid("镜头表", `镜头总时长超出允许范围（本集参考时长±${SHOT_DURATION_TOLERANCE_SECONDS}秒，允许 ${min}–${max} 秒）`);
+    const expected = Math.round(object.story_outline.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0));
+    const total = node.shots.reduce((sum, shot) => sum + shot.duration_seconds, 0);
+    if (total !== expected)
+      invalid('镜头表', `镜头总时长 ${total} 秒，需等于故事小段合计取整 ${expected} 秒，相差 ${total - expected} 秒；按原小段时长重新拆镜分配，不增加或删减剧情`);
   }
 }
 

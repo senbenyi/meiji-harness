@@ -11,9 +11,9 @@ export const fieldLabels = {
   audio_arrangement: "音频安排", narration: "旁白", sound_effects: "音效",
   aspect_ratio: "画幅", creative_direction: "创作方向", episode_requirements: "本集要求",
   reference_episode_duration_seconds: "参考单集时长（秒）", content: "内容",
-  character_id: "角色 ID", costume_id: "服装 ID", character_number: "角色编号", costume_number: "服装编号",
-  on_screen_characters: "出镜角色", storyboard: "每秒分镜", dialogue: "对白", speaker_id: "说话人 ID",
-  speaker_name: "说话人", speaker_number: "说话人编号", dialogue_text: "原话", mode: "方式", time_range: "时段",
+  character_id: "角色 ID", costume_id: "服装 ID",
+  on_screen_characters: "出镜角色", background_characters: "不具名群演描述", storyboard: "每秒分镜", dialogue: "对白", speaker_id: "说话人 ID",
+  speaker_name: "说话人",  dialogue_text: "原话", mode: "方式", time_range: "时段",
   end_state: "结尾状态", pending_actions: "未完成动作", pending_dialogue: "未结束对白内容", continuing_audio: "持续声音",
   action: "动作", camera: "镜头", space: "空间", audio: "声音", handoff: "交接",
   integrated_multimodal_description: "综合描述", overall_soundscape: "整体声音", non_diegetic_music: "配乐",
@@ -22,10 +22,10 @@ const templates = {
   characters: { name: "", gender: "", era: "", position: "", age_range: "", body_type: "", hairstyle: "", signature_props: [], immutable_traits: [], costumes: [] },
   costumes: { name: "", color: "", material: "", props: [] },
   segments: { sequence: 1, duration_seconds: 10, body: "", causal: "" },
-  shots: { title: "", number: "S01", duration_seconds: 10, shot_scale: "中景", hook: "揭示", body: "", continuity_transition: "", reference_anchor: { fixed_landmark: "", character_positions: "", departed_characters: "", lighting: "" }, audio_arrangement: { narration: "", dialogue: "", sound_effects: "" } },
-  on_screen_characters: { character_number: "", costume_number: "" },
+  shots: { title: "", id: "", duration_seconds: 10, shot_scale: "中景", hook: "揭示", body: "", continuity_transition: "", reference_anchor: { fixed_landmark: "", character_positions: "", departed_characters: "", lighting: "" }, audio_arrangement: { narration: "", dialogue: "", sound_effects: "" }, on_screen_characters: [], background_characters: "" },
+  on_screen_characters: { character_id: "", costume_id: "" },
   storyboard: { time_range: "0–1s", action: "", camera: "", space: "", audio: "", handoff: "", dialogue: [] },
-  dialogue: { speaker_number: "", speaker_name: "", mode: "画内", dialogue_text: "" },
+  dialogue: { speaker_id: "", speaker_name: "", mode: "画内", dialogue_text: "" },
 };
 export function fieldsForm(
   value,
@@ -33,6 +33,7 @@ export function fieldsForm(
 ) {
   const box = element("div", "", "image-text-grid");
   const render = (parent, key, initial) => {
+    if (key === 'id') return () => initial;
     if (Array.isArray(initial)) {
       const section = element("section", "", "image-text-wide"),
         heading = element("div", "", "image-text-head"),

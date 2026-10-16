@@ -30,6 +30,20 @@ export function showPanelDialog(dialog) {
   }, { once: true })
   dialog.show()
 }
+export function showImagePreview(root, asset) {
+  const dialog = element('dialog', '', 'still-preview');
+  const image = element('img'), close = element('button', '×', 'cancel');
+  image.src = asset.src;
+  image.alt = asset.alt;
+  dialog.setAttribute('aria-label', asset.alt || '图片预览');
+  close.setAttribute('aria-label', '关闭图片预览');
+  close.onclick = () => dialog.close();
+  dialog.append(image, close);
+  root.append(dialog);
+  dialog.addEventListener('close', () => dialog.remove(), { once: true });
+  showPanelDialog(dialog);
+}
+
 export function tabs(label, entries, selected, onChange) {
   const row = element('div', '', 'tabs')
   row.setAttribute('role', 'tablist'); row.setAttribute('aria-label', label)

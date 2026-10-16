@@ -46,7 +46,7 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
         if (
           e.shot_list.shots.some(
             (s) =>
-              s.character_binding.on_screen_characters.some((r) => r.character_id === object.id) ||
+              s.on_screen_characters.some((r) => r.character_id === object.id) ||
               s.seconds_storyboard.storyboard.some((b) =>
                 b.dialogue.some((d) => d.speaker_id === object.id),
               ),
@@ -99,24 +99,18 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       if (!episode.plot.trim())
         invalid("precheck", "本集剧情为空，请先填写剧情或拆分剧集");
     },
-    shots: () => requireNode("outline", episode.id),
-    "shot-characters": () => {
-      requireNode("shots", episode.id);
-      requireNode("project-characters", p.id);
-    },
+    shots: () => { requireNode("outline", episode.id); requireNode("project-characters", p.id); },
     seconds: () => {
       requireNode("shots", episode.id);
       requireNode("project-characters", p.id);
-      requireNode("shot-characters", object.id);
     },
     storyboard: () => {
       requireNode("project-characters", p.id);
-      requireNode("shot-characters", object.id);
       requireNode("shots", episode.id);
       requireNode("seconds", object.id);
     },
     'video-pack': () => {
-      requireNode('shot-characters', object.id);
+      requireNode('shots', episode.id);
       requireNode('storyboard', object.id);
       const type = videoType(episode, object);
       if (videoPack(type) !== business) invalid('precheck', '视频类型已变化，请重新提交视频任务');
@@ -128,7 +122,6 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     },
     video: () => {
       requireNode('shots', episode.id);
-      requireNode('shot-characters', object.id);
       requireNode('storyboard', object.id);
       const type = videoType(episode, object), pack = videoPack(type);
       if (object.video_generation_type !== type) invalid('precheck', '视频类型尚未确定');
