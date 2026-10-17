@@ -9,6 +9,8 @@ import { TaskService } from '../server/flow/tasks/task-manager.js';
 import { commitContent } from '../server/handlers/content.js';
 import { groupDetail } from '../server/data/task-store.js';
 
+// 已结束的任务组只在数据库：测试经 readAll 合并历史后查询。
+const full = model => ({ read: () => model.readAll() });
 async function fixture(work, configure = () => {}) {
  const home=await mkdtemp(join(tmpdir(),'meiji-film-pipeline-'));let service;
  try {
@@ -38,12 +40,12 @@ async function fixture(work, configure = () => {}) {
 
 test('本集成片逐镜完整链：每秒审核通过后提示词/视频/尾帧，再下一镜',()=>fixture(async({p,model,service,events,control,command})=>{
  control.revise=true;const group=await service.command(command);await service.idle(p.id);
- const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
+ const tasks=model.readAll().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
   assert.deepEqual(tasks.map(t=>t.business_type),['seconds','storyboard','video','seconds','storyboard','first-last-frame','video','assembly']);
  assert.ok(tasks.every(t=>t.task_status==='completed'));
  const first=p.episodes[0].shot_list.shots[0].id;
  assert.deepEqual(events.filter(e=>e[0]===first).map(e=>e.slice(1)),[['seconds','generate'],['seconds','review'],['seconds','revise'],['seconds','review'],['seconds','review'],['storyboard','generate'],['storyboard','review'],['video','generate'],['video','apply'],['video','review']]);
- assert.equal(model.read().project.episodes[0].shot_list.shots[0].actual_duration_seconds,5.2);assert.equal(model.read().project.episodes[0].shot_list.shots[0].duration_seconds,5);
+ assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].actual_duration_seconds,5.2);assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].duration_seconds,5);
 }));
 
 test('不同单镜组正常排队，由最后收尾的组派生一次合片',()=>fixture(async({p,model,service,control,command})=>{
@@ -52,11 +54,11 @@ test('不同单镜组正常排队，由最后收尾的组派生一次合片',()=
   const [firstShot,secondShot]=p.episodes[0].shot_list.shots;
   const first=await service.command({...command,action:'generate',shot_id:firstShot.id});
   const second=await service.command({...command,action:'generate',request_id:'second-shot',shot_id:secondShot.id});
-  assert.deepEqual(model.read().tasks.filter(t=>t.group_id===first.group_id).map(t=>t.business_type),['video']);
-  assert.deepEqual(model.read().tasks.filter(t=>t.group_id===second.group_id).map(t=>t.business_type),['video']);
+  assert.deepEqual(model.readAll().tasks.filter(t=>t.group_id===first.group_id).map(t=>t.business_type),['video']);
+  assert.deepEqual(model.readAll().tasks.filter(t=>t.group_id===second.group_id).map(t=>t.business_type),['video']);
   await assert.rejects(service.command({type:'submit',project_id:p.id,request_id:'manual-assembly',business_type:'assembly',target_id:p.episodes[0].id,action:'regenerate'}),{code:'TASK_CONFLICT'});
   release();await service.idle(p.id);
-  const tasks=model.read().tasks;
+  const tasks=model.readAll().tasks;
   assert.ok(tasks.every(t=>t.task_status==='completed'),tasks.map(t=>t.end_reason).join(';'));
   assert.equal(tasks.filter(t=>t.business_type==='assembly').length,1);
   assert.equal(tasks.at(-1).group_id,second.group_id);
@@ -70,25 +72,25 @@ test('已有独立合片任务时拒绝整集成片，没有残留半组',()=>fi
  let release;control.gate=new Promise(resolve=>release=resolve);
  try {
   await service.command({type:'submit',project_id:p.id,request_id:'assembly-alone',business_type:'assembly',target_id:p.episodes[0].id,action:'regenerate'});
-  const before=model.read();
+  const before=model.readAll();
   await assert.rejects(service.command(command),{code:'TASK_CONFLICT'});
-  assert.equal(model.read().tasks.length,before.tasks.length);
-  assert.equal(model.read().groups.length,before.groups.length);
+  assert.equal(model.readAll().tasks.length,before.tasks.length);
+  assert.equal(model.readAll().groups.length,before.groups.length);
  }finally{release();await service.idle(p.id);}
 },allCurrent));
 
 test('每秒审核未通过停止后序，继续保留旧终态并完整接续',()=>fixture(async({p,model,service,control,command})=>{
- control.reject=true;const first=await service.command(command);await service.idle(p.id);const old=model.read().tasks;
+ control.reject=true;const first=await service.command(command);await service.idle(p.id);const old=model.readAll().tasks;
  assert.equal(old[0].task_status,'rejected');assert.ok(old.slice(1).every(t=>t.task_status==='cancelled'));
  control.reject=false;const next=await service.command({type:'continue-group',project_id:p.id,request_id:'continue',group_id:first.group_id});
  assert.equal(next.task_ids.length,6);await service.idle(p.id);
- assert.deepEqual(model.read().tasks.slice(0,6),old);assert.ok(model.read().tasks.slice(6).every(t=>t.task_status==='completed'));
+ assert.deepEqual(model.readAll().tasks.slice(0,6),old);assert.ok(model.readAll().tasks.slice(6).every(t=>t.task_status==='completed'));
 }));
 
 test('单镜成片范围/意见及跨集拒绝，无其他镜头任务',()=>fixture(async({p,model,service,command})=>{
  const shot=p.episodes[0].shot_list.shots[0];const group=await service.command({...command,shot_id:shot.id,opinion:'强调动作'});await service.idle(p.id);
- const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);assert.equal(tasks.length,3);assert.ok(tasks.every(t=>t.target_id===shot.id&&t.opinion==='强调动作'));
- assert.deepEqual(model.read().groups[0].shot_ids,[shot.id]);
+ const tasks=model.readAll().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);assert.equal(tasks.length,3);assert.ok(tasks.every(t=>t.target_id===shot.id&&t.opinion==='强调动作'));
+ assert.deepEqual(model.readAll().groups[0].shot_ids,[shot.id]);
  await assert.rejects(service.command({...command,request_id:'invalid',shot_id:p.id}),/不属于当前剧集/);
 }));
 
@@ -102,19 +104,19 @@ test('已有逐镜内容只补同组合片，幂等提交与重复点击均不�
  const request={...command,action:'generate'};
  const group=await service.command(request);await service.idle(p.id);
  assert.equal(group.task_ids.length,1);
- const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
+ const tasks=model.readAll().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
  assert.deepEqual(tasks.map(t=>t.business_type),['assembly']);
  assert.equal(tasks[0].target_id,p.episodes[0].id);
  assert.equal(tasks[0].task_status,'completed',tasks[0].end_reason);
  assert.deepEqual(await service.command(request),group);
  assert.equal((await service.command({...request,request_id:'again'})).group_id,null);
- assert.equal(model.read().tasks.length,1);
+ assert.equal(model.readAll().tasks.length,1);
 },allCurrent));
 
 test('单镜重做后其他视频已有效则追加合片，不代生成其他镜头',()=>fixture(async({p,model,service,command})=>{
  const shot=p.episodes[0].shot_list.shots[1];
  const group=await service.command({...command,shot_id:shot.id});await service.idle(p.id);
- const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
+ const tasks=model.readAll().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
  assert.deepEqual(tasks.map(t=>t.business_type),['seconds','storyboard','video','assembly']);
  assert.ok(tasks.slice(0,-1).every(t=>t.target_id===shot.id));
  assert.ok(tasks.every(t=>t.task_status==='completed'),tasks.map(t=>t.end_reason).join(';'));
@@ -123,25 +125,25 @@ test('单镜重做后其他视频已有效则追加合片，不代生成其他�
 test('合片失败继续只创建新组合片，旧任务和步骤保持终态',()=>fixture(async({p,model,service,control,command})=>{
  control.failAssembly=true;
  const first=await service.command(command);await service.idle(p.id);
- const before=model.read(), members=before.tasks.filter(t=>t.group_id===first.group_id);
+ const before=model.readAll(), members=before.tasks.filter(t=>t.group_id===first.group_id);
  assert.equal(members.at(-1).business_type,'assembly');
  assert.equal(members.at(-1).task_status,'failed');
- assert.equal(groupDetail(model,first.group_id).status,'failed');
+ assert.equal(groupDetail(full(model),first.group_id).status,'failed');
  control.failAssembly=false;
  const next=await service.command({type:'continue-group',project_id:p.id,request_id:'assembly-continue',group_id:first.group_id});
  assert.equal(next.task_ids.length,1);
  await service.idle(p.id);
- const after=model.read();
+ const after=model.readAll();
  assert.deepEqual(after.tasks.filter(t=>t.group_id===first.group_id),members);
  assert.deepEqual(after.steps.filter(st=>members.some(t=>t.id===st.task_id)),before.steps);
  assert.equal(after.tasks.at(-1).business_type,'assembly');
  assert.equal(after.tasks.at(-1).task_status,'completed',after.tasks.at(-1).end_reason);
- assert.equal(groupDetail(model,next.group_id).status,'completed');
+ assert.equal(groupDetail(full(model),next.group_id).status,'completed');
 }));
 
 test('缺少或不匹配的依赖 hash 不被当作已有有效视频跳过',()=>fixture(async({p,model,service,command})=>{
  const group=await service.command({...command,action:'generate'});await service.idle(p.id);
- const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
+ const tasks=model.readAll().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
  assert.deepEqual(tasks.map(t=>t.business_type),['video','first-last-frame','video','assembly']);
  assert.ok(tasks.every(t=>t.task_status==='completed'),tasks.map(t=>t.end_reason).join(';'));
 },(p,originals)=>{

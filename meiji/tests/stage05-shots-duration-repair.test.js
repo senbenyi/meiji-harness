@@ -38,7 +38,7 @@ async function runScenario({ repairDurations, invalidShape = false, episodeDurat
   try {
     const submitted = await service.command({ type: "submit", project_id: project.id, request_id: "duration-repair", business_type: "shots", target_id: episode.id, action: "regenerate" });
     await service.idle(project.id);
-    return { snapshot: model.read(), taskId: submitted.task_id, prompts, generationCount, oldHash };
+    return { snapshot: model.readAll(), taskId: submitted.task_id, prompts, generationCount, oldHash };
   } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
 }
 

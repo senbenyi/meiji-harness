@@ -22,7 +22,7 @@ async function scenario({ businessError = '', businessRounds = 0, badJson = fals
   let count = 0;
   const calls = [];
   const repository = new ModelRepository(home), model = await repository.create(project);
-  const before = structuredClone(model.read().project.episodes[0].shot_list);
+  const before = structuredClone(model.readAll().project.episodes[0].shot_list);
   const text = createTestTextHandler({ chat: async options => {
     calls.push({ kind: options.step.kind, messages: structuredClone(options.messages) });
     if (network) throw new Error('网络接口异常：响应.shots[].audio_arrangement：缺少字段');
@@ -54,7 +54,7 @@ async function scenario({ businessError = '', businessRounds = 0, badJson = fals
   try {
     const submitted = await service.command({ type: 'submit', project_id: project.id, request_id: 'missing-field', business_type: business, target_id: business === 'shots' ? episode.id : project.id, action: empty || business === 'project-characters' ? 'generate' : 'regenerate' });
     await service.idle(project.id);
-    return { snapshot: model.read(), taskId: submitted.task_id, calls, count, before };
+    return { snapshot: model.readAll(), taskId: submitted.task_id, calls, count, before };
   } finally { await service.dispose(); await repository.close(); await rm(home, { recursive: true, force: true }); }
 }
 

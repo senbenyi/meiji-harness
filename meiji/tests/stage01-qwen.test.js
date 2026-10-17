@@ -157,7 +157,7 @@ test('千问：真实 runtime 经独立文本 HTTP 完成生成、审核及修�
     const model = await runtime.repository.create(p)
     const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: 'qwen', business_type: 'project-summary', target_id: p.id, action: 'generate' })
     await runtime.tasks.idle(p.id)
-    const task = model.read().tasks.find(t => t.id === submitted.task_id)
+    const task = model.readAll().tasks.find(t => t.id === submitted.task_id)
     assert.equal(task.task_status, 'completed', task.end_reason)
     assert.equal(requests.length, 4)
     for (const request of requests) {

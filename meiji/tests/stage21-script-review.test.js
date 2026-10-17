@@ -36,7 +36,7 @@ async function withRuntime(reply, work) {
   }
 }
 const create = runtime => runtime.projectCommand({ type: "create", fields: { name: "武松", creation_mode: "剧本", script: { body: script } } }, null);
-const read = async (runtime, opened) => (await runtime.repository.open(opened.project_id)).read();
+const read = async (runtime, opened) => (await runtime.repository.open(opened.project_id)).readAll();
 const run = async (runtime, opened, fields) => {
   const result = await runtime.command({ type: "submit", project_id: opened.project_id, request_id: randomUUID(), target_id: opened.project_id, action: "generate", ...fields }, opened.session_id);
   await runtime.tasks.idle(opened.project_id);
@@ -183,8 +183,8 @@ test("v15→v18：旧项目补剧本节点状态；v16 独立 script_review 并�
     }
     await repo.close();
     db = new DatabaseSync(join(root, "meiji.sqlite"));
-    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 21);
-    assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21]);
+    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 23);
+    assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21, 22, 23]);
     db.close();
   } finally { await rm(root, { recursive: true, force: true }); }
 });

@@ -26,15 +26,15 @@ test('长段落提供完整句和完整发言切点，原文空白、嵌套引�
   for (const text of ['', ' \n\r\n', '甲。乙。', '甲说："一。二！"乙离开。']) assert.equal(scriptParagraphs(text).join(''), text);
 });
 
-test('150秒参考下多段超180秒拒绝且不改候选，单个不可拆发言保留真实估时', () => {
+test('150秒参考下多段超180秒拒绝且不改候选，单个不可拆发言也拒绝超限', () => {
   const script = '他到达。众人起身。双方交谈。';
   const raw = { 剧集: [row(1, 0, 2, 240)], 排除段落: [] }, before = structuredClone(raw);
   assert.throws(() => buildSplit(script, raw, 150), /超过参考150秒的容量上限180秒.*提前切集/s);
   assert.deepEqual(raw, before);
-  const fixed = { 剧集: [row(1, 0, 1, 150), row(2, 2, 2, 90)], 排除段落: [] };
+  const fixed = { 剧集: [row(1, 0, 1, 150), row(2, 2, 2, 120)], 排除段落: [] };
   assert.equal(buildSplit(script, fixed, 150).episodes.map(e => e.plot).join(''), script);
   const speech = '甲：' + '这是完整发言。'.repeat(80);
-  assert.equal(buildSplit(speech, { 剧集: [row(1, 0, 0, 300)], 排除段落: [] }, 150).episodes[0].duration_seconds, 300);
+  assert.throws(() => buildSplit(speech, { 剧集: [row(1, 0, 0, 300)], 排除段落: [] }, 150), /容量上限180秒/);
   assert.equal(buildSplit(script, { 剧集: [row(1, 0, 2, 180)], 排除段落: [] }, 150).episodes[0].duration_seconds, 180);
 });
 
@@ -57,7 +57,7 @@ test('旧切点修订映射细粒度编号，仍逐字恢复对应剧情', () =>
   const script = '第一件事。第二件事。他说：“一。二。”第三件事。';
   const project = emptyProject({ name: '切点映射', creation_mode: '剧本' });
   project.script.body = script;
-  project.episodes = [emptyEpisode({ sequence: 1, plot: '第一件事。第二件事。' }), emptyEpisode({ sequence: 2, plot: '他说：“一。二。”第三件事。' })];
+  project.episodes = [emptyEpisode({ sequence: 1, duration_seconds: 150, plot: '第一件事。第二件事。' }), emptyEpisode({ sequence: 2, duration_seconds: 150, plot: '他说：“一。二。”第三件事。' })];
   const input = taskNodeInput({ project, steps: [] }, { business_type: 'script-split', target_id: project.id, opinion: '检查容量' }, null, 'regenerate');
   assert.equal(buildSplit(script, input.content, 150).episodes.map(e => e.plot).join(''), script);
   assert.equal(input.content.剧集[1].起始段落, 'P003');
@@ -90,7 +90,7 @@ test('容量拒绝进入既有修订，明确重切后只写成功结果，提�
     const model = await runtime.repository.create(project);
     const task = await runtime.tasks.command({ type: 'submit', project_id: project.id, target_id: project.id, business_type: 'script-split', action: 'regenerate', request_id: 'duration-test' });
     await runtime.tasks.idle(project.id);
-    const snapshot = model.read();
+    const snapshot = model.readAll();
     assert.equal(snapshot.tasks.find(t => t.id === task.task_id).task_status, 'completed');
     assert.equal(calls, 2);
     assert.equal(snapshot.project.episodes.map(e => e.plot).join(''), script);
@@ -103,7 +103,7 @@ for (const repair of [true, false]) test(`数值合规但语义容量不足：${
   let runtime, generations = 0, reviews = 0;
   const script = '甲发问。乙解释完整方案。众人依次搬运物件。最后确认完成。';
   const first = { 剧集: [row(1, 0, 3, 150)], 排除段落: [] };
-  const fixed = { 剧集: [row(1, 0, 1, 140), row(2, 2, 3, 100)], 排除段落: [] };
+  const fixed = { 剧集: [row(1, 0, 1, 140), row(2, 2, 3, 120)], 排除段落: [] };
   const reason = '第1集P002—P003：乙须先解释方案，众人才依次搬运，解释与搬运不能并行；150秒无法正常呈现。请在P002完整发言结束后切集，P003起归入下一集。';
   try {
     runtime = await createAppRuntime({ home, gateway: { chat: async ({ step, messages }) => {
@@ -122,7 +122,7 @@ for (const repair of [true, false]) test(`数值合规但语义容量不足：${
     const original = structuredClone(project.episodes), model = await runtime.repository.create(project);
     const result = await runtime.tasks.command({ type: 'submit', project_id: project.id, target_id: project.id, business_type: 'script-split', action: 'regenerate', request_id: 'semantic-test' });
     await runtime.tasks.idle(project.id);
-    const snapshot = model.read();
+    const snapshot = model.readAll();
     assert.equal(snapshot.tasks.find(t => t.id === result.task_id).task_status, repair ? 'completed' : 'rejected');
     assert.equal(generations, repair ? 2 : 3);
     assert.equal(reviews, generations);

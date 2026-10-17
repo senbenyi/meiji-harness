@@ -68,17 +68,17 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
         action: "generate",
       });
       await runtime.tasks.idle(p.id);
-      const t = model.read().tasks.find((t) => t.id === r.task_id);
+      const t = model.readAll().tasks.find((t) => t.id === r.task_id);
       assert.equal(t.task_status, "completed", t.end_reason);
     };
     for (const b of ["script-review", "script-split", "project-summary", "project-characters"])
       await submit(b, p.id);
-    const e = model.read().project.episodes[0];
+    const e = model.readAll().project.episodes[0];
     assert.equal(e.plot, "五秒钟表静物");
     assert.equal(e.duration_seconds, 5);
     for (const b of ["outline", "episode-scenes", "shots"])
       await submit(b, e.id);
-    const s = model.read().project.episodes[0].shot_list.shots[0];
+    const s = model.readAll().project.episodes[0].shot_list.shots[0];
     const first = await runtime.tasks.command({
       type: "submit-group",
       project_id: p.id,
@@ -87,7 +87,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
       episode_id: e.id,
     });
     await runtime.tasks.idle(p.id);
-    const before = model.read(),
+    const before = model.readAll(),
       old = before.tasks.filter((t) => t.group_id === first.group_id);
     assert.deepEqual(
       old.map((t) => t.task_status),
@@ -103,27 +103,27 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
     assert.notEqual(next.group_id, first.group_id);
     await runtime.tasks.idle(p.id);
     assert.deepEqual(
-      model.read().tasks.filter((t) => t.group_id === first.group_id),
+      model.readAll().tasks.filter((t) => t.group_id === first.group_id),
       old,
     );
     assert.ok(
       model
-        .read()
+        .readAll()
         .tasks.filter((t) => t.group_id === next.group_id)
         .every((t) => t.task_status === "completed"),
     );
-    const shotVideo = await runtime.media.validate(model.read().project.episodes[0].shot_list.shots[0].video.address, p.id, "video");
-    assert.equal(model.read().project.episodes[0].shot_list.shots[0].actual_duration_seconds, Math.round(shotVideo.duration * 10) / 10);
-    assert.equal(model.read().project.episodes[0].shot_list.shots[0].duration_seconds, 5);
-    const continued = model.read().tasks.filter((t) => t.group_id === next.group_id);
+    const shotVideo = await runtime.media.validate(model.readAll().project.episodes[0].shot_list.shots[0].video.address, p.id, "video");
+    assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].actual_duration_seconds, Math.round(shotVideo.duration * 10) / 10);
+    assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].duration_seconds, 5);
+    const continued = model.readAll().tasks.filter((t) => t.group_id === next.group_id);
     assert.equal(continued.at(-1).business_type, "assembly");
     assert.equal(continued.filter(t => t.business_type === "assembly").length, 1);
     const film = await runtime.media.validate(
-      model.read().project.episodes[0].assembly.address,
+      model.readAll().project.episodes[0].assembly.address,
       p.id,
       "video",
     );
-    const done = model.read().project.episodes[0];
+    const done = model.readAll().project.episodes[0];
     assert.ok(done.actual_duration_seconds > 0);
     assert.equal(done.actual_duration_seconds, Math.round(shotVideo.duration * 10) / 10);
     assert.ok(film.duration > 0);

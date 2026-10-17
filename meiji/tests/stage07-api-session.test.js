@@ -144,7 +144,7 @@ test("S7 通知失败仍受理，稳定消息 ID 待投递，重连后去重再�
       assert.ok(result.notification_error);
       await r.tasks.idle(p.id);
       const noticeIds = (await r.repository.open(p.id))
-        .read()
+        .readAll()
         .runtime.outbox.map((n) => n.id);
       available = true;
       await r.notices.drain(p.id);
@@ -190,26 +190,44 @@ test("面板可加载英文共享契约及嵌套Model模块，拒绝越界模块
     assert.equal(response.status, 404);
   }));
 
-test("面板快照不携带历史提示词，打开记录时再读取", () =>
+test("面板快照只含未结束任务；已结束任务经项目关联ID按需读取摘要、详情与历史", () =>
   httpFixture(async ({ runtime, p, sid, base, post }) => {
     const headers = { "X-Test-Auth": "1" };
+    const get = async path => { const response = await fetch(`${base}${path}`, { headers }); return { status: response.status, body: await response.json() }; };
     const submitted = await post({
       type: "submit", project_id: p.id, request_id: "panel-snapshot",
       business_type: "project-summary", target_id: p.id, action: "regenerate",
     });
     assert.equal(submitted.status, 200);
     await runtime.tasks.idle(p.id);
-    const context = await fetch(`${base}/api/meiji/context?session_id=${sid}`, { headers });
-    assert.equal(context.status, 200);
-    const snapshot = (await context.json()).snapshot;
-    const generated = snapshot.steps.find(step => step.kind === "generate");
+    const snapshot = (await get(`/api/meiji/context?session_id=${sid}`)).body.snapshot;
+    // 任务已结束：工作快照不再携带，项目 JSON 记录最近任务 ID。
+    assert.deepEqual(snapshot.tasks, []);
+    assert.deepEqual(snapshot.steps, []);
+    const taskId = snapshot.project.latest_tasks[`project-summary:${p.id}`];
+    assert.equal(taskId, submitted.body.task_id);
+    const summary = await get(`/api/meiji/records?session_id=${sid}&task_ids=${taskId}`);
+    assert.equal(summary.status, 200);
+    const row = summary.body.groups[0];
+    assert.equal(row.tasks[0].id, taskId);
+    assert.ok(["completed", "rejected", "failed"].includes(row.status));
+    const generated = row.steps.find(step => step.kind === "generate");
+    assert.equal(generated.executor, "ai");
     assert.equal(generated.has_prompt, true);
     assert.equal(Object.hasOwn(generated, "prompt"), false);
-    const detail = await fetch(`${base}/api/meiji/step?session_id=${sid}&step_id=${generated.id}`, { headers });
+    assert.equal(row.steps.find(step => step.kind === "precheck").executor, "program");
+    const detail = await get(`/api/meiji/group?session_id=${sid}&group_id=${row.group.id}`);
     assert.equal(detail.status, 200);
-    const prompt = (await detail.json()).prompt;
-    assert.equal(typeof prompt, "object");
-    assert.ok(prompt);
+    const record = detail.body.steps.find(step => step.id === generated.id);
+    assert.ok(Array.isArray(record.prompt.messages) && record.prompt.messages.length);
+    for (const key of ["system", "user", "body", "transfers"]) assert.equal(Object.hasOwn(record.prompt, key), false, key);
+    assert.ok(Array.isArray(record.http));
+    assert.equal(detail.body.steps.find(step => step.kind === "precheck").prompt, null);
+    assert.equal((await get(`/api/meiji/group?session_id=${sid}&group_id=tg_missing`)).status, 404);
+    const history = await get(`/api/meiji/history?session_id=${sid}&business=project-summary`);
+    assert.equal(history.body.total, 1);
+    assert.equal(history.body.groups[0].group.id, row.group.id);
+    assert.equal((await get(`/api/meiji/history?session_id=${sid}&business=outline`)).body.total, 0);
   }));
 
 test("提交直接返回正在进行的任务组快照", () =>
@@ -220,7 +238,9 @@ test("提交直接返回正在进行的任务组快照", () =>
     });
     assert.equal(submitted.status, 200);
     const body = submitted.body;
+    // 提交只新增最近任务关联，以 links 增量返回，不算作正文变化。
     assert.equal(body.content, false);
+    assert.equal(body.links.latest_tasks[`project-summary:${p.id}`], body.task_id);
     assert.equal(body.groups.length, 1);
     const view = body.groups[0];
     assert.equal(view.tasks[0].id, body.task_id);

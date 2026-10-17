@@ -60,8 +60,8 @@ test('定妆照经 llm-server 文生图返回图片，已移除的网关图片�
     const textBaseUrl = await listen(gpt), baseUrl = await listen(gateway);
     const readConfig = async () => ({ baseUrl, textBaseUrl, apiKey: mediaKey, text: { model: 'codex-gpt' }, image: { model: 'gpt-image' }, video: { model: 'elysium-video' } });
     const ai = createAiRoutes({ readConfig });
-    let saved;
-    const { result } = await ai('costume-image', 'generate', input, { task: { id: taskId }, record: async value => { saved = structuredClone(value.prompt); } });
+    let saved, savedHttp;
+    const { result } = await ai('costume-image', 'generate', input, { task: { id: taskId }, record: async value => { if (value.prompt) saved = structuredClone(value.prompt); if (value.http) savedHttp = structuredClone(value.http); } });
     assert.equal(gptRequests.length, 1);
     assert.equal(gatewayRequests.length, 0);
     assert.equal(gptRequests[0].path, '/v1/images/generations');
@@ -76,7 +76,10 @@ test('定妆照经 llm-server 文生图返回图片，已移除的网关图片�
     assert.doesNotMatch(JSON.stringify(gptRequests[0]), new RegExp(mediaKey));
     assert.equal(result.mime, 'image/png');
     assert.ok(Buffer.from(result.data, 'base64').equals(png));
-    const logged = JSON.stringify(saved.transfers.at(-1));
+    const logged = JSON.stringify(savedHttp.at(-1));
+    // 步骤保存的业务参数中，参考图 base64 与 HTTP 记录一样脱敏。
+    assert.doesNotMatch(JSON.stringify(saved.input), new RegExp(reference.slice(reference.indexOf(',') + 1, reference.indexOf(',') + 41).replace(/[+/=]/g, m => '\\' + m)));
+    assert.match(JSON.stringify(saved.input), /base64 数据/);
     assert.match(logged, /generateImage/);
     assert.doesNotMatch(logged, new RegExp(png.toString('base64')));
     const gatewayAi = createAiRoutes({ readConfig: async () => ({ ...(await readConfig()), image: { model: 'elysium-image' } }) });

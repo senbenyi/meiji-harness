@@ -24,12 +24,22 @@ export function stepKinds(task) {
   if (task.business_type === "script-review" && task.action !== "revise") return ["precheck", "review"];
   return ["precheck", "generate", ...(task.business_type === 'video' ? ['apply'] : []), ...reviewTypes(task).map(() => "review")];
 }
+// 调用模型（文本、图片、视频）的步骤为 AI，其余（前置、程序审核、编排、人工、写回）为程序。
+export function stepExecutor(task, kind, reviewer = null) {
+  if (kind === "review") return reviewer === "ai" ? "ai" : "program";
+  if (!["generate", "revise"].includes(kind)) return "program";
+  const definition = BUSINESS_DEFINITIONS[task.business_type];
+  return ["text", "media"].includes(definition?.handler) && !["assembly", "tail"].includes(task.business_type) ? "ai" : "program";
+}
+// 工作快照中的步骤不含提示词与 HTTP（只在数据库行中，由运行中写入）；步骤 Model 定义完整行结构。
 export function newStep(task, seq, kind, round = 0, reviewer = null) {
-  return createStepModel({
+  const { prompt, http, ...step } = createStepModel({
     task_id: task.id,
     name: stepName({ kind, round, review_type: reviewer }, task),
     seq,
     kind,
     round,
+    executor: stepExecutor(task, kind, reviewer),
   });
+  return step;
 }

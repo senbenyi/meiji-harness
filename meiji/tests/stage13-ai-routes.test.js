@@ -48,11 +48,12 @@ test('两个文本服务实际 HTTP 原样发送并记录多轮消息，不重�
     const url = `${await listen(server)}/v1`;
     for (const model of ['qwen3.5:27b', 'codex-gpt']) {
       const ai = createAiRoutes({ readConfig: async () => ({ ...config, baseUrl: url, textBaseUrl: url, text: { model } }) });
-      let saved;
-      const { prompt } = await ai('project-summary', 'regenerate', { ...input, content: '原稿唯一标记', opinion: '意见唯一标记' }, { record: async value => { saved = structuredClone(value.prompt); } });
+      let saved, savedHttp;
+      const { prompt } = await ai('project-summary', 'regenerate', { ...input, content: '原稿唯一标记', opinion: '意见唯一标记' }, { record: async value => { if (value.prompt) saved = structuredClone(value.prompt); if (value.http) savedHttp = structuredClone(value.http); } });
       assert.deepEqual(requests.at(-1).messages, prompt.messages);
       assert.deepEqual(saved.messages, requests.at(-1).messages);
-      assert.deepEqual(saved.transfers.at(-1).request.body.messages, prompt.messages);
+      assert.deepEqual(savedHttp.at(-1).request.body.messages, prompt.messages);
+      for (const key of ['system', 'user', 'body', 'transfers']) assert.equal(Object.hasOwn(saved, key), false, key);
       assert.equal(JSON.stringify(prompt.messages).split('原稿唯一标记').length - 1, 1);
       assert.equal(JSON.stringify(prompt.messages).split('意见唯一标记').length - 1, 1);
     }
@@ -163,7 +164,8 @@ test('两次并发节点调用各读一次配置、保存自己的模型与提�
   assert.equal(reads, 2); assert.equal(a.result, '结果A'); assert.equal(b.result, '结果B');
   assert.equal(a.prompt.model, 'qwen3.5:27b'); assert.equal(b.prompt.model, 'codex-gpt');
   assert.equal(savedA[0].prompt.input.script, '请求A'); assert.equal(savedB[0].prompt.input.script, '请求B');
-  assert.doesNotMatch(a.prompt.user, /请求B/); assert.doesNotMatch(b.prompt.user, /请求A/);
+  const userText = value => value.prompt.messages.filter(message => message.role === 'user').map(message => message.content).join('\n');
+  assert.doesNotMatch(userText(a), /请求B/); assert.doesNotMatch(userText(b), /请求A/);
 });
 
 for (const [name, client, model, key] of [['elysium', elysiumClient, 'elysium-chat', 'test-only-secret'], ['llm-server', llmServerClient, 'qwen3.5:27b', 'ollama']]) {

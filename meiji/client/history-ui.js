@@ -1,8 +1,7 @@
 import { historyGroups, taskName, stepName } from "../shared/task-labels.js";
 import { NODE_TYPES } from "../shared/task_contract.js";
-import { BUSINESS_DEFINITIONS } from "../shared/node-definitions.js";
 import { element } from "./panel-dom.js";
-import { request } from "./task-client.js";
+import { historyRecords, groupRecords, taskGroupRecord } from "./task-records.js";
 const nodeTypeNames = {
   "script-review": "剧本",
   "project-summary": "项目摘要",
@@ -23,16 +22,6 @@ const nodeTypeNames = {
 };
 const text = (value) =>
   typeof value === "string" ? value : JSON.stringify(value ?? null, null, 2);
-function isAiStep(step, task) {
-  const definition = BUSINESS_DEFINITIONS[task.business_type];
-  if (step.kind === "review") {
-    const name = stepName(step, task);
-    return !name.includes("程序审核") && (name.includes("AI审核") || Boolean(definition?.aiReview));
-  }
-  return ["generate", "revise"].includes(step.kind) &&
-    (["text", "media"].includes(definition?.handler) || ["script", "episode-characters"].includes(task.business_type)) &&
-    !["assembly", "tail"].includes(task.business_type);
-}
 // 记录卡片：标题与复制按钮同一行，正文完整展示不截断。
 function copyButton(label, read, title = "复制") {
   const copy = element("button", title, "meiji-log-copy");
@@ -84,12 +73,7 @@ function tabRow(label, entries, selected, change) {
   return row;
 }
 // 步骤的提示词或 HTTP 详情页。
-function cachedPrompt(state, step) {
-  if (step.prompt !== undefined) return step.prompt;
-  if (state.stepPrompts && Object.hasOwn(state.stepPrompts, step.id)) return state.stepPrompts[step.id];
-  return undefined;
-}
-function renderStepRecord(view, env, task, step) {
+function renderStepRecord(view, env, task, step, records, groupId) {
   const { state, go, button, names } = env,
     kind = state.step_view,
     header = element("div", "", "task-history-header");
@@ -106,29 +90,13 @@ function renderStepRecord(view, env, task, step) {
   );
   const page = element("div", "", "run-record-page");
   view.append(header, page);
-  const saved = cachedPrompt(state, step);
-  if (step.has_prompt && saved === undefined) {
-    page.append(element("p", state.stepPromptError?.[step.id] || "正在读取记录", state.stepPromptError?.[step.id] ? "error" : "meta"));
-    if (!state.stepPromptLoading?.[step.id] && !state.stepPromptError?.[step.id]) {
-      state.stepPromptLoading ??= {};
-      state.stepPromptLoading[step.id] = true;
-      request("step?" + new URLSearchParams({ session_id: env.session_id || "", step_id: step.id }))
-        .then(data => {
-          state.stepPrompts ??= {};
-          state.stepPrompts[step.id] = data.prompt ?? null;
-        })
-        .catch(error => {
-          state.stepPromptError ??= {};
-          state.stepPromptError[step.id] = error.message || "读取记录失败";
-        })
-        .finally(() => {
-          delete state.stepPromptLoading[step.id];
-          go("history", { task_id: state.task_id, group_id: state.group_id, step_id: state.step_id, step_view: state.step_view });
-        });
-    }
+  const saved = records?.steps.find(row => row.id === step.id);
+  if (!saved) {
+    const error = state.taskRecords?.errors?.["group:" + groupId];
+    page.append(element("p", error || "正在读取记录", error ? "error" : "meta"));
     return;
   }
-  const promptSource = saved === undefined ? step.prompt : saved;
+  const promptSource = saved.prompt;
   const prompt =
     promptSource && typeof promptSource === "object" ? promptSource : null;
   if (kind === "prompt") {
@@ -157,7 +125,7 @@ function renderStepRecord(view, env, task, step) {
       page.append(recordCard(key, value, { copy: false }));
     return;
   }
-  const transfers = prompt?.transfers || [];
+  const transfers = saved.http || [];
   if (!transfers.length)
     return page.append(element("p", "此步骤没有已保存的 HTTP 记录", "meta"));
   const index = Math.min(state.http_index || 0, transfers.length - 1),
@@ -205,40 +173,56 @@ const statuses = {
   cancelled: "已取消",
 };
 export function renderHistory(root, env, snapshot) {
-  const { p, state, button, go, names } = env,
-    groups = historyGroups(snapshot),
-    selectedGroup = groups.find(row => state.task_id ? row.tasks.some(t=>t.id === state.task_id) : row.group.id === state.group_id),
-    selected = selectedGroup?.tasks.find(t=>t.id === state.task_id) || selectedGroup?.tasks[0],
-    view = element(
+  const { p, state, button, go, names } = env;
+  const localGroups = historyGroups(snapshot);
+  const localGroup = localGroups.find(row => state.task_id ? row.tasks.some(t => t.id === state.task_id) : row.group.id === state.group_id);
+  const groupId = state.group_id || localGroup?.group.id;
+  let detail = null, page = null;
+  if (groupId) detail = groupRecords(env, snapshot, groupId);
+  else if (!state.task_id) page = historyRecords(env, snapshot);
+  const selectedGroup = detail?.data || localGroup;
+  const selected = selectedGroup?.tasks.find(t => t.id === state.task_id) || selectedGroup?.tasks[0];
+  const detailSteps = detail?.data?.steps || snapshot.steps;
+  const groups = page?.data?.groups || localGroups;
+  const selecting = Boolean(groupId || state.task_id);
+  const view = element(
       "section",
       "",
-      `task-history-page ${selected ? "run-detail-page" : "run-list-page"}`,
+      `task-history-page ${selecting ? "run-detail-page" : "run-list-page"}`,
     ),
     header = element("div", "", "task-history-header");
   header.append(
     button(
       "← 返回",
-      () => (selected ? go("history", { task_id: null, group_id: null, step_id: null, step_view: null }) : go("overview")),
+      () => (selecting ? go("history", { task_id: null, group_id: null, step_id: null, step_view: null }) : go("overview")),
       false,
     ),
     element(
       "h2",
-      selected
+      selecting
         ? "任务组详情"
         : `${p.name} · 任务历史`,
     ),
   );
   view.append(header);
   root.append(view);
-  const recordStep =
-    selected && state.step_view
-      ? snapshot.steps.find(
-          (st) => st.id === state.step_id && selectedGroup.tasks.some(t=>t.id === st.task_id),
-        )
-      : null;
+  if (selecting && !selected) {
+    const selectedTask = state.task_id;
+    const error = state.task_id && !groupId
+      ? taskGroupRecord(env, state.task_id, id => { if (state.task_id === selectedTask) state.group_id = id; })
+      : detail?.error;
+    view.append(element('p', error || '正在读取任务组', error ? 'error' : 'meta'));
+    if (detail?.error) view.append(button('重试读取', detail.retry, false));
+    else if (error) view.append(button('重试读取', () => { delete state.taskRecords.errors['task:' + selectedTask]; (env.paint || (() => go('history', {})))(); }, false));
+    return;
+  }
+  if (detail?.error) view.append(element('p', detail.error, 'error'), button('重试读取', detail.retry, false));
+  const recordStep = selected && state.step_view
+    ? detailSteps.find(st => st.id === state.step_id && selectedGroup.tasks.some(t => t.id === st.task_id)) : null;
+  const records = detail?.data;
   if (recordStep) {
     header.remove();
-    return renderStepRecord(view, env, selectedGroup.tasks.find(t=>t.id === recordStep.task_id), recordStep);
+    return renderStepRecord(view, env, selectedGroup.tasks.find(t=>t.id === recordStep.task_id), recordStep, records, selectedGroup.group.id);
   }
   if (selected) {
     const groupHead = element("div", "", "run-group-head run-list-heading");
@@ -263,7 +247,7 @@ export function renderHistory(root, env, snapshot) {
       view.append(reason);
     }
     const list = element("ol", "", "run-step-list");
-    for (const step of snapshot.steps
+    for (const step of detailSteps
       .filter((s) => s.task_id === selected.id)
       .sort((a, b) => a.seq - b.seq)) {
       const item = element("li", "", "run-step-card"),
@@ -289,6 +273,7 @@ export function renderHistory(root, env, snapshot) {
       toggle.setAttribute("aria-expanded", String(item.classList.contains("is-expanded")));
       heading.append(
         element("strong", `${step.seq}. ${stepName(step, selected)}`),
+        element("span", step.executor === "ai" ? "AI" : "程序", `run-step-executor is-${step.executor || "program"}`),
         element(
           "span",
           rejected ? "未通过" : ({ready:"待执行",running:"执行中",done:"已完成",failed:"失败",skipped:"已跳过",cancelled:"已取消",superseded:"已取消"}[step.step_status] || step.step_status),
@@ -312,7 +297,7 @@ export function renderHistory(root, env, snapshot) {
       detail.append(result);
       const links = element("div", "", "workflow-generation-row run-record-links");
       for (const [view, title] of [["prompt", "查看提示词"], ["http", "查看 HTTP"]]) {
-        if (view === "prompt" && !isAiStep(step, selected)) continue;
+        if (view === "prompt" && !(step.executor === "ai" && (step.has_prompt || step.prompt != null))) continue;
         const link = button(title, () =>
           go("history", { task_id: selected.id, group_id:selectedGroup.group.id, step_id: step.id, step_view: view, http_index: 0, http_tab: "request" }),
         false);
@@ -340,7 +325,7 @@ export function renderHistory(root, env, snapshot) {
     }
     select.value = value || "";
     select.onchange = () =>
-      go("history", { [key]: select.value, task_id: null, group_id:null, step_id:null, step_view:null });
+      go("history", { [key]: select.value, history_offset: 0, task_id: null, group_id:null, step_id:null, step_view:null });
   };
   options(
     status,
@@ -372,9 +357,18 @@ export function renderHistory(root, env, snapshot) {
     (!state.history_status || row.status === state.history_status) &&
     (!state.history_business || row.tasks.some(t=>t.business_type === state.history_business)) &&
     (!state.history_episode || row.tasks.some(t=>t.episode_id === state.history_episode)));
-  view.append(element("p", `${filtered.length} 个任务组`, "meta"));
+  if (page?.error) view.append(element('p', page.error, 'error'), button('重试读取', page.retry, false));
+  if (!page?.data && !page?.error) view.append(element('p', '正在读取历史', 'meta'));
+  view.append(element("p", `${page?.data?.total ?? filtered.length} 个任务组`, "meta"));
   const list = element("div", "", "task-history-list");
   view.append(list);
+  if (page?.data) {
+    const paging = element('div', '', 'run-filters');
+    const { offset, limit, total } = page.data;
+    if (offset > 0) paging.append(button('上一页', () => go('history', { history_offset: Math.max(0, offset - limit) }), false));
+    if (offset + limit < total) paging.append(button('下一页', () => go('history', { history_offset: offset + limit }), false));
+    view.append(paging);
+  }
   for (const entry of filtered) {
     const t = entry.tasks[0];
     if (!t) continue;

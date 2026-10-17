@@ -53,7 +53,7 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
         target_id: id,
       });
       await service.idle(p.id);
-      return model.read().tasks.find((t) => t.id === result.task_id);
+      return model.readAll().tasks.find((t) => t.id === result.task_id);
     };
     assert.equal((await del("character-delete", c.id)).task_status, "rejected");
     assert.equal(
@@ -64,7 +64,7 @@ test("S6-07 被引用角色/默认服装/素材库引用均禁止删除；服装
     assert.equal((await del("costume-delete", co.id)).task_status, "rejected");
     refs = [];
     assert.equal((await del("costume-delete", co.id)).task_status, "completed");
-    const next = model.read();
+    const next = model.readAll();
     assert.equal(next.project.character_library.characters[0].costumes.length, 1);
     assert.equal(
       next.project.episodes[0].shot_list.shots[0].on_screen_characters[0].costume_id,

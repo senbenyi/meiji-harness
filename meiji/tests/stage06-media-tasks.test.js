@@ -98,9 +98,9 @@ test("S6-01/02/03/04 仅姓名角色通过前置，真实媒体经过图片、�
       });
       await service.idle(p.id);
       assert.equal(
-        model.read().tasks.find((t) => t.id === result.task_id).task_status,
+        model.readAll().tasks.find((t) => t.id === result.task_id).task_status,
         "completed",
-        model.read().tasks.find((t) => t.id === result.task_id).end_reason,
+        model.readAll().tasks.find((t) => t.id === result.task_id).end_reason,
       );
       return result;
     };
@@ -111,19 +111,19 @@ test("S6-01/02/03/04 仅姓名角色通过前置，真实媒体经过图片、�
     const video = await submit("video", s.id, "regenerate");
     assert.equal(
       model
-        .read()
+        .readAll()
         .steps.find(
           (st) => st.task_id === video.task_id && st.kind === "generate",
         ).result.remote_id,
       "remote-test",
     );
-    assert.ok(model.read().project.episodes[0].shot_list.shots[0].last_frame.address);
-    const info = await media.validate(model.read().project.episodes[0].shot_list.shots[0].video.address, p.id, "video");
-    assert.equal(model.read().project.episodes[0].shot_list.shots[0].actual_duration_seconds, Math.round(info.duration * 10) / 10);
+    assert.ok(model.readAll().project.episodes[0].shot_list.shots[0].last_frame.address);
+    const info = await media.validate(model.readAll().project.episodes[0].shot_list.shots[0].video.address, p.id, "video");
+    assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].actual_duration_seconds, Math.round(info.duration * 10) / 10);
     const restored = await new ModelRepository(join(root, "projects")).open(p.id);
-    assert.equal(restored.read().project.episodes[0].shot_list.shots[0].actual_duration_seconds, Math.round(info.duration * 10) / 10);
+    assert.equal(restored.readAll().project.episodes[0].shot_list.shots[0].actual_duration_seconds, Math.round(info.duration * 10) / 10);
     await submit("assembly", e.id, "regenerate");
-    await media.validate(model.read().project.episodes[0].assembly.address, p.id, "video");
+    await media.validate(model.readAll().project.episodes[0].assembly.address, p.id, "video");
     await assert.rejects(
       media.put(p.id, Buffer.from("invalid"), "png"),
       /媒体|Invalid|invalid|Invalid data|ffprobe/,
@@ -236,7 +236,7 @@ test("合片按 sequence 顺序拼接真实可解码视频，不覆盖剧集累�
     service = new TaskService({ repository, commitOutput: commitContent, execute: createMediaHandler({ media, gateway: {} }) });
     const submitted = await service.command({ type: "submit", project_id: p.id, request_id: "assembly", business_type: "assembly", target_id: e.id, action: "regenerate" });
     await service.idle(p.id);
-    const after = model.read(), task = after.tasks.find(t => t.id === submitted.task_id), steps = after.steps.filter(st => st.task_id === task.id);
+    const after = model.readAll(), task = after.tasks.find(t => t.id === submitted.task_id), steps = after.steps.filter(st => st.task_id === task.id);
     assert.equal(task.task_status, "completed", task.end_reason);
     assert.deepEqual(steps.map(st => [st.kind, st.step_status]), [["precheck", "done"], ["generate", "done"]]);
     const address = after.project.episodes[0].assembly.address;
@@ -278,7 +278,7 @@ test("合片缺失、损坏、跨项目或依赖过期的视频在前置失败�
       try {
         const submitted = await service.command({ type: "submit", project_id: p.id, request_id: "assembly", business_type: "assembly", target_id: e.id, action: "regenerate" });
         await service.idle(p.id);
-        const after = model.read(), task = after.tasks.find(t => t.id === submitted.task_id), steps = after.steps.filter(st => st.task_id === task.id);
+        const after = model.readAll(), task = after.tasks.find(t => t.id === submitted.task_id), steps = after.steps.filter(st => st.task_id === task.id);
         assert.equal(task.task_status, "rejected", kind);
         assert.equal(steps[0].kind, "precheck");
         assert.equal(steps[0].step_status, "rejected", kind);

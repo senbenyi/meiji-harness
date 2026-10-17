@@ -6,18 +6,18 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { normalizeModels } from "../../models/model-config.js";
 import { redactJson } from "../gateway/redact.js";
+import { lightStep, groupSummary, groupDetailRecords, historyPage, historyContext } from "../data/task-store.js";
 const clientRoot = fileURLToPath(new URL("../../client/", import.meta.url));
 const sharedRoot = fileURLToPath(new URL("../../shared/", import.meta.url));
-// 面板刷新只需要步骤状态。历史提示词约几十 MB，留在打开记录时再取。
-export function panelSnapshot(snapshot) {
-  if (!snapshot) return null;
-  return {
-    ...snapshot,
-    steps: snapshot.steps.map(step => {
-      const { prompt, ...rest } = step;
-      return { ...rest, has_prompt: prompt != null };
-    }),
-  };
+// 面板刷新只需要步骤状态：复制前去掉提示词与 HTTP，不深拷贝历史记录。
+export function panelSnapshot(model, records = new Map()) {
+  if (!model) return null;
+  return model.select(snapshot => ({
+    project: snapshot.project, tasks: snapshot.tasks, groups: snapshot.groups,
+    steps: snapshot.steps.map(step => lightStep({ ...step, ...records.get(step.id) })),
+    // 幂等结果里含历史组摘要，通知也属于服务端；两者不随面板刷新传输。
+    runtime: { revision: snapshot.runtime.revision },
+  }));
 }
 const json = (res, status, value) => {
   res.writeHead(status, {
@@ -111,17 +111,37 @@ export function createTaskHttpHandler(
           return json(res, 200, {
             session_id: sid,
             project_id: id,
-            snapshot: id ? panelSnapshot((await runtime.repository.open(id)).read()) : null,
+            snapshot: id ? panelSnapshot(await runtime.repository.open(id), runtime.tasks.liveRecords(id)) : null,
           });
         }
-        if (path === "/api/meiji/step") {
+        // 任务记录按 ID 从数据库读取（工作快照只含未结束任务）。
+        if (["/api/meiji/group", "/api/meiji/records", "/api/meiji/history"].includes(path)) {
           const sid = url.searchParams.get("session_id");
           const projectId = await runtime.bindings.projectForSession(sid);
           if (!projectId) return json(res, 404, { message: "项目不存在" });
-          const stepId = url.searchParams.get("step_id");
-          const step = (await runtime.repository.open(projectId)).read().steps.find(item => item.id === stepId);
-          if (!step) return json(res, 404, { message: "步骤不存在" });
-          return json(res, 200, { prompt: step.prompt ?? null });
+          const model = await runtime.repository.open(projectId);
+          const { project, revision } = historyContext(model);
+          const history = runtime.repository.history(projectId);
+          if (path === "/api/meiji/group") {
+            const detail = groupDetailRecords(history, runtime.tasks.liveRecords(projectId), url.searchParams.get("group_id"), project, revision);
+            if (!detail) return json(res, 404, { message: "任务组不存在" });
+            return json(res, 200, detail);
+          }
+          if (path === "/api/meiji/records") {
+            const ids = name => (url.searchParams.get(name) || "").split(",").filter(Boolean).slice(0, 200);
+            const groupIds = new Set(ids("group_ids"));
+            for (const taskId of ids("task_ids")) {
+              const task = history.task(taskId);
+              if (task) groupIds.add(task.group_id);
+            }
+            const groups = [...groupIds].map(id => groupSummary(history.group(id), project)).filter(Boolean);
+            return json(res, 200, { revision, groups });
+          }
+          const number = (name, fallback) => Math.max(0, Number.parseInt(url.searchParams.get(name) || "", 10) || fallback);
+          return json(res, 200, { revision, ...historyPage(history, project, {
+            status: url.searchParams.get("status") || "", business: url.searchParams.get("business") || "",
+            episode: url.searchParams.get("episode") || "", offset: number("offset", 0), limit: Math.min(200, number("limit", 50) || 50),
+          }) });
         }
         if (path === "/api/meiji/events") {
           const pid = url.searchParams.get("project_id");

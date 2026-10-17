@@ -1,3 +1,5 @@
+import { splitLegacyPrompt } from './step-records.js';
+import { stepExecutor } from '../../shared/task-plan.js';
 import { migrateScenes } from './scene-migration.js';
 import { migrateShotCast } from './shot-cast-migration.js';
 import { removeCharacterNumbers, migrateCharacterIds } from './character-id-migration.js';
@@ -14,9 +16,23 @@ const validateProject = project => validateCurrentProject(migrateScenes(project)
 const columns = {
   task_groups: "id project_id episode_id name group_type action source shot_ids_json created_at position".split(" "),
   tasks: "id project_id group_id group_seq name business_type target_id episode_id action source task_status queue_order opinion previous_node_state_json end_reason created_at started_at ended_at position".split(" "),
-  task_steps: "id project_id task_id seq name kind round step_status prompt_json result_json error_reason started_at ended_at position".split(" "),
+  task_steps: "id project_id task_id seq name kind round step_status executor prompt_json http_json result_json error_reason started_at ended_at position".split(" "),
 };
 const conflict = () => Object.assign(new Error("项目版本已变化，请刷新后重试"), { code: "REVISION_CONFLICT", status: 409 });
+// 步骤状态列（不含提示词与 HTTP 记录）。
+const stepState = "id,project_id,task_id,seq,name,kind,round,step_status,executor,result_json,error_reason,started_at,ended_at,position";
+const decode = (row, step = false) => {
+  const data = { ...row };
+  delete data.position;
+  if (step) delete data.project_id;
+  for (const key of ["has_prompt", "has_http"]) if (key in data) data[key] = Boolean(data[key]);
+  if (data.name === null) delete data.name;
+  for (const key of Object.keys(data)) if (key.endsWith("_json")) {
+    data[key.slice(0, -5)] = JSON.parse(data[key]);
+    delete data[key];
+  }
+  return data;
+};
 // 事务内全部同步执行，禁止在持有 SQLite 写锁时等待网络或其他异步工作。
 export class SQLiteStore {
   #db;
@@ -36,7 +52,7 @@ export class SQLiteStore {
         try {
           this.#db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
           this.#db.exec("COMMIT");
-          version = 21;
+          version = 22;
         } catch (error) { this.#db.exec("ROLLBACK"); throw error; }
       }
       if (version === 9) {
@@ -240,13 +256,60 @@ export class SQLiteStore {
           version = 21;
         } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
       }
-      if (version !== 21) throw new Error(`不支持的数据库版本：${version}`);
+      if (version === 21) {
+        // v22：步骤明确保存执行方式、精简提示词与独立 HTTP 记录。
+        this.#db.exec('BEGIN IMMEDIATE');
+        try {
+          const existing = new Set(this.#db.prepare("PRAGMA table_info(task_steps)").all().map(column => column.name));
+          if (!existing.has('executor')) this.#db.exec("ALTER TABLE task_steps ADD COLUMN executor TEXT NOT NULL DEFAULT 'program' CHECK(executor IN ('ai','program'))");
+          if (!existing.has('http_json')) this.#db.exec("ALTER TABLE task_steps ADD COLUMN http_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(http_json))");
+          const update = this.#db.prepare('UPDATE task_steps SET executor=?,prompt_json=?,http_json=? WHERE id=? AND project_id=?');
+          for (const row of this.#db.prepare('SELECT s.id,s.project_id,s.kind,s.name,s.prompt_json,t.business_type FROM task_steps s JOIN tasks t ON t.id=s.task_id AND t.project_id=s.project_id').all()) {
+            const { prompt, http } = splitLegacyPrompt(JSON.parse(row.prompt_json));
+            const reviewer = row.kind === 'review' ? (String(row.name || '').includes('AI审核') ? 'ai' : 'program') : null;
+            update.run(stepExecutor({ business_type: row.business_type }, row.kind, reviewer), JSON.stringify(prompt), JSON.stringify(http), row.id, row.project_id);
+          }
+          this.#db.prepare("INSERT OR IGNORE INTO schema_migrations VALUES (22,strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec('PRAGMA user_version=22; COMMIT');
+          version = 22;
+        } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
+      }
+      if (version === 22) {
+        this.#db.exec('BEGIN IMMEDIATE');
+        try {
+          this.#db.exec('CREATE INDEX IF NOT EXISTS task_node_latest ON tasks(project_id,business_type,target_id,queue_order DESC)');
+          for (const row of this.#db.prepare('SELECT id,data_json FROM projects').all()) {
+            const project = JSON.parse(row.data_json);
+            project.latest_tasks = {}; project.latest_groups = {};
+            const tasks = this.#db.prepare('SELECT * FROM tasks WHERE project_id=? ORDER BY queue_order').all(row.id);
+            const groups = new Map(this.#db.prepare('SELECT * FROM task_groups WHERE project_id=?').all(row.id).map(g => [g.id, g]));
+            for (const task of tasks) {
+              project.latest_tasks[`${task.business_type}:${task.target_id}`] = task.id;
+              const group = groups.get(task.group_id);
+              if (group?.group_type === 'episode-film') {
+                project.latest_groups[`episode-film:${group.episode_id}`] = group.id;
+                const shots = JSON.parse(group.shot_ids_json);
+                if (shots.length === 1) project.latest_groups[`shot-film:${shots[0]}`] = group.id;
+              }
+              if (task.business_type === 'costume-image' && group) project.latest_groups['costume-image'] = group.id;
+            }
+            validateProject(project);
+            this.#db.prepare('UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?').run(JSON.stringify(project), row.id);
+          }
+          this.#db.prepare("INSERT OR IGNORE INTO schema_migrations VALUES (23,strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec('PRAGMA user_version=23; COMMIT'); version = 23;
+        } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
+      }
+      if (version !== 23) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
-        this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => f !== "id").map(f => `${f}=excluded.${f}`).join(",")}`));
+        // 已有行不改 position（保持写入顺序）；步骤的提示词与 HTTP 只经 writeStepRecord 写入。
+        this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => !["id", "position", "prompt_json", "http_json"].includes(f)).map(f => `${f}=excluded.${f}`).join(",")}`));
       }
     } catch (error) { this.#db.close(); throw error; }
   }
   list() { return this.#db.prepare("SELECT id FROM projects ORDER BY rowid").all().map(r => r.id); }
+  // 工作快照只含排队中或运行中任务所在的任务组（整组），步骤不含提示词与 HTTP；
+  // 已结束的历史只在数据库，经下方查询方法按 ID 读取。
   read(id) {
     // 所有表在同一个读事务内，跨连接也不会拼出不同版本的快照。
     this.#db.exec("BEGIN");
@@ -254,22 +317,12 @@ export class SQLiteStore {
       const p = this.#db.prepare("SELECT * FROM projects WHERE id=?").get(id);
       if (!p) return null;
       const rows = (table) => this.#db.prepare(`SELECT * FROM ${table} WHERE project_id=? ORDER BY position`).all(id);
-      const decode = (row, step = false) => {
-        const data = { ...row };
-        delete data.position;
-        if (step) delete data.project_id;
-        if (data.name === null) delete data.name;
-        for (const key of Object.keys(data)) if (key.endsWith("_json")) {
-          data[key.slice(0, -5)] = JSON.parse(data[key]);
-          delete data[key];
-        }
-        return data;
-      };
+      const live = `SELECT group_id FROM tasks WHERE project_id=? AND task_status IN ('queued','running')`;
       return {
         project: JSON.parse(p.data_json),
-        groups: rows("task_groups").map(r => decode(r)),
-        tasks: rows("tasks").map(r => decode(r)),
-        steps: rows("task_steps").map(r => decode(r, true)),
+        groups: this.#db.prepare(`SELECT * FROM task_groups WHERE project_id=? AND id IN (${live}) ORDER BY position`).all(id, id).map(r => decode(r)),
+        tasks: this.#db.prepare(`SELECT * FROM tasks WHERE project_id=? AND group_id IN (${live}) ORDER BY position`).all(id, id).map(r => decode(r)),
+        steps: this.#db.prepare(`SELECT ${stepState},prompt_json<>'null' AS has_prompt,json_array_length(http_json)>0 AS has_http FROM task_steps WHERE project_id=? AND task_id IN (SELECT id FROM tasks WHERE project_id=? AND group_id IN (${live})) ORDER BY position`).all(id, id, id).map(r => decode(r, true)),
         runtime: {
           revision: p.revision,
           requests: rows("command_requests").map(r => ({ id: r.id, input_hash: r.input_hash, result: JSON.parse(r.result_json) })),
@@ -290,16 +343,18 @@ export class SQLiteStore {
       checkpoint("after-project", snapshot);
       for (const [table, key] of [["task_groups", "groups"], ["tasks", "tasks"], ["task_steps", "steps"]]) {
         const old = new Map((before?.[key] || []).map((r, i) => [r.id, { row: r, position: i }]));
+        let nextPosition = this.#db.prepare(`SELECT COALESCE(MAX(position),-1)+1 AS next FROM ${table} WHERE project_id=?`).get(id).next;
         if (table === 'tasks') {
           // 动态插入编排先腾开被移动任务的位置，避免逐行 upsert 撞组内唯一序号。
           const moved = snapshot.tasks.filter(row => old.has(row.id) && old.get(row.id).row.group_seq !== row.group_seq);
           const offset = Math.max(0, ...snapshot.tasks.map(row => row.group_seq), ...(before?.tasks || []).map(row => row.group_seq)) + 1;
           for (const row of moved) this.#db.prepare('UPDATE tasks SET group_seq=group_seq+? WHERE id=?').run(offset, row.id);
         }
-        snapshot[key].forEach((row, position) => {
+        snapshot[key].forEach((row) => {
           const previous = old.get(row.id);
-          if (previous?.position === position && JSON.stringify(previous.row) === JSON.stringify(row)) return;
-          const record = { ...row, project_id: id, position };
+          if (previous && JSON.stringify(previous.row) === JSON.stringify(row)) return;
+          // 新行接在已有最大位置之后；已有行的位置不变（upsert 不更新 position）。
+          const record = { prompt: null, http: [], ...row, project_id: id, position: previous ? 0 : nextPosition++ };
           const values = columns[table].map(k => k.endsWith("_json") ? JSON.stringify(record[k.slice(0, -5)]) : record[k] ?? null);
           this.#upserts.get(table).run(...values);
         });
@@ -323,6 +378,68 @@ export class SQLiteStore {
       else Object.assign(error, { code: "COMMIT_ACCEPTED", committed: true, revision: snapshot.runtime.revision });
       throw error;
     }
+  }
+  // —— 历史查询（按 ID 读取已结束及全部任务；步骤记录仅在显式要求时读取）——
+  group(projectId, groupId, { records = false } = {}) {
+    const group = this.#db.prepare("SELECT * FROM task_groups WHERE project_id=? AND id=?").get(projectId, groupId);
+    if (!group) return null;
+    const tasks = this.#db.prepare("SELECT * FROM tasks WHERE project_id=? AND group_id=? ORDER BY group_seq").all(projectId, groupId).map(r => decode(r));
+    // 摘要只带“是否有记录”的标记，不读取记录内容。
+    const columns = records ? `${stepState},prompt_json,http_json` : `${stepState},prompt_json<>'null' AS has_prompt,json_array_length(http_json)>0 AS has_http`;
+    const steps = tasks.length ? this.#db.prepare(`SELECT ${columns} FROM task_steps WHERE project_id=? AND task_id IN (${tasks.map(() => "?").join(",")}) ORDER BY seq`)
+      .all(projectId, ...tasks.map(t => t.id)).map(r => decode(r, true)) : [];
+    const order = new Map(tasks.map((task, i) => [task.id, i]));
+    steps.sort((a, b) => order.get(a.task_id) - order.get(b.task_id) || a.seq - b.seq);
+    return { group: decode(group), tasks, steps };
+  }
+  task(projectId, taskId) {
+    const row = this.#db.prepare("SELECT * FROM tasks WHERE project_id=? AND id=?").get(projectId, taskId);
+    return row ? decode(row) : null;
+  }
+  // 某节点（或非节点业务）最近一次任务，可排除指定任务。
+  latestTask(projectId, business, targetId, excludeId = "", status = "") {
+    const row = this.#db.prepare("SELECT * FROM tasks WHERE project_id=? AND business_type=? AND target_id=? AND id<>? AND (?='' OR task_status=?) ORDER BY queue_order DESC LIMIT 1")
+      .get(projectId, business, targetId, excludeId, status, status);
+    return row ? decode(row) : null;
+  }
+  stepsOf(projectId, taskId, { records = false } = {}) {
+    const columns = records ? `${stepState},prompt_json,http_json` : `${stepState},prompt_json<>'null' AS has_prompt,json_array_length(http_json)>0 AS has_http`;
+    return this.#db.prepare(`SELECT ${columns} FROM task_steps WHERE project_id=? AND task_id=? ORDER BY seq`).all(projectId, taskId).map(r => decode(r, true));
+  }
+  maxQueueOrder(projectId) {
+    return this.#db.prepare("SELECT COALESCE(MAX(queue_order),0) AS max FROM tasks WHERE project_id=?").get(projectId).max;
+  }
+  // 任务历史列表：只读任务组与任务表，不读步骤。
+  historyRows(projectId) {
+    const groups = this.#db.prepare("SELECT * FROM task_groups WHERE project_id=? ORDER BY position").all(projectId).map(r => decode(r));
+    const tasks = this.#db.prepare("SELECT * FROM tasks WHERE project_id=? ORDER BY group_seq").all(projectId).map(r => decode(r));
+    return { groups, tasks };
+  }
+  // 运行中步骤的提示词与 HTTP 直接写入对应行，不经项目快照提交。
+  writeStepRecord(projectId, stepId, { prompt, http }) {
+    const sets = [], values = [];
+    if (prompt !== undefined) { sets.push("prompt_json=?"); values.push(JSON.stringify(prompt)); }
+    if (http !== undefined) { sets.push("http_json=?"); values.push(JSON.stringify(http)); }
+    if (!sets.length) return false;
+    return this.#db.prepare(`UPDATE task_steps SET ${sets.join(",")} WHERE project_id=? AND id=? AND step_status='running' AND task_id IN (SELECT id FROM tasks WHERE project_id=? AND task_status='running')`).run(...values, projectId, stepId, projectId).changes > 0;
+  }
+  // 全部任务组、任务与步骤状态（不含记录），仅供 ProjectModel.readAll 诊断使用。
+  allRows(projectId) {
+    return {
+      groups: this.#db.prepare("SELECT * FROM task_groups WHERE project_id=? ORDER BY position").all(projectId).map(r => decode(r)),
+      tasks: this.#db.prepare("SELECT * FROM tasks WHERE project_id=? ORDER BY position").all(projectId).map(r => decode(r)),
+      steps: this.#db.prepare(`SELECT ${stepState},prompt_json<>'null' AS has_prompt,json_array_length(http_json)>0 AS has_http FROM task_steps WHERE project_id=? ORDER BY position`).all(projectId).map(r => decode(r, true)),
+    };
+  }
+  // 已存在于数据库的 ID（用于拒绝把已移出工作快照的历史以同 ID 重新写入）。
+  existingIds(projectId, table, ids) {
+    if (!ids.length || !["tasks", "task_steps", "task_groups"].includes(table)) return [];
+    return this.#db.prepare(`SELECT id FROM ${table} WHERE project_id=? AND id IN (${ids.map(() => "?").join(",")})`).all(projectId, ...ids).map(r => r.id);
+  }
+  stepRecords(projectId, stepIds) {
+    if (!stepIds.length) return [];
+    return this.#db.prepare(`SELECT id,prompt_json,http_json FROM task_steps WHERE project_id=? AND id IN (${stepIds.map(() => "?").join(",")})`)
+      .all(projectId, ...stepIds).map(r => ({ id: r.id, prompt: JSON.parse(r.prompt_json), http: JSON.parse(r.http_json) }));
   }
   remove(id, revision) {
     const result = this.#db.prepare("DELETE FROM projects WHERE id=? AND revision=?").run(id, revision);

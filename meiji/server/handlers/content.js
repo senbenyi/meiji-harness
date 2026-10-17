@@ -89,7 +89,7 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   let changedScenes = [];
   if (task.action === "delete") { applyDelete(snapshot, task); return []; }
   if (business === "script-split" && task.action === "override") {
-    project.episodes = buildSplit(project.script.body, content).episodes.map(row => emptyEpisode(row));
+    project.episodes = buildSplit(project.script.body, content, project.reference_episode_duration_seconds).episodes.map(row => emptyEpisode(row));
     assertOutput(project, business, task.target_id);
     return [];
   }

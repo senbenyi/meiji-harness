@@ -40,9 +40,9 @@ test("S6-05/06 人工编辑与放行均两步，AI 不调用；非法内容保�
       content: "人工新稿",
     });
     await service.idle(p.id);
-    assert.equal(model.read().project.project_summary.body, "人工新稿");
+    assert.equal(model.readAll().project.project_summary.body, "人工新稿");
     assert.deepEqual(
-      model.read().steps.map((s) => s.kind),
+      model.readAll().steps.map((s) => s.kind),
       ["precheck", "manual_edit"],
     );
     await service.command({
@@ -52,8 +52,8 @@ test("S6-05/06 人工编辑与放行均两步，AI 不调用；非法内容保�
       content: "",
     });
     await service.idle(p.id);
-    assert.equal(model.read().project.project_summary.body, "人工新稿");
-    assert.equal(model.read().tasks[1].task_status, "rejected");
+    assert.equal(model.readAll().project.project_summary.body, "人工新稿");
+    assert.equal(model.readAll().tasks[1].task_status, "rejected");
     await model.update("set-rejected", {}, (s) => {
       s.project.project_summary.node_state.status = "rejected";
       s.project.project_summary.node_state.reason = "审核不通过";
@@ -66,9 +66,9 @@ test("S6-05/06 人工编辑与放行均两步，AI 不调用；非法内容保�
       request_id: "override",
     });
     await service.idle(p.id);
-    assert.equal(model.read().tasks[2].task_status, "completed");
-    assert.equal(model.read().project.project_summary.node_state.status, "generated");
-    assert.equal(model.read().tasks[1].task_status, "rejected");
+    assert.equal(model.readAll().tasks[2].task_status, "completed");
+    assert.equal(model.readAll().project.project_summary.node_state.status, "generated");
+    assert.equal(model.readAll().tasks[1].task_status, "rejected");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -91,10 +91,10 @@ for (const business of ["outline", "shots"])
     try {
       const edit = await service.command({ ...base, type: "manual-edit", request_id: "edit", content });
       await service.idle(project.id);
-      assert.equal(model.read().tasks.find(task => task.id === edit.task_id).task_status, "completed");
-      assert.equal(node(model.read()).node_state.status, "generated");
-      if (business === "outline") assert.equal(model.read().project.episodes[0].duration_seconds, 150);
-      const savedContent = structuredClone(node(model.read()));
+      assert.equal(model.readAll().tasks.find(task => task.id === edit.task_id).task_status, "completed");
+      assert.equal(node(model.readAll()).node_state.status, "generated");
+      if (business === "outline") assert.equal(model.readAll().project.episodes[0].duration_seconds, 150);
+      const savedContent = structuredClone(node(model.readAll()));
       const reject = async (key, repair) => model.update(key, {}, snapshot => {
         const current = node(snapshot);
         // 独立构造原参考150秒的未通过候选，验证放行始终使用固定集参考审核。
@@ -111,7 +111,7 @@ for (const business of ["outline", "shots"])
       await reject("mark-rejected", false);
       const blocked = await service.command({ ...base, type: "override", request_id: "outside-range" });
       await service.idle(project.id);
-      const blockedSnapshot = model.read(), blockedTask = blockedSnapshot.tasks.find(task => task.id === blocked.task_id);
+      const blockedSnapshot = model.readAll(), blockedTask = blockedSnapshot.tasks.find(task => task.id === blocked.task_id);
       assert.equal(blockedTask.task_status, "rejected");
       assert.equal(blockedSnapshot.steps.find(step => step.task_id === blocked.task_id && step.step_status === "rejected").kind, "precheck");
       assert.match(blockedTask.end_reason, business === "outline" ? /允许误差±30秒/ : /4–15/);
@@ -119,7 +119,7 @@ for (const business of ["outline", "shots"])
       await reject("repair-rejected", true);
       const allowed = await service.command({ ...base, type: "override", request_id: "inside-range" });
       await service.idle(project.id);
-      const accepted = model.read();
+      const accepted = model.readAll();
       assert.equal(accepted.tasks.find(task => task.id === allowed.task_id).task_status, "completed");
       assert.equal(node(accepted).node_state.status, "generated");
       if (business === "outline") assert.equal(accepted.project.episodes[0].duration_seconds, 150);

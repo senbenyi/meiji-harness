@@ -11,7 +11,7 @@ export function createTextHandler({ ai, readLanguage = async () => 'zh-CN' }) {
     try { response = await ai(task.business_type, action, input, { signal, record, task, step }); }
     catch (error) {
       if (action !== 'review' && Object.hasOwn(error, 'candidate'))
-        return { result: error.candidate, prompt: error.prompt, content: null, validationFailure: error.message };
+        return { result: error.candidate, prompt: error.prompt, http: error.http, content: null, validationFailure: error.message };
       throw error;
     }
     if (step.kind === 'review') return response;

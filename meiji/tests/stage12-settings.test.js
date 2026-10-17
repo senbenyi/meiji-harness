@@ -70,7 +70,7 @@ test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，�
       project = await runtime.repository.create(p)
       const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: modelName, business_type: 'project-summary', target_id: p.id, action: 'generate' })
       await runtime.tasks.idle(p.id)
-      const task = project.read().tasks.find(t => t.id === submitted.task_id)
+      const task = project.readAll().tasks.find(t => t.id === submitted.task_id)
       assert.equal(task.task_status, 'completed', task.end_reason)
       assert.equal(requests.length - before, 2)
       for (const req of requests.slice(before)) {
@@ -79,10 +79,10 @@ test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，�
         assert.equal(req.body.reasoning_effort, undefined) // Qwen 默认参数由 llm-server 补齐
       }
     }
-    const kept = project.read().project.project_summary.body
+    const kept = project.readAll().project.project_summary.body
     assert.equal((await save({ ...selection, output_language: 'en' })).status, 200)
-    assert.equal(project.read().project.project_summary.body, kept)
-    assert.equal(Object.hasOwn(project.read().project, 'output_language'), false)
+    assert.equal(project.readAll().project.project_summary.body, kept)
+    assert.equal(Object.hasOwn(project.readAll().project, 'output_language'), false)
     const fresh = emptyProject({ name: '语言验证', creation_mode: '剧本' }); fresh.script.body = '阿明丢失钥匙，寻找后找回。'
     await runtime.repository.create(fresh)
     const beforeLanguage = requests.length

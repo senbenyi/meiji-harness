@@ -54,7 +54,7 @@ async function fixture(run, options = {}) {
     const submit = async (shot = episode.shot_list.shots[0], extra = {}) => {
       const result = await runtime.tasks.command({ type:'submit', project_id:p.id, request_id:crypto.randomUUID(), business_type:'video', target_id:shot.id, action:'regenerate', ...extra });
       await runtime.tasks.idle(p.id);
-      return model.read().tasks.find(task => task.id === result.task_id);
+      return model.readAll().tasks.find(task => task.id === result.task_id);
     };
     await run({runtime,p,episode,person,model,calls,submit,bytes,image});
   } finally { await runtime?.dispose(); await rm(home,{recursive:true,force:true}); }
@@ -64,14 +64,14 @@ for (const mode of ['文生','首尾帧','多模态']) test(`真实视频链 ${m
   const target = mode === '文生' ? episode.shot_list.shots[0] : episode.shot_list.shots[1];
   const task = await submit(target);
   assert.equal(task.task_status,'completed',task.end_reason);
-  const shot = model.read().project.episodes[0].shot_list.shots.find(s=>s.id===target.id);
+  const shot = model.readAll().project.episodes[0].shot_list.shots.find(s=>s.id===target.id);
   assert.equal(shot.video_generation_type,mode);
   assert.equal(shot.video.node_state.status,'generated'); assert.equal(shot.last_frame.node_state.status,'generated');
   assert.notEqual(shot.video.address,target.video.address); assert.notEqual(shot.last_frame.address,target.last_frame.address);
   await runtime.media.validate(shot.last_frame.address,p.id,'image');
-  const tasks = model.read().tasks.filter(t=>t.group_id===task.group_id).sort((a,b)=>a.group_seq-b.group_seq);
+  const tasks = model.readAll().tasks.filter(t=>t.group_id===task.group_id).sort((a,b)=>a.group_seq-b.group_seq);
   assert.deepEqual(tasks.map(t=>t.business_type),mode==='文生'?['video']:[mode==='首尾帧'?'first-last-frame':'multimodal','video']);
-  assert.deepEqual(model.read().steps.filter(st=>st.task_id===task.id).map(st=>st.kind),['precheck','generate','apply','review']);
+  assert.deepEqual(model.readAll().steps.filter(st=>st.task_id===task.id).map(st=>st.kind),['precheck','generate','apply','review']);
   assert.equal(calls.length,1);
   assert.equal(calls[0].mode,mode==='文生'?'text':mode==='首尾帧'?'first_frame':'reference');
   assert.equal(Boolean(calls[0].inputReference),mode==='首尾帧');
@@ -96,16 +96,16 @@ test('有角色缺图阻断视频；改为无人后继续重新判型，不复�
   const target=episode.shot_list.shots[0];
   const task=await submit(target);
   assert.equal(task.task_status,'cancelled');assert.equal(calls.length,0);
-  const failed=model.read().tasks.find(t=>t.task_status==='rejected');assert.equal(failed.business_type,'multimodal');assert.match(failed.end_reason,/定妆照/);
-  const old=model.read().tasks;
+  const failed=model.readAll().tasks.find(t=>t.task_status==='rejected');assert.equal(failed.business_type,'multimodal');assert.match(failed.end_reason,/定妆照/);
+  const old=model.readAll().tasks;
   await model.update('change-binding',{},s=>{
     const shot=s.project.episodes[0].shot_list.shots[0];shot.on_screen_characters=[];
     stampDependencyHash(s,shot.id);stampDependencyHash(s,'seconds',shot.id);stampDependencyHash(s,'storyboard',shot.id);
   });
   const group=await runtime.tasks.command({type:'continue-group',project_id:p.id,request_id:'resume-new-type',group_id:task.group_id});
   await runtime.tasks.idle(p.id);
-  assert.deepEqual(model.read().tasks.filter(t=>t.group_id===group.group_id).map(t=>[t.business_type,t.task_status]),[['video','completed']]);
-  assert.deepEqual(model.read().tasks.filter(t=>old.some(o=>o.id===t.id)),old);assert.equal(calls[0].mode,'text');
+  assert.deepEqual(model.readAll().tasks.filter(t=>t.group_id===group.group_id).map(t=>[t.business_type,t.task_status]),[['video','completed']]);
+  assert.deepEqual(model.readAll().tasks.filter(t=>old.some(o=>o.id===t.id)),old);assert.equal(calls[0].mode,'text');
 },{setup:({episode,person,stamp})=>{
   episode.shot_list.shots[0].on_screen_characters=[{character_id:person.id,costume_id:''}];
   person.costume_images[0].node_state.status='empty';person.costume_images[0].address='';stamp();
@@ -120,19 +120,19 @@ test('视频时长4–15及±5边界由程序审核；独立tail命令拒绝',()
 
 test('实测不通过共用两次修订；耗尽保存最后视频尾帧配对，成功hash不变',()=>fixture(async({runtime,p,episode,model,calls,submit})=>{
   const realValidate=runtime.media.validate.bind(runtime.media);
-  runtime.media.validate=async(...args)=>{const info=await realValidate(...args);return args[2]==='video'?{...info,duration:16}:info;};
-  const before=structuredClone(model.read().project.episodes[0].shot_list.shots[0]);
+  runtime.media.validate=async(...args)=>{const info=await realValidate(...args);return args[2]==='video'?{...info,duration:15+calls.length}:info;};
+  const before=structuredClone(model.readAll().project.episodes[0].shot_list.shots[0]);
   const task=await submit();assert.equal(task.task_status,'rejected',task.end_reason);
-  const shot=model.read().project.episodes[0].shot_list.shots[0];
-  assert.equal(calls.length,3);assert.match(calls[1].prompt,/Revision instructions:[\s\S]*实测 16/);assert.match(calls[2].prompt,/实测 16/);
+  const shot=model.readAll().project.episodes[0].shot_list.shots[0];
+  assert.equal(calls.length,3);assert.match(calls[1].prompt,/Revision instructions:[\s\S]*实测 16/);assert.match(calls[2].prompt,/实测 17/);
   assert.equal(shot.video.node_state.status,'rejected');assert.equal(shot.last_frame.node_state.status,'rejected');
-  assert.equal(shot.actual_duration_seconds,16);assert.notEqual(shot.video.address,before.video.address);assert.notEqual(shot.last_frame.address,before.last_frame.address);
+  assert.equal(shot.actual_duration_seconds,18);assert.notEqual(shot.video.address,before.video.address);assert.notEqual(shot.last_frame.address,before.last_frame.address);
   assert.equal(shot.video.node_state.dependency_hash,before.video.node_state.dependency_hash);assert.equal(shot.last_frame.node_state.dependency_hash,before.last_frame.node_state.dependency_hash);
-  assert.deepEqual(model.read().project.episodes[0].assembly,episode.assembly);
+  assert.deepEqual(model.readAll().project.episodes[0].assembly,episode.assembly);
 }));
 
 for(const failure of ['截帧文件失败','取消']) test(`${failure}保留旧视频/尾帧/实测值，不重复生成`,()=>fixture(async({runtime,p,model,calls,submit})=>{
-  const before=model.read().project.episodes[0].shot_list.shots[0];
+  const before=model.readAll().project.episodes[0].shot_list.shots[0];
   if(failure==='截帧文件失败') {
     const realPath=runtime.media.path.bind(runtime.media);let validated=false;
     const validate=runtime.media.validate.bind(runtime.media);runtime.media.validate=async(...args)=>{const result=await validate(...args);if(args[2]==='video')validated=true;return result;};
@@ -143,14 +143,14 @@ for(const failure of ['截帧文件失败','取消']) test(`${failure}保留旧�
     runtime.media.put=async(...args)=>{
       const asset=await realPut(...args);
       if(args[2]==='png') {
-        const task=model.read().tasks.find(t=>t.task_status==='running');
+        const task=model.readAll().tasks.find(t=>t.task_status==='running');
         await runtime.tasks.command({type:'cancel',project_id:p.id,request_id:'cancel-tail',task_id:task.id});
       }
       return asset;
     };
     assert.equal((await submit()).task_status,'cancelled');
   }
-  const after=model.read().project.episodes[0].shot_list.shots[0];
+  const after=model.readAll().project.episodes[0].shot_list.shots[0];
   assert.equal(calls.length,1);assert.equal(after.video.address,before.video.address);assert.deepEqual(after.last_frame,before.last_frame);assert.equal(after.actual_duration_seconds,before.actual_duration_seconds);
 }));
 
@@ -159,7 +159,7 @@ test('人工导入无需文本节点，同任务校验并保存视频和尾帧',
   await model.update('clear-text',{},s=>{s.project.episodes[0].shot_list.shots[0].text_to_video_prompt.node_state.status='empty';});
   const result=await runtime.tasks.command({type:'manual-edit',project_id:p.id,request_id:'import',business_type:'video',target_id:shot.id,content:{data:'data:video/mp4;base64,'+bytes.toString('base64')}});
   await runtime.tasks.idle(p.id);
-  const after=model.read();assert.equal(after.tasks.find(t=>t.id===result.task_id).task_status,'completed');
+  const after=model.readAll();assert.equal(after.tasks.find(t=>t.id===result.task_id).task_status,'completed');
   assert.equal(calls.length,0);assert.equal(after.project.episodes[0].shot_list.shots[0].actual_duration_seconds,4);
   await runtime.media.validate(after.project.episodes[0].shot_list.shots[0].last_frame.address,p.id,'image');
 }));
@@ -169,7 +169,7 @@ test('镜头表已指定角色，执行视频前按绑定插入多模态，组�
     const target=episode.shot_list.shots[0];
     const group=await runtime.tasks.command({type:'submit-group',project_id:p.id,request_id:'late-binding',group_type:'episode-film',episode_id:episode.id,shot_id:target.id,action:'generate'});
     await runtime.tasks.idle(p.id);
-    const tasks=model.read().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
+    const tasks=model.readAll().tasks.filter(t=>t.group_id===group.group_id).sort((a,b)=>a.group_seq-b.group_seq);
     assert.deepEqual(tasks.filter(t=>t.business_type!=='assembly').map(t=>t.business_type),['seconds','storyboard','multimodal','video']);
     assert.ok(tasks.every(t=>t.task_status==='completed'),tasks.map(t=>t.end_reason).join(';'));
     assert.equal(new Set(tasks.map(t=>t.group_seq)).size,tasks.length);

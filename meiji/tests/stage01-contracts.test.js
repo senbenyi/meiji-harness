@@ -155,13 +155,17 @@ test("S1-04 任务目标归属和字段协议严格校验，剧本无状态", ()
     kind: "precheck",
     round: 0,
     step_status: "ready",
+    executor: "program",
     error_reason: "",
     prompt: null,
+    http: [],
     result: null,
     started_at: null,
     ended_at: null,
   };
   validateStep(st, t);
+  for (const [field, value] of [["executor", "人工"], ["http", null], ["prompt", []]])
+    assert.throws(() => validateStep({ ...st, [field]: value }, t), new RegExp(`step\\.${field}`));
   assert.deepEqual(NODE_STATUS, ["empty", "generated", "rejected", "expired"]);
   assert.deepEqual(TASK_STATUS, [
     "queued",

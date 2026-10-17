@@ -74,11 +74,12 @@ test("v13迁移删除暂停列，完整保留项目、队列、历史与幂等�
   db.close();repo=new ModelRepository(root);
   try {
     const restored=await repo.open(p.id);
-    before.runtime.revision += 1;
+    before.runtime.revision += 2; // 节点状态迁移与 v23 最近任务关联各推进一次。
+    before.project.latest_tasks = Object.fromEntries(before.tasks.map(t => [`${t.business_type}:${t.target_id}`, t.id]));
     assert.deepEqual(restored.read(),before);
     assert.equal('queue_stopped' in restored.read().runtime,false);
     db=new DatabaseSync(join(root,'meiji.sqlite'));
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version,21);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version,23);
     assert.equal(db.prepare('PRAGMA table_info(projects)').all().some(c=>c.name==='queue_stopped'),false);
     assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
     assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');

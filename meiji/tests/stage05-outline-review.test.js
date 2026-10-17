@@ -41,14 +41,14 @@ async function outlineScenario({ durations, rejectAi = false, retry = false }) {
     const submit = request_id => service.command({ type: "submit", project_id: project.id, request_id, business_type: "outline", target_id: episode.id, action: "regenerate" });
     const first = await submit("outline");
     await service.idle(project.id);
-    const before = model.read();
+    const before = model.readAll();
     let second;
     if (retry) {
       retrying = true;
       second = await submit("outline-retry");
       await service.idle(project.id);
     }
-    return { before, after: model.read(), first, second, prompts, generations, aiReviews };
+    return { before, after: model.readAll(), first, second, prompts, generations, aiReviews };
   } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
 }
 

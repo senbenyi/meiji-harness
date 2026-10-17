@@ -19,17 +19,17 @@ for (const outcome of ['failed','cancelled']) test(`任务${outcome}保留原未
   try {
     const p=projectFixture(), e=p.episodes[0];
     Object.assign(e.summary.node_state,{status:'rejected',reason:'人物动机不足'});
-    const model=await repo.create(p), before=structuredClone(model.read().project.episodes[0].summary);
+    const model=await repo.create(p), before=structuredClone(model.readAll().project.episodes[0].summary);
     let started;
     const ready=new Promise(resolve=>{started=resolve;});
     const wait=new Promise(resolve=>{release=resolve;});
     service=new TaskService({repository:repo,execute:async()=>{started();await wait;throw new Error('连接已断开');}});
     const submitted=await service.command({type:'submit',project_id:p.id,request_id:'retry',business_type:'episode-summary',target_id:e.id,action:'regenerate'});
     await ready;
-    assert.deepEqual(model.read().project.episodes[0].summary,before,'运行中仍保留数据状态');
+    assert.deepEqual(model.readAll().project.episodes[0].summary,before,'运行中仍保留数据状态');
     if(outcome==='cancelled')await service.command({type:'cancel',project_id:p.id,request_id:'cancel',task_id:submitted.task_id});
     release();await service.idle(p.id);
-    const saved=model.read();
+    const saved=model.readAll();
     assert.equal(saved.tasks[0].task_status,outcome);
     if(outcome==='failed')assert.match(saved.tasks[0].end_reason,/连接已断开/);
     assert.deepEqual(saved.project.episodes[0].summary,before);
@@ -92,7 +92,7 @@ test('v14到v15事务迁移落盘且只执行一次',async()=>{
   const root=await mkdtemp(join(tmpdir(),'node-state-migration-'));
   let repo=new ModelRepository(root);
   try{
-    const p=projectFixture(),model=await repo.create(p),before=model.read();await repo.close();
+    const p=projectFixture(),model=await repo.create(p),before=model.readAll();await repo.close();
     const legacy=structuredClone(before.project);legacy.episodes[0].summary.node_state.status='failed';legacy.episodes[0].summary.node_state.fail_message='旧连接失败';
     const db=new DatabaseSync(join(root,'meiji.sqlite'));
     db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy),p.id);
@@ -101,7 +101,7 @@ test('v14到v15事务迁移落盘且只执行一次',async()=>{
     const migrated=(await repo.open(p.id)).read();
     assert.equal(migrated.project.episodes[0].summary.node_state.status,'generated');
     assert.equal(migrated.project.episodes[0].summary.body,before.project.episodes[0].summary.body);
-    assert.equal(migrated.runtime.revision,before.runtime.revision+1);
+    assert.equal(migrated.runtime.revision,before.runtime.revision+2);
     await repo.close();repo=new ModelRepository(root);
     assert.deepEqual((await repo.open(p.id)).read(),migrated);
   }finally{await repo.close();await rm(root,{recursive:true,force:true});}

@@ -118,18 +118,18 @@ test('隔离真实任务链：空场景提取通过、人工指定场景、再�
     let rows=[],reject=false;
     runtime=await createAppRuntime({home,gateway:{chat:async({step})=>step.kind==='review'?{是否通过:!reject,原因:reject?'重复地点需合并':''}:{scenes:rows}}});
     const model=await runtime.repository.create(p);
-    const submit=async fields=>{const result=await runtime.tasks.command({project_id:p.id,request_id:crypto.randomUUID(),...fields});await runtime.tasks.idle(p.id);return model.read().tasks.find(t=>t.id===result.task_id);};
+    const submit=async fields=>{const result=await runtime.tasks.command({project_id:p.id,request_id:crypto.randomUUID(),...fields});await runtime.tasks.idle(p.id);return model.readAll().tasks.find(t=>t.id===result.task_id);};
     assert.equal((await submit({type:'submit',business_type:'episode-scenes',target_id:e.id,action:'generate'})).task_status,'completed');
-    let current=model.read();assert.equal(current.project.episodes[0].scene_catalog.has_result,true);assert.deepEqual(current.project.episodes[0].scene_catalog.scene_ids,[]);
+    let current=model.readAll();assert.equal(current.project.episodes[0].scene_catalog.has_result,true);assert.deepEqual(current.project.episodes[0].scene_catalog.scene_ids,[]);
     assert.equal(isNodeCurrent(current,'episode-scenes',e.id),true);
     rows=[{id:'',name:'指定客厅',description:'用户要求固定的地点',layout:'门在北墙',materials:'木地板',lighting:'窗边光'}];
     assert.equal((await submit({type:'manual-edit',business_type:'episode-scenes',target_id:e.id,content:{scenes:rows}})).task_status,'completed');
-    const id=model.read().project.scene_library.scenes[0].id;
+    const id=model.readAll().project.scene_library.scenes[0].id;
     assert.equal((await submit({type:'submit',business_type:'episode-scenes',target_id:e.id,action:'regenerate'})).task_status,'completed');
-    assert.equal(model.read().project.scene_library.scenes[0].id,id);
+    assert.equal(model.readAll().project.scene_library.scenes[0].id,id);
     reject=true;rows=[{...rows[0],id,layout:'错误候选：门改在东墙'}];
     assert.equal((await submit({type:'submit',business_type:'episode-scenes',target_id:e.id,action:'regenerate'})).task_status,'rejected');
-    assert.equal(model.read().project.scene_library.scenes[0].layout,'门在北墙');
+    assert.equal(model.readAll().project.scene_library.scenes[0].layout,'门在北墙');
   } finally {await runtime?.dispose();await rm(home,{recursive:true,force:true});}
 });
 test('镜头场景引用、状态和衔接校验，节拍及最终提示读取统一资料',()=>{
@@ -253,7 +253,7 @@ test('场景参考图可人工导入，文字与图片操作共用项目任务�
     // 真实一像素PNG，只验证导入，不调用外部图片服务。
     const data='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aI5sAAAAASUVORK5CYII=';
     const result=await runtime.tasks.command({type:'manual-edit',project_id:p.id,business_type:'scene-image',target_id:scene.id,content:{data},request_id:crypto.randomUUID()});
-    await runtime.tasks.idle(p.id);const snapshot=model.read(),task=snapshot.tasks.find(item=>item.id===result.task_id);
+    await runtime.tasks.idle(p.id);const snapshot=model.readAll(),task=snapshot.tasks.find(item=>item.id===result.task_id);
     assert.equal(task.task_status,'completed',task.end_reason);assert.equal(isNodeCurrent(snapshot,'scene-image',scene.id),true);
   }finally{await runtime?.dispose();await rm(home,{recursive:true,force:true});}
 });

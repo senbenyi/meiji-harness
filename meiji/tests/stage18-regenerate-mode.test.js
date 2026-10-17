@@ -35,7 +35,7 @@ for (const action of ['generate', 'regenerate', 'revise'])
       const command = { type: 'submit', project_id: project.id, business_type: 'project-summary', target_id: project.id, action, opinion: '本次用户要求', request_id: action };
       const { task_id } = await service.command(command);
       await service.idle(project.id);
-      const snapshot = model.read();
+      const snapshot = model.readAll();
       assert.equal(snapshot.tasks.find(task => task.id === task_id).task_status, 'completed');
       const first = requests[0].messages;
       assert.deepEqual(first.map(m => m.role), action === 'revise' ? ['system', 'user', 'assistant', 'user'] : ['system', 'user']);

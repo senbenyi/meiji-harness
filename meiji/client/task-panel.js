@@ -154,7 +154,7 @@ export function renderTaskPanel(root, snapshot, context) {
           },
           project,
         );
-        const applied = result.groups?.length && applyGroups?.(result.groups, result.revision);
+        const applied = result.groups?.length && applyGroups?.(result.groups, result.revision, result.links);
         if (!applied || result.content !== false) await refresh();
         return result;
       } catch (error) {
@@ -423,6 +423,7 @@ export function renderTaskPanel(root, snapshot, context) {
         "任务历史",
         () => {
           state.task_id = null;
+          state.group_id = null; state.step_id = null; state.step_view = null; state.history_offset = 0;
           state.page = "history";
           state.history_business = business;
           state.target_id = id;
@@ -480,6 +481,8 @@ export function renderTaskPanel(root, snapshot, context) {
     onError,
     openRules,
     session_id,
+    paint: context.paint,
+    valid: context.valid,
   };
   if (state.page === "overview") {
     const body = element("div", "", "session-body");

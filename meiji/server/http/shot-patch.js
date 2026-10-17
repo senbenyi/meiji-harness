@@ -15,9 +15,14 @@ export function resolveShotPatch(value, input, shape, action) {
       if (Object.hasOwn(row, 'candidate_index')) {
         assertFields(row, ['candidate_index', 'title', 'changes'], '局部修订.shots[]');
         index = row.candidate_index;
-        if (!Number.isInteger(index) || index < 0 || index >= base.length || base[index].id
-          || typeof row.title !== 'string' || row.title !== base[index].title || seen.has(index))
-          invalid('局部修订.candidate_index', '仅可定位完整基稿中id为空的新镜头；从0开始的数组位置与原title必须同时一致，不能越界、重复或代替已有正式ID');
+        if (!Number.isInteger(index) || index < 0 || index >= base.length)
+          invalid('局部修订.candidate_index', `下标从 0 计，合法范围是 0 到 ${Math.max(base.length - 1, 0)}；审核意见里的镜头位置从 1 计，需减 1`);
+        if (base[index].id)
+          invalid('局部修订.candidate_index', '仅可定位完整基稿中id为空的新镜头，不能代替已有正式ID');
+        if (typeof row.title !== 'string' || row.title !== base[index].title)
+          invalid('局部修订.candidate_index', `标题须与下标 ${index} 的基稿标题完全一致：${base[index].title}`);
+        if (seen.has(index))
+          invalid('局部修订.candidate_index', '同一镜头不能重复修订');
       } else {
         assertFields(row, ['id', 'changes'], '局部修订.shots[]');
         if (typeof row.id !== 'string' || !row.id || !ids.has(row.id) || seen.has(ids.get(row.id)))

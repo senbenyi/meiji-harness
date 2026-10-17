@@ -298,5 +298,13 @@
         }
       }
     ]
+  },
+  "latest_tasks": {
+    "业务类型:目标ID": "t_uuid（该节点最近一次任务ID，展示时按ID查询数据库；不参与节点依赖指纹。）"
+  },
+  "latest_groups": {
+    "episode-film:e_uuid": "tg_uuid（本集最近成片任务组，含继续产生的新组。）",
+    "shot-film:s_uuid": "tg_uuid（该镜最近单镜成片任务组。）",
+    "costume-image": "tg_uuid（最近定妆照任务组。）"
   }
 }

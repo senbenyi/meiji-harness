@@ -56,17 +56,17 @@ test("重新加载取消真实运行任务，Model 保存后渲染，abort 后�
     await gate;
     return { content: { body: "晚到的新正文" } };
   } });
-  const p = model.read().project;
+  const p = model.readAll().project;
   try {
     const first = await service.command({ type: "submit", project_id: p.id, request_id: "run", business_type: "episode-summary", target_id: p.episodes[0].id, action: "regenerate" });
     await started;
     await service.command({ type: "submit", project_id: p.id, request_id: "queue", business_type: "project-summary", target_id: p.id, action: "regenerate" });
-    await withPanel(() => model.read(), command => service.command(command), async ({ app, commands }) => {
+    await withPanel(() => model.readAll(), command => service.command(command), async ({ app, commands }) => {
       await Promise.all([app.refresh(), app.refresh()]);
       assert.equal(commands.length, 1);
       assert.equal(commands[0].task_id, first.task_id);
       assert.equal(signal.aborted, true);
-      const saved = model.read();
+      const saved = model.readAll();
       assert.equal(saved.tasks[0].task_status, "cancelled");
       assert.equal(saved.tasks[1].task_status, "cancelled");
 
@@ -78,8 +78,8 @@ test("重新加载取消真实运行任务，Model 保存后渲染，abort 后�
       assert.equal(card.querySelector(".node-data-tag").textContent, "已生成");
       release();
       await service.idle(p.id);
-      assert.equal(model.read().project.episodes[0].summary.body, p.episodes[0].summary.body);
-      assert.equal(model.read().tasks[0].task_status, "cancelled");
+      assert.equal(model.readAll().project.episodes[0].summary.body, p.episodes[0].summary.body);
+      assert.equal(model.readAll().tasks[0].task_status, "cancelled");
     });
   } finally {
     release();

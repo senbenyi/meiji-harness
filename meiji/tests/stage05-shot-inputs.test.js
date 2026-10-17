@@ -44,3 +44,16 @@ test('修订意见去重，重复的任务意见与程序审核原因仅出现�
   const input = taskNodeInput(snapshot, task, null, 'regenerate', { kind:'revise', seq:3 });
   assert.equal(input.opinion, task.opinion);
 });
+
+test('修订意见带上审核问题的位置依据和建议', () => {
+  const snapshot = snapshotFixture(), episode = snapshot.project.episodes[0];
+  const task = taskFixture(snapshot.project, 'shots', episode.id, { opinion: '' });
+  snapshot.steps = [{ task_id: task.id, kind: 'review', seq: 2, step_status: 'rejected', name: 'AI审核', result: {
+    是否通过: false,
+    原因: '有明确剧情内容被改写或遗漏。',
+    问题: [{ 修复范围: '本节点', 来源: '本节点', 位置: '镜头数组位置2', 依据: '坚说不能成功', 建议: '补入本镜正文' }],
+  } }];
+  const input = taskNodeInput(snapshot, task, null, 'regenerate', { kind: 'revise', seq: 3 });
+  assert.match(input.opinion, /有明确剧情内容被改写或遗漏/);
+  assert.match(input.opinion, /位置：镜头数组位置2；依据：坚说不能成功；建议：补入本镜正文/);
+});

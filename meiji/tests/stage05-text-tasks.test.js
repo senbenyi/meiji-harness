@@ -109,7 +109,7 @@ for (const business of cases)
           action,
         });
         await service.idle(p.id);
-        const snapshot = model.read(),
+        const snapshot = model.readAll(),
           task = snapshot.tasks.find((t) => t.id === result.task_id);
         assert.equal(task.task_status, ending, task.end_reason);
         assert.equal(generated, ending === "rejected" ? 3 : 1);
@@ -162,7 +162,7 @@ test("项目摘要拒绝保存最后正文和原因，修订收到原稿且不�
   try {
     const result = await service.command({ type: "submit", project_id: project.id, request_id: "summary-reject", business_type: "project-summary", target_id: project.id, action: "regenerate" });
     await service.idle(project.id);
-    const snapshot = model.read(), task = snapshot.tasks.find(item => item.id === result.task_id);
+    const snapshot = model.readAll(), task = snapshot.tasks.find(item => item.id === result.task_id);
     assert.equal(task.task_status, "rejected");
     assert.equal(snapshot.project.project_summary.body, "本轮摘要3");
     assert.equal(snapshot.project.project_summary.node_state.reason, "遗漏明确结局");
@@ -189,7 +189,7 @@ test("人物审核只接收本次增量，拒绝保存角色但不派生图片�
   try {
     const result = await service.command({ type: "submit", project_id: project.id, request_id: "characters-reject", business_type: "project-characters", target_id: project.id, action: "generate" });
     await service.idle(project.id);
-    const snapshot = model.read(), node = snapshot.project.character_library;
+    const snapshot = model.readAll(), node = snapshot.project.character_library;
     assert.equal(snapshot.tasks.find(item => item.id === result.task_id).task_status, "rejected");
     assert.equal(node.node_state.dependency_hash, oldHash);
     assert.equal(node.characters[0].name, "新人物");
@@ -310,7 +310,7 @@ test("提取仅写人物，每个人物独立生成全部服装，空服装生�
     for (const action of ["generate", "regenerate"]) {
       const result = await service.command({ type: "submit", project_id: project.id, request_id: `characters-${action}`, business_type: "project-characters", target_id: project.id, action });
       await service.idle(project.id);
-      const snapshot = model.read(), [first, second] = snapshot.project.character_library.characters;
+      const snapshot = model.readAll(), [first, second] = snapshot.project.character_library.characters;
       const groupId = snapshot.tasks.find(task => task.id === result.task_id).group_id;
       assert.equal(snapshot.tasks.filter(task => task.group_id === groupId).length, 1);
       const expected = [["costume-image", first.costumes[0].id], ["costume-image", first.costumes[1].id], ["costume-image", second.id]];
@@ -318,11 +318,11 @@ test("提取仅写人物，每个人物独立生成全部服装，空服装生�
       for (const character of [first, second]) {
         const pictures = await service.command({ type: "submit-costumes", project_id: project.id, request_id: `${character.id}-${action}`, target_id: character.id, action });
         await service.idle(project.id);
-        const tasks = model.read().tasks.filter(task => task.group_id === pictures.group_id);
+        const tasks = model.readAll().tasks.filter(task => task.group_id === pictures.group_id);
         assert.ok(tasks.every(task => task.task_status === "completed"), tasks.map(t => t.end_reason).join("\n"));
         assert.deepEqual(tasks.map(task => task.target_id), character.costumes.length ? character.costumes.map(costume => costume.id) : [character.id]);
       }
-      Object.assign(second, model.read().project.character_library.characters[1]);
+      Object.assign(second, model.readAll().project.character_library.characters[1]);
       assert.deepEqual(second.costumes, []);
       assert.equal(second.costume_images.length, 1);
       assert.equal(second.costume_images[0].costume_id, "");

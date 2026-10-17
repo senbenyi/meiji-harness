@@ -64,14 +64,14 @@ test("S4-01/02 同节点去重与项目串行，可控 Promise 确認实际时�
       assert.equal(a.task_id, duplicate.task_id);
       await service.command(submit(p, "project-summary", p.id, "second"));
       assert.equal(
-        model.read().tasks.filter((t) => t.task_status === "running").length,
+        model.readAll().tasks.filter((t) => t.task_status === "running").length,
         1,
       );
       gate.resolve();
       await service.idle(p.id);
       assert.equal(maximum, 1);
       assert.equal(count, 2);
-      assert.ok(model.read().tasks.every((t) => t.task_status === "completed"));
+      assert.ok(model.readAll().tasks.every((t) => t.task_status === "completed"));
     },
     async ({ step }) => {
       if (step.kind === "review") return { result: { 是否通过: true, 原因: "" } };
@@ -91,13 +91,13 @@ test("审核未通过取消跨组排队，新提交自动运行且旧终态不�
     await service.command(submit(p)); await entered.promise;
     await service.command(submit(p,"project-summary",p.id,"next"));
     gate.resolve(); await service.idle(p.id);
-    const old = model.read().tasks;
+    const old = model.readAll().tasks;
     assert.deepEqual(old.map(t=>t.task_status),["rejected","cancelled"]);
     reject=false;
     await service.command(submit(p,"project-summary",p.id,"fresh"));
     await service.idle(p.id);
-    assert.deepEqual(model.read().tasks.slice(0,2),old);
-    assert.equal(model.read().tasks[2].task_status,"completed");
+    assert.deepEqual(model.readAll().tasks.slice(0,2),old);
+    assert.equal(model.readAll().tasks[2].task_status,"completed");
   },async ({step}) => {
     entered.resolve(); await gate.promise;
     return step.kind === "review" ? {result:{是否通过:!reject,原因:reject?"未通过":""}} : {content:{body:"摘要"}};
@@ -109,8 +109,8 @@ test("面板重试同一失败节点直接启动新任务并保留失败历史",
     async ({ p, model, service }) => {
       const failed = await service.command(submit(p));
       await service.idle(p.id);
-      assert.equal(model.read().tasks[0].task_status, "failed");
-      assert.equal(model.read().project.episodes[0].summary.node_state.status, "generated");
+      assert.equal(model.readAll().tasks[0].task_status, "failed");
+      assert.equal(model.readAll().project.episodes[0].summary.node_state.status, "generated");
 
 
       const retry = submit(p, "episode-summary", p.episodes[0].id, "retry");
@@ -120,16 +120,16 @@ test("面板重试同一失败节点直接启动新任务并保留失败历史",
 
       await service.idle(p.id);
 
-      assert.equal(model.read().tasks[0].task_status, "failed");
-      assert.equal(model.read().tasks[1].task_status, "completed");
-      assert.equal(model.read().tasks[1].action, "regenerate");
-      assert.equal(model.read().project.episodes[0].summary.node_state.status, "generated");
+      assert.equal(model.readAll().tasks[0].task_status, "failed");
+      assert.equal(model.readAll().tasks[1].task_status, "completed");
+      assert.equal(model.readAll().tasks[1].action, "regenerate");
+      assert.equal(model.readAll().project.episodes[0].summary.node_state.status, "generated");
 
       const later = submit(p, "episode-summary", p.episodes[0].id, "ordinary-after-retry");
       later.action = "generate";
       const ordinary = await service.command(later);
       await service.idle(p.id);
-      assert.equal(model.read().tasks.find((task) => task.id === ordinary.task_id).action, "generate");
+      assert.equal(model.readAll().tasks.find((task) => task.id === ordinary.task_id).action, "generate");
 
     },
     async ({ step }) => {
@@ -148,10 +148,10 @@ test("失败后会话跨节点提交自动执行，无需面板恢复", async ()
   let fail = true;
   await withService(async ({p,model,service}) => {
     await service.command(submit(p)); await service.idle(p.id);
-    assert.equal(model.read().tasks[0].task_status,"failed"); fail=false;
+    assert.equal(model.readAll().tasks[0].task_status,"failed"); fail=false;
     await service.command(submit(p,"project-summary",p.id,"session-next"),{source:"session",session_id:"session-test"});
     await service.idle(p.id);
-    assert.equal(model.read().tasks[1].task_status,"completed");
+    assert.equal(model.readAll().tasks[1].task_status,"completed");
   },async ({step}) => {
     if(fail)throw Error("模拟HTTP断连");
     return step.kind === "review" ? {result:{是否通过:true,原因:""}} : {content:{body:"摘要"}};
@@ -173,9 +173,9 @@ test("S4-07 运行取消后晚到模型不写内容，剩余任务全部取消",
       });
       gate.resolve();
       await service.idle(p.id);
-      assert.equal(model.read().tasks[0].task_status, "cancelled");
-      assert.equal(model.read().project.episodes[0].summary.body, "展示摘要");
-      assert.equal(model.read().tasks[1].task_status, "cancelled");
+      assert.equal(model.readAll().tasks[0].task_status, "cancelled");
+      assert.equal(model.readAll().project.episodes[0].summary.body, "展示摘要");
+      assert.equal(model.readAll().tasks[1].task_status, "cancelled");
     },
     async () => {
       entered.resolve();
@@ -193,8 +193,8 @@ test("S4-03 precheck 未通过不调用 AI，原因写节点，旧稿保留", ()
       });
       await service.command(submit(p));
       await service.idle(p.id);
-      assert.equal(model.read().tasks[0].task_status, "rejected");
-      assert.equal(model.read().project.episodes[0].summary.body, "展示摘要");
+      assert.equal(model.readAll().tasks[0].task_status, "rejected");
+      assert.equal(model.readAll().project.episodes[0].summary.body, "展示摘要");
     },
     async () => {
       throw new Error("不应调用 AI");
@@ -207,7 +207,7 @@ test("审核耗尽保留候选与拒绝原因，不刷新 hash；新任务合并
     await model.update("hash", {}, s => { s.project.project_summary.node_state.dependency_hash = "a".repeat(64); });
     await service.command(submit(p, "project-summary", p.id, "reject"));
     await service.idle(p.id);
-    const before = model.read();
+    const before = model.readAll();
     assert.equal(calls, 3);
     assert.equal(before.tasks[0].task_status, "rejected");
     assert.equal(before.project.project_summary.body, "候选3");
@@ -217,7 +217,7 @@ test("审核耗尽保留候选与拒绝原因，不刷新 hash；新任务合并
     reject = false;
     await service.command({ ...submit(p, "project-summary", p.id, "retry-rejected"), opinion: "保留结局" });
     await service.idle(p.id);
-    const after = model.read();
+    const after = model.readAll();
     assert.equal(after.tasks[1].opinion, "剧情来源不符\n保留结局");
     assert.deepEqual(after.tasks[0], before.tasks[0]);
     assert.equal(after.tasks[1].task_status, "completed");
@@ -231,7 +231,7 @@ test("程序审核与 AI 审核共用修订次数，程序不通过时跳过该�
   await withService(async ({ p, model, service }) => {
     await service.command(submit(p, "shots", p.episodes[0].id, "dual-review"));
     await service.idle(p.id);
-    const snapshot = model.read();
+    const snapshot = model.readAll();
     assert.equal(snapshot.tasks[0].task_status, "completed", snapshot.tasks[0].end_reason);
     assert.deepEqual(reviews, [[0,"program"],[1,"program"],[1,"ai"],[2,"program"],[2,"ai"]]);
     assert.equal(snapshot.steps.filter(s => s.kind === "revise").length, 2);
@@ -256,11 +256,11 @@ test("首次无内容解析失败后，AI生成创建新任务并直接执行", 
     const command = { ...submit(p, "project-summary", p.id, "empty-first"), action: "generate" };
     await service.command(command);
     await service.idle(p.id);
-    assert.equal(model.read().tasks[0].task_status, "failed");
+    assert.equal(model.readAll().tasks[0].task_status, "failed");
     fail = false;
     await service.command({ ...command, request_id: "empty-retry" });
     await service.idle(p.id);
-    const tasks = model.read().tasks;
+    const tasks = model.readAll().tasks;
     assert.equal(tasks[1].action, "generate");
     assert.equal(tasks[1].task_status, "completed", tasks[1].end_reason);
   }, async ({ step }) => {
@@ -284,21 +284,21 @@ test("从排队节点取消全项目；旧请求退出前新提交等待，迟�
     await service.command(cancel);
     assert.equal(oldSignal.aborted,true);
     assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
-    assert.equal(otherModel.read().tasks[0].task_status,'running');
-    const cancelled=model.read().tasks;
+    assert.equal(otherModel.readAll().tasks[0].task_status,'running');
+    const cancelled=model.readAll().tasks;
     assert.ok(cancelled.every(t=>t.task_status==='cancelled' && t.ended_at));
     const fresh=await service.command(submit(p,'project-summary',p.id,'fresh'));
     assert.equal(service.current(model).status,'queued');
     assert.equal(calls,1,'旧请求清理结束前不得发起新请求');
     await service.command(cancel); // 幂等重放不得影响新任务。
     gate.resolve(); await service.idle(p.id);
-    assert.equal(model.read().tasks.find(t=>t.id===fresh.task_id).task_status,'completed');
-    assert.deepEqual(model.read().tasks.slice(0,2),cancelled);
-    assert.equal(model.read().project.episodes[0].summary.body,p.episodes[0].summary.body);
-    assert.equal(model.read().project.project_summary.body,'新任务结果');
+    assert.equal(model.readAll().tasks.find(t=>t.id===fresh.task_id).task_status,'completed');
+    assert.deepEqual(model.readAll().tasks.slice(0,2),cancelled);
+    assert.equal(model.readAll().project.episodes[0].summary.body,p.episodes[0].summary.body);
+    assert.equal(model.readAll().project.project_summary.body,'新任务结果');
     assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
     otherGate.resolve(); await service.idle(other.id);
-    assert.equal(otherModel.read().tasks[0].task_status,'completed');
+    assert.equal(otherModel.readAll().tasks[0].task_status,'completed');
   },async ({task,step,signal}) => {
     if(step.kind==='review')return {result:{是否通过:true,原因:''}};
     if(task.project_id===otherId){otherEntered.resolve();await otherGate.promise;return {content:{body:'其他项目'}};}
@@ -314,8 +314,8 @@ test("HTTP执行失败清空跨组待执行队列并保存失败原因", async (
     await service.command(submit(p));await entered.promise;
     await service.command(submit(p,'project-summary',p.id,'other-group'));
     gate.resolve();await service.idle(p.id);
-    assert.deepEqual(model.read().tasks.map(t=>t.task_status),['failed','cancelled']);
-    assert.equal(model.read().tasks[0].end_reason,'HTTP连接已断开');
+    assert.deepEqual(model.readAll().tasks.map(t=>t.task_status),['failed','cancelled']);
+    assert.equal(model.readAll().tasks[0].end_reason,'HTTP连接已断开');
     assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
   },async()=>{entered.resolve();await gate.promise;throw Error('HTTP连接已断开');});
 });

@@ -280,12 +280,16 @@ export function validateStep(s, t) {
       "kind",
       "round",
       "step_status",
+      "executor",
       "error_reason",
-      "prompt",
       "result",
       "started_at",
       "ended_at",
       ...(Object.hasOwn(s, "name") ? ["name"] : []),
+      // 提示词与 HTTP 记录只在数据库行与详情查询中出现，工作快照的步骤不含这两项。
+      ...(Object.hasOwn(s, "prompt") ? ["prompt"] : []),
+      ...(Object.hasOwn(s, "http") ? ["http"] : []),
+      ...["has_prompt", "has_http"].filter(key => Object.hasOwn(s, key)),
     ],
     "step",
   );
@@ -298,6 +302,10 @@ export function validateStep(s, t) {
   assertNumber(s.round, "step.round");
   if (s.round > 2) invalid("step.round", "最多两轮");
   assertEnum(s.step_status, STEP_STATUS, "step.step_status");
+  for (const key of ["has_prompt", "has_http"]) if (Object.hasOwn(s, key) && typeof s[key] !== "boolean") invalid(`step.${key}`, "需为布尔值");
+  assertEnum(s.executor, ["ai", "program"], "step.executor");
+  if (Object.hasOwn(s, "prompt") && s.prompt !== null && (typeof s.prompt !== "object" || Array.isArray(s.prompt))) invalid("step.prompt", "需为对象或空值");
+  if (Object.hasOwn(s, "http") && !Array.isArray(s.http)) invalid("step.http", "需为数组");
   assertText(s.error_reason, "step.error_reason");
   if (["failed", "rejected"].includes(s.step_status) && !s.error_reason.trim())
     invalid("step.error_reason", "失败或未通过需原因");

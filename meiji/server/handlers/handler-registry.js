@@ -33,7 +33,7 @@ export function createHandlerRegistry({ text, media, videoPrompt }) {
     }
     if (task.action === "override" && business === "script-split") {
       const candidate = rejectedSplitCandidate(snapshot, task);
-      buildSplit(project.script.body, candidate);
+      buildSplit(project.script.body, candidate, project.reference_episode_duration_seconds);
       return { content: candidate, result: { override: true } };
     }
     if (task.action === "override") {

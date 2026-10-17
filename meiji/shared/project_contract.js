@@ -47,7 +47,18 @@ const stringArrays = new Set([
 ]);
 const normalizePath = (path) => path.replace(/\[\d+\]/g, "[]");
 
+// 最近任务与最近任务组：键 → ID 的映射（任务在 tasks 表、任务组在 task_groups 表）。
+// latest_tasks 键为「业务类型:目标ID」；latest_groups 键为 episode-film:剧集ID、shot-film:镜头ID、costume-image。
+const idMaps = new Set(["project.latest_tasks", "project.latest_groups"]);
+function assertIdMap(value, path) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) invalid(path, "需为对象");
+  for (const [key, id] of Object.entries(value)) {
+    if (!key) invalid(path, "键不可为空");
+    assertId(id, `${path}.${key}`);
+  }
+}
 function assertModel(value, model, path) {
+  if (idMaps.has(path)) return assertIdMap(value, path);
   if (Array.isArray(model)) {
     if (!Array.isArray(value)) invalid(path, "需为数组");
     const key = normalizePath(path);
@@ -98,6 +109,11 @@ function healFailureMessages(value) {
 }
 export function validateProject(project) {
   healFailureMessages(project);
+  // 早于任务关联字段的项目按空映射补齐。
+  if (project && typeof project === "object") {
+    project.latest_tasks ??= {};
+    project.latest_groups ??= {};
+  }
   assertModel(project, emptyProjectModel(), "project");
   const ids = new Set();
   const register = (value, path) => {

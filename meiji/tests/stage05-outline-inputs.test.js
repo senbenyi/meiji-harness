@@ -67,7 +67,7 @@ for (const mode of ["剧本", "自由创作"]) {
       });
       const result = await service.command({ type: "submit", project_id: p.id, request_id: "expand", business_type: "outline", target_id: e.id, action: "generate" });
       await service.idle(p.id);
-      const saved = model.read();
+      const saved = model.readAll();
       assert.equal(saved.tasks.find(task => task.id === result.task_id).task_status, "completed");
       assert.equal(reviewed, true);
       assert.equal(saved.project.episodes[0].plot, e.plot);
@@ -111,7 +111,7 @@ for (const mode of ["剧本", "自由创作"]) {
         const result = await service.command({ type: "submit", project_id: p.id,
           request_id: "outline", business_type: "outline", target_id: e.id, action });
         await service.idle(p.id);
-        const snapshot = model.read(), task = snapshot.tasks.find(t => t.id === result.task_id);
+        const snapshot = model.readAll(), task = snapshot.tasks.find(t => t.id === result.task_id);
         assert.equal(task.task_status, "completed", task.end_reason);
         assert.deepEqual(seen, ["generate", "review"]);
         assert.equal(snapshot.project.episodes[0].story_outline.node_state.status, "generated");
@@ -153,7 +153,7 @@ for (const mode of ["剧本", "自由创作"]) {
       const result = await service.command({ type: "submit", project_id: p.id,
         request_id: "missing", business_type: "outline", target_id: e.id, action: "generate" });
       await service.idle(p.id);
-      const snapshot = model.read(), task = snapshot.tasks.find(t => t.id === result.task_id);
+      const snapshot = model.readAll(), task = snapshot.tasks.find(t => t.id === result.task_id);
       assert.equal(task.task_status, "rejected");
       assert.match(task.end_reason, /本集剧情为空/);
       assert.equal(calls, 0);

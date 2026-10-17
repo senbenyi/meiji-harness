@@ -85,7 +85,7 @@ test('v18迁移只移除正式角色服装编号，保留ID、绑定、图片和
     assert.deepEqual(JSON.parse(await readFile(join(root, project.id, 'project.json'), 'utf8')), restored.project);
     await repo.close();
     db = new DatabaseSync(path);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 21);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 23);
     assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(), history);
     assert.deepEqual(db.prepare('SELECT * FROM tasks').all(), taskHistory);
     assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check, 'ok');

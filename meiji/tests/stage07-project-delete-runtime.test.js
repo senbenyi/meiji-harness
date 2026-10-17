@@ -39,7 +39,7 @@ for (const state of ['idle', 'queued', 'running']) {
         await cancelled;
         assert.equal(signal.aborted, true);
         await assert.rejects(submit('during-delete'), /正在删除/);
-        assert.equal(model.read().tasks[0].task_status, 'cancelled');
+        assert.equal(model.readAll().tasks[0].task_status, 'cancelled');
         release();
       }
       assert.deepEqual(await deletion, { deleted: true });

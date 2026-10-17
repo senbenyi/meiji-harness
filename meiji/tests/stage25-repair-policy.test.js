@@ -28,12 +28,12 @@ async function scenario(business, respond, check, setup = () => {}) {
     runtime = await createAppRuntime({ home, gateway: { chat: async options => {
       calls.push(options); return respond(options, calls, p);
     } } });
-    const model = await runtime.repository.create(p), before = structuredClone(model.read().project);
+    const model = await runtime.repository.create(p), before = structuredClone(model.readAll().project);
     const target = business === 'shots' ? p.episodes[0].id : p.episodes[0].shot_list.shots[0].id;
     const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, target_id: target, business_type: business,
       action: 'revise', opinion: '修正指定问题，其他保持', request_id: crypto.randomUUID() });
     await runtime.tasks.idle(p.id);
-    await check({ snapshot: model.read(), before, calls, taskId: submitted.task_id });
+    await check({ snapshot: model.readAll(), history: runtime.repository.history(p.id), before, calls, taskId: submitted.task_id });
   } finally { await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
 }
 
@@ -126,14 +126,14 @@ test('明确原对白跨节拍逐字核对：标点、漏句、重复、倒序�
 
 test('patch仅更新指定镜头字段，保留其他镜头完整内容、媒体和依赖', () => scenario('shots', ({ step }, calls, p) =>
   step.kind === 'review' ? { 是否通过: true, 原因: '' } : { mode: 'patch', shots: [{ id: p.episodes[0].shot_list.shots[1].id, changes: { body: '第二镜局部修订' } }] },
-  ({ snapshot, before, taskId }) => {
+  ({ snapshot, history, before, taskId }) => {
     assert.equal(snapshot.tasks.find(t => t.id === taskId).task_status, 'completed');
     const [a, b] = snapshot.project.episodes[0].shot_list.shots;
     assert.deepEqual(a, before.episodes[0].shot_list.shots[0]);
     assert.equal(b.id, before.episodes[0].shot_list.shots[1].id); assert.equal(b.body, '第二镜局部修订');
     assert.equal(a.seconds_storyboard.node_state.dependency_hash, before.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.dependency_hash);
     assert.ok(isNodeCurrent(snapshot, 'seconds', a.id));
-    const generated = snapshot.steps.find(s => s.kind === 'generate');
+    const generated = history.stepsOf(taskId, { records: true }).find(s => s.kind === 'generate');
     assert.equal(generated.prompt.patch.mode, 'patch'); assert.equal(generated.result.shots.length, 2);
   }));
 
@@ -185,13 +185,13 @@ test('patch在审核期间取消，晚到审核不写入正式镜头', async () 
       return { mode: 'patch', shots: [{ id: old[0].id, changes: { body: '不能写入的候选' } }] };
     } } });
     const model = await runtime.repository.create(p);
-    const normalizedOld = structuredClone(model.read().project.episodes[0].shot_list.shots);
+    const normalizedOld = structuredClone(model.readAll().project.episodes[0].shot_list.shots);
     const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, target_id: p.episodes[0].id,
       business_type: 'shots', action: 'revise', opinion: '修镜头', request_id: 'patch-cancel-submit' });
     await ready;
     await runtime.tasks.command({ type: 'cancel', project_id: p.id, task_id: submitted.task_id, request_id: 'patch-cancel' });
     release(); await runtime.tasks.idle(p.id);
-    assert.equal(model.read().tasks.find(t => t.id === submitted.task_id).task_status, 'cancelled');
-    assert.deepEqual(model.read().project.episodes[0].shot_list.shots, normalizedOld);
+    assert.equal(model.readAll().tasks.find(t => t.id === submitted.task_id).task_status, 'cancelled');
+    assert.deepEqual(model.readAll().project.episodes[0].shot_list.shots, normalizedOld);
   } finally { release(); await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
 });

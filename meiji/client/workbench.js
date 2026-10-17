@@ -1,3 +1,4 @@
+import { loadLatestRecords } from './task-records.js';
 import { modelOptions } from '../shared/models/settings_model.js';
 import { projectDialog } from "./project-forms.js";
 import { renderLibrary as libraryView } from "./library-ui.js";
@@ -94,13 +95,16 @@ export function mount() {
           ]
         : [];
     for (const node of [...editors, ...drafts]) node.remove();
-    const applyGroups = (groups, revision) => {
-      const applied = context.mergeGroups(groups, revision);
+    const renderToken = context.token();
+    const applyGroups = (groups, revision, links) => {
+      if (disposed || !context.valid(renderToken)) return false;
+      const applied = context.mergeGroups(groups, revision, links);
       if (applied) paint();
       return applied;
     };
     renderTaskPanel(shell.content, snapshot, {
       session_id: session,
+      valid: () => !disposed && context.valid(renderToken) && session === currentSessionId(),
       view,
       refresh,
       applyGroups,
@@ -136,6 +140,7 @@ export function mount() {
     stream?.close();
     stream = null;
     context.select(session, null);
+    delete view.taskRecords; delete view.recordVersions;
     Object.assign(view, {
       page: "library", library_tab: "projects", task_id: null,
       target_id: null, episode_id: null, shot_id: null,
@@ -182,12 +187,14 @@ export function mount() {
     }
     if (result.project_id !== context.token().project_id) {
       context.select(session, result.project_id);
+      delete view.taskRecords; delete view.recordVersions;
       view.page = "overview";
       view.target_id = null;
     }
     if (result.snapshot && context.accept(context.token(), result.snapshot)) {
       paint();
       subscribe(result.project_id);
+      if (await loadLatestRecords(context)) paint();
     }
   };
   const subscribe = (projectId) => {
@@ -204,7 +211,14 @@ export function mount() {
       if (data.project_id !== context.token().project_id) return;
       if ((data.revision || 0) < (context.read()?.runtime.revision || 0)) return;
       // 任务状态走本组快照；只有项目正文变化才重新读取整份项目。
-      if (data.groups?.length && context.mergeGroups(data.groups, data.revision)) paint();
+      if (data.record) {
+        context.recordChanged(data.record);
+        view.recordVersions ??= {};
+        view.recordVersions[data.record.group_id] = (view.recordVersions[data.record.group_id] || 0) + 1;
+        if (view.page === 'history') paint();
+        return;
+      }
+      if (context.mergeGroups(data.groups, data.revision, data.links)) paint();
       if (data.content || !Array.isArray(data.groups)) void refresh().catch(report);
     };
     stream.onerror = () => report("连接恢复中，操作结果以已保存数据为准");
@@ -275,6 +289,7 @@ export function mount() {
       );
       window.location.reload();
       context.select(session, result.project_id);
+      delete view.taskRecords; delete view.recordVersions;
       await refresh();
     });
   const renderModels = async (root, busy) => {
@@ -385,6 +400,7 @@ export function mount() {
       stream?.close();
       stream = null;
       context.select(next, null);
+      delete view.taskRecords; delete view.recordVersions;
       void refresh().catch(report);
     }
   };

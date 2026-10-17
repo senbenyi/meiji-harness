@@ -7,6 +7,8 @@ import { join } from "node:path";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { taskDetail, groupDetail } from "../server/data/task-store.js";
 import { createId } from "../shared/task_contract.js";
+// 已结束的任务组只在数据库：测试经 readAll 合并历史后查询。
+const full = model => ({ read: () => model.readAll() });
 import {
   emptyProject,
   emptyEpisode,
@@ -50,8 +52,10 @@ export function step(t, seq = 1) {
     kind: seq === 1 ? "precheck" : "generate",
     round: 0,
     step_status: "ready",
+    executor: seq === 1 ? "program" : "ai",
     error_reason: "",
     prompt: null,
+    http: [],
     result: null,
     started_at: null,
     ended_at: null,
@@ -92,25 +96,25 @@ test("S2-01/02 项目、独立 task/step/group 重载一致，查询按顺序，
       return { group_id: g.id };
     });
     assert.deepEqual(
-      groupDetail(model, g.id).tasks.map((t) => t.id),
+      groupDetail(full(model), g.id).tasks.map((t) => t.id),
       [a.id, b.id],
     );
     assert.deepEqual(
-      taskDetail(model, a.id).steps.map((s) => s.seq),
+      taskDetail(full(model), a.id).steps.map((s) => s.seq),
       [1, 2],
     );
-    assert.equal(groupDetail(model, g.id).status, "queued");
+    assert.equal(groupDetail(full(model), g.id).status, "queued");
     const restored = await new ModelRepository(root).open(p.id);
-    assert.deepEqual(restored.read(), model.read());
-    assert.ok(!("steps" in restored.read().tasks[0]));
-    assert.ok(!("status" in restored.read().groups[0]));
+    assert.deepEqual(restored.readAll(), model.readAll());
+    assert.ok(!("steps" in restored.readAll().tasks[0]));
+    assert.ok(!("status" in restored.readAll().groups[0]));
     const db = new DatabaseSync(join(root, "meiji.sqlite"));
     assert.equal(db.prepare("SELECT revision FROM projects WHERE id=?").get(p.id).revision, 2);
     assert.equal(db.prepare("SELECT count(*) AS n FROM task_groups").get().n, 1);
     db.close();
-    const view = restored.read();
+    const view = restored.readAll();
     view.project.name = "外部修改";
-    assert.equal(restored.read().project.name, "存储测试");
+    assert.equal(restored.readAll().project.name, "存储测试");
   }));
 
 test("S2-04 并发、幂等和不同项目隔离，无覆盖丢失；同键不同输入拒绝", () =>
@@ -146,18 +150,18 @@ test("S2-04 并发、幂等和不同项目隔离，无覆盖丢失；同键不�
         }),
       ),
     );
-    assert.equal(model.read().project.script.version, 10);
-    assert.equal(other.read().project.script.version, 1);
-    assert.equal(other.read().project.name, "独立项目");
+    assert.equal(model.readAll().project.script.version, 10);
+    assert.equal(other.readAll().project.script.version, 1);
+    assert.equal(other.readAll().project.name, "独立项目");
     const fresh = await new ModelRepository(root).open(p.id);
-    assert.equal(fresh.read().project.script.version, 10);
+    assert.equal(fresh.readAll().project.script.version, 10);
   }));
 
 test("S2-05 非法路径、符号链接、跨项目步骤及旧格式拒绝，不改合法数据", () =>
   withStore(async (root, repo) => {
     const p = fixture(),
       model = await repo.create(p),
-      before = model.read();
+      before = model.readAll();
     await assert.rejects(repo.open("../escape"), /UUID/);
     await assert.rejects(
       model.update("bad-step", {}, (s) => {
@@ -166,7 +170,7 @@ test("S2-05 非法路径、符号链接、跨项目步骤及旧格式拒绝，�
       }),
       /任务不存在/,
     );
-    assert.deepEqual(model.read(), before);
+    assert.deepEqual(model.readAll(), before);
     const legacy = createId("project");
     await mkdir(join(root, legacy));
     await assert.rejects(repo.open(legacy), { code: "UNSUPPORTED_PROJECT" });
@@ -183,7 +187,7 @@ test("S2-06 Model 写入后事件与重载一致，订阅错误不影响提交",
       throw new Error("UI 错误");
     });
     repo.on("change", (event) =>
-      events.push({ event, project: model.read().project }),
+      events.push({ event, project: model.readAll().project }),
     );
     const result = await model.update("edit", {}, (s) => {
       s.project.name = "已保存";
@@ -194,8 +198,8 @@ test("S2-06 Model 写入后事件与重载一致，订阅错误不影响提交",
     assert.equal(events[0].project.name, "已保存");
     assert.equal(events[0].event.revision, result.revision);
     assert.deepEqual(
-      (await new ModelRepository(root).open(model.id)).read(),
-      model.read(),
+      (await new ModelRepository(root).open(model.id)).readAll(),
+      model.readAll(),
     );
   }));
 
@@ -209,16 +213,19 @@ test("S2 历史终态 task/step/group 不可改写或删除", () =>
         ended_at: new Date().toISOString(),
       }),
       st = { ...step(t), step_status: "done" };
+    // 同组还有排队任务时，整组留在工作快照，组内终态任务不可改写或删除。
+    const queued = task(p, { task_status: "queued", queue_order: 2 });
     await model.update("history", {}, (s) => {
       t.group_id = createId("group"); t.group_seq = 1;
+      Object.assign(queued, { group_id: t.group_id, group_seq: 2 });
       s.groups = [{ id: t.group_id, project_id: p.id, episode_id: t.episode_id, group_type: "single", source: t.source, shot_ids: [], action: t.action, created_at: t.created_at }];
-      s.tasks = [t];
+      s.tasks = [t, queued];
       s.steps = [st];
       return {};
     });
     await assert.rejects(
       model.update("revive", {}, (s) => {
-        s.tasks[0].task_status = "queued";
+        s.tasks.find(row => row.id === t.id).task_status = "queued";
         return {};
       }),
       /终态/,
@@ -232,5 +239,20 @@ test("S2 历史终态 task/step/group 不可改写或删除", () =>
       }),
       /历史/,
     );
-    assert.equal(model.read().tasks[0].task_status, "completed");
+    // 整组结束后移出工作快照，数据库保留；不能以同 ID 重新写回覆盖历史。
+    await model.update("finish", {}, (s) => {
+      Object.assign(s.tasks.find(row => row.id === queued.id), { task_status: "cancelled", end_reason: "测试取消", ended_at: new Date().toISOString() });
+      return {};
+    });
+    assert.deepEqual(model.read().tasks, []);
+    assert.deepEqual(model.read().groups, []);
+    await assert.rejects(
+      model.update("resurrect", {}, (s) => {
+        s.groups = model.readAll().groups;
+        s.tasks = [{ ...t, task_status: "queued" }, model.readAll().tasks.find(row => row.id === queued.id)];
+        return {};
+      }),
+      /历史记录不可改写/,
+    );
+    assert.equal(model.readAll().tasks.find(row => row.id === t.id).task_status, "completed");
   }));

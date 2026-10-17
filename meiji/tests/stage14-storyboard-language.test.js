@@ -51,16 +51,16 @@ test('真实设置读取链将中英文选择传入分镜提示词生成、修�
     for (const model of ['qwen3.5:27b', 'codex-gpt']) {
       for (const selected of ['zh-CN', 'en']) {
         language = selected;
-        const kept = structuredClone(stored.read().project.episodes[0].shot_list.shots[0].text_to_video_prompt);
+        const kept = structuredClone(stored.readAll().project.episodes[0].shot_list.shots[0].text_to_video_prompt);
         await runtime.models.write({ ...config, output_language: language, text: { model } });
-        assert.deepEqual(stored.read().project.episodes[0].shot_list.shots[0].text_to_video_prompt, kept);
+        assert.deepEqual(stored.readAll().project.episodes[0].shot_list.shots[0].text_to_video_prompt, kept);
         for (const action of ['regenerate', 'revise']) {
           const start = calls.length;
           const accepted = await runtime.tasks.command({ type: 'submit', project_id: project.id,
             request_id: `${model}-${language}-${action}`, business_type: 'storyboard', target_id: shot.id,
             action, ...(action === 'revise' ? { opinion: '保持原事件，修正表达' } : {}) });
           await runtime.tasks.idle(project.id);
-          const snapshot = stored.read(), task = snapshot.tasks.find(t => t.id === accepted.task_id);
+          const snapshot = stored.readAll(), task = snapshot.tasks.find(t => t.id === accepted.task_id);
           assert.equal(task.task_status, 'completed', task.end_reason);
           assert.deepEqual(calls.slice(start).map(call => call.action), [action === 'revise' ? 'regenerate' : 'generate', 'review']);
           const result = snapshot.project.episodes[0].shot_list.shots[0].text_to_video_prompt;

@@ -12,7 +12,7 @@ import {
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { ProjectModel } from "../model/project_transaction_model.js";
-import { activityGroups } from "./task-store.js";
+import { activityGroups, lightStep } from "./task-store.js";
 import { validateProject } from "../../shared/project_contract.js";
 import {
   assertFields,
@@ -193,6 +193,18 @@ function checkHistory(before, after) {
     }
 }
 
+// 工作快照只保留仍有排队中或运行中任务的任务组（整组）；整组结束后移出内存，历史只在数据库。
+export function pruneFinished(snapshot) {
+  const live = new Set(snapshot.tasks.filter(t => !TERMINAL_TASKS.includes(t.task_status)).map(t => t.group_id));
+  const taskIds = new Set(snapshot.tasks.filter(t => live.has(t.group_id)).map(t => t.id));
+  return {
+    ...snapshot,
+    groups: snapshot.groups.filter(g => live.has(g.id)),
+    tasks: snapshot.tasks.filter(t => live.has(t.group_id)),
+    steps: snapshot.steps.filter(st => taskIds.has(st.task_id)).map(lightStep),
+  };
+}
+
 async function ordinary(path, directory = false) {
   const stat = await lstat(path);
   if (
@@ -361,11 +373,12 @@ export class ModelRepository extends EventEmitter {
   #install(snapshot) {
     const id = snapshot.project.id;
     let model = this.#models.get(id);
-    this.#snapshots.set(id, structuredClone(snapshot));
+    this.#snapshots.set(id, structuredClone(pruneFinished(snapshot)));
     if (!model) {
       model = new ProjectModel(
         () => this.#snapshots.get(id),
         (key, input, mutate) => this.#commit(id, key, input, mutate),
+        () => this.#store.allRows(id),
       );
       this.#models.set(id, model);
     }
@@ -406,7 +419,14 @@ export class ModelRepository extends EventEmitter {
       const next = structuredClone(before);
       const result = await mutate(next);
       next.runtime.revision = before.runtime.revision + 1;
-      const content = JSON.stringify(before.project) !== JSON.stringify(next.project);
+      // 最近任务/任务组关联单独以 links 增量推送，不算作正文变化，避免每次提交都整份刷新。
+      const body = ({ latest_tasks, latest_groups, ...rest }) => JSON.stringify(rest);
+      const content = body(before.project) !== body(next.project);
+      const links = {};
+      for (const key of ["latest_tasks", "latest_groups"]) {
+        const changed = Object.entries(next.project[key]).filter(([name, id]) => before.project[key][name] !== id);
+        if (changed.length) links[key] = Object.fromEntries(changed);
+      }
       const groups = activityGroups(before, next);
       const accepted = {
         ...structuredClone(result),
@@ -414,6 +434,7 @@ export class ModelRepository extends EventEmitter {
         revision: next.runtime.revision,
         content,
         groups: structuredClone(groups),
+        ...(Object.keys(links).length ? { links } : {}),
       };
       next.runtime.requests.push({
         id: key,
@@ -422,6 +443,12 @@ export class ModelRepository extends EventEmitter {
       });
       validateSnapshot(next);
       checkHistory(before, next);
+      // 已结束的历史已移出工作快照，不允许以同 ID 重新写入覆盖数据库记录。
+      for (const [key, table] of [["tasks", "tasks"], ["steps", "task_steps"], ["groups", "task_groups"]]) {
+        const known = new Set(before[key].map(row => row.id));
+        const added = next[key].filter(row => !known.has(row.id)).map(row => row.id);
+        if (this.#store.existingIds(id, table, added).length) invalid(key, "历史记录不可改写");
+      }
       let storageWarning;
       let committed = next;
       try {
@@ -434,10 +461,36 @@ export class ModelRepository extends EventEmitter {
       try { await this.#syncProjectJSON(committed); }
       catch (error) { storageWarning = [storageWarning, error.message].filter(Boolean).join("\n"); }
       this.#install(committed);
-      this.#notify(id, committed.runtime.revision, { content, groups: accepted.groups });
+      this.#notify(id, committed.runtime.revision, { content, groups: accepted.groups, ...(accepted.links ? { links: accepted.links } : {}) });
       return structuredClone({ ...accepted, ...(storageWarning ? { storage_warning: storageWarning } : {}) });
     });
   }
+  // 按 ID 查询数据库中的任务历史（含已结束任务）；只读，不改工作快照。
+  history(projectId) {
+    const store = this.#store;
+    if (!store) fail("STORAGE_NOT_READY", "数据库尚未就绪", 503);
+    return {
+      group: (groupId, options) => store.group(projectId, groupId, options),
+      task: (taskId) => store.task(projectId, taskId),
+      latestTask: (business, targetId, excludeId, status) => store.latestTask(projectId, business, targetId, excludeId, status),
+      stepsOf: (taskId, options) => store.stepsOf(projectId, taskId, options),
+      maxQueueOrder: () => store.maxQueueOrder(projectId),
+      historyRows: () => store.historyRows(projectId),
+      stepRecords: (stepIds) => store.stepRecords(projectId, stepIds),
+    };
+  }
+  // 运行中步骤的提示词与 HTTP 直接写入数据库对应行；不产生项目提交与幂等记录，只通知该任务组。
+  async writeStepRecord(projectId, { step_id, task_id, group_id }, patch) {
+    return this.#serial(projectId, () => {
+      if (!this.#store.writeStepRecord(projectId, step_id, patch)) return false;
+      const revision = this.#snapshots.get(projectId)?.runtime.revision ?? 0;
+      this.#notify(projectId, revision, { record: { step_id, task_id, group_id,
+        ...(patch.prompt !== undefined ? { has_prompt: patch.prompt != null } : {}),
+        ...(patch.http !== undefined ? { has_http: patch.http.length > 0 } : {}) } });
+      return true;
+    });
+  }
+
   #notify(projectId, revision, extra = {}) {
     // 订阅者抛错不应把已提交命令变成未受理，也不应阻断其他订阅者。
     for (const listener of this.listeners("change"))

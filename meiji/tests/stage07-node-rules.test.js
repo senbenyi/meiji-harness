@@ -35,14 +35,17 @@ test('规则接口覆盖所有AI路由，鉴权/绑定先行且无写入或AI调
     assert.match(nodeRules('video').review, /程序审核/);
     assert.match(nodeRules('outline').generate, /明显不足/);
     const characters = nodeRules('project-characters');
-    assert.match(characters.generate, /只被借用其方法、发明、言论的人物不纳入/);
-    assert.match(characters.revise, /修改意见与纳入规则冲突时以纳入规则为准/);
-    assert.match(characters.review, /不得因未列入这类人判不通过/);
-    assert.match(characters.review, /仅被提及的姓名不算遗漏/);
-    assert.match(characters.review, /修改意见只用来核对上一轮问题是否已经改掉/);
-    assert.match(characters.generate, /句末标“背景补”/);
-    assert.match(characters.revise, /不得删除与原文不冲突的背景补/);
-    assert.match(characters.review, /不得因为补写本身判超出剧本/);
+    assert.match(characters.generate, /只被借用方法、发明、言论的人不建卡/);
+    assert.match(characters.revise, /不因修改意见扩大角色名单/);
+    assert.match(characters.review, /只有剧本确实没有符合条件的角色时才返回空数组/);
+    assert.match(characters.review, /仅被提及.*不建卡/s);
+    assert.match(characters.review, /修改意见只用于核对原问题是否已解决/);
+    for (const action of ['generate', 'revise', 'review']) {
+      assert.doesNotMatch(characters[action], /句末标“背景补”|必须含“背景补”|原样保留/);
+      assert.match(characters[action], /根据剧情、时代、世界设定和人物身份自由补充/);
+    }
+    assert.match(characters.revise, /保留已经完整且符合当前资料和服装套数规则的设定/);
+    assert.match(characters.review, /不得因合理细节补充本身或细节没有逐项原文依据判失败/);
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
 

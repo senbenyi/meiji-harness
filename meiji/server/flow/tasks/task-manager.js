@@ -16,7 +16,7 @@ import {
 } from "../../../shared/node-state.js";
 import { expireDownstream, isNodeCurrent } from "../../../shared/node-dependencies.js";
 import { stepKinds, newStep, reviewTypes, reviewType } from "../../../shared/task-plan.js";
-import { taskDetail, groupDetail } from "../../data/task-store.js";
+import { groupDetailRecords, historyContext } from "../../data/task-store.js";
 import { createTaskGroupModel } from "../../../shared/models/task_group_model.js";
 import { createTaskModel } from "../../../shared/models/task_model.js";
 import { BUSINESS_DEFINITIONS } from "../../../shared/node-definitions.js";
@@ -54,13 +54,50 @@ export class TaskService {
     this.#commitOutput = commitOutput;
     this.#libraryReferences = libraryReferences;
   }
+  // 已结束的任务只在数据库；需要时按 ID 或节点查询。
+  #history(projectId) {
+    return this.#repository.history(projectId);
+  }
+  // 节点（或非节点业务）最近一次任务：工作快照中的未结束任务优先，其余查数据库。
+  #latestTask(s, business, id, excludeId = "") {
+    const live = s.tasks.filter(t => t.business_type === business && t.target_id === id && t.id !== excludeId)
+      .sort((a, b) => b.queue_order - a.queue_order)[0];
+    const stored = this.#history(s.project.id).latestTask(business, id, excludeId);
+    if (!live) return stored;
+    return !stored || live.queue_order >= stored.queue_order ? live : stored;
+  }
+  // 任务组：工作快照中有则用快照，否则查数据库（已结束的组）。
+  #groupRecord(s, groupId) {
+    const group = s.groups.find(g => g.id === groupId);
+    if (group) return { group, tasks: s.tasks.filter(t => t.group_id === groupId).sort((a, b) => a.group_seq - b.group_seq) };
+    return this.#history(s.project.id).group(groupId);
+  }
+  // 项目 JSON 记录节点最近任务，以及界面需展示的最近任务组。
+  #markLatest(s, task) {
+    s.project.latest_tasks[`${task.business_type}:${task.target_id}`] = task.id;
+    const group = s.groups.find(g => g.id === task.group_id);
+    if (group?.group_type === "episode-film") {
+      s.project.latest_groups[`episode-film:${group.episode_id}`] = group.id;
+      if (group.shot_ids.length === 1) s.project.latest_groups[`shot-film:${group.shot_ids[0]}`] = group.id;
+    }
+    if (task.business_type === "costume-image" && group) s.project.latest_groups["costume-image"] = group.id;
+  }
   async command(command, origin = { source: "panel", session_id: null }) {
     validateCommand(command);
     if (this.#disposed) throw new Error("任务服务已关闭");
     const model = await this.#repository.open(command.project_id);
     if (command.type === "query") {
-      if (command.task_id) return taskDetail(model, command.task_id);
-      if (command.group_id) return groupDetail(model, command.group_id);
+      const history = this.#history(command.project_id);
+      if (command.task_id) {
+        const task = history.task(command.task_id);
+        if (!task) return null;
+        const records = this.liveRecords(command.project_id);
+        return { task, steps: history.stepsOf(task.id, { records: true }).map(step => ({ ...step, ...structuredClone(records.get(step.id) || {}) })) };
+      }
+      if (command.group_id) {
+        const { project, revision } = historyContext(model);
+        return groupDetailRecords(history, this.liveRecords(command.project_id), command.group_id, project, revision);
+      }
       return model.read();
     }
     let cancelling = null;
@@ -87,18 +124,11 @@ export class TaskService {
           command.type === "manual-edit" ? command.content : null,
         );
       if (command.type === "submit") {
-        const related = s.tasks
-            .filter(
-              (t) =>
-                t.business_type === command.business_type &&
-                t.target_id === command.target_id,
-            )
-            .sort((a, b) => b.queue_order - a.queue_order),
-          retryable = (t) =>
+        const retryable = (t) =>
             ["failed", "rejected", "cancelled", "superseded"].includes(
               t?.task_status,
             ),
-          latest = related[0],
+          latest = this.#latestTask(s, command.business_type, command.target_id),
           retrying =
             origin.source === "panel" &&
             retryable(latest);
@@ -166,14 +196,15 @@ export class TaskService {
         };
       }
       if (["submit-group", "continue-group"].includes(command.type)) {
-        const original =
+        const record =
           command.type === "continue-group"
-            ? s.groups.find((g) => g.id === command.group_id)
+            ? this.#groupRecord(s, command.group_id)
             : null;
+        const original = record?.group || null;
         if (command.type === "continue-group" && !original)
           invalid("group_id", "组合不存在");
         if (original) {
-          const members = s.tasks.filter(t => t.group_id === original.id).sort((a,b)=>a.group_seq-b.group_seq);
+          const members = record.tasks;
           if (members.some(unfinished)) conflict(members.filter(unfinished));
           const stoppedAt = members.findIndex(t => t.task_status !== "completed");
           const rest = stoppedAt < 0 ? [] : members.slice(stoppedAt);
@@ -251,7 +282,7 @@ export class TaskService {
         if (assemblyOnly) tasks.push(this.#appendAssembly(s, group, origin));
         return { group_id: group.id, task_ids: tasks.map((t) => t.id) };
       }
-      const task = s.tasks.find((t) => t.id === command.task_id);
+      const task = s.tasks.find((t) => t.id === command.task_id) || this.#history(s.project.id).task(command.task_id);
       if (!task) invalid("task_id", "任务不存在");
       if (command.type === "cancel") {
         if (!unfinished(task)) return { task_id: task.id, already_terminal: true };
@@ -312,9 +343,7 @@ export class TaskService {
     if (business === "costume-image" && !target.object && target.character.costumes.length)
       invalid("target_id", "已有明确服装，请选择对应服装生成定妆照");
     const node = nodeOf(s.project, business, id);
-    const previous = business === "script-split"
-      ? s.tasks.filter(t => t.business_type === business && t.target_id === id).sort((a,b)=>b.queue_order-a.queue_order)[0]
-      : null;
+    const previous = business === "script-split" ? this.#latestTask(s, business, id) : null;
     // 剧本的未通过原因是给剧本的修改意见：按意见修改时带上，重新审核不把它当作本次审核要求。
     const rejectedReason = business === "script-review" && action !== "revise" ? ""
       : node?.node_state.status === "rejected" ? node.node_state.reason
@@ -332,7 +361,8 @@ export class TaskService {
         group_seq: index,
         task_status: "queued",
         source: origin.source,
-        queue_order: Math.max(0, ...s.tasks.map((t) => t.queue_order)) + 1,
+        // 队列序号接在全部历史之后（已结束任务不在工作快照）。
+        queue_order: Math.max(0, this.#history(s.project.id).maxQueueOrder(), ...s.tasks.map((t) => t.queue_order)) + 1,
         end_reason: "",
         created_at: now(),
         started_at: null,
@@ -357,6 +387,7 @@ export class TaskService {
     }
     enqueueNode(s.project, task);
     s.tasks.push(task);
+    this.#markLatest(s, task);
     const reviewers = reviewTypes(task);
     s.steps.push(
       ...stepKinds(task).map((kind, i) => {
@@ -397,6 +428,10 @@ export class TaskService {
         this.#finish(s, pending, "cancelled", "项目前序任务失败或未通过，取消剩余任务");
   }
 
+  // 运行中任务的步骤记录（提示词与 HTTP），供详情接口优先读取。
+  liveRecords(projectId) {
+    return this.#active.get(projectId)?.records || new Map();
+  }
   current(model) {
     const tasks = model.read().tasks.filter(unfinished).sort((a,b) => a.queue_order-b.queue_order);
     return { status: tasks.some(t => t.task_status === "running") ? "running" : tasks.length ? "queued" : "idle", tasks };
@@ -409,7 +444,7 @@ export class TaskService {
     )
       return;
     const controller = new AbortController(),
-      entry = { controller, promise: null };
+      entry = { controller, promise: null, records: new Map() };
     this.#active.set(model.id, entry);
     entry.promise = this.#loop(model, controller.signal)
       .catch((error) => {
@@ -432,7 +467,7 @@ export class TaskService {
       if (task.business_type === 'video' && !['manual_edit','override'].includes(task.action)) {
         const inserted = await model.update(`prepare-video:${task.id}:${before.runtime.revision}`, { prepareVideo: task.id }, s => {
           const t = s.tasks.find(item => item.id === task.id);
-          if (t.task_status !== 'queued') return { inserted: false };
+          if (t?.task_status !== 'queued') return { inserted: false };
           const { object: shot, episode } = locateTarget(s.project, 'video', t.target_id);
           if (!isNodeCurrent(s, 'shots', episode.id) || !isNodeCurrent(s, 'storyboard', shot.id)) return { inserted: false };
           const type = videoType(episode, shot), business = videoPack(type);
@@ -454,7 +489,7 @@ export class TaskService {
       if (signal.aborted) return;
       const started = await model.update(`start:${task.id}`, { start: task.id }, (s) => {
         const t = s.tasks.find((t) => t.id === task.id);
-        if (t.task_status !== "queued") return { started: false };
+        if (t?.task_status !== "queued") return { started: false };
         t.task_status = "running";
         t.started_at = now();
         return { started: true };
@@ -471,7 +506,8 @@ export class TaskService {
           { failure: error.message },
           (s) => {
             const t = s.tasks.find((t) => t.id === task.id);
-            if (t.task_status !== "running") return {};
+            // 任务所在组已整组结束会移出工作快照；找不到即已结算。
+            if (t?.task_status !== "running") return {};
             const st = s.steps.find(
               (x) => x.task_id === t.id && x.step_status === "running",
             );
@@ -484,6 +520,9 @@ export class TaskService {
             return {};
           },
         );
+      } finally {
+        // 记录只常驻当前执行任务；组内已结束任务的记录从数据库按需读取。
+        this.#active.get(model.id)?.records.clear();
       }
     }
   }
@@ -493,16 +532,15 @@ export class TaskService {
     const initial = model.read();
     const current = initial.tasks.find(t => t.id === id);
     if (current.business_type === "script-split") {
-      const previous = initial.tasks.filter(t => t.id !== id && t.business_type === current.business_type && t.target_id === current.target_id)
-        .sort((a,b)=>b.queue_order-a.queue_order)[0];
+      const previous = this.#latestTask(initial, current.business_type, current.target_id, id);
       if (previous?.task_status === "rejected")
-        draft = initial.steps.filter(st => st.task_id === previous.id && ["generate", "revise"].includes(st.kind) && st.step_status === "done")
+        draft = this.#history(initial.project.id).stepsOf(previous.id).filter(st => ["generate", "revise"].includes(st.kind) && st.step_status === "done")
           .sort((a,b)=>b.seq-a.seq)[0]?.result ?? null;
     }
     while (!signal.aborted) {
       const snapshot = model.read(),
         task = snapshot.tasks.find(t => t.id === id);
-      if (task.task_status !== "running") return;
+      if (task?.task_status !== "running") return;
       const step = snapshot.steps.filter(st => st.task_id === id && st.step_status === "ready").sort((a,b)=>a.seq-b.seq)[0];
       if (!step) return;
       await model.update(`step-start:${step.id}`, { step: step.id }, s => {
@@ -511,15 +549,21 @@ export class TaskService {
         st.started_at = now();
         return {};
       });
+      // 运行中步骤的提示词与 HTTP：保存在本任务的内存记录并直接写入数据库行，不经项目提交。
+      const live = this.#active.get(model.id);
       const record = async patch => {
         if (signal.aborted) return;
-        await model.update(`record:${step.id}:${createId("step")}`, { step: step.id, patch }, s => {
-          const t = s.tasks.find(x => x.id === id), st = s.steps.find(x => x.id === step.id);
-          if (t.task_status === "running" && st.step_status === "running") Object.assign(st, patch);
-          return {};
-        });
+        const own = { ...(live?.records.get(step.id) || { prompt: null, http: [] }) };
+        if (Object.hasOwn(patch, "prompt")) own.prompt = structuredClone(patch.prompt);
+        if (Object.hasOwn(patch, "http")) own.http = structuredClone(patch.http);
+        live?.records.set(step.id, own);
+        await this.#repository.writeStepRecord(model.id, { step_id: step.id, task_id: id, group_id: task.group_id },
+          { ...(Object.hasOwn(patch, "prompt") ? { prompt: own.prompt } : {}), ...(Object.hasOwn(patch, "http") ? { http: own.http } : {}) });
       };
       const fresh = model.read();
+      fresh.steps = fresh.steps.map(st => live?.records.has(st.id) ? { ...st, ...structuredClone(live.records.get(st.id)) } : st);
+      // 已结束任务只在数据库；处理器经只读的 history 查询（不随快照保存）。
+      Object.defineProperty(fresh, "history", { value: this.#history(model.id), enumerable: false });
       const context = { snapshot: fresh, task, step, draft, reviewType: reviewType(step), signal, record };
       let output;
       if (step.kind === "review" && validationFailure) {
@@ -529,15 +573,17 @@ export class TaskService {
         if (task.business_type === "assembly" && ["generate", "regenerate", "continue"].includes(task.action))
           output = await this.#execute(context);
       } else output = await this.#execute(context);
-      if (signal.aborted || model.read().tasks.find(t => t.id === id).task_status !== "running") return;
+      if (signal.aborted || model.read().tasks.find(t => t.id === id)?.task_status !== "running") return;
       if (["generate", "revise"].includes(step.kind)) validationFailure = output.validationFailure || "";
       if (["generate", "revise", "manual_edit", "apply"].includes(step.kind) || (step.kind === "review" && output.content !== undefined)) draft = output.content;
+      if (output.prompt !== undefined || output.http !== undefined)
+        await record({ ...(output.prompt !== undefined ? { prompt: output.prompt } : {}), ...(output.http !== undefined ? { http: output.http } : {}) });
       await model.update(`step-end:${step.id}`, { step: step.id }, s => {
         const t = s.tasks.find(x => x.id === id), st = s.steps.find(x => x.id === step.id);
-        if (t.task_status !== "running") return {};
+        if (t?.task_status !== "running") return {};
         Object.assign(st, {
-          step_status: "done", result: output.result ?? output.content ?? null,
-          prompt: output.prompt ?? st.prompt, ended_at: now(),
+          step_status: "done", result: output.result ?? output.content ?? null, ended_at: now(),
+          has_prompt: live?.records.get(step.id)?.prompt != null, has_http: Boolean(live?.records.get(step.id)?.http?.length),
         });
         if (["generate", "revise"].includes(step.kind) && validationFailure) {
           const next = s.steps.filter(x => x.task_id === id && x.step_status === "ready").sort((a,b) => a.seq-b.seq)[0];

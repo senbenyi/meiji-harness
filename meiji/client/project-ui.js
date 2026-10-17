@@ -519,7 +519,9 @@ export function renderOverview(root, env) {
   people.append(strip);
   view.append(people);
   const groups = env.snapshot ? historyGroups(env.snapshot) : [];
-  const costumeGroup = groups.find((row) => row.tasks.some((task) => task.business_type === "costume-image"));
+  const costumeGroup = p.latest_groups?.["costume-image"]
+    ? groups.find(row => row.group.id === p.latest_groups["costume-image"])
+    : groups.find((row) => row.tasks.some((task) => task.business_type === "costume-image"));
   const costumeReady = p.character_library.characters.some((character) => character.costume_images.some((image) => image.address));
   const costumeBusy = costumeGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status));
   const costumeButtons = groupButtons(button, act, {
@@ -649,7 +651,8 @@ export function renderEpisode(root, env, entries) {
   if (["film", "shots"].includes(state.tab)) {
     const listed = historyGroups(env.snapshot);
     if (state.tab !== "shots") {
-      const filmGroup = listed.find((row) => row.group.group_type === "episode-film" && row.group.episode_id === e.id);
+      const filmId = p.latest_groups?.[`episode-film:${e.id}`];
+      const filmGroup = filmId ? listed.find(row => row.group.id === filmId) : listed.find((row) => row.group.group_type === "episode-film" && row.group.episode_id === e.id);
       const hasVideo = e.shot_list.shots.some((shot) => shot.video.address);
       const filmBusy = filmGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status));
       const filmButtons = groupButtons(button, act, {
@@ -690,7 +693,8 @@ export function renderEpisode(root, env, entries) {
           false,
         ),
       );
-      const shotGroup = state.tab === "film" ? shotFilmEntry(listed, e, s) : null;
+      const shotGroupId = p.latest_groups?.[`shot-film:${s.id}`];
+      const shotGroup = state.tab === "film" ? (shotGroupId ? listed.find(row => row.group.id === shotGroupId) : shotFilmEntry(listed, e, s)) : null;
       const shotReady = Boolean(s.video.address);
       const shotBusy = Boolean(shotGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status)));
       card.append(

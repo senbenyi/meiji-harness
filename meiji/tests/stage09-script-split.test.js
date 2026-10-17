@@ -24,8 +24,8 @@ import { createAppRuntime } from "../server/runtime/app-runtime.js";
 
 const script = "第一场 酒馆\n武松：店家，再来一碗！\n\n店家：客官，三碗不过冈。\n第二场 景阳冈\n武松上冈，遇虎。\n武松打虎。";
 const rows = [
-  { 序号: 1, 起始段落: "P001", 结束段落: "P003", 预估时长秒: 60 },
-  { 序号: 2, 起始段落: "P004", 结束段落: "P006", 预估时长秒: 90 },
+  { 序号: 1, 起始段落: "P001", 结束段落: "P003", 预估时长秒: 150 },
+  { 序号: 2, 起始段落: "P004", 结束段落: "P006", 预估时长秒: 150 },
 ];
 const covered = (剧集) => ({ 剧集, 排除段落: [] });
 
@@ -100,7 +100,7 @@ test("拆分只保留剧情：模型排除人物说明和间隔后才不写入�
 
 test("拆分校验：按段落原文写入各集，遗漏、重叠、倒序、未到结尾、序号与时长错误均拒绝", () => {
   const result = buildSplit(script, { 剧集: rows });
-  assert.deepEqual(result.episodes.map((e) => e.duration_seconds), [60, 90]);
+  assert.deepEqual(result.episodes.map((e) => e.duration_seconds), [150, 150]);
   assert.equal(result.episodes.map((e) => e.plot).join(""), script);
   assert.equal(result.episodes[1].plot, "第二场 景阳冈\n武松上冈，遇虎。\n武松打虎。");
   const bad = (patch, pattern) =>
@@ -136,8 +136,8 @@ test("会话拆分自动启动，执行中面板重复提交复用同一任务",
     const duplicate = await service.command({...command,request_id:"panel-split"});
     assert.equal(first.task_id,duplicate.task_id);
     release(); await service.idle(p.id);
-    assert.equal(model.read().tasks.length,1);
-    assert.equal(model.read().tasks[0].task_status,"completed");
+    assert.equal(model.readAll().tasks.length,1);
+    assert.equal(model.readAll().tasks[0].task_status,"completed");
     assert.equal(calls,1);
   } finally { release(); await service?.dispose(); await rm(root,{recursive:true,force:true}); }
 });
@@ -177,11 +177,11 @@ test("拆分剧集真实任务：失败暂停后面板再次拆分直接执行�
     };
     const first = await service.command(command);
     await service.idle(p.id);
-    assert.equal(model.read().tasks.find(t => t.id === first.task_id).task_status, "failed");
+    assert.equal(model.readAll().tasks.find(t => t.id === first.task_id).task_status, "failed");
 
     const r = await service.command({ ...command, request_id: "split-again" });
     await service.idle(p.id);
-    const s = model.read(),
+    const s = model.readAll(),
       task = s.tasks.find((t) => t.id === r.task_id);
     assert.equal(task.task_status, "completed", task.end_reason);
     assert.deepEqual(seen, ["generate", "generate"]);
@@ -195,11 +195,11 @@ test("拆分剧集真实任务：失败暂停后面板再次拆分直接执行�
     assert.ok(s.tasks.every(t => t.business_type === "script-split"));
     assert.ok(s.project.episodes.every(e => e.summary.body === "" && e.summary.node_state.status === "empty"));
     assert.equal(s.project.episodes.map((e) => e.plot).join(""), script);
-    assert.deepEqual(s.project.episodes.map((e) => [e.sequence, e.duration_seconds]), [[1, 60], [2, 90]]);
+    assert.deepEqual(s.project.episodes.map((e) => [e.sequence, e.duration_seconds]), [[1, 150], [2, 150]]);
     assert.ok(s.project.episodes.every((e) => e.story_outline.node_state.status === "empty"));
     const restored = await new ModelRepository(root).open(p.id);
-    assert.deepEqual(restored.read().project.episodes, s.project.episodes);
-    assert.equal(restored.read().tasks.find(t => t.id === r.task_id).task_status, "completed");
+    assert.deepEqual(restored.readAll().project.episodes, s.project.episodes);
+    assert.equal(restored.readAll().tasks.find(t => t.id === r.task_id).task_status, "completed");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -262,7 +262,7 @@ test("剧本创作方式不能逐集新增；编辑剧情使展示摘要与故�
       { type: "edit-episode", project_id: p.id, request_id: "plot", episode_id: e.id, fields: { plot: "改过的剧情" } },
       sid,
     );
-    const after = model.read().project.episodes[0];
+    const after = model.readAll().project.episodes[0];
     assert.equal(after.plot, "改过的剧情");
     assert.equal(after.summary.node_state.status, "expired");
     assert.equal(after.story_outline.node_state.status, "expired");
@@ -369,7 +369,7 @@ for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucc
   try {
     const result = await service.command({ type: "submit", project_id: project.id, request_id: "split-reviews", business_type: "script-split", target_id: project.id, action: "regenerate" });
     await service.idle(project.id);
-    const snapshot = model.read(), task = snapshot.tasks.find(item => item.id === result.task_id);
+    const snapshot = model.readAll(), task = snapshot.tasks.find(item => item.id === result.task_id);
     assert.equal(task.task_status, repairSucceeds ? "completed" : "rejected", task.end_reason);
     assert.equal(generations, 2);
     const rejected = snapshot.steps.filter(item => item.task_id === task.id && item.step_status === "rejected");
@@ -388,7 +388,7 @@ for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucc
       assert.deepEqual(last.result, covered(badRows));
       const retried = await service.command({ type: "submit", project_id: project.id, request_id: "split-retry", business_type: "script-split", target_id: project.id, action: "regenerate" });
       await service.idle(project.id);
-      const retryTask = model.read().tasks.find(item => item.id === retried.task_id);
+      const retryTask = model.readAll().tasks.find(item => item.id === retried.task_id);
       assert.match(retryTask.opinion, /段落有遗漏/);
       assert.match(prompts[3], /P005/);
       assert.match(prompts[3], /段落有遗漏/);
@@ -444,7 +444,7 @@ test('全部覆盖问题进入同一轮修订，通过后逐字保存原文且�
     const model = await runtime.repository.create(project);
     const result = await runtime.tasks.command({ type: 'submit', project_id: project.id, target_id: project.id, business_type: 'script-split', action: 'regenerate', request_id: randomUUID() });
     await runtime.tasks.idle(project.id);
-    const snapshot = model.read();
+    const snapshot = model.readAll();
     assert.equal(snapshot.tasks.find(t => t.id === result.task_id).task_status, 'completed');
     assert.equal(calls, 2);
     assert.equal(snapshot.project.episodes.map(e => e.plot).join(''), script);
@@ -454,7 +454,7 @@ test('全部覆盖问题进入同一轮修订，通过后逐字保存原文且�
   } finally { await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
-test("提取剧集人工放行收下容量未过的候选，覆盖错误不改剧集", async () => {
+test("提取剧集人工放行不能绕过容量上限或段落覆盖，保留旧剧集", async () => {
   const home = await mkdtemp(join(tmpdir(), "meiji-split-override-"));
   let runtime;
   try {
@@ -467,27 +467,28 @@ test("提取剧集人工放行收下容量未过的候选，覆盖错误不改�
     } } });
     const project = scriptProject();
     project.reference_episode_duration_seconds = 150;
+    project.episodes = [emptyEpisode({ plot: "旧正式剧情" })];
+    const oldEpisodes = structuredClone(project.episodes);
     const model = await runtime.repository.create(project);
     const submit = (action) => runtime.tasks.command({ type: "submit", project_id: project.id, target_id: project.id, business_type: "script-split", action, request_id: randomUUID() });
     const first = await submit("generate");
     await runtime.tasks.idle(project.id);
-    assert.equal(model.read().tasks.find((task) => task.id === first.task_id).task_status, "rejected");
-    assert.equal(model.read().project.episodes.length, 0);
+    assert.equal(model.readAll().tasks.find((task) => task.id === first.task_id).task_status, "rejected");
+    assert.deepEqual(model.readAll().project.episodes, oldEpisodes);
     const accepted = await runtime.tasks.command({ type: "override", project_id: project.id, target_id: project.id, business_type: "script-split", request_id: randomUUID() });
     await runtime.tasks.idle(project.id);
-    const after = model.read();
-    assert.equal(after.tasks.find((task) => task.id === accepted.task_id).task_status, "completed", after.tasks.find((task) => task.id === accepted.task_id).end_reason);
-    assert.equal(after.project.episodes.length, 1);
-    assert.equal(after.project.episodes[0].plot, script);
-    assert.equal(after.project.episodes[0].duration_seconds, 400);
+    const after = model.readAll();
+    assert.equal(after.tasks.find((task) => task.id === accepted.task_id).task_status, "rejected");
+    assert.match(after.tasks.find((task) => task.id === accepted.task_id).end_reason, /容量上限180秒/);
+    assert.deepEqual(after.project.episodes, oldEpisodes);
     mode = "gap";
     const again = await submit("regenerate");
     await runtime.tasks.idle(project.id);
-    assert.equal(model.read().tasks.find((task) => task.id === again.task_id).task_status, "rejected");
-    const kept = model.read().project.episodes.map((episode) => episode.plot).join("");
+    assert.equal(model.readAll().tasks.find((task) => task.id === again.task_id).task_status, "rejected");
+    const kept = model.readAll().project.episodes.map((episode) => episode.plot).join("");
     const blocked = await runtime.tasks.command({ type: "override", project_id: project.id, target_id: project.id, business_type: "script-split", request_id: randomUUID() });
     await runtime.tasks.idle(project.id);
-    const end = model.read();
+    const end = model.readAll();
     assert.equal(end.tasks.find((task) => task.id === blocked.task_id).task_status, "rejected");
     assert.match(end.tasks.find((task) => task.id === blocked.task_id).end_reason, /遗漏/);
     assert.equal(end.project.episodes.map((episode) => episode.plot).join(""), kept);

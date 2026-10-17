@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { renderHistory } from '../client/history-ui.js';
 import { snapshotFixture } from './fixtures/project.js';
+import { splitLegacyPrompt } from '../server/data/step-records.js';
+import { historyGroups } from '../shared/task-labels.js';
+import { stepExecutor } from '../shared/task-plan.js';
 
 function fixture(work) {
  const dom=new JSDOM('<main></main>'), previous=globalThis.document;
@@ -11,7 +14,22 @@ function fixture(work) {
   const s=snapshotFixture(), root=document.querySelector('main'), state={page:'history'}, commands=[];
   s.tasks=[{id:'t',group_id:'g',group_seq:1,business_type:'outline',task_status:'queued',queue_order:1,source:'panel'}];s.steps=[];s.groups=[{id:'g',group_type:'single',source:'panel'}];
   const env={p:s.project,state,names:{outline:'故事大纲'},go:(page,v)=>Object.assign(state,{page},v),act:c=>commands.push(c),button:(label,fn)=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>fn();return b;}};
-  const paint=()=>{root.replaceChildren();renderHistory(root,env,s);};
+  // 步骤按新结构准备：记录（提示词/HTTP）预先填入按组缓存，面板步骤只带标记与执行方式。
+  const paint=()=>{
+   root.replaceChildren();
+   const records={};
+   const steps=s.steps.map(step=>{
+    const task=s.tasks.find(t=>t.id===step.task_id)||{};
+    const legacy=typeof step.prompt==='string'?{prompt:step.prompt,http:[]}:splitLegacyPrompt(step.prompt);
+    const http=step.http||legacy.http;
+    ((records[task.group_id]??={revision:Infinity,steps:{}}).steps[step.id]={id:step.id,prompt:legacy.prompt,http});
+    const reviewer=step.kind==='review'?(String(step.name||'').includes('程序审核')?'program':'ai'):null;
+    const {prompt,http:_h,...rest}=step;
+    return {executor:step.executor||stepExecutor(task,step.kind,reviewer),...rest,has_prompt:legacy.prompt!=null,has_http:http.length>0};
+   });
+   state.taskRecords={project:s.project.id,details:Object.fromEntries(s.groups.map(group=>[group.id,{...historyGroups(s).find(row=>row.group.id===group.id),steps:steps.filter(st=>s.tasks.some(t=>t.group_id===group.id&&t.id===st.task_id)).map(st=>({...st,...records[group.id]?.steps[st.id]})),version:`${s.runtime?.revision||0}:0`,live:false}])),pages:{},pending:{},errors:{}};
+   renderHistory(root,env,{...s,steps});
+  };
   work({dom,s,root,state,commands,paint});
  } finally {globalThis.document=previous;dom.window.close();}
 }
@@ -77,7 +95,7 @@ test('提示词和HTTP跳转详情页：提示词完整分段，HTTP按次数和
  link('查看提示词').click();paint();
  assert.equal(root.querySelector('.run-step-card'),null);
  const cards=[...root.querySelectorAll('.run-record-page .run-record-card')];
- assert.deepEqual(cards.map(c=>c.querySelector('h4').textContent),['system','user']);
+ assert.deepEqual(cards.map(c=>c.querySelector('h4').textContent),['1. system','2. user']);
  assert.equal(cards[0].querySelector('pre').textContent,long);
  assert.equal(cards[1].querySelector('pre').textContent,long);
  assert.doesNotMatch(root.querySelector('.run-record-page').textContent,/重复正文|output|reference_count|transfers/);
@@ -225,8 +243,6 @@ test('只有AI生成修订审核显示提示词，前置检查和各类程序步
   ['video','generate','生成视频',true],
   ['video','review','程序审核视频',false],
   ['video','review','AI审核视频',true],
-  ['script','generate','旧剧本生成',true],
-  ['episode-characters','generate','旧本集角色识别',true],
   ['assembly','generate','生成合片',false],
   ['tail','generate','提取尾帧',false],
   ['first-last-frame','generate','执行首尾帧编排',false],

@@ -45,7 +45,7 @@ async function withRuntime(run, respond = () => undefined) {
       const result = await runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: crypto.randomUUID(), business_type: business, target_id: target, action, ...extra });
 
       await runtime.tasks.idle(p.id);
-      return model.read().tasks.find(task => task.id === result.task_id);
+      return model.readAll().tasks.find(task => task.id === result.task_id);
     };
     await run({ runtime, p, model, command, calls });
   } finally { await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
@@ -80,13 +80,13 @@ test('seconds 语法错误是协议失败，空隙/倒序/重叠和总长不等�
 test('程序失败再AI失败共用两次修订；修订收到最新候选与对应意见', () => withRuntime(async ({ p, model, command, calls }) => {
   const task = await command('seconds', 'regenerate');
   assert.equal(task.task_status, 'completed', task.end_reason);
-  const steps = model.read().steps.filter(step => step.task_id === task.id);
+  const steps = model.readAll().steps.filter(step => step.task_id === task.id);
   assert.deepEqual(steps.filter(step => step.kind === 'revise').map(step => step.round), [1, 2]);
   const generations = calls.filter(call => call.task.business_type === 'seconds' && call.step.kind !== 'review');
   assert.equal(generations.length, 3);
   assert.match(generations[1].messages.at(-1).content, /需等于本镜参考 5 秒/);
   assert.match(generations[2].messages.at(-1).content, /动作缺失/);
-  assert.deepEqual(model.read().project.episodes[0].shot_list.shots[0].seconds_storyboard.storyboard, [beat('0–5s')]);
+  assert.deepEqual(model.readAll().project.episodes[0].shot_list.shots[0].seconds_storyboard.storyboard, [beat('0–5s')]);
 }, ({ task, step }) => {
   if (task.business_type !== 'seconds') return;
   if (step.kind === 'review') return { 是否通过: step.round !== 1, 原因: step.round === 1 ? '动作缺失' : '' };
@@ -104,9 +104,9 @@ test('AI拒绝后的程序拒绝不丢失业务意见，再修订仍使用最新
   assert.match(final.messages.at(-1).content, /已解决项不重复修改/);
   assert.equal(JSON.parse(final.messages[2].content).storyboard[0].time_range, '0–11s');
   assert.equal(JSON.parse(final.messages[2].content).end_state, '门已打开。');
-  const steps = model.read().steps.filter(step => step.task_id === task.id);
+  const steps = model.readAll().steps.filter(step => step.task_id === task.id);
   assert.equal(steps.find(step => step.round === 1 && step.name.includes('AI审核')).step_status, 'cancelled');
-  assert.equal(model.read().project.episodes[0].shot_list.shots[0].seconds_storyboard.end_state, '门已打开。');
+  assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].seconds_storyboard.end_state, '门已打开。');
 }, ({ task, step }) => {
   if (task.business_type !== 'seconds') return;
   if (step.kind === 'review') return { 是否通过: step.round !== 0, 原因: step.round === 0 ? '结束状态必须明确门已打开' : '' };
@@ -115,10 +115,10 @@ test('AI拒绝后的程序拒绝不丢失业务意见，再修订仍使用最新
 }));
 
 test('程序审核重复无进展提前结束且保留旧内容，保留旧成功hash与下游', () => withRuntime(async ({ p, model, command, calls }) => {
-  const before = model.read().project.episodes[0].shot_list.shots[0];
+  const before = model.readAll().project.episodes[0].shot_list.shots[0];
   const task = await command('seconds', 'regenerate');
   assert.equal(task.task_status, 'rejected');
-  const after = model.read().project.episodes[0].shot_list.shots[0];
+  const after = model.readAll().project.episodes[0].shot_list.shots[0];
   assert.deepEqual(after.seconds_storyboard.storyboard, before.seconds_storyboard.storyboard);
   assert.match(task.end_reason, /修订无进展/);
   assert.equal(after.seconds_storyboard.node_state.dependency_hash, before.seconds_storyboard.node_state.dependency_hash);
@@ -129,13 +129,13 @@ test('程序审核重复无进展提前结束且保留旧内容，保留旧成�
 test('episode-seconds 逐镜安排识别后每秒', () => withRuntime(async ({ runtime, p, model, calls }) => {
   const group = await runtime.tasks.command({ type: 'submit-group', project_id: p.id, request_id: 'group', group_type: 'episode-seconds', action: 'regenerate', episode_id: p.episodes[0].id });
   await runtime.tasks.idle(p.id);
-  const tasks = model.read().tasks.filter(task => task.group_id === group.group_id);
+  const tasks = model.readAll().tasks.filter(task => task.group_id === group.group_id);
   assert.deepEqual(tasks.map(task => task.business_type), ['seconds', 'seconds']);
   assert.ok(tasks.every(task => task.task_status === 'completed'), tasks.map(task => task.end_reason).join(';'));
   assert.equal(calls.filter(call => call.task.business_type === 'shot-characters' && call.step.kind === 'generate').length, 0);
   const seconds = calls.filter(call => call.task.business_type === 'seconds' && call.step.kind === 'generate');
   assert.equal(seconds[0].trace.input.previous, null);
-  const savedFirst = model.read().project.episodes[0].shot_list.shots[0].seconds_storyboard;
+  const savedFirst = model.readAll().project.episodes[0].shot_list.shots[0].seconds_storyboard;
   assert.equal(seconds[1].trace.input.previous.end_state, savedFirst.end_state);
   assert.deepEqual(seconds[1].trace.input.previous.last_beats, savedFirst.storyboard);
   const firstReview = calls.findIndex(call => call.task.business_type === 'seconds' && call.task.target_id === p.episodes[0].shot_list.shots[0].id && call.step.kind === 'review');
@@ -164,15 +164,15 @@ test('每秒生成取消后晚到结果不覆盖；继续使用新任务', async
   await withRuntime(async ({ runtime, p, model }) => {
     const group = await runtime.tasks.command({ type: 'submit-group', project_id: p.id, request_id: 'cancel-group', group_type: 'episode-seconds', action: 'regenerate', episode_id: p.episodes[0].id });
     await started;
-    const oldId = model.read().tasks.find(task => task.task_status === 'running').id;
+    const oldId = model.readAll().tasks.find(task => task.task_status === 'running').id;
     await runtime.tasks.command({ type: 'cancel', project_id: p.id, request_id: 'cancel', task_id: oldId });
     wait = false; release(); await runtime.tasks.idle(p.id);
-    assert.equal(model.read().tasks.find(task => task.id === oldId).task_status, 'cancelled');
-    const old = model.read().tasks.find(task => task.id === oldId);
+    assert.equal(model.readAll().tasks.find(task => task.id === oldId).task_status, 'cancelled');
+    const old = model.readAll().tasks.find(task => task.id === oldId);
     const resumed = await runtime.tasks.command({ type: 'continue-group', project_id: p.id, request_id: 'resume', group_id: group.group_id });
     await runtime.tasks.idle(p.id);
-    assert.deepEqual(model.read().tasks.find(task => task.id === oldId), old);
-    assert.ok(model.read().tasks.filter(task => task.group_id === resumed.group_id).every(task => task.task_status === 'completed'));
+    assert.deepEqual(model.readAll().tasks.find(task => task.id === oldId), old);
+    assert.ok(model.readAll().tasks.filter(task => task.group_id === resumed.group_id).every(task => task.task_status === 'completed'));
   }, async ({ task, step }) => { if (wait && task.business_type === 'seconds' && step.kind === 'generate') { entered(); await gate; } });
 });
 
@@ -183,7 +183,7 @@ test('v14 新库为空；v8 明确拒绝且不修改项目、不生成迁移备�
     await repo.list();
     const path = join(root, 'meiji.sqlite');
     let db = new DatabaseSync(path);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 21);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 23);
     for (const table of ['projects', 'task_groups', 'tasks', 'task_steps']) assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n, 0);
     db.close();
     await repo.create(fixtureProject()); await repo.close();
@@ -220,7 +220,7 @@ test('v9 删除项目规则并重写已生成镜头文本指纹', async () => {
     store.close();
     db = new DatabaseSync(path);
     const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 21);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 23);
     assert.equal(Object.hasOwn(opened, 'rules'), false);
     assert.equal(Object.hasOwn(opened, 'output_language'), false);
     assert.equal(opened.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.dependency_hash, dependencyHash({ project: opened, tasks: [], steps: [] }, 'seconds', shot.id));
@@ -250,7 +250,7 @@ test('v10 删除项目语言并重写已生成镜头文本指纹，正文保持�
     db = new DatabaseSync(path);
     const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
     const openedShot = opened.episodes[0].shot_list.shots[0];
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 21);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 23);
     assert.equal(Object.hasOwn(opened, 'output_language'), false);
     assert.equal(openedShot.seconds_storyboard.storyboard[0].action, body);
     assert.equal(openedShot.seconds_storyboard.node_state.status, 'expired');

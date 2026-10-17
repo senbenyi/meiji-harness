@@ -11,6 +11,7 @@ import { modelRoute } from '../../models/model-config.js';
 import { elysiumClient } from './elysium/client.js';
 import { llmServerClient } from './llm-server/client.js';
 import { withGatewayTrace } from '../gateway/gateway-trace.js';
+import { stepPrompt } from '../data/step-records.js';
 import { generateGatewayImage, submitGatewayVideo, retrieveGatewayVideo } from '../gateway/model-gateway.js';
 
 export { nodeRoutes };
@@ -66,26 +67,24 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
     if (route.render) route.render(input, action, contract.output);
     const kind = contract.output.type === '图片' ? 'image' : contract.output.type === '视频' ? 'video' : 'text';
     const connection = modelRoute(await readConfig(), kind);
-    const prompt = composeNodePrompt(node, action, input, connection.model);
-    prompt.node = node;
-    prompt.action = action;
-    prompt.model = connection.model;
-    prompt.input = structuredClone(input);
-    prompt.transfers = [];
+    // composed 是本次调用使用的完整渲染结果；步骤只保存精简的 prompt 与独立的 http。
+    const composed = composeNodePrompt(node, action, input, connection.model);
+    const prompt = stepPrompt({ node, action, model: connection.model, input, messages: composed.messages, body: composed.body });
+    const http = [];
     const { signal, record = async () => {} } = context;
     signal?.throwIfAborted();
-    await record({ prompt });
+    await record({ prompt, http });
     return withGatewayTrace(async (transfer, options) => {
-      const index = prompt.transfers.indexOf(transfer);
-      if (options?.drop) { if (index >= 0) prompt.transfers.splice(index, 1); }
-      else if (index < 0) prompt.transfers.push(transfer);
-      await record({ prompt });
+      const index = http.indexOf(transfer);
+      if (options?.drop) { if (index >= 0) http.splice(index, 1); }
+      else if (index < 0) http.push(transfer);
+      await record({ http });
     }, async () => {
       const options = { ...context, ...connection, signal, trace: prompt, record };
       let result;
       if (kind === 'text') {
         const complete = gateway.chat || clients[textProvider(connection.model)].complete;
-        result = await complete({ ...options, messages: prompt.messages });
+        result = await complete({ ...options, messages: composed.messages });
         signal?.throwIfAborted();
         if (contract.output.type === 'JSON' && typeof result === 'string') result = parseJsonValue(result);
         try {
@@ -94,21 +93,21 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
         }
         catch (error) {
           if ((contract.output.type === 'JSON' || error.validationKind === 'dialogue-preservation') && action !== 'review' && error.code === 'INVALID_CONTRACT')
-            Object.assign(error, { candidate: structuredClone(result), prompt });
+            Object.assign(error, { candidate: structuredClone(result), prompt, http });
           throw error;
         }
       } else {
         let bytes;
         if (kind === 'image') {
           const generate = gateway.image || (['krea2 turbo V2.5', 'gpt-image'].includes(connection.model) ? llmServerClient.generateImage : generateGatewayImage);
-          bytes = await generate({ ...options, prompt: prompt.body, aspectRatio: input.aspectRatio, references: input.references.map(value => decodeImageData(value)) });
+          bytes = await generate({ ...options, prompt: composed.body, aspectRatio: input.aspectRatio, references: input.references.map(value => decodeImageData(value)) });
         } else if (connection.model === 'MiniMax-H3' && !gateway.submitVideo) {
-          const generated = await (gateway.video || llmServerClient.generateVideo)({ ...options, ...prompt.request });
+          const generated = await (gateway.video || llmServerClient.generateVideo)({ ...options, ...composed.request });
           prompt.parameters = { remote_id: generated.taskId };
           await record({ result: { remote_id: generated.taskId }, prompt });
           bytes = generated.bytes;
         } else {
-          const remote = await (gateway.submitVideo || submitGatewayVideo)({ ...options, ...prompt.request });
+          const remote = await (gateway.submitVideo || submitGatewayVideo)({ ...options, ...composed.request });
           prompt.parameters = { remote_id: remote.id };
           await record({ result: { remote_id: remote.id }, prompt });
           bytes = await (gateway.retrieveVideo || retrieveGatewayVideo)({ ...options, promptId: remote.id });
@@ -119,7 +118,7 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
         result = { data: bytes.toString('base64'), mime };
         validateNodeResult(node, action, result, input);
       }
-      return { result, prompt };
+      return { result, prompt, http };
     });
   };
 }

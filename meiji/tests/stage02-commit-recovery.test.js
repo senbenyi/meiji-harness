@@ -70,7 +70,7 @@ for (const point of [
         assert.equal(mutations, 1);
       } else await assert.rejects(update(), /注入/);
       const fresh = await new ModelRepository(root).open(p.id),
-        snapshot = fresh.read(),
+        snapshot = fresh.readAll(),
         published = point === "after-commit";
       assert.equal(
         snapshot.project.project_summary.node_state.status,
@@ -78,7 +78,7 @@ for (const point of [
       );
       assert.equal(snapshot.tasks.length, published ? 1 : 0);
       assert.equal(snapshot.runtime.requests.length, published ? 1 : 0);
-      assert.deepEqual(snapshot, model.read());
+      assert.deepEqual(snapshot, model.readAll());
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -93,7 +93,7 @@ test("S2-05 SQLite 约束拒绝非法项目 JSON，保留原数据", async () =>
     const db = new DatabaseSync(join(root, "meiji.sqlite"));
     assert.throws(() => db.prepare("UPDATE projects SET data_json=? WHERE id=?").run("invalid JSON", p.id));
     db.close();
-    assert.deepEqual((await new ModelRepository(root).open(p.id)).read().project, p);
+    assert.deepEqual((await new ModelRepository(root).open(p.id)).readAll().project, p);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -109,8 +109,8 @@ test("S2-03 创建项目发布后出错仍返回已创建 Model，不反馈未�
     const model = await repo.create(p);
     assert.equal(model.id, p.id);
     assert.deepEqual(
-      (await new ModelRepository(root).open(p.id)).read(),
-      model.read(),
+      (await new ModelRepository(root).open(p.id)).readAll(),
+      model.readAll(),
     );
   } finally {
     await rm(root, { recursive: true, force: true });

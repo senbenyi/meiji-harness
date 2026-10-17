@@ -339,6 +339,8 @@ test("UI-5 设置为语言表单；历史筛选和步骤独立详情", () =>
         result: "结果",
       },
     ];
+    // 任务组详情的记录按组读取；此处预置缓存，避免测试结束后仍有异步请求。
+    view.groupRecords = { g: { revision: Infinity, steps: { step: { id: "step", prompt: null, http: [] } } } };
     view.page = "history";
     context.paint();
     assert.equal(root.querySelectorAll(".run-filters select").length, 3);
