@@ -40,6 +40,9 @@ test('规则接口覆盖所有AI路由，鉴权/绑定先行且无写入或AI调
     assert.match(characters.review, /不得因未列入这类人判不通过/);
     assert.match(characters.review, /仅被提及的姓名不算遗漏/);
     assert.match(characters.review, /修改意见只用来核对上一轮问题是否已经改掉/);
+    assert.match(characters.generate, /句末标“背景补”/);
+    assert.match(characters.revise, /不得删除与原文不冲突的背景补/);
+    assert.match(characters.review, /不得因为补写本身判超出剧本/);
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
 

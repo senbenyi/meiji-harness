@@ -152,7 +152,7 @@ test("图片提示词的人物资料组装为一句话，省略编号、必出�
   });
   assert.equal(
     sentence,
-    "郓哥；男；古代（架空）；水果贩；18岁；身材瘦削；不可改特征受过武大郎照顾，愿意冒险相助。",
+    "郓哥；男；古代（架空）；水果贩；18岁；身材瘦削；面部机灵；国籍中国；不可改特征受过武大郎照顾，愿意冒险相助。",
   );
   const prompt = composeNodePrompt("costume-image", "generate", {
     language: "zh-CN", person: sentence, costume: "", referenceDescription: "", requirements: "", aspectRatio: "16:9", references: [],

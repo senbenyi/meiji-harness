@@ -28,7 +28,7 @@ const cases = [
 test("角色生成与修订执行器要求性别，拒绝遗漏或空白并保存合法输出", async () => {
   const snapshot = snapshotFixture();
   const task = taskFixture(snapshot.project, "project-characters", snapshot.project.id);
-  const row = { name: "新角色", gender: "女", era: "宋代", position: "主角", age_range: "", body_type: "", hairstyle: "", signature_props: [], immutable_traits: [], costumes: [] };
+  const row = { name: "新角色", gender: "女", era: "宋代", position: "主角", age_range: "", body_type: "", hairstyle: "", facial_features: "", height: "", nationality: "", voice: "", signature_props: [], immutable_traits: [], costumes: [] };
   for (const kind of ["generate", "revise"]) {
     for (const gender of [undefined, "  ", "女", "未明确"]) {
       const candidate = { ...row, gender };
@@ -179,7 +179,7 @@ test("人物审核只接收本次增量，拒绝保存角色但不派生图片�
   const project = projectFixture(), oldHash = "c".repeat(64);
   project.character_library.node_state.dependency_hash = oldHash;
   const repository = new ModelRepository(root), model = await repository.create(project), prompts = [];
-  const row = { name: "新人物", gender: "男", era: "宋代", position: "主角", age_range: "约三十岁", body_type: "高大", hairstyle: "束发", signature_props: [], immutable_traits: [], costumes: [] };
+  const row = { name: "新人物", gender: "男", era: "宋代", position: "主角", age_range: "约三十岁", body_type: "高大", hairstyle: "束发", facial_features: "", height: "", nationality: "", voice: "", signature_props: [], immutable_traits: [], costumes: [] };
   const text = createTextHandler({ chat: async ({ step, messages }) => {
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
     prompts.push({ kind: step.kind, prompt });
@@ -217,7 +217,7 @@ for (const change of ["character", "costume"])
     test(`S5-角色拒绝候选经 ${action} 通过后按生成时依赖使 ${change} 图片过期`, () => {
       const snapshot = snapshotFixture(), project = snapshot.project;
       const task = taskFixture(project, "project-characters", project.id, { action: "generate" });
-      const row = name => ({ name, gender: "男", era: "宋代", position: "主角", age_range: "三十岁", body_type: "高大", hairstyle: "束发", signature_props: [], immutable_traits: [], costumes: [{ name: "长袍", color: "蓝色", material: "布", props: [] }] });
+      const row = name => ({ name, gender: "男", era: "宋代", position: "主角", age_range: "三十岁", body_type: "高大", hairstyle: "束发", facial_features: "", height: "", nationality: "", voice: "", signature_props: [], immutable_traits: [], costumes: [{ name: "长袍", color: "蓝色", material: "布", props: [] }] });
       commitContent(snapshot, task, prepareContent(snapshot, task, { characters: [row("甲"), row("乙")] }));
       for (const character of project.character_library.characters) {
         character.costume_images[0].address = `${character.name}.png`;
@@ -282,7 +282,7 @@ test("首次生成和重新提取使用同一提示词，且不提交已有角�
 test("提取仅写人物，每个人物独立生成全部服装，空服装生成一张", async () => {
   const root = await mkdtemp(join(tmpdir(), "meiji-character-group-"));
   const repository = new ModelRepository(root), project = projectFixture(), model = await repository.create(project);
-  const person = (name, costumes) => ({ name, gender: "男", era: "宋代", position: "主角", age_range: "成年", body_type: "健壮", hairstyle: "短发", signature_props: [], immutable_traits: [], costumes });
+  const person = (name, costumes) => ({ name, gender: "男", era: "宋代", position: "主角", age_range: "成年", body_type: "健壮", hairstyle: "短发", facial_features: "", height: "", nationality: "", voice: "", signature_props: [], immutable_traits: [], costumes });
   const characters = [
     person("甲", [{ name: "常服", color: "蓝色", material: "棉", props: [] }, { name: "礼服", color: "红色", material: "丝绸", props: [] }]),
     person("乙", []),

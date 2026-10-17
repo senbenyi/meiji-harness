@@ -22,6 +22,9 @@ export function personSentence(person) {
     pick(person.name), pick(person.gender), pick(person.era), pick(person.position), pick(person.age_range),
     pick(person.body_type, (value) => `身材${value}`),
     pick(person.hairstyle, (value) => `发型${value}`),
+    pick(person.facial_features, (value) => `面部${value}`),
+    pick(person.height, (value) => `身高${value}`),
+    pick(person.nationality, (value) => `国籍${value}`),
     pick(person.signature_props.filter(value => !missing(value)).join("；"), (value) => `签名道具${value}`),
     pick(person.immutable_traits.filter(value => !missing(value)).join("；"), (value) => `不可改特征${value}`),
   ].filter(Boolean);

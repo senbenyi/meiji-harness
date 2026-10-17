@@ -4,7 +4,8 @@ import { emptyCharacterModel } from "./models/character_model.js";
 import { emptyCostumeModel } from "./models/costume_model.js";
 import { emptyCostumeImageModel } from "./models/costume_image_model.js";
 
-const characterFields = ["name", "gender", "era", "position", "age_range", "body_type", "hairstyle", "signature_props", "immutable_traits", "costumes"];
+const characterFields = ["name", "gender", "era", "position", "age_range", "body_type", "hairstyle", "facial_features", "height", "nationality", "voice", "signature_props", "immutable_traits", "costumes"];
+const visualFields = ["facial_features", "height", "nationality", "voice"];
 const costumeFields = ["name", "color", "material", "props"];
 const shotFields = ["title", "id", "duration_seconds", "shot_scale", "hook", "body", "on_screen_characters", "background_characters", "continuity_transition", "reference_anchor", "audio_arrangement"];
 
@@ -14,13 +15,14 @@ export function mergeCharacters(project, rows) {
   const draft = structuredClone(project), characters = draft.character_library.characters;
   const seen = new Set(), new_ids = [];
   for (const row of rows) {
-    assertFields(row, characterFields, "characters[]");
-    for (const key of characterFields.filter(key => !["costumes", "signature_props", "immutable_traits"].includes(key))) assertText(row[key], `character.${key}`);
-    if (!row.era.trim()) invalid("character.era", "年代必填；剧本未明确时填写“未明确”");
-    if (!row.gender.trim()) invalid("character.gender", "性别必填；剧本未明确时填写“未明确”");
-    if (!row.name.trim() || seen.has(row.name)) invalid("character.name", "重复或空姓名");
-    seen.add(row.name);
-    const matches = characters.filter(c => c.name === row.name);
+    const normalized = { facial_features: "", height: "", nationality: "", voice: "", ...row };
+    assertFields(normalized, characterFields, "characters[]");
+    for (const key of characterFields.filter(key => !["costumes", "signature_props", "immutable_traits"].includes(key))) assertText(normalized[key], `character.${key}`);
+    if (!normalized.era.trim()) invalid("character.era", "年代必填；剧本未明确时填写“未明确”");
+    if (!normalized.gender.trim()) invalid("character.gender", "性别必填；剧本未明确时填写“未明确”");
+    if (!normalized.name.trim() || seen.has(normalized.name)) invalid("character.name", "重复或空姓名");
+    seen.add(normalized.name);
+    const matches = characters.filter(c => c.name === normalized.name);
     if (matches.length > 1) invalid("character.name", "已有角色同名，无法唯一关联");
     let character = matches[0];
     if (!character) {
@@ -28,9 +30,9 @@ export function mergeCharacters(project, rows) {
       characters.push(character);
       new_ids.push(character.id);
     }
-    if (!Array.isArray(row.costumes)) invalid("character.costumes", "需为数组");
+    if (!Array.isArray(normalized.costumes)) invalid("character.costumes", "需为数组");
     const seenCostumes = new Set();
-    for (const data of row.costumes) {
+    for (const data of normalized.costumes) {
       assertFields(data, costumeFields, "costumes[]");
       for (const key of costumeFields.filter(key => key !== "props")) assertText(data[key], `costume.${key}`);
       if (!data.name.trim() || seenCostumes.has(data.name)) invalid("costume.name", "重复或空名称");
@@ -45,7 +47,8 @@ export function mergeCharacters(project, rows) {
       }
       Object.assign(costume, structuredClone(data));
     }
-    for (const key of characterFields.filter(key => key !== "costumes")) character[key] = structuredClone(row[key]);
+    for (const key of characterFields.filter(key => key !== "costumes" && !visualFields.includes(key))) character[key] = structuredClone(normalized[key]);
+    for (const key of visualFields) if (Object.hasOwn(row, key)) character[key] = structuredClone(row[key]);
     if (character.costumes.length) character.costume_images = character.costume_images.filter(image => image.costume_id || image.address);
     for (const costume_id of character.costumes.length ? character.costumes.map(co => co.id) : [""])
       if (!character.costume_images.some(image => image.costume_id === costume_id))

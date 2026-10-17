@@ -7,7 +7,7 @@ for (const kind of ['generate', 'revise']) {
   test(`角色 ${kind} 接受道具及特征数组，拒绝字符串与非文本成员`, async () => {
     const snapshot = snapshotFixture();
     const task = taskFixture(snapshot.project, 'project-characters', snapshot.project.id);
-    const person = { name: '甲', gender: '男', era: '宋代', position: '', age_range: '', body_type: '', hairstyle: '',
+    const person = { name: '甲', gender: '男', era: '宋代', position: '', age_range: '', body_type: '', hairstyle: '', facial_features: '', height: '', nationality: '', voice: '',
       signature_props: ['哨棒', '竹篮'], immutable_traits: ['眉骨分明', '右手虎口旧疤'],
       costumes: [{ name: '短衣', color: '', material: '', props: [] }] };
     let candidate = person;

@@ -23,6 +23,13 @@ test("角色提取性别必填，更新性别保留已有身份与图片", () =>
   assert.equal(updated.gender, "女");
   assert.equal(updated.id, original.id);
   assert.equal(updated.costume_images[0].address, "keep.png");
+  original.facial_features = "眉骨分明";
+  const kept = mergeCharacters(p, [character()]).characters[0];
+  assert.equal(kept.facial_features, "眉骨分明");
+  const filled = mergeCharacters(p, [{ ...character(), facial_features: "方脸（背景补）", height: "中等（背景补）", nationality: "", voice: "低沉（背景补）" }]).characters[0];
+  assert.equal(filled.facial_features, "方脸（背景补）");
+  assert.equal(filled.height, "中等（背景补）");
+  assert.equal(filled.voice, "低沉（背景补）");
 });
 
 test("角色提取年代必填，有效年代保存且保留角色身份", () => {

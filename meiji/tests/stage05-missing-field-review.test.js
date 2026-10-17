@@ -17,7 +17,7 @@ async function scenario({ businessError = '', businessRounds = 0, badJson = fals
   if (businessError) project.character_library.characters = [emptyCharacterModel({ name: '甲' })];
   const fields = ['title', 'id', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement', 'on_screen_characters', 'background_characters'];
   const valid = business === 'shots' ? { shots: episode.shot_list.shots.map(shot => Object.fromEntries(fields.map(key => [key, structuredClone(shot[key])]))) }
-    : { characters: [{ name: '测试人物', gender: '女', era: '未明确', position: '主角', age_range: '', body_type: '', hairstyle: '', signature_props: [], immutable_traits: [], costumes: [] }] };
+    : { characters: [{ name: '测试人物', gender: '女', era: '未明确', position: '主角', age_range: '', body_type: '', hairstyle: '', facial_features: '', height: '', nationality: '', voice: '', signature_props: [], immutable_traits: [], costumes: [] }] };
   if (empty) episode.shot_list.shots = [];
   let count = 0;
   const calls = [];
