@@ -178,7 +178,7 @@ export function renderTaskPanel(root, snapshot, context) {
       } else b.onclick = () => Promise.resolve(fn()).catch(() => {});
       return b;
     };
-  const nodeUi = ({ business, id, node, buttons, repair = null, readOnly = false, opinion = !readOnly }) => {
+  const nodeUi = ({ business, id, node, buttons, repair = null, override = null, readOnly = false, opinion = !readOnly }) => {
     const key = `${business}:${id}`;
     if (state.opinionPending?.[key]) {
       const tasks = snapshot.tasks.filter((task) => task.business_type === business && task.target_id === id);
@@ -223,9 +223,10 @@ export function renderTaskPanel(root, snapshot, context) {
     if (failureRow) ui.append(failureRow);
     if (node.node_state.status === "rejected" && node.node_state.reason)
       ui.append(reasonParagraph(`未通过原因：${node.node_state.reason}`));
-    if (repair) {
+    const repairButtons = [repair, override].filter(Boolean);
+    if (repairButtons.length) {
       const row = element("div", "", "node-ui-buttons node-ui-repair-row");
-      row.append(repair);
+      row.append(...repairButtons);
       ui.append(row);
     }
     return ui;
@@ -410,12 +411,10 @@ export function renderTaskPanel(root, snapshot, context) {
             ),
       ),
     );
-    if (!active && !readOnly && !quiet && node.node_state.status === "rejected" && (!program || hasOutput))
-      buttons.push(
-        button("人工放行", () =>
-          act({ type: "override", business_type: business, target_id: id }),
-        ),
-      );
+    // 人工放行与修复同排，放在未通过原因下方。
+    const override = !active && !readOnly && !quiet && node.node_state.status === "rejected" && (!program || hasOutput)
+      ? button("人工放行", () => act({ type: "override", business_type: business, target_id: id }))
+      : null;
     buttons.push(
       button(
         "任务历史",
@@ -437,7 +436,7 @@ export function renderTaskPanel(root, snapshot, context) {
     titles.append(element("span", labels[node.node_state.status] || node.node_state.status, "node-data-tag"));
     head.append(titles);
     card.prepend(head);
-    card.insertBefore(nodeUi({ business, id, node, buttons, repair, readOnly, opinion: !readOnly && !program }), head.nextSibling);
+    card.insertBefore(nodeUi({ business, id, node, buttons, repair, override, readOnly, opinion: !readOnly && !program }), head.nextSibling);
     return card;
   };
   root.replaceChildren();

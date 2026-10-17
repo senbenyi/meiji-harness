@@ -389,8 +389,8 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     );
     assert.equal(titled("提取人物").querySelector(".node-data-tag").textContent, "未通过");
     assert.ok(titled("提取人物").textContent.includes("未通过"));
-    assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "人工编辑", "人工放行", "任务历史", "查看规则"]);
-    assert.equal(titled("提取人物").querySelector('.node-ui-repair-row button').textContent, '修复（再给 2 轮）');
+    assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "人工编辑", "任务历史", "查看规则"]);
+    assert.deepEqual([...titled("提取人物").querySelectorAll('.node-ui-repair-row button')].map((b) => b.textContent), ['修复（再给 2 轮）', '人工放行']);
   } finally {
     globalThis.document = previous;
     dom.window.close();

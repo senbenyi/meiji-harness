@@ -203,7 +203,7 @@ function paintOverview(mutate, sent = []) {
   } catch (error) { close(); throw error; }
 }
 
-test("剧本卡片即剧本节点：无状态标签与版本、不展示审核结论；未通过时原因下方为「修改」按钮，点击按原因提交修改任务", async () => {
+test("剧本卡片即剧本节点：无状态标签与版本、不展示审核结论；未通过时原因下方为「修改」「人工放行」按钮，点击修改按原因提交修改任务", async () => {
   const sent = [];
   const { root, close } = paintOverview(snap => Object.assign(snap.project.script.node_state, { status: "rejected", reason, dependency_hash: "" }), sent);
   try {
@@ -213,12 +213,12 @@ test("剧本卡片即剧本节点：无状态标签与版本、不展示审核�
     assert.equal(card.querySelector(".node-data-tag"), null);
     assert.doesNotMatch(card.textContent, /版本|剧情连续|适合拍摄/);
     // 「查看规则」由其他功能统一追加，不在本断言范围内。
-    assert.deepEqual([...card.querySelectorAll(".node-ui > .workflow-generation-row button")].map(b => b.textContent).filter(t => t !== "查看规则"), ["重新审核", "人工放行", "任务历史"]);
+    assert.deepEqual([...card.querySelectorAll(".node-ui > .workflow-generation-row button")].map(b => b.textContent).filter(t => t !== "查看规则"), ["重新审核", "任务历史"]);
     const ui = card.querySelector(".node-ui"), children = [...ui.children];
     const reasonRow = ui.querySelector(".node-ui-reason"), repairRow = ui.querySelector(".node-ui-repair-row");
     assert.match(reasonRow.textContent, /未通过原因：1\. 第一场末补一句/);
     assert.equal(children.indexOf(repairRow), children.indexOf(reasonRow) + 1, "修改按钮在原因下方");
-    assert.deepEqual([...repairRow.querySelectorAll("button")].map(b => b.textContent), ["修改（再给 1 轮）"]);
+    assert.deepEqual([...repairRow.querySelectorAll("button")].map(b => b.textContent), ["修改（再给 1 轮）", "人工放行"]);
     repairRow.querySelector("button").click();
     await new Promise(r => setTimeout(r, 0));
     const command = sent.at(-1).command;

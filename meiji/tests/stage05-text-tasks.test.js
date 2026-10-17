@@ -179,7 +179,7 @@ test("人物审核只接收本次增量，拒绝保存角色但不派生图片�
   const project = projectFixture(), oldHash = "c".repeat(64);
   project.character_library.node_state.dependency_hash = oldHash;
   const repository = new ModelRepository(root), model = await repository.create(project), prompts = [];
-  const row = { name: "新人物", gender: "男", era: "宋代", position: "主角", age_range: "约三十岁", body_type: "高大", hairstyle: "束发", facial_features: "", height: "", nationality: "", voice: "", signature_props: [], immutable_traits: [], costumes: [] };
+  const row = { name: "新人物", gender: "男", era: "宋代", position: "主角", age_range: "约三十岁", body_type: "高大", hairstyle: "束发", facial_features: "方脸（背景补）", height: "中等身高（背景补）", nationality: "", voice: "低沉（背景补）", signature_props: [], immutable_traits: [], costumes: [] };
   const text = createTextHandler({ chat: async ({ step, messages }) => {
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
     prompts.push({ kind: step.kind, prompt });
@@ -203,12 +203,17 @@ test("人物审核只接收本次增量，拒绝保存角色但不派生图片�
       assert.match(prompt, /新人物/);
       assert.match(prompt, /"gender":\s*"男"/);
       assert.match(prompt, /"era":\s*"宋代"/);
+      assert.match(prompt, /"facial_features":\s*"方脸（背景补）"/);
+      assert.match(prompt, /"height":\s*"中等身高（背景补）"/);
+      assert.match(prompt, /"voice":\s*"低沉（背景补）"/);
       assert.doesNotMatch(prompt, /new_ids|node_state|c_[0-9a-f-]{36}/);
     }
     assert.match(prompts.find(item => item.kind === "revise").prompt, /人物来源有误/);
     assert.match(prompts.find(item => item.kind === "revise").prompt, /新人物/);
     assert.match(prompts.find(item => item.kind === "revise").prompt, /"gender":\s*"男"/);
     assert.match(prompts.find(item => item.kind === "revise").prompt, /"era":\s*"宋代"/);
+    assert.match(prompts.find(item => item.kind === "revise").prompt, /"facial_features":\s*"方脸（背景补）"/);
+    assert.match(prompts.find(item => item.kind === "revise").prompt, /"voice":\s*"低沉（背景补）"/);
   } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
 });
 

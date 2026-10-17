@@ -20,7 +20,7 @@ function shotRepairBase(step) {
 function candidate(business, value) {
   if (['project-summary', 'episode-summary', 'script-review'].includes(business)) return typeof value === 'string' ? value : value?.body || '';
   if (business === 'project-characters') {
-    const fields = ['name', 'gender', 'era', 'position', 'age_range', 'body_type', 'hairstyle', 'signature_props', 'immutable_traits'];
+    const fields = ['name', 'gender', 'era', 'position', 'age_range', 'body_type', 'hairstyle', 'facial_features', 'height', 'nationality', 'voice', 'signature_props', 'immutable_traits'];
     return { characters: (value?.changes || value?.characters || []).map(character => ({
       ...Object.fromEntries(fields.map(key => [key, character[key]])),
       costumes: character.costumes.map(costume => Object.fromEntries(['name', 'color', 'material', 'props'].map(key => [key, costume[key]]))),
