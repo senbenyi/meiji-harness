@@ -239,8 +239,8 @@ test('场景参考图缺失阻断多模态；程序编排把场景作为独立�
   const handler=createVideoPromptHandler({media:{validate:async()=>{},read:async()=>Buffer.from('image')}});
   const result=await handler({snapshot,task,signal:new AbortController().signal});
   assert.deepEqual(result.content.reference_images,[{address:'room.png'}]);
-  assert.match(result.content.prompt,/<Subject 1>.*场景/);assert.match(result.content.prompt,/不复制图中人物/);
-  assert.match(result.content.prompt,/白天/);assert.match(result.content.prompt,/不能把定妆照背景带入场景/);
+  assert.match(result.content.prompt,/<Subject 1>.*场景/);assert.match(result.content.prompt,/此图只提供空间/);
+  assert.match(result.content.prompt,/白天/);assert.match(result.content.prompt,/人物所处背景以场景图片和分镜为准/);
   assert.throws(()=>videoPayload({model:'MiniMax-H3',mode:'reference',duration:5,prompt:'x',referenceImages:Array(10).fill(png)}),/1 到 9/);
   assert.throws(()=>videoPayload({model:'MiniMax-H3',mode:'reference',duration:5,prompt:'x',referenceImages:[png],inputReference:png}),/不能带首尾帧/);
   assert.equal(videoRequest({type:'多模态',textPrompt:Object.fromEntries(['integrated_multimodal_description','overall_soundscape','non_diegetic_music'].map(key=>[key,shot.text_to_video_prompt[key]])),duration:5,aspectRatio:p.aspect_ratio,referenceImages:[png],packedPrompt:result.content.prompt}).mode,'reference');
@@ -272,7 +272,7 @@ test('场景图片真实编排读取所引用剧集原剧情，输入与指纹�
   const handler=createMediaHandler({media,ai});
   const result=await handler({snapshot,task:taskFixture(p,'scene-image',scene.id,{action:'generate',opinion:''}),step:{kind:'generate'},signal:new AbortController().signal,record:async()=>{}});
   assert.equal(result.content.address,'generated.png');assert.match(sent,/从上方垂入炮底/);
-  assert.match(sent,/不能.*斜卧野战炮/);assert.doesNotMatch(sent,/不相关的/);
+  assert.match(sent,/严格按资料描述，呈现该专用设施的实际结构/);assert.doesNotMatch(sent,/不相关的/);
 });
 test('人物与场景共同编排：人物在前场景在后，一图一职责，发送顺序与已保存编排一致',async()=>{
   const {p,e,scene,snapshot}=withScene(),shot=e.shot_list.shots[0];

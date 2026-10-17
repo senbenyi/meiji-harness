@@ -29,7 +29,7 @@ test('视频三种类型实际发出互斥协议，生成三段原文不被系�
     assert.equal(payload.seconds, '5');
     assert.equal(payload.size, '1024x576');
     assert.ok(payload.prompt.includes(text));
-    if (input.type === '首尾帧') assert.equal(payload.prompt, "首帧为上一镜的尾帧，用作本镜0秒的开场画面。后续动作、运镜与声音按下文已审核分镜执行，不将首帧误作本镜目标尾帧。\n\n" + text);
+    if (input.type === '首尾帧') assert.equal(payload.prompt, "首帧为上一镜的尾帧，用作本镜0秒的开场画面。随后动作、运镜与声音按下文已审核分镜推进，本镜结尾画面落在分镜的最后一拍。\n\n" + text);
     assert.doesNotMatch(payload.prompt, /# 角色|# 输出格式|视频制作执行器/);
     assert.deepEqual(Object.keys(payload).sort(), ['model', 'prompt', 'seconds', 'size', ...(input.type === '首尾帧' ? ['input_reference'] : input.type === '多模态' ? ['reference_images'] : [])].sort());
     if (input.type !== '首尾帧') assert.equal(payload.prompt, text);

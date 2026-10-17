@@ -37,7 +37,7 @@ test('文本提示词实际HTTP消息含整镜设定和出镜/发声人物文字
       for (const marker of ['场景背景哨兵', '摄影安排哨兵', '门框位置哨兵', '消防员国籍哨兵', '消防员身高哨兵', '消防员面部哨兵', '队长声线哨兵', '保持联系。']) assert.ok(prompt.includes(marker), marker);
       assert.doesNotMatch(prompt, /无关人物|image-sentinel|IMAGE_SENTINEL|data:image|image_url|reference_image|costume_images/);
       assert.match(prompt, /本节点仅生成文本提示词/);
-      assert.match(prompt, /只有画外声时不创造可见身体/);
+      assert.match(prompt, /只有画外声时写明为画外声/);
       received++;
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: action === 'review' ? '{"是否通过":true, "类型": "","原因":""}' : resultText } }] }));
