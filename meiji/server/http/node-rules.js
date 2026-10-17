@@ -1,3 +1,4 @@
+import { outputFormat } from '../prompts/render.js';
 import { nodeAction } from './ai-routes.js';
 import { nodeRoutes } from './nodes/index.js';
 import { BUSINESS_DEFINITIONS } from '../../shared/node-definitions.js';
@@ -18,7 +19,7 @@ export function nodeRules(business) {
     const resolved = route.actions[name] ? nodeAction(business, name) : null;
     const stage = resolved?.route.promptModel?.[name] || route.promptModel?.[name];
     const output = resolved?.contract.output;
-    return stage ? [text(stage.system), stage.user?.任务 ? `任务：\n${stage.user.任务}` : '', output ? `输出要求：\n${output.requirements}` : ''].filter(Boolean).join('\n\n') : '';
+    return stage ? [text(stage.system), stage.user?.任务 ? `任务：\n${stage.user.任务}` : '', output ? `输出格式：\n${JSON.stringify(outputFormat(output), null, 2)}` : ''].filter(Boolean).join('\n\n') : '';
   };
   const program = definition.programReview ? '本节点另有程序审核，按节点结构、时长或引用约束判定。' : '';
   return {

@@ -46,6 +46,8 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 ## 数据与提交
 
+**字段变更必须人工确认：修改项目 JSON、步骤（step）JSON、任务（task）JSON、任务组（group）JSON 的字段定义前，必须先取得用户明确确认。** 范围包括新增、删除、重命名字段，以及调整字段类型、含义、层级、必填性或默认值，嵌套字段同样适用。实施前先列出具体字段变更、原因、影响范围及必要的迁移方案，供用户确认；不得以实现方便、排错或修复为由自行变更，也不得将一般业务需求视为字段变更授权。用户已明确确认的同一份字段方案无需重复确认。本条约束字段结构与契约变更，正常业务按既有字段写入内容和更新状态仍沿用原流程。
+
 唯一数据库为 `$DSH_HOME/storages/meiji/meiji.sqlite`，使用 Node 内置 `node:sqlite`（^22.19.0 或 >=24）。`schema.sql` 定义 projects、task_groups、tasks、task_steps、command_requests、notification_outbox、schema_migrations 七表；任务必须归组，步骤必须归任务，顺序唯一且同项目最多一个 running 任务。`sqlite-store.js` 使用 WAL/foreign_keys/FULL、短同步事务及 revision 条件校验，变化记录增量写入；不在持锁期间调用模型或等待异步工作。ProjectModel 的写接口只允许 repository 提供的事务闭包，项目内容/任务/步骤/幂等/通知一起提交，事件发生在持久化后。卸载时等待任务和通知结束，再关闭连接。
 
 `projects/<p_UUID>/` 作为宿主工作区目录，同时保存 `project.json` 项目镜像。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 固定字段及 `node_state.{status,reason,fail_message,dependency_hash}`。当前 schema v23。v22将步骤提示词精简为messages并拆出独立HTTP记录、补执行方式；v23回填项目顶层最近任务/组关联。工作快照只保留未结束整组，历史按ID查库，步骤记录直写且不增加项目revision；详见[任务与步骤](../meiji/dev_docs/step_model.md)。v21新增项目共用场景库、剧集场景选择节点和镜头场景绑定；缺绑定的旧镜头表及下游过期，正文、媒体与历史保留。v20将旧character_binding移入镜头on_screen_characters，增加background_characters，旧镜头表及下游生成态过期，保留媒体/历史；退役识别任务不能恢复执行。v19 移除正式角色和服装资料的 number，保留原ID、媒体及绑定；按ID输入投影重写已生成节点依赖指纹，历史任务提示词与结果不改。剧本本身是节点（`script.node_state`）：v16–v18 归一为该形态，早期 v16 的独立 `script_review` 并入剧本状态，v17 的 `script.review` 结论字段移除，保留状态、原因与依赖指纹；更早版本的迁移在校验前同样先归一。v14 移除项目暂停字段；v15 将节点执行状态显式迁移为四种数据状态，保留正文、任务历史及审核原因，无法确认有效性的数据标为 expired。v9 删除项目 rules，v10 删除项目 output_language；两步都按新指纹重写已生成的角色识别、每秒分镜和文生提示词及其排队快照，不改写正文。v11 把失败节点的 `reason` 移到 `fail_message`。v8 及更早明确拒绝，不在运行时自动删除或兼容。模型配置和独立素材库保留。
@@ -84,7 +86,7 @@ Codex 制作模型：`codex-gpt` 使用本地 textBaseUrl 和 llmServerClient，
 
 镜头表的可解析JSON在shots[]及内部对象出现未知字段（如reference_anchor.body）时，也沿用已有结构修订通路与两次预算，保留原候选；不静默搬移字段，不将该规则扩大到其他节点或根响应未知字段。出镜人物与服装使用分组DOM，服装与描述归属对应人物，ID存储结构不变。
 
-修复链路公共规则见制作工作流：结构化上游问题停止下游自动修订；同一候选重复同一确定性程序错误提前结束，AI同文拒绝只加定向反馈。镜头修订优先按ID的mode=patch，增删拆并重排需显式mode=replace完整表，合并后再全表校验。明确对白和最终<d>序列做逐字检查，不按字数推算时间。以上提前结束保留旧正文与hash，候选及诊断留步骤历史，原有修订上限不变。
+修复链路公共规则见制作工作流：三字段审核按上游资料问题、规则问题或其他停止本节点自动修订，模型问题按原预算修订；同一候选重复同一确定性程序错误提前结束，AI同文拒绝只加定向反馈。镜头修订优先按ID的mode=patch，增删拆并重排需显式mode=replace完整表，合并后再全表校验。明确对白和最终<d>序列做逐字检查，不按字数推算时间。以上提前结束保留旧正文与hash，候选及诊断留步骤历史，原有修订上限不变。
 
 视频固定MiniMax-H3，发送到本机textBaseUrl的`/videos/generations`；编排与发送共用videoPayload。首尾帧用前镜尾帧作first_frame且ratio=adaptive，多模态按images顺序注明人物/稳定speaker_tag/服装。实际发送已保存编排正文，发送前核对三段与当前已审核正文一致。新HTTP使用duration/resolution/ratio而非内部兼容seconds/size。设计与验收限制见[视频接口与成片编排设计](../docs/implement/1016-视频接口与成片编排设计.md)。
 

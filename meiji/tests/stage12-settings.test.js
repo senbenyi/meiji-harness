@@ -41,7 +41,7 @@ test('设置 API 切换后下一次制作使用对应 HTTP、凭据与参数，�
     let raw = ''; for await (const chunk of req) raw += chunk
     const body = JSON.parse(raw)
     requests.push({ kind, path: req.url, authorization: req.headers.authorization, body })
-    const content = body.messages[1].content.includes('审核当前目标') ? JSON.stringify({ 是否通过: true, 原因: '' }) : '阿明找回了失落的钥匙。'
+    const content = body.messages[1].content.includes('审核当前目标') ? JSON.stringify({ 是否通过: true, "类型": "", 原因: '' }) : '阿明找回了失落的钥匙。'
     res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content } }] }))
   })
   const remote = server('gateway'), local = server('qwen')

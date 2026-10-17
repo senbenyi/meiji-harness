@@ -23,7 +23,7 @@ async function scenario(work) {
  project.character_library.characters=mergeCharacters(project,[person]).characters;
  let model=await repo.create(project), mode='ok', gate, entered, calls=0, failAt=Infinity;
  const execute=createHandlerRegistry({text:createTextHandler({chat:async ctx=>{
-  if(ctx.step.kind==='review')return {是否通过:mode!=='reject',原因:mode==='reject'?'角色审核拒绝':''};
+  if(ctx.step.kind==='review')return {是否通过:mode!=='reject', "类型": (mode!=='reject') ? "" : "模型问题",原因:mode==='reject'?'角色审核拒绝':''};
   await invoke(ctx);
   return ctx.task.business_type==='script-split' ? (mode==='reject'?{剧集:[],排除段落:[]} : split) : {characters:[person]};
  }}),media:async ctx=>{await invoke(ctx);return {content:{address:`${ctx.task.id}.png`}};}});

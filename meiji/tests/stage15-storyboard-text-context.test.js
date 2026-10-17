@@ -40,7 +40,7 @@ test('文本提示词实际HTTP消息含整镜设定和出镜/发声人物文字
       assert.match(prompt, /只有画外声时不创造可见身体/);
       received++;
       res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: action === 'review' ? '{"是否通过":true,"原因":""}' : resultText } }] }));
+      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: action === 'review' ? '{"是否通过":true, "类型": "","原因":""}' : resultText } }] }));
     } catch (error) { res.writeHead(500); res.end(JSON.stringify({ message: error.message })); }
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -53,7 +53,7 @@ test('文本提示词实际HTTP消息含整镜设定和出镜/发声人物文字
         const input = taskNodeInput(snapshot, task, resultText, action);
         const response = await ai('storyboard', action, input);
         assert.deepEqual(input.characters.map(person => person.name), ['消防员', '队长']);
-        assert.deepEqual(response.result, action === 'review' ? { 是否通过: true, 原因: '' } : resultText);
+        assert.deepEqual(response.result, action === 'review' ? { 是否通过: true, "类型": "", 原因: '' } : resultText);
       }
     }
     assert.equal(received, 6);

@@ -23,7 +23,7 @@ async function runScenario({ repairDurations, invalidShape = false, episodeDurat
   let generationCount = 0;
   const handler = createTextHandler({ chat: async ({ step, messages }) => {
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
-    if (step.kind === "review") return { 是否通过: true, 原因: "" };
+    if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" };
     prompts.push({ step, prompt });
     const durations = repairDurations[generationCount++] || [15, 5];
     if (invalidShape) return { shots: [], invalid: true };

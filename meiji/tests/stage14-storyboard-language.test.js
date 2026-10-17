@@ -44,7 +44,7 @@ test('真实设置读取链将中英文选择传入分镜提示词生成、修�
       assert.ok(options.messages[0].content.includes(`均使用${language === 'zh-CN' ? '简体中文' : 'English（英文）'}`));
       assert.doesNotMatch(options.messages[0].content, /画面描述使用英文|完整英文动作/);
       calls.push({ language, action: options.trace.action, messages: structuredClone(options.messages) });
-      return options.trace.action === 'review' ? { 是否通过: true, 原因: '' } : body(language);
+      return options.trace.action === 'review' ? { 是否通过: true, "类型": "", 原因: '' } : body(language);
     } } });
     const project = projectFixture(), shot = project.episodes[0].shot_list.shots[0];
     const stored = await runtime.repository.create(project);

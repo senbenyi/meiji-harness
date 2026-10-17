@@ -33,7 +33,7 @@ export async function httpFixture(work) {
       gateway: {
         chat: async ({ step }) =>
           step.kind === "review"
-            ? { 是否通过: true, 原因: "" }
+            ? { 是否通过: true, "类型": "", 原因: "" }
             : "新摘要",
       },
     });
@@ -125,7 +125,7 @@ test("S7 通知失败仍受理，稳定消息 ID 待投递，重连后去重再�
         gateway: {
           chat: async ({ step }) =>
             step.kind === "review"
-              ? { 是否通过: true, 原因: "" }
+              ? { 是否通过: true, "类型": "", 原因: "" }
               : "摘要",
         },
       });

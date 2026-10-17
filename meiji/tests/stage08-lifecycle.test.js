@@ -57,7 +57,7 @@ test("重启没有未完成任务保持空闲，新任务无需点击开始", as
   const root = await mkdtemp(join(tmpdir(), "meiji-restart-paused-"));
   try {
     const repository = new ModelRepository(root), p = projectFixture(), model = await repository.create(p);
-    const service = new TaskService({ repository, commitOutput: commitContent, execute: async ({ step }) => step.kind === "review" ? { result: { 是否通过: true, 原因: "" } } : { content: { body: "新摘要" } } });
+    const service = new TaskService({ repository, commitOutput: commitContent, execute: async ({ step }) => step.kind === "review" ? { result: { 是否通过: true, "类型": "", 原因: "" } } : { content: { body: "新摘要" } } });
     await service.recover(model);
 
     const r = await service.command({ type: "submit", project_id: p.id, request_id: "new", business_type: "project-summary", target_id: p.id, action: "regenerate" });
@@ -137,7 +137,7 @@ test("S8-05 重启把运行和排队任务都记为已取消，恢复快照、�
       restored = await freshRepository.open(p.id),
       service = new TaskService({
         repository: freshRepository,
-        execute: async ({ step }) => step.kind === "review" ? { result: { 是否通过: true, 原因: "" } } : { content: { body: "重启后新摘要" } },
+        execute: async ({ step }) => step.kind === "review" ? { result: { 是否通过: true, "类型": "", 原因: "" } } : { content: { body: "重启后新摘要" } },
         commitOutput: commitContent,
       });
     await service.recover(restored);

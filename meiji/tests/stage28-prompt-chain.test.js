@@ -8,11 +8,9 @@ import { createId } from '../shared/task_contract.js';
 import { commitContent } from '../server/handlers/content.js';
 import { taskNodeInput } from '../server/handlers/node-inputs.js';
 import { composeNodePrompt, createAiRoutes, nodeRoutes } from '../server/http/ai-routes.js';
-import { validateReviewIssues } from '../server/prompts/review-policy.js';
 import { shotsBudget } from '../server/prompts/duration-policy.js';
 
 const line = (speaker_name, mode, dialogue_text, speaker_id = '') => ({ speaker_id, speaker_name, mode, dialogue_text });
-const issue = (来源, 依据) => ({ 是否通过: false, 原因: '上游冲突', 问题: [{ 修复范围: '上游', 来源, 位置: '具体位置', 依据, 建议: '先修正对应来源' }] });
 
 test('同人画内转画外不切断一句，完整句可跨拍合并', () => {
   const node = { storyboard: [{ dialogue: [line('甲', '画内', '我还有')] }, { dialogue: [line('甲', '画外', '话说。')] }] };
@@ -43,19 +41,16 @@ test('心声与实际发声保留各自通道，不因同一人物而误合并',
   assert.throws(() => assertPromptDialogue(node, '<d>怎么会别走！</d>'), /心声\/实际发声通道/);
 });
 
-test('上游依据严格属于声明来源，不能借前镜或角色资料归责镜头表', () => {
-  const input = { shot: { body: '木门已经锁住。' }, previous: { end_state: '前镜人物在屋顶。' }, characters: [{ name: '林甲' }] };
-  for (const text of ['前镜人物在屋顶。','林甲']) assert.throws(() => validateReviewIssues('seconds', issue('镜头表', text), input), /不能借用其他来源/);
-  assert.doesNotThrow(() => validateReviewIssues('seconds', issue('镜头表', '木门已经锁住。'), input));
-  assert.doesNotThrow(() => validateReviewIssues('seconds', issue('前镜交接', '前镜人物在屋顶。'), input));
-});
-
-test('文生节点的镜头表和节拍资料分开核验，候选及意见不能充当依据', () => {
-  const input = { storyboard: { shot_setup: { body: '本镜木门关闭。' }, end_state: '节拍末人物离开。' }, content: '候选特有文字', opinion: '意见特有文字', characters: [] };
-  assert.throws(() => validateReviewIssues('storyboard', issue('节拍分镜', '本镜木门关闭。'), input), /不能借用/);
-  assert.throws(() => validateReviewIssues('storyboard', issue('镜头表', '节拍末人物离开。'), input), /不能借用/);
-  for (const text of ['候选特有文字','意见特有文字']) assert.throws(() => validateReviewIssues('storyboard', issue('节拍分镜', text), input), /不能借用/);
-  assert.doesNotThrow(() => validateReviewIssues('storyboard', issue('节拍分镜', '节拍末人物离开。'), input));
+test('审核分类来源限定为本节点输入，位置与原文依据统一写在原因里', () => {
+  const seconds = composeNodePrompt('seconds', 'review', nodeInput('seconds', 'review'), 'codex-gpt');
+  const text = composeNodePrompt('storyboard', 'review', nodeInput('storyboard', 'review'), 'codex-gpt');
+  assert.match(seconds.system, /上游资料来源只能为本次输入的镜头表、前镜交接、角色资料/);
+  assert.match(text.system, /上游资料来源只能为本次输入的节拍分镜、镜头表、角色资料/);
+  for (const prompt of [seconds, text]) {
+    assert.match(prompt.system, /原因须指明来源、位置并引用该来源中真实的连续原文/);
+    assert.deepEqual(prompt.output.structure, { 是否通过: true, 类型: '', 原因: '' });
+    assert.equal(prompt.output.optionalStructure, undefined);
+  }
 });
 
 function nodeInput(node, action) {
@@ -72,7 +67,7 @@ test('全部13节点35动作可渲染，每份审核完整公共规则只出现�
   for (const [node, route] of Object.entries(nodeRoutes)) for (const action of Object.keys(route.actions)) {
     const prompt = composeNodePrompt(node, action, nodeInput(node, action), 'codex-gpt');
     actions++;
-    if (action === 'review') { reviews++; assert.equal((prompt.system.match(/拒绝时附加问题数组/g) || []).length, 1, node); }
+    if (action === 'review') { reviews++; assert.equal((prompt.system.match(/审核只返回是否通过、类型、原因三个字段/g) || []).length, 1, node); }
     assert.doesNotMatch(prompt.body, /\{\{[^{}]+\}\}/, `${node}/${action}`);
   }
   assert.equal(actions, 35); assert.equal(reviews, 10);

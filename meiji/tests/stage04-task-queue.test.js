@@ -25,7 +25,7 @@ export async function withService(work, execute) {
           execute ||
           (async ({ snapshot, task, step }) =>
             step.kind === "review"
-              ? { result: { 是否通过: true, 原因: "" } }
+              ? { result: { 是否通过: true, "类型": "", 原因: "" } }
               : { content: { body: "新摘要" } }),
         commitOutput: commitContent,
       });
@@ -74,7 +74,7 @@ test("S4-01/02 同节点去重与项目串行，可控 Promise 确認实际时�
       assert.ok(model.readAll().tasks.every((t) => t.task_status === "completed"));
     },
     async ({ step }) => {
-      if (step.kind === "review") return { result: { 是否通过: true, 原因: "" } };
+      if (step.kind === "review") return { result: { 是否通过: true, "类型": "", 原因: "" } };
       count++;
       running++;
       maximum = Math.max(maximum, running);
@@ -100,7 +100,7 @@ test("审核未通过取消跨组排队，新提交自动运行且旧终态不�
     assert.equal(model.readAll().tasks[2].task_status,"completed");
   },async ({step}) => {
     entered.resolve(); await gate.promise;
-    return step.kind === "review" ? {result:{是否通过:!reject,原因:reject?"未通过":""}} : {content:{body:"摘要"}};
+    return step.kind === "review" ? {result:{是否通过:!reject, "类型": (!reject) ? "" : "模型问题",原因:reject?"未通过":""}} : {content:{body:"摘要"}};
   });
 });
 test("面板重试同一失败节点直接启动新任务并保留失败历史", async () => {
@@ -138,7 +138,7 @@ test("面板重试同一失败节点直接启动新任务并保留失败历史",
           failReview = false;
           throw new Error("JSON 解析失败");
         }
-        return { result: { 是否通过: true, 原因: "" } };
+        return { result: { 是否通过: true, "类型": "", 原因: "" } };
       }
       return { content: { body: "重试后摘要" } };
     },
@@ -154,7 +154,7 @@ test("失败后会话跨节点提交自动执行，无需面板恢复", async ()
     assert.equal(model.readAll().tasks[1].task_status,"completed");
   },async ({step}) => {
     if(fail)throw Error("模拟HTTP断连");
-    return step.kind === "review" ? {result:{是否通过:true,原因:""}} : {content:{body:"摘要"}};
+    return step.kind === "review" ? {result:{是否通过:true, "类型": "",原因:""}} : {content:{body:"摘要"}};
   });
 });
 test("S4-07 运行取消后晚到模型不写内容，剩余任务全部取消", async () => {
@@ -222,7 +222,7 @@ test("审核耗尽保留候选与拒绝原因，不刷新 hash；新任务合并
     assert.deepEqual(after.tasks[0], before.tasks[0]);
     assert.equal(after.tasks[1].task_status, "completed");
   }, async ({ step }) => step.kind === "review"
-    ? { result: { 是否通过: !reject, 原因: reject ? "剧情来源不符" : "" } }
+    ? { result: { 是否通过: !reject, "类型": (!reject) ? "" : "模型问题", 原因: reject ? "剧情来源不符" : "" } }
     : { content: { body: `候选${++calls}` } });
 });
 
@@ -240,7 +240,7 @@ test("程序审核与 AI 审核共用修订次数，程序不通过时跳过该�
     if (step.kind === "review") {
       reviews.push([step.round, reviewType]);
       const rejected = step.round === 0 || (step.round === 1 && reviewType === "ai");
-      return { result: { 是否通过: !rejected, 原因: rejected ? `${reviewType}审核原因` : "" } };
+      return { result: { 是否通过: !rejected, "类型": (!rejected) ? "" : "模型问题", 原因: rejected ? `${reviewType}审核原因` : "" } };
     }
     return { content: { shots: structuredClone(nodeOf(snapshot.project, task.business_type, task.target_id).shots) } };
   });
@@ -265,7 +265,7 @@ test("首次无内容解析失败后，AI生成创建新任务并直接执行", 
     assert.equal(tasks[1].task_status, "completed", tasks[1].end_reason);
   }, async ({ step }) => {
     if (fail) throw new Error("输出无法解析");
-    return step.kind === "review" ? { result: { 是否通过: true, 原因: "" } } : { content: { body: "新摘要" } };
+    return step.kind === "review" ? { result: { 是否通过: true, "类型": "", 原因: "" } } : { content: { body: "新摘要" } };
   });
 });
 
@@ -300,7 +300,7 @@ test("从排队节点取消全项目；旧请求退出前新提交等待，迟�
     otherGate.resolve(); await service.idle(other.id);
     assert.equal(otherModel.readAll().tasks[0].task_status,'completed');
   },async ({task,step,signal}) => {
-    if(step.kind==='review')return {result:{是否通过:true,原因:''}};
+    if(step.kind==='review')return {result:{是否通过:true, "类型": "",原因:''}};
     if(task.project_id===otherId){otherEntered.resolve();await otherGate.promise;return {content:{body:'其他项目'}};}
     calls++;
     if(calls===1){oldSignal=signal;entered.resolve();await gate.promise;return {content:{body:'取消后的迟到内容'}};}

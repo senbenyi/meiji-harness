@@ -1,11 +1,18 @@
 import { invalid, assertRecord } from '../../shared/task_contract.js';
 import { responseInstruction } from './providers.js';
 
+// 请求与规则面板使用同一输出格式，保留空字符串与布尔示例。
+export function outputFormat(output) {
+  return { 类型: output.type, ...(output.type === 'JSON' ? { 结构: output.structure } : {}),
+    ...(output.optionalStructure ? { 可选字段结构: output.optionalStructure } : {}),
+    ...(output.patchStructure ? { 局部修订结构: output.patchStructure } : {}), 要求: output.requirements };
+}
+
 export function renderPrompt(model, action, values, output, provider) {
   const stage = model[action];
   if (!stage) invalid('动作', '节点不支持该动作');
   const template = { input: {
-    system: { ...stage.system, 输出格式: { 类型: output.type, ...(output.type === "JSON" ? { 结构: output.structure } : {}), ...(output.optionalStructure ? { 可选字段结构: output.optionalStructure } : {}), ...(output.patchStructure ? { 局部修订结构: output.patchStructure } : {}), 要求: output.requirements } },
+    system: { ...stage.system, 输出格式: outputFormat(output) },
     user: stage.user,
   } };
   assertRecord(values, "占位符资料");

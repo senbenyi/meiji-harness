@@ -18,7 +18,7 @@ import { approveScriptReview, snapshotFixture } from "./fixtures/project.js";
 const script = "第一场 酒馆\n武松喝酒。\n第二场 景阳冈\n武松打虎。";
 const fixed = "第一场 酒馆\n武松喝酒，决定连夜上冈。\n第二场 景阳冈\n武松打虎。";
 const reason = "1. 第一场末补一句武松决定连夜上冈，使第二场有缘由。";
-const pass = { 是否通过: true, 原因: "" }, reject = { 是否通过: false, 原因: reason };
+const pass = { 是否通过: true, "类型": "", 原因: "" }, reject = { 是否通过: false, "类型": "模型问题", 原因: reason };
 
 async function withRuntime(reply, work) {
   const home = await mkdtemp(join(tmpdir(), "meiji-script-node-")), calls = [];

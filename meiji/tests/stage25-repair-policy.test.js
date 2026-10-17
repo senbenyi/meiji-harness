@@ -37,24 +37,26 @@ async function scenario(business, respond, check, setup = () => {}) {
   } finally { await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
 }
 
-test('审核契约、提示词与规则面板共用问题定位；兼容旧两字段，拒绝伪造上游', () => {
+test('三字段审核契约与skill完整同源，拒绝无类型、未知类型和旧问题数组', () => {
   const snap = snapshotFixture(), task = taskFixture(snap.project, 'seconds');
   const input = taskNodeInput(snap, task, seconds(5), 'review');
-  assert.match(composeNodePrompt('seconds', 'review', input, 'codex-gpt').system, /修复定位/);
-  assert.match(nodeRules('seconds').review, /修复定位/);
-  assert.doesNotThrow(() => validateNodeResult('seconds', 'review', { 是否通过: true, 原因: '' }, input));
-  const issue = { 修复范围: '上游', 来源: '镜头表', 位置: '正文', 依据: input.shot.body, 建议: '先明确原文时间关系' };
-  const value = { 是否通过: false, 原因: '上游事实冲突', 问题: [issue] };
-  assert.doesNotThrow(() => validateNodeResult('seconds', 'review', value, input));
-  assert.throws(() => validateNodeResult('seconds', 'review', { ...value, 是否通过: true, 原因: '' }, input), /通过时应为空/);
-  assert.throws(() => validateNodeResult('seconds', 'review', { ...value, 问题: [{ ...issue, 来源: '前镜交接' }] }, input), /没有提供/);
-  assert.throws(() => validateNodeResult('seconds', 'review', { ...value, 问题: [{ ...issue, 依据: '不存在的上游文字' }] }, input), /真实上游/);
-  assert.throws(() => validateNodeResult('seconds', 'review', { ...value, 问题: [{ ...issue, 来源: '外部随意节点' }] }, input), /实际输入来源/);
+  const prompt = composeNodePrompt('seconds', 'review', input, 'codex-gpt');
+  const rules = nodeRules('seconds').review;
+  assert.match(prompt.system, /审核分类/);
+  assert.match(rules, /审核分类/);
+  assert.match(rules, /"类型": ""/);
+  assert.doesNotThrow(() => validateNodeResult('seconds', 'review', { 是否通过: true, 类型: '', 原因: '' }, input));
+  for (const type of ['上游资料问题', '模型问题', '规则问题', '其他'])
+    assert.doesNotThrow(() => validateNodeResult('seconds', 'review', { 是否通过: false, 类型: type, 原因: '具体问题和依据' }, input));
+  assert.throws(() => validateNodeResult('seconds', 'review', { 是否通过: true, 原因: '' }, input), /类型/);
+  assert.throws(() => validateNodeResult('seconds', 'review', { 是否通过: false, 类型: '未知', 原因: '具体问题' }, input), /类型/);
+  assert.throws(() => validateNodeResult('seconds', 'review', { 是否通过: true, 类型: '其他', 原因: '' }, input), /类型/);
+  assert.throws(() => validateNodeResult('seconds', 'review', { 是否通过: false, 类型: '其他', 原因: '' }, input), /原因/);
+  assert.throws(() => validateNodeResult('seconds', 'review', { 是否通过: false, 类型: '其他', 原因: '具体问题', 问题: [] }, input), /问题/);
 });
 
 test('上游矛盾停止下游修订，保留正式镜头、hash和完整审核历史', () => scenario('shots', ({ step }, calls, p) =>
-  step.kind === 'review' ? { 是否通过: false, 原因: '先封门后登舱，时间关系冲突', 问题: [{ 修复范围: '上游', 来源: '故事大纲',
-    位置: '小段1', 依据: '舱门已封闭。乘员随后登舱。', 建议: '先修正大纲的登舱和封门顺序' }] }
+  step.kind === 'review' ? { 是否通过: false, 类型: '上游资料问题', 原因: '故事大纲 · 小段1：舱门已封闭。乘员随后登舱。先封门后登舱，时间关系冲突，需先修正大纲顺序。' }
     : { shots: rows(p).map((r, i) => ({ ...r, body: i ? r.body : '候选新正文' })) },
   ({ snapshot, before, calls, taskId }) => {
     const t = snapshot.tasks.find(t => t.id === taskId), node = snapshot.project.episodes[0].shot_list;
@@ -62,8 +64,23 @@ test('上游矛盾停止下游修订，保留正式镜头、hash和完整审核�
     assert.equal(calls.length, 2); assert.equal(snapshot.steps.filter(s => s.kind === 'revise').length, 0);
     assert.deepEqual(node.shots, before.episodes[0].shot_list.shots);
     assert.equal(node.node_state.dependency_hash, before.episodes[0].shot_list.node_state.dependency_hash);
-    assert.equal(snapshot.steps.find(s => s.name.includes('AI审核')).result.问题[0].来源, '故事大纲');
+    assert.equal(snapshot.steps.find(s => s.name.includes('AI审核')).result.类型, '上游资料问题');
   }, p => { p.episodes[0].story_outline.segments[0].body = '舱门已封闭。乘员随后登舱。'; }));
+
+for (const type of ['规则问题', '其他']) test(`${type}停止内容修订，保留原稿与候选历史`, () => scenario('shots', ({ step }, calls, p) =>
+  step.kind === 'review' ? { 是否通过: false, 类型: type, 原因: '镜头正文与执行要求存在无法在本节点确定的冲突，请核查原文和规则。' }
+    : { shots: rows(p).map((r, i) => ({ ...r, body: i ? r.body : '本轮候选正文' })) },
+  ({ snapshot, before, calls, taskId }) => {
+    const task = snapshot.tasks.find(t => t.id === taskId);
+    assert.equal(task.task_status, 'rejected');
+    assert.match(task.end_reason, /停止本节点自动修订/);
+    assert.equal(calls.length, 2);
+    assert.equal(snapshot.steps.filter(s => s.kind === 'revise').length, 0);
+    assert.deepEqual(snapshot.project.episodes[0].shot_list.shots, before.episodes[0].shot_list.shots);
+    assert.equal(snapshot.project.episodes[0].shot_list.node_state.dependency_hash, before.episodes[0].shot_list.node_state.dependency_hash);
+    assert.equal(snapshot.steps.find(s => ['generate', 'revise'].includes(s.kind)).result.shots[0].body, '本轮候选正文');
+    assert.equal(snapshot.steps.find(s => s.name.includes('AI审核')).result.类型, type);
+  }));
 
 test('同一候选重复同一确定性程序错误提前终止，正式内容保持', () => scenario('seconds', () => seconds(6),
   ({ snapshot, before, calls, taskId }) => {
@@ -74,7 +91,7 @@ test('同一候选重复同一确定性程序错误提前终止，正式内容�
   }));
 
 test('候选持续变化时允许用完原修订预算，不因同样时长类别误停', () => scenario('seconds', (o, calls) =>
-  o.step.kind === 'review' ? { 是否通过: true, 原因: '' } : seconds([6, 7, 5][calls.filter(c => c.step.kind !== 'review').length - 1]),
+  o.step.kind === 'review' ? { 是否通过: true, "类型": "", 原因: '' } : seconds([6, 7, 5][calls.filter(c => c.step.kind !== 'review').length - 1]),
   ({ snapshot, calls, taskId }) => {
     assert.equal(snapshot.tasks.find(t => t.id === taskId).task_status, 'completed');
     assert.equal(calls.filter(c => c.step.kind !== 'review').length, 3);
@@ -83,7 +100,7 @@ test('候选持续变化时允许用完原修订预算，不因同样时长类�
 test('候选改写后审核意见仍是上一轮已指出的问题则停止', () => scenario('seconds', ({ step }, calls) => {
   if (step.kind === 'review') {
     const reviews = calls.filter(c => c.step.kind === 'review').length;
-    return { 是否通过: false, 原因: reviews === 1
+    return { 是否通过: false, "类型": "模型问题", 原因: reviews === 1
       ? '待审核内容遗漏了原文明示姓名并承担独立剧情作用的角色桑恪凌夫，还需补年龄'
       : '遗漏了原文明示姓名并承担独立剧情作用的角色桑恪凌夫' };
   }
@@ -101,7 +118,7 @@ test('候选改写后审核意见仍是上一轮已指出的问题则停止', ()
 
 test('AI对相同候选拒绝只给定向反馈，不按原因同文提前判无解', () => scenario('seconds', ({ step }, calls) => {
   const reviews = calls.filter(c => c.step.kind === 'review').length;
-  return step.kind !== 'review' ? seconds(5) : reviews < 3 ? { 是否通过: false, 原因: '需核对开门动作幅度' } : { 是否通过: true, 原因: '' };
+  return step.kind !== 'review' ? seconds(5) : reviews < 3 ? { 是否通过: false, "类型": "模型问题", 原因: '需核对开门动作幅度' } : { 是否通过: true, "类型": "", 原因: '' };
 }, ({ snapshot, calls, taskId }) => {
   assert.equal(snapshot.tasks.find(t => t.id === taskId).task_status, 'completed');
   assert.equal(calls.filter(c => c.step.kind === 'review').length, 3);
@@ -125,7 +142,7 @@ test('明确原对白跨节拍逐字核对：标点、漏句、重复、倒序�
 });
 
 test('patch仅更新指定镜头字段，保留其他镜头完整内容、媒体和依赖', () => scenario('shots', ({ step }, calls, p) =>
-  step.kind === 'review' ? { 是否通过: true, 原因: '' } : { mode: 'patch', shots: [{ id: p.episodes[0].shot_list.shots[1].id, changes: { body: '第二镜局部修订' } }] },
+  step.kind === 'review' ? { 是否通过: true, "类型": "", 原因: '' } : { mode: 'patch', shots: [{ id: p.episodes[0].shot_list.shots[1].id, changes: { body: '第二镜局部修订' } }] },
   ({ snapshot, history, before, taskId }) => {
     assert.equal(snapshot.tasks.find(t => t.id === taskId).task_status, 'completed');
     const [a, b] = snapshot.project.episodes[0].shot_list.shots;
@@ -153,7 +170,7 @@ test('patch拒绝非法/重复ID、未知字段和改ID；无mode的片段不删
 });
 
 test('错误patch保留原始候选历史，下一轮仍拿完整基稿修正ID', () => scenario('shots', (options, calls, p) => {
-  if (options.step.kind === 'review') return { 是否通过: true, 原因: '' };
+  if (options.step.kind === 'review') return { 是否通过: true, "类型": "", 原因: '' };
   const count = calls.filter(c => c.step.kind !== 'review').length;
   if (count === 1) return { mode: 'patch', shots: [{ id: 's_missing', changes: { body: '错误ID候选' } }] };
   assert.equal(options.trace.input.content.shots.length, 2);
@@ -181,7 +198,7 @@ test('patch在审核期间取消，晚到审核不写入正式镜头', async () 
   try {
     const p = projectFixture(), old = structuredClone(p.episodes[0].shot_list.shots);
     runtime = await createAppRuntime({ home, gateway: { chat: async ({ step }) => {
-      if (step.kind === 'review') { entered(); await gate; return { 是否通过: true, 原因: '' }; }
+      if (step.kind === 'review') { entered(); await gate; return { 是否通过: true, "类型": "", 原因: '' }; }
       return { mode: 'patch', shots: [{ id: old[0].id, changes: { body: '不能写入的候选' } }] };
     } } });
     const model = await runtime.repository.create(p);

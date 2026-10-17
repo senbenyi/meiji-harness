@@ -60,7 +60,7 @@ for (const mode of ["剧本", "自由创作"]) {
             reviewed = true;
             assert.match(messages[0].content, /不能仅因合理补充没有原文逐句依据而判未通过/);
             assert.ok(messages.some(message => message.content.includes(expanded.segments[1].body)));
-            return { 是否通过: true, 原因: "" };
+            return { 是否通过: true, "类型": "", 原因: "" };
           }
           return expanded;
         } }),
@@ -104,7 +104,7 @@ for (const mode of ["剧本", "自由创作"]) {
             assert.ok(!prompt.includes("项目摘要"));
             assert.ok(prompt.includes(e.plot));
             assert.ok(!prompt.includes("方向哨兵"));
-            return step.kind === "review" ? { 是否通过: true, 原因: "" }
+            return step.kind === "review" ? { 是否通过: true, "类型": "", 原因: "" }
               : { segments: [{ sequence: 1, duration_seconds: 10, body: "新的剧情", causal: "" }] };
           } }) }),
         });

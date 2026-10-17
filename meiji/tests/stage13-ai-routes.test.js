@@ -137,7 +137,7 @@ test('路由在调用模型前拒绝未声明动作与参数', async () => {
 });
 
 test('输出按路由契约校验，模型无法用 HTTP200 掩盖错误结构', async () => {
-  const ai = createAiRoutes({ readConfig: async () => config, gateway: { chat: async () => '{"是否通过":"yes","原因":""}' } });
+  const ai = createAiRoutes({ readConfig: async () => config, gateway: { chat: async () => '{"是否通过":"yes", "类型": "","原因":""}' } });
   await assert.rejects(ai('project-summary', 'review', { ...input, opinion: '', content: '候选' }), /boolean/);
   for (const [node, route] of Object.entries(nodeRoutes)) {
     for (const [action, contract] of Object.entries(route.actions)) {

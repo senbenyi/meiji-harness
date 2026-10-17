@@ -116,7 +116,7 @@ test('隔离真实任务链：空场景提取通过、人工指定场景、再�
   try {
     const p=projectFixture(),e=p.episodes[0];e.scene_catalog.has_result=false;e.scene_catalog.node_state.status='empty';
     let rows=[],reject=false;
-    runtime=await createAppRuntime({home,gateway:{chat:async({step})=>step.kind==='review'?{是否通过:!reject,原因:reject?'重复地点需合并':''}:{scenes:rows}}});
+    runtime=await createAppRuntime({home,gateway:{chat:async({step})=>step.kind==='review'?{是否通过:!reject, "类型": (!reject) ? "" : "模型问题",原因:reject?'重复地点需合并':''}:{scenes:rows}}});
     const model=await runtime.repository.create(p);
     const submit=async fields=>{const result=await runtime.tasks.command({project_id:p.id,request_id:crypto.randomUUID(),...fields});await runtime.tasks.idle(p.id);return model.readAll().tasks.find(t=>t.id===result.task_id);};
     assert.equal((await submit({type:'submit',business_type:'episode-scenes',target_id:e.id,action:'generate'})).task_status,'completed');
@@ -206,9 +206,9 @@ test('拒绝镜头表的修复读取最近同目标失败候选，正常原结�
   snapshot.steps[0].result={mode:'patch',shots:[{id:'',changes:{body:'无法定位'}}]};
   snapshot.steps[0].prompt={input:{content:failed}};
   assert.deepEqual(taskNodeInput(snapshot,current,null,'regenerate').content,failed);
-  snapshot.steps.push({task_id:old.id,kind:'revise',seq:8,step_status:'done',result:{是否通过:true,原因:''},prompt:{input:{content:{shots:[]}}}});
+  snapshot.steps.push({task_id:old.id,kind:'revise',seq:8,step_status:'done',result:{是否通过:true, "类型": "",原因:''},prompt:{input:{content:{shots:[]}}}});
   assert.deepEqual(taskNodeInput(snapshot,current,null,'regenerate').content,failed);
-  snapshot.steps.push({task_id:current.id,kind:'generate',seq:2,step_status:'done',result:{是否通过:true,原因:''},prompt:{input:{content:failed}}});
+  snapshot.steps.push({task_id:current.id,kind:'generate',seq:2,step_status:'done',result:{是否通过:true, "类型": "",原因:''},prompt:{input:{content:failed}}});
   assert.deepEqual(taskNodeInput(snapshot,current,null,'regenerate',{kind:'revise',seq:5}).content,failed);
 });
 test('连续接拍须同地点同状态；换场、反打、回到旧场景使用场景参考而非前镜尾帧',()=>{

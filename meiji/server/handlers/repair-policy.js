@@ -3,12 +3,15 @@ const canonical = value => JSON.stringify(value?.mode === 'replace' && Array.isA
   ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v);
 
 export function upstreamFailure(project, task, review) {
-  const issues = (review.问题 || []).filter(issue => issue.修复范围 === '上游');
-  if (!issues.length) return '';
+  const actions = {
+    上游资料问题: '需先修正上游，停止本节点自动修订',
+    规则问题: '需先核查规则，停止本节点自动修订',
+    其他: '问题类型无法明确归类，停止本节点自动修订并保留候选',
+  };
+  if (!Object.hasOwn(actions, review.类型)) return '';
   const { episode, object } = locateTarget(project, task.business_type, task.target_id);
   const location = [episode && `第${episode.sequence}集`, object?.number].filter(Boolean).join(' ');
-  return `需先修正上游，停止本节点自动修订：${location}\n` + issues.map(issue =>
-    `${issue.来源} · ${issue.位置}\n依据：${issue.依据}\n建议：${issue.建议}`).join('\n') + `\n审核原因：${review.原因}`;
+  return `${actions[review.类型]}：${location}\n${review.原因}`;
 }
 const normalizeReason = value => String(value || '').replace(/[\s“”"「」『』，。、；：！？,.!?;:（）()]/gu, '');
 

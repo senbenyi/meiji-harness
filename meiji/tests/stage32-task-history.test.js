@@ -68,7 +68,7 @@ test('记录直写不增加revision/幂等，运行中可查；终态后迟到�
   const entered = deferred(), gate = deferred(); let activeStep;
   const events = []; repository.on('change', event => events.push(event));
   const service = new TaskService({ repository, commitOutput: commitContent, execute: async ({ step, record }) => {
-    if (step.kind === 'review') return { result: { 是否通过: true, 原因: '' } };
+    if (step.kind === 'review') return { result: { 是否通过: true, "类型": "", 原因: '' } };
     activeStep = step;
     const before = model.read();
     await record({ prompt: { messages: [{ role: 'user', content: '运行提示' }] }, http: [{ request: { body: '正在请求' } }] });
@@ -133,7 +133,7 @@ test('v22升v23按队列回填最近任务与成片组，保留节点指纹、�
 }));
 
 test('批量ID/详情/历史接口隔离项目，筛选和分页不携带步骤记录', () => fixture(async ({ repository, p, model }) => {
-  const service = new TaskService({ repository, commitOutput: commitContent, execute: async ({ step }) => step.kind === 'review' ? { result: { 是否通过: true, 原因: '' } } : { content: { body: '摘要' } } });
+  const service = new TaskService({ repository, commitOutput: commitContent, execute: async ({ step }) => step.kind === 'review' ? { result: { 是否通过: true, "类型": "", 原因: '' } } : { content: { body: '摘要' } } });
   const other = projectFixture(); await repository.create(other);
   let server;
   try {

@@ -22,7 +22,7 @@ test('角色提取继续可排队，项目取消后再次继续保留原因和�
  let reject=true;const opinions=[]; let release,enter; const gate=new Promise(r=>release=r),entered=new Promise(r=>enter=r);
  const service=new TaskService({repository,commitOutput:commitContent,execute:async({snapshot,task,step})=>{
   if(task.business_type==='project-summary'){enter();await gate;return {content:{body:'摘要'}};}
-  if(step.kind==='review')return{result:{是否通过:!reject,原因:reject?'遗漏角色':''}};
+  if(step.kind==='review')return{result:{是否通过:!reject, "类型": (!reject) ? "" : "模型问题",原因:reject?'遗漏角色':''}};
   if(task.business_type==='project-characters'){opinions.push(task.opinion);return{content:prepareContent(snapshot,task,{characters:[row]})};}
   return{content:{address:'image.png'}};
  }});
@@ -47,7 +47,7 @@ test('角色提取继续可排队，项目取消后再次继续保留原因和�
 }));
 
 test('独立任务持久化单组及三级名称，重命名项目不改历史名称',()=>fixture(async({p,repository,model,root})=>{
- const service=new TaskService({repository,commitOutput:commitContent,execute:async({step})=>step.kind==='review'?{result:{是否通过:true,原因:''}}:{content:{body:'摘要'}}});
+ const service=new TaskService({repository,commitOutput:commitContent,execute:async({step})=>step.kind==='review'?{result:{是否通过:true, "类型": "",原因:''}}:{content:{body:'摘要'}}});
  const result=await service.command({type:'submit',project_id:p.id,request_id:'one',business_type:'project-summary',target_id:p.id,action:'regenerate'});
  await service.idle(p.id);const before=model.readAll();assert.equal(before.groups.length,1);assert.equal(before.groups[0].group_type,'single');
  assert.equal(before.tasks[0].task_status,'completed');assert.ok(before.groups[0].name);assert.ok(before.tasks[0].name);assert.ok(before.steps.every(s=>s.name));
@@ -61,7 +61,7 @@ test('独立任务持久化单组及三级名称，重命名项目不改历史�
 test('提取不派生图片，逐套定妆照中途失败后继续新组并保留历史',()=>fixture(async({p,repository,model})=>{
  let fail=true;
  const service=new TaskService({repository,commitOutput:commitContent,execute:async({snapshot,task,step})=>{
-  if(step.kind==='review')return{result:{是否通过:true,原因:''}};
+  if(step.kind==='review')return{result:{是否通过:true, "类型": "",原因:''}};
   if(task.business_type==='project-characters')return{content:prepareContent(snapshot,task,{characters:[{...row,costumes:[...row.costumes,{...row.costumes[0],name:'礼服'}]}]})};
   if(fail)throw new Error('图片失败');
   return{content:{address:'image.png'}};

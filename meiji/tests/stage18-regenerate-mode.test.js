@@ -27,7 +27,7 @@ for (const action of ['generate', 'regenerate', 'revise'])
     let reviews = 0;
     const text = createTestTextHandler({ chat: async ({ step, messages }) => {
       requests.push({ kind: step.kind, messages: structuredClone(messages) });
-      if (step.kind === 'review') return { 是否通过: ++reviews > 1, 原因: reviews === 1 ? '本轮修订原因' : '' };
+      if (step.kind === 'review') return { 是否通过: ++reviews > 1, "类型": (reviews > 1) ? "" : "模型问题", 原因: reviews === 1 ? '本轮修订原因' : '' };
       return step.kind === 'revise' ? '修订完成的结果' : '本轮新候选独有标记';
     } });
     const service = new TaskService({ repository, commitOutput: commitContent, execute: createHandlerRegistry({ text }) });

@@ -36,7 +36,7 @@ async function withRuntime(run, respond = () => undefined) {
       calls.push(options);
       const result = await respond(options, calls);
       if (result !== undefined) return result;
-      if (options.step.kind === 'review') return { 是否通过: true, 原因: '' };
+      if (options.step.kind === 'review') return { 是否通过: true, "类型": "", 原因: '' };
       if (options.task.business_type === 'seconds') return { end_state: "人物位于镜末位置，动作已完成。", pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: [beat('0–5s')] };
       return text;
     } } });
@@ -89,7 +89,7 @@ test('程序失败再AI失败共用两次修订；修订收到最新候选与对
   assert.deepEqual(model.readAll().project.episodes[0].shot_list.shots[0].seconds_storyboard.storyboard, [beat('0–5s')]);
 }, ({ task, step }) => {
   if (task.business_type !== 'seconds') return;
-  if (step.kind === 'review') return { 是否通过: step.round !== 1, 原因: step.round === 1 ? '动作缺失' : '' };
+  if (step.kind === 'review') return { 是否通过: step.round !== 1, "类型": (step.round !== 1) ? "" : "模型问题", 原因: step.round === 1 ? '动作缺失' : '' };
   return { end_state: "人物位于镜末位置，动作已完成。", pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: [beat(step.kind === 'generate' ? '0–11s' : '0–5s')] };
 }));
 
@@ -109,7 +109,7 @@ test('AI拒绝后的程序拒绝不丢失业务意见，再修订仍使用最新
   assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].seconds_storyboard.end_state, '门已打开。');
 }, ({ task, step }) => {
   if (task.business_type !== 'seconds') return;
-  if (step.kind === 'review') return { 是否通过: step.round !== 0, 原因: step.round === 0 ? '结束状态必须明确门已打开' : '' };
+  if (step.kind === 'review') return { 是否通过: step.round !== 0, "类型": (step.round !== 0) ? "" : "模型问题", 原因: step.round === 0 ? '结束状态必须明确门已打开' : '' };
   return { end_state: step.round === 0 ? '门仍关闭。' : '门已打开。', pending_actions: '', pending_dialogue: '', continuing_audio: '',
     storyboard: [beat(step.round === 1 ? '0–11s' : '0–5s')] };
 }));

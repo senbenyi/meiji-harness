@@ -103,7 +103,7 @@ test('storyboard 输入不携带图片状态/前镜资料，但保留只发声�
 
 test('HTTP 输出拒绝空段落及互相矛盾的审核结果，规则拒绝未声明字段', () => {
   assert.throws(() => validateNodeResult('storyboard', 'generate', text.replace('Wind.', '')), /不能为空/);
-  for (const review of [{ 是否通过: true, 原因: '但有问题' }, { 是否通过: false, 原因: ' ' }]) assert.throws(() => validateNodeResult('project-summary', 'review', review), /原因/);
+  for (const review of [{ 是否通过: true, "类型": "", 原因: '但有问题' }, { 是否通过: false, "类型": "模型问题", 原因: ' ' }]) assert.throws(() => validateNodeResult('project-summary', 'review', review), /原因/);
   assert.throws(() => composeNodePrompt('project-summary', 'generate', { ...common, script: '剧本', rules: [{ constraint: '必须', content: '保持剧情', output: {} }] }, 'elysium-chat'), /未定义/);
 });
 

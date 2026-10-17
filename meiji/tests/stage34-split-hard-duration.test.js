@@ -49,7 +49,7 @@ test('短尾集进入程序修订，回溯同一情景切点后保留全部原�
   const fixed = candidate(row(1, 'P001', 'P002', 120), row(2, 'P003', 'P004', 120));
   try {
     runtime = await createAppRuntime({ home, gateway: { chat: async ({ step, messages }) => {
-      if (step.kind === 'review') return { 是否通过: true, 原因: '' };
+      if (step.kind === 'review') return { 是否通过: true, "类型": "", 原因: '' };
       if (++calls > 1) {
         assert.match(messages.at(-1).content, /第2集.*容量下限120秒/s);
         assert.match(messages.at(-1).content, /回溯相邻集/);
@@ -76,7 +76,7 @@ test('人工放行与提交均拦短集，数值合规的AI拒绝候选仍可人
   const home = await mkdtemp(join(tmpdir(), 'meiji-split-hard-override-'));
   let runtime, seconds = 65;
   try {
-    runtime = await createAppRuntime({ home, gateway: { chat: async ({ step }) => step.kind === 'review' ? { 是否通过: false, 原因: '测试语义意见' } : candidate(row(1, 'P001', 'P004', seconds)) } });
+    runtime = await createAppRuntime({ home, gateway: { chat: async ({ step }) => step.kind === 'review' ? { 是否通过: false, "类型": "模型问题", 原因: '测试语义意见' } : candidate(row(1, 'P001', 'P004', seconds)) } });
     const project = emptyProject({ name: '硬条件放行', creation_mode: '剧本' });
     project.script.body = script; approveScriptReview(project);
     project.episodes = [emptyEpisode({ plot: '旧正式剧情' })];

@@ -567,7 +567,7 @@ export class TaskService {
       const context = { snapshot: fresh, task, step, draft, reviewType: reviewType(step), signal, record };
       let output;
       if (step.kind === "review" && validationFailure) {
-        output = { result: { 是否通过: false, 原因: validationFailure } };
+        output = { result: { 是否通过: false, 类型: "模型问题", 原因: validationFailure } };
       } else if (step.kind === "precheck") {
         output = { result: precheck(fresh, task, { libraryReferences: await this.#libraryReferences() }) };
         if (task.business_type === "assembly" && ["generate", "regenerate", "continue"].includes(task.action))
@@ -608,7 +608,7 @@ export class TaskService {
             const progress = revisionProgress(s, t, step, review);
             if (progress) st.result = { ...review, 修订进展: progress };
             if (upstream || progress?.重复程序错误 || (progress?.重复审核意见 && t.business_type !== "script-review")) {
-              // 上游问题和无进展不提交本轮候选，不污染原正式内容及依赖。
+              // 上游、规则、其他问题和无进展不提交本轮候选，不污染原正式内容及依赖。
               const reason = upstream || progress.提示;
               st.error_reason = reason;
               this.#finish(s, t, "rejected", reason);

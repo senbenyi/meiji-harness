@@ -127,7 +127,7 @@ test("会话拆分自动启动，执行中面板重复提交复用同一任务",
   try {
     const p = scriptProject(), repository = new ModelRepository(root), model = await repository.create(p);
     let calls = 0;
-    const text = createTextHandler({ chat: async ({ step }) => { if (step.kind === "review") return { 是否通过: true, 原因: "" }; calls++; enter(); await gate; return covered(rows); } });
+    const text = createTextHandler({ chat: async ({ step }) => { if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" }; calls++; enter(); await gate; return covered(rows); } });
     service = new TaskService({ repository, commitOutput: commitContent,
       execute: createHandlerRegistry({ text, media: async () => { throw Error("不应调用媒体"); } }) });
     const command = { type:"submit",project_id:p.id,target_id:p.id,business_type:"script-split",action:"generate",request_id:"session-split" };
@@ -152,7 +152,7 @@ test("拆分剧集真实任务：失败暂停后面板再次拆分直接执行�
     let failOnce = true;
     const text = createTextHandler({
       chat: async ({ task, step, messages }) => {
-    if (step.kind === "review") return { 是否通过: true, 原因: "" };
+    if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" };
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
         assert.equal(task.business_type, "script-split", "拆分不应调用剧集摘要");
         seen.push(step.kind);
@@ -358,7 +358,7 @@ for (const repairSucceeds of [true, false]) test(`拆分程序审核${repairSucc
   const prompts = [];
   let generations = 0;
   const text = createTextHandler({ chat: async ({ task, step, messages }) => {
-    if (step.kind === "review") return { 是否通过: true, 原因: "" };
+    if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" };
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
     assert.equal(task.business_type, "script-split", "拆分不应调用剧集摘要");
     prompts.push(prompt);
@@ -429,7 +429,7 @@ test('全部覆盖问题进入同一轮修订，通过后逐字保存原文且�
   let runtime, calls = 0;
   try {
     runtime = await createAppRuntime({ home, gateway: { chat: async ({ messages, step }) => {
-      if (step.kind === "review") return { 是否通过: true, 原因: "" };
+      if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" };
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
       calls++;
       if (calls === 1) return covered([
@@ -462,7 +462,7 @@ test("提取剧集人工放行不能绕过容量上限或段落覆盖，保留�
     const gap = covered([{ 序号: 1, 起始段落: "P001", 结束段落: "P002", 预估时长秒: 60 }]);
     let mode = "fat";
     runtime = await createAppRuntime({ home, gateway: { chat: async ({ step }) => {
-      if (step.kind === "review") return { 是否通过: true, 原因: "" };
+      if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" };
       return mode === "fat" ? fat : gap;
     } } });
     const project = scriptProject();

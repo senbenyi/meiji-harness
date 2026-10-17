@@ -26,7 +26,7 @@ async function scenario({ businessError = '', businessRounds = 0, badJson = fals
   const text = createTestTextHandler({ chat: async options => {
     calls.push({ kind: options.step.kind, messages: structuredClone(options.messages) });
     if (network) throw new Error('网络接口异常：响应.shots[].audio_arrangement：缺少字段');
-    if (options.step.kind === 'review') return badReview ? { 是否通过: true } : { 是否通过: true, 原因: '' };
+    if (options.step.kind === 'review') return badReview ? { 是否通过: true } : { 是否通过: true, "类型": "", 原因: '' };
     count++;
     if (badJson) return 'not JSON';
     const candidate = structuredClone(valid);

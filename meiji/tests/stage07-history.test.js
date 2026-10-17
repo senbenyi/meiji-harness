@@ -55,7 +55,7 @@ test('收起仍展示起止时间、原因和入口，复制完整结果及原�
  Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{writeText:async value=>{copies.push(value);}}}});
  try {
   state.task_id='t';
-  const result={是否通过:false,原因:'第一行原因\n第二行原因\n第三行原因'}, messages=[
+  const result={是否通过:false, "类型": "模型问题",原因:'第一行原因\n第二行原因\n第三行原因'}, messages=[
    {role:'system',content:'规则'}, {role:'user',content:'原始任务资料'},
    {role:'assistant',content:'上一轮结果'}, {role:'user',content:'修改意见'},
   ];

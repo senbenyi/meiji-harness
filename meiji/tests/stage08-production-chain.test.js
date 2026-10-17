@@ -35,7 +35,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
       home,
       gateway: {
         chat: async ({ task, step }) => {
-          if (step.kind === "review") return { 是否通过: true, 原因: "" };
+          if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" };
           return {
             "script-split": { 剧集: [{ 序号: 1, 起始段落: "P001", 结束段落: "P001", 预估时长秒: 5 }], 排除段落: [] },
             "script-review": { story_continuous: true, continuity: "单一场景连贯", filmable: true, filmability: "静物特写可直接拍摄", suggestions: "" },

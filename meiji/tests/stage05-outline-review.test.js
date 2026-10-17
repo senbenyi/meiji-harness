@@ -30,7 +30,7 @@ async function outlineScenario({ durations, rejectAi = false, retry = false }) {
     if (step.kind === "review") {
       const rejected = rejectAi === true || rejectAi === "first" && aiReviews === 0;
       aiReviews++;
-      return { 是否通过: !rejected, 原因: rejected ? "缺少红色粗布袖口细节" : "" };
+      return { 是否通过: !rejected, "类型": (!rejected) ? "" : "模型问题", 原因: rejected ? "缺少红色粗布袖口细节" : "" };
     }
     const duration_seconds = retrying ? 137.5 : durations[generations];
     generations++;

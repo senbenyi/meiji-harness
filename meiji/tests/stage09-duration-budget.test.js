@@ -71,7 +71,7 @@ test('容量拒绝进入既有修订，明确重切后只写成功结果，提�
   const fixed = { 剧集: [row(1, 0, 1, 150), row(2, 2, 3, 150)], 排除段落: [] };
   try {
     runtime = await createAppRuntime({ home, gateway: { chat: async ({ messages, step }) => {
-      if (step.kind === "review") return { 是否通过: true, 原因: "" };
+      if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" };
       calls++;
       if (calls > 1) {
         assert.match(messages.at(-1).content, /容量上限180秒/);
@@ -110,7 +110,7 @@ for (const repair of [true, false]) test(`数值合规但语义容量不足：${
       if (step.kind === 'review') {
         reviews++;
         assert.match(messages[0].content, /不得按字符数、字数、句数或固定每秒字数折算/);
-        return repair && reviews > 1 ? { 是否通过: true, 原因: '' } : { 是否通过: false, 原因: reason };
+        return repair && reviews > 1 ? { 是否通过: true, "类型": "", 原因: '' } : { 是否通过: false, "类型": "模型问题", 原因: reason };
       }
       generations++;
       if (generations > 1) assert.ok(messages.at(-1).content.includes(reason));

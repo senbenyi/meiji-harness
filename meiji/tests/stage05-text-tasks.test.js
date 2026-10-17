@@ -85,7 +85,7 @@ for (const business of cases)
           chat: async ({ task, step }) => {
             if (step.kind === "review")
               return {
-                是否通过: ending !== "rejected",
+                是否通过: ending !== "rejected", "类型": (ending !== "rejected") ? "" : "模型问题",
                 原因: ending === "rejected" ? "未落实剧情" : "",
               };
             if (task.business_type === business) generated++;
@@ -154,7 +154,7 @@ test("项目摘要拒绝保存最后正文和原因，修订收到原稿且不�
   let round = 0;
   const text = createTextHandler({ chat: async ({ step, messages }) => {
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
-    if (step.kind === "review") return { 是否通过: false, 原因: "遗漏明确结局" };
+    if (step.kind === "review") return { 是否通过: false, "类型": "模型问题", 原因: "遗漏明确结局" };
     prompts.push(prompt);
     return `本轮摘要${++round}`;
   } });
@@ -183,7 +183,7 @@ test("人物审核只接收本次增量，拒绝保存角色但不派生图片�
   const text = createTextHandler({ chat: async ({ step, messages }) => {
     const prompt = messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n');
     prompts.push({ kind: step.kind, prompt });
-    return step.kind === "review" ? { 是否通过: false, 原因: "人物来源有误" } : { characters: [row] };
+    return step.kind === "review" ? { 是否通过: false, "类型": "模型问题", 原因: "人物来源有误" } : { characters: [row] };
   } });
   const service = new TaskService({ repository, execute: createHandlerRegistry({ text }), commitOutput: commitContent });
   try {
@@ -268,7 +268,7 @@ test("首次生成和重新提取使用同一提示词，且不提交已有角�
   const seen = [];
   const handler = createTextHandler({ chat: async ({ messages, step }) => {
     seen.push(messages.map(message => message.content).join("\n"));
-    if (step.kind === "review") return { 是否通过: true, 原因: "" };
+    if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" };
     return { characters: [] };
   } });
   const run = (action, kind) => handler({
@@ -295,7 +295,7 @@ test("提取仅写人物，每个人物独立生成全部服装，空服装生�
   let extractionCalls = 0;
   const imageCalls = [];
   const text = createTextHandler({ chat: async ({ step }) => {
-    if (step.kind === "review") return { 是否通过: true, 原因: "" };
+    if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" };
     return { characters: extractionCalls++ === 0 ? characters : [] };
   } });
   const service = new TaskService({ repository, commitOutput: commitContent, execute: createHandlerRegistry({

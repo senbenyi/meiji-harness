@@ -29,7 +29,7 @@ test("S4-04/05/06 组内停止作废后序，继续新组从停点接续，旧�
         commitOutput: commitContent,
         execute: async ({ snapshot, task, step }) =>
           step.kind === "review"
-            ? { result: { 是否通过: !fail, 原因: fail ? "审核失败" : "" } }
+            ? { result: { 是否通过: !fail, "类型": (!fail) ? "" : "模型问题", 原因: fail ? "审核失败" : "" } }
             : task.business_type === "shot-characters" ? { content: { has_result: true, on_screen_characters: [] } } : {
                 content: {
                   storyboard: structuredClone(
@@ -164,7 +164,7 @@ test("继续只给停点任务带拒绝原因，组不保存意见或来源组",
   try {
     const repository = new ModelRepository(root), p = projectFixture(), model = await repository.create(p);
     service = new TaskService({ repository, commitOutput: commitContent, execute: async ({ snapshot, task, step }) =>
-      step.kind === "review" ? { result: { 是否通过: false, 原因: "停点审核拒绝" } }
+      step.kind === "review" ? { result: { 是否通过: false, "类型": "模型问题", 原因: "停点审核拒绝" } }
         : task.business_type === "shot-characters" ? { content: { has_result: true, on_screen_characters: [] } } : { content: { storyboard: structuredClone(nodeOf(snapshot.project, "seconds", task.target_id).storyboard) } } });
     const first = await service.command({ ...group(p), opinion: "旧组意见" });
     await service.idle(p.id);

@@ -17,10 +17,10 @@ export function createHandlerRegistry({ text, media, videoPrompt }) {
           commitContent(probe, task, draft, { passed: false });
           assertProgramReview(probe.project, business, task.target_id);
         }
-        return { result: { 是否通过: true, 原因: "" } };
+        return { result: { 是否通过: true, 类型: "", 原因: "" } };
       } catch (error) {
         if (error.code !== "INVALID_CONTRACT") throw error;
-        return { result: { 是否通过: false, 原因: error.message } };
+        return { result: { 是否通过: false, 类型: "模型问题", 原因: error.message } };
       }
     }
     if (task.action === "delete") {

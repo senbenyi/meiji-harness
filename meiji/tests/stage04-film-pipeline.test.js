@@ -22,7 +22,7 @@ async function fixture(work, configure = () => {}) {
     if(control.gate)await control.gate;
     events.push([task.target_id,task.business_type,step.kind]);
     if(step.kind==='precheck')return {result:{passed:true}};
-    if(step.kind==='review') {const fail=(control.reject&&task.business_type==='seconds')||(control.revise&&task.business_type==='seconds'&&step.round===0);return {result:{是否通过:!fail,原因:fail?'需要修订':''}};}
+    if(step.kind==='review') {const fail=(control.reject&&task.business_type==='seconds')||(control.revise&&task.business_type==='seconds'&&step.round===0);return {result:{是否通过:!fail, "类型": (!fail) ? "" : "模型问题",原因:fail?'需要修订':''}};}
     if(task.business_type==='assembly') {
      if(control.failAssembly)throw new Error('合片失败');
    return {content:{address:'film-new.mp4'},result:{duration:10.4}};

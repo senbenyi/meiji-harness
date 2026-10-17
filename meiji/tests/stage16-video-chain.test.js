@@ -175,7 +175,7 @@ test('镜头表已指定角色，执行视频前按绑定插入多模态，组�
     assert.equal(new Set(tasks.map(t=>t.group_seq)).size,tasks.length);
     assert.equal(calls[0].mode,'reference');assert.ok(tasks.filter(t=>t.business_type==='assembly').length<=1);
   },{setup:({episode,person})=>{episode.shot_list.shots[0].on_screen_characters=[{character_id:person.id,costume_id:''}];},chat:({task,step})=>{
-    if(step.kind==='review')return {是否通过:true,原因:''};
+    if(step.kind==='review')return {是否通过:true, "类型": "",原因:''};
     if(task.business_type==='seconds')return {end_state:'甲站在门口，动作已结束。',pending_actions:'',pending_dialogue:'',continuing_audio:'风声',storyboard:[{time_range:'0–5s',action:'甲站立',camera:'固定',space:'门口',audio:'风声',handoff:'站立',dialogue:[]}]};
     return 'integrated_multimodal_description:\nA woman stands.\noverall_soundscape:\nWind.\nnon_diegetic_music:\nNone.';
   }});

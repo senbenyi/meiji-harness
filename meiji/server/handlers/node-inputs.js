@@ -15,9 +15,7 @@ function shotTable(value) {
 function reviewOpinion(review) {
   if (!review) return '';
   const reason = review.result?.原因 || review.error_reason || '';
-  const issues = Array.isArray(review.result?.问题) ? review.result.问题 : [];
-  const lines = issues.map((issue, index) => `${index + 1}. 位置：${issue.位置 || ''}；依据：${issue.依据 || ''}；建议：${issue.建议 || ''}`);
-  return [reason, ...lines].filter(Boolean).join('\n');
+  return reason;
 }
 
 function shotRepairBase(step) {

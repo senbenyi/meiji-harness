@@ -134,7 +134,7 @@ test('千问：真实 runtime 经独立文本 HTTP 完成生成、审核及修�
     const body = JSON.parse(data)
     requests.push({ url: req.url, authorization: req.headers.authorization, body })
     const review = body.messages[1].content.includes('审核当前目标')
-    const content = review ? JSON.stringify({ 是否通过: ++reviews > 1, 原因: reviews === 1 ? '摘要需要保留结局' : '' }) : '小林找回丢失的钥匙。'
+    const content = review ? JSON.stringify({ 是否通过: ++reviews > 1, "类型": (reviews > 1) ? "" : "模型问题", 原因: reviews === 1 ? '摘要需要保留结局' : '' }) : '小林找回丢失的钥匙。'
     res.setHeader('Content-Type', 'application/json')
     res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content, reasoning: '不进入下一轮提示' } }] }))
   })

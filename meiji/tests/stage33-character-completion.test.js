@@ -34,6 +34,12 @@ test('人物生成/修订/审核共用补全口径，真实渲染与规则面板
     assert.match(rendered.system, /大致相同的服装归为一套/);
     assert.match(rendered.system, /只有完整剧本明确该角色实际换装/);
     assert.match(rendered.system, /不以保留旧设定为由继续沿用/);
+    assert.match(rendered.system, /未提取这类人物不是遗漏/);
+    if (action === 'review') {
+      assert.match(rendered.system, /报告遗漏时必须写出缺少的具体姓名/);
+      assert.match(rendered.system, /该项不是错误，不能再用它拒绝/);
+      assert.match(rendered.system, /其余服装、字段等独立问题仍照常审核/);
+    }
     if (action === 'regenerate') {
       assert.equal(rendered.messages.filter(m => m.role === 'assistant').length, 1);
       assert.deepEqual(JSON.parse(rendered.messages.find(m => m.role === 'assistant').content), args.content);
@@ -45,6 +51,7 @@ test('人物生成/修订/审核共用补全口径，真实渲染与规则面板
     assert.match(rules[key], /自由补充/);
     assert.match(rules[key], /不得把完整角色名单缩小到这一个人/);
     assert.match(rules[key], /补全细节不等于新增服装造型/);
+    assert.match(rules[key], /此排除优先于剧情重要性与名单完整性要求/);
   }
   assert.match(rules.review, /不因未列全称号、经历或某个原文形容词拒绝/);
   assert.match(rules.review, /无剧本依据增加服装套数、近似服装重复建套/);
@@ -93,7 +100,7 @@ test('无来源标签的完整人物走真实任务链首次通过；原结果�
   assert.ok(model.readAll().tasks.every(t => t.business_type === 'project-characters'));
   assert.ok(b.costume_images.every(image => !image.address));
 }, ({ step, task }) => step.kind === 'review'
-  ? { 是否通过: true, 原因: '' }
+  ? { 是否通过: true, "类型": "", 原因: '' }
   : { characters: [{ ...person(), ...(task.action === 'revise' ? { facial_features: '长方脸，眉骨清晰，眼窝略深' } : {}) }] }));
 
 test('资料确有缺项时审核定向修订，本轮基稿只出现一次，补全后保留其余设定并通过', () => fixture(async ({ runtime, p, model, calls, submit }) => {
@@ -110,7 +117,7 @@ test('资料确有缺项时审核定向修订，本轮基稿只出现一次，�
   assert.equal(steps.find(s => s.kind === 'review').step_status, 'rejected');
 }, ({ step, trace }) => {
   if (step.kind === 'review') return trace.input.content.characters[0].voice
-    ? { 是否通过: true, 原因: '' }
-    : { 是否通过: false, 原因: 'voice缺少可执行声线，请补充音色与说话特点' };
+    ? { 是否通过: true, "类型": "", 原因: '' }
+    : { 是否通过: false, "类型": "模型问题", 原因: 'voice缺少可执行声线，请补充音色与说话特点' };
   return { characters: [{ ...person(), ...(step.kind === 'generate' ? { voice: '' } : {}) }] };
 }));
