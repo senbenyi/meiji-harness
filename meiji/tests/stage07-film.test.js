@@ -48,5 +48,32 @@ test('成片展示四节点且视频按钮提交单镜完整组，剧集无每�
   shot.video.address='';shot.video.node_state.status='empty';context.paint();
   [...root.querySelector('[data-business=video]').querySelectorAll('button')].find(b=>b.textContent==='AI生成').click();await new Promise(r=>setTimeout(r,0));
   assert.equal(requests[2].command.type,'submit-group');assert.equal(requests[2].command.group_type,'episode-film');assert.equal(requests[2].command.action,'generate');assert.equal(requests[2].command.shot_id,shot.id);assert.equal(requests[2].command.episode_id,e.id);
+  shot.video_generation_type='';shot.scene_id='scene-1';shot.scene_transition='换场';shot.on_screen_characters=[];
+  view.shot_id=null;context.paint();
+  assert.deepEqual([...root.querySelector('.shot-card').querySelectorAll('.shot-step-name')].map(node=>node.textContent),['每秒分镜','文本提示词','多模态','视频']);
+  view.shot_id=shot.id;context.paint();
+  assert.match(root.textContent,/视频类型：多模态/);
+  assert.ok(root.querySelector('[data-business=multimodal]'));
+  assert.equal(root.querySelector('[data-business=first-last-frame]'),null);
  } finally {globalThis.document=prev.document;globalThis.fetch=prev.fetch;dom.window.close();}
+});
+test('成片组停在旧审核时，节点已通过则不再展示该未通过原因',async()=>{
+ const dom=new JSDOM('<main></main>',{url:'http://localhost'}), prev={document:globalThis.document};
+ try {
+  globalThis.document=dom.window.document;
+  const s=snapshotFixture(), e=s.project.episodes[0], shot=e.shot_list.shots[0], reason='节拍或对白｜旧审核意见';
+  s.groups=[{id:'film',group_type:'episode-film',episode_id:e.id,shot_ids:e.shot_list.shots.map(item=>item.id)}];
+  s.tasks=[{id:'seconds-old',group_id:'film',group_seq:1,queue_order:1,business_type:'seconds',target_id:shot.id,task_status:'rejected',end_reason:reason}];
+  s.project.latest_groups={[`episode-film:${e.id}`]:'film'};
+  shot.seconds_storyboard.node_state.status='generated';shot.seconds_storyboard.node_state.reason='';
+  const root=document.querySelector('main');
+  const paint=()=>renderTaskPanel(root,s,{session_id:'session-test',view:{page:'episode',episode_id:e.id,tab:'film'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
+  const film=()=>[...root.querySelectorAll('section')].find(item=>item.querySelector('h3')?.textContent==='逐镜头成片');
+  paint();
+  assert.equal(film().querySelector('.node-ui-status').textContent,'未通过');
+  assert.equal(film().textContent.includes(reason),false);
+  shot.seconds_storyboard.node_state.status='rejected';shot.seconds_storyboard.node_state.reason=reason;
+  paint();
+  assert.equal(film().textContent.includes(reason),true);
+ } finally {globalThis.document=prev.document;dom.window.close();}
 });

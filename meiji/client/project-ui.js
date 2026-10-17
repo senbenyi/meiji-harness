@@ -17,6 +17,8 @@ function stoppedNodeMessage(project, tasks) {
   let node = null;
   try { node = nodeOf(project, stopped.business_type, stopped.target_id); } catch { node = null; }
   if (stopped.task_status === "failed" || stopped.task_status === "cancelled") return stopped.end_reason || "";
+  // 节点已另行通过时，不再把成片组里旧的未通过原因当作当前结果。
+  if (node && node.node_state.status !== "rejected") return "";
   return node?.node_state.reason || stopped.end_reason || "";
 }
 function groupStopMessage(project, group) {
@@ -87,6 +89,16 @@ function packNode(episode, shot) {
   if (type === "多模态") return ["多模态", shot.multimodal_prompt];
   if (type === "文生") return ["文生", { node_state: { status: "generated" }, prompt: "文生，不编排额外提示词" }];
   return ["多模态/首尾帧", { node_state: { status: "empty" }, prompt: "" }];
+}
+function filmPackLabel(episode, shot) {
+  const [name] = packNode(episode, shot);
+  return name === "多模态/首尾帧" ? "待视频任务执行时确定" : name;
+}
+function filmPackCards(episode, shot, nodeCard) {
+  const [name] = packNode(episode, shot);
+  if (name === "首尾帧") return [nodeCard("first-last-frame", shot.id, shot.first_last_frame_prompt)];
+  if (name === "多模态") return [nodeCard("multimodal", shot.id, shot.multimodal_prompt)];
+  return [];
 }
 function filmNodes(episode, shot) {
   return [
@@ -580,8 +592,8 @@ export function renderEpisode(root, env, entries) {
         element("p", `参考 ${shot.duration_seconds} 秒${shot.actual_duration_seconds > 0 ? ` · 实际 ${shot.actual_duration_seconds} 秒` : ""}`, "meta"),
         nodeCard("seconds", shot.id, shot.seconds_storyboard),
         nodeCard("storyboard", shot.id, shot.text_to_video_prompt),
-        element('p', '视频类型：' + (shot.video_generation_type || '待视频任务执行时确定'), 'meta'),
-        ...(shot.video_generation_type === '首尾帧' ? [nodeCard('first-last-frame', shot.id, shot.first_last_frame_prompt)] : shot.video_generation_type === '多模态' ? [nodeCard('multimodal', shot.id, shot.multimodal_prompt)] : []),
+        element("p", `视频类型：${filmPackLabel(e, shot)}`, "meta"),
+        ...filmPackCards(e, shot, nodeCard),
         video,
       );
     root.append(body);

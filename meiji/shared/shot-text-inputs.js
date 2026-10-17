@@ -46,3 +46,23 @@ export function shotTextInputs(project, episode, shot, business) {
   return { duration: shot.duration_seconds, characters: participants,
     storyboard: { on_screen_characters: structuredClone(shot.on_screen_characters), background_characters: shot.background_characters, shot_setup: { ...shotSceneSetup(shot), ...(scene ? { scene, scene_transition: shot.scene_transition } : {}) }, ...secondsEnding(shot.seconds_storyboard), storyboard: shot.seconds_storyboard.storyboard.map(beat => structuredClone(beat)) } };
 }
+function clause(text) {
+  return String(text || '').trim().replace(/[。；\s]+$/u, '');
+}
+// 光照跟随本镜状态，不把资料里其他时段的光线写进固定空间。
+export function sceneReferenceDescription(scene) {
+  return [scene.description, scene.layout, scene.materials].map(clause).filter(Boolean).join('；');
+}
+export function shotReferenceBindings(project, episode, shot) {
+  const participants = shotTextInputs(project, episode, shot, 'storyboard').characters;
+  const bindings = shot.on_screen_characters.map(row => {
+    const person = participants.find(person => person.id === row.character_id);
+    const costume = person?.costumes.find(costume => costume.id === row.costume_id);
+    return { name: person?.name || '', speaker_tag: person?.speaker_tag || '', costume: costume ? [costume.name, costume.description, costume.color, costume.material, ...costume.props].filter(Boolean).join('，') : '' };
+  });
+  if (shot.scene_id) {
+    const scene = project.scene_library.scenes.find(item => item.id === shot.scene_id);
+    bindings.push({ kind: 'scene', name: scene.name, description: sceneReferenceDescription(scene), state: shot.scene_state });
+  }
+  return bindings;
+}

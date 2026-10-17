@@ -1,5 +1,6 @@
 import { sceneText, sceneImageContext } from '../../shared/scene-inputs.js';
 import { videoPack, previousShot, videoImages } from '../../shared/video-inputs.js';
+import { shotReferenceBindings } from '../../shared/shot-text-inputs.js';
 import { primaryCostumeImage } from "../../shared/models/character_model.js";
 import { dataUrl } from "../gateway/model-gateway.js";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
@@ -151,6 +152,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
         ...(packed ? { packedPrompt: packed.prompt } : {}),
         ...(refs.length ? {
           referenceImages: refs,
+          referenceBindings: shotReferenceBindings(p, episode, object),
         } : firstFrame ? { firstFrame } : {}),
         ...(modify ? { opinion } : {}),
       }, { signal, record, task, step });

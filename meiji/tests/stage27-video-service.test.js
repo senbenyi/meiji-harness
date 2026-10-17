@@ -18,6 +18,7 @@ test('三模式发送新接口白名单；首尾帧可显式给目标尾帧，�
   const variants = [input, { ...input, type: '首尾帧', firstFrame: image, lastFrame: image }, { ...input, type: '多模态', referenceImages: [image] }];
   for (const row of variants) {
     const body = videoPayload({ model: 'MiniMax-H3', ...videoRequest(row) });
+    assert.equal('model' in body, false);
     assert.equal(body.duration, 4); assert.equal(body.resolution, '768P');
     for (const key of ['seconds', 'size', 'input_reference', 'reference_images']) assert.equal(key in body, false);
     assert.equal(body.ratio, row.type === '首尾帧' ? 'adaptive' : '9:16');
@@ -31,11 +32,26 @@ test('三模式发送新接口白名单；首尾帧可显式给目标尾帧，�
 test('先合并映射与三段正文再执行7000字符检查，不截断对白或偷偷改秒数', () => {
   const bindings = [{ name: '甲', speaker_tag: '(S2)', costume: '蓝色制服' }];
   const request = videoRequest({ ...input, type: '多模态', referenceImages: [image], referenceBindings: bindings });
-  assert.match(request.prompt, /第1张参考图："甲"，说话人标记\(S2\)，服装："蓝色制服"/);
+  assert.match(request.prompt, /subject_definitions:\n<Subject 1> 是 <Picture 1> 中的"甲"\(S2\)，服装为"蓝色制服"/);
+  assert.match(request.prompt, /summary:\n\[reference generation\] 目标视频以 <Subject 1> 作为参考/);
+  assert.match(request.prompt, /retention_analysis:\n<Subject 1>（出现在 \[Shot 1\]）：fully_preserved/);
+  assert.match(request.prompt, /detailed_description:\n\[Shot 1\] \(S1\)<d>别走。我还有话说。<\/d>/);
   assert.match(request.prompt, /<d>别走。我还有话说。<\/d>/);
   assert.throws(() => videoRequest({ ...input, type: '多模态', referenceImages: [image], referenceBindings: [] }), /一图一项/);
   assert.throws(() => videoRequest({ ...input, textPrompt: { ...textPrompt, integrated_multimodal_description: '长'.repeat(7000) } }), /7000/);
   assert.throws(() => videoRequest({ ...input, duration: 3 }), /4 到 15/);
+});
+
+test('时间线里的人物和场景改标为 Subject，对白内的姓名保持原文', () => {
+  const bindings = [{ name: '甲', speaker_tag: '(S1)', costume: '蓝衣' }, { kind: 'scene', name: '老宅', description: '木门', state: '白天' }];
+  const text = { ...textPrompt, integrated_multimodal_description: '[Shot 1] 甲站在老宅门口约两秒。(S1)说：<d>甲，别走。</d>' };
+  const request = videoRequest({ ...input, type: '多模态', textPrompt: text, referenceImages: [image, image], referenceBindings: bindings });
+  assert.match(request.prompt, /detailed_description:\n\[Shot 1\] <Subject 1>站在<Subject 2>门口约两秒。\(S1\)说：<d>甲，别走。<\/d>/);
+  assert.doesNotMatch(request.prompt, /detailed_description:[\s\S]*<Picture /);
+  const packed = request.prompt;
+  const saved = { ...input, type: '多模态', textPrompt: text, referenceImages: [image, image], referenceBindings: bindings, packedPrompt: packed };
+  assert.equal(videoRequest(saved).prompt, packed);
+  assert.throws(() => videoRequest({ ...saved, packedPrompt: packed.replace('甲，别走。', '别走。') }), /正文.*不一致/);
 });
 
 test('实际正文来自已保存编排，修订仅在末尾附加意见', () => {
@@ -58,9 +74,9 @@ test('程序编排按图片顺序映射全项目稳定speaker_tag及本镜服装
   const handler = createVideoPromptHandler({ media: { validate: async () => {}, read: async address => Buffer.from(address) } });
   const { content } = await handler({ snapshot: { project }, task: { business_type: 'multimodal', target_id: shot.id }, signal: new AbortController().signal });
   assert.deepEqual(content.reference_images, [{ address: 'b.png' }, { address: 'a.png' }]);
-  assert.match(content.prompt, /第1张参考图："乙"/); assert.match(content.prompt, /第2张参考图："甲"[\s\S]*蓝衣/);
+  assert.match(content.prompt, /<Subject 1> 是 <Picture 1> 中的"乙"\(S\d+\)/); assert.match(content.prompt, /<Subject 2> 是 <Picture 2> 中的"甲"\(S\d+\)[\s\S]*蓝衣/);
   const tag = [...[a.id, b.id]].sort((x,y) => x.localeCompare(y)).indexOf(b.id) + 1;
-  assert.match(content.prompt, new RegExp(`第1张参考图：[\\s\\S]*?\\(S${tag}\\)`));
+  assert.match(content.prompt, new RegExp(`<Subject 1> 是 <Picture 1> 中的"乙"\\(S${tag}\\)`));
   assert.doesNotMatch(JSON.stringify(content), /data:image/);
 });
 

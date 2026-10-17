@@ -68,6 +68,50 @@ function labeledLines(source, keys) {
     return text ? [[fieldLabels[key] || key, text]] : [];
   });
 }
+function imageDataLabel(address) {
+  const mime = /\.jpe?g$/i.test(address) ? "image/jpeg" : /\.webp$/i.test(address) ? "image/webp" : "image/png";
+  return `data:${mime};base64,…`;
+}
+function h3RequestBody(mode, node) {
+  const ratio = mode === "首尾帧" ? "adaptive" : { "576x1024": "9:16", "1024x576": "16:9" }[node.size] || "";
+  const body = {
+    mode,
+    prompt: node.prompt || "",
+    duration: node.seconds ?? "",
+    resolution: "768P",
+    ratio,
+  };
+  if (mode === "多模态") body.images = (node.reference_images || []).map((row) => imageDataLabel(row.address || ""));
+  if (mode === "首尾帧" && node.input_reference) body.first_frame = imageDataLabel(node.input_reference);
+  return body;
+}
+function h3RequestView(mode, node) {
+  const view = element("div", "", "h3-request");
+  for (const [name, value] of Object.entries(h3RequestBody(mode, node))) {
+    const line = element("p");
+    line.append(element("span", `${name}: `, "h3-key"), document.createTextNode(Array.isArray(value) ? value.join("\n") : String(value ?? "")));
+    view.append(line);
+  }
+  return view;
+}
+function multimodalCopyButton(node) {
+  const copy = element("button", "复制", "meiji-log-copy");
+  copy.type = "button";
+  copy.setAttribute("aria-label", "复制多模态 JSON");
+  copy.onclick = async (event) => {
+    event.stopPropagation();
+    copy.disabled = true;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(h3RequestBody("多模态", node), null, 2));
+      copy.textContent = "已复制";
+    } catch {
+      copy.textContent = "复制失败，重试";
+    } finally {
+      copy.disabled = false;
+    }
+  };
+  return copy;
+}
 function secondsView(node) {
   const view = element("div", "", "seconds-beats");
   for (const beat of node.storyboard || []) {
@@ -275,6 +319,8 @@ export function renderTaskPanel(root, snapshot, context) {
           element("p", `${part.sequence}. ${part.duration_seconds}秒 ${part.body}${part.causal ? `\n因果衔接：${part.causal}` : ""}`, "prompt full"),
         );
       card.append(segments);
+    } else if (business === "multimodal" || business === "first-last-frame") {
+      if (node.prompt) card.append(h3RequestView(business === "multimodal" ? "多模态" : "首尾帧", node));
     } else if (!["shots", "project-characters"].includes(business))
       card.append(
         element(
@@ -439,6 +485,7 @@ export function renderTaskPanel(root, snapshot, context) {
     const head = element("div", "", "section-head"),
       titles = element("div", "", "section-titles");
     titles.append(card.querySelector("h3"));
+    if (business === "multimodal" && node.prompt) titles.append(multimodalCopyButton(node));
     titles.append(element("span", labels[node.node_state.status] || node.node_state.status, "node-data-tag"));
     head.append(titles);
     card.prepend(head);

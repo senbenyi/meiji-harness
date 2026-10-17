@@ -80,7 +80,7 @@ for (const mode of ['文生','首尾帧','多模态']) test(`真实视频链 ${m
   if(mode!=='文生') {
     const packed = mode==='首尾帧' ? shot.first_last_frame_prompt : shot.multimodal_prompt;
     assert.equal(calls[0].prompt, packed.prompt, '实际发送必须采用已保存编排正文');
-    if(mode==='多模态') assert.match(calls[0].prompt,/第1张参考图：[\s\S]*甲[\s\S]*\(S1\)/);
+    if(mode==='多模态') assert.match(calls[0].prompt,/<Subject 1> 是 <Picture 1> 中的"甲"\(S1\)/);
   }
 }, { setup:({episode,person,stamp})=>{
   if(mode==='多模态') {
@@ -224,6 +224,32 @@ test('界面显示适用程序编排；尾帧是视频内步骤，失败时可�
     assert.equal(failedVideo.querySelector('.node-ui-task-status').textContent, '最新任务：失败');
     assert.equal(failedVideo.querySelector('.node-ui-failure').textContent, '失败原因：截帧失败');
     assert.match(root.textContent,/视频类型：首尾帧/);
+    shot.first_last_frame_prompt.prompt='compiled';shot.first_last_frame_prompt.seconds=5;shot.first_last_frame_prompt.size='576x1024';shot.first_last_frame_prompt.input_reference='1.png';
+    renderTaskPanel(root,snapshot,{session_id:'test',view:{page:'episode',episode_id:episode.id,shot_id:shot.id,tab:'film'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
+    const fields = [...root.querySelector('[data-business="first-last-frame"] .h3-request').querySelectorAll('p')].map(node => node.textContent);
+    assert.deepEqual(fields.map(text => text.split(': ')[0]), ['mode', 'prompt', 'duration', 'resolution', 'ratio', 'first_frame']);
+    assert.equal(fields[0], 'mode: 首尾帧');
+    assert.equal(fields[3], 'resolution: 768P');
+    assert.equal(fields[4], 'ratio: adaptive');
+    assert.match(fields[5], /^first_frame: data:image\/png;base64,/);
+    assert.equal(root.querySelector('[data-business="first-last-frame"]').textContent.includes('model'), false);
+    shot.video_generation_type='多模态';shot.multimodal_prompt.prompt='mapped';shot.multimodal_prompt.seconds=8;shot.multimodal_prompt.size='576x1024';shot.multimodal_prompt.reference_images=[{address:'a.png'},{address:'b.jpg'}];
+    renderTaskPanel(root,snapshot,{session_id:'test',view:{page:'episode',episode_id:episode.id,shot_id:shot.id,tab:'film'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
+    const multimodal = [...root.querySelector('[data-business="multimodal"] .h3-request').querySelectorAll('p')].map(node => node.textContent);
+    assert.deepEqual(multimodal.map(text => text.split(': ')[0]), ['mode', 'prompt', 'duration', 'resolution', 'ratio', 'images']);
+    assert.equal(multimodal[0], 'mode: 多模态');
+    assert.equal(multimodal[2], 'duration: 8');
+    assert.equal(multimodal[4], 'ratio: 9:16');
+    assert.equal(multimodal[5], 'images: data:image/png;base64,…\ndata:image/jpeg;base64,…');
+    const copy = root.querySelector('[data-business="multimodal"] .section-titles .meiji-log-copy');
+    assert.equal(copy.textContent, '复制');
+    let copied = '';
+    const clipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { copied = text; } } });
+    copy.click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard });
+    assert.deepEqual(JSON.parse(copied), { mode: '多模态', prompt: 'mapped', duration: 8, resolution: '768P', ratio: '9:16', images: ['data:image/png;base64,…', 'data:image/jpeg;base64,…'] });
     const calls=[];
     globalThis.fetch=async(_url,options)=>{calls.push(JSON.parse(options.body).command);return {ok:true,json:async()=>({})};};
     failed.querySelector('button').click();

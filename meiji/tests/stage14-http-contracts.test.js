@@ -58,7 +58,11 @@ test('三种视频方式都发给 MiniMax H3，mode 固定为文生、首尾帧�
     }
     assert.deepEqual(seen.map(item => item.body.mode), ['文生', '首尾帧', '多模态']);
     assert.equal(seen[0].authorization, 'Bearer ollama');
-    assert.equal(seen[0].body.model, 'MiniMax-H3');
+    assert.equal('model' in seen[0].body, false);
+    assert.deepEqual(Object.keys(seen[0].body).sort(), ['duration', 'mode', 'prompt', 'ratio', 'resolution']);
+    assert.deepEqual(Object.keys(seen[1].body).sort(), ['duration', 'first_frame', 'mode', 'prompt', 'ratio', 'resolution']);
+    assert.deepEqual(Object.keys(seen[2].body).sort(), ['duration', 'images', 'mode', 'prompt', 'ratio', 'resolution']);
+    assert.match(seen[2].body.images[0], /^data:image\/png;base64,/);
     assert.equal(seen[0].body.ratio, '16:9');
     assert.equal(seen[0].body.resolution, '768P');
     assert.equal('first_frame' in seen[0].body, false);

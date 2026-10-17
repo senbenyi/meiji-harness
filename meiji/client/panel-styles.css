@@ -361,7 +361,7 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 /* 组详情在原步骤卡片上增加组头和任务分段。 */
 .run-group-head{margin-top:12px;padding:10px 0;border-bottom:1px solid #383a41}.run-group-head strong{white-space:normal;overflow:visible}
 .run-task-head{margin-top:20px;padding-top:12px;border-top:1px solid #383a41}.run-task-head h3{margin:0;min-width:0;overflow-wrap:anywhere}.run-task-head .task-history-status{flex:none}
-.section-titles{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}.section-titles h3{margin:0}.section-titles .status-label{margin:0;flex:none;font-size:12px;font-weight:650;line-height:1.4;color:#dfc196;white-space:nowrap}
+.section-titles{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}.section-titles h3{margin:0}.section-titles .meiji-log-copy{margin:0;padding:2px 8px;font-size:12px;flex:none}.section-titles .status-label{margin:0;flex:none;font-size:12px;font-weight:650;line-height:1.4;color:#dfc196;white-space:nowrap}
 
 .overview-page .character-card{display:flex;flex-direction:column;gap:8px;min-width:0}
 .overview-page .character-card>.library-card{width:100%;box-sizing:border-box}
@@ -410,6 +410,7 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .node-ui-buttons>button{flex:none;margin:0;min-height:34px;padding:6px 10px;font-size:13px;line-height:20px}
 .node-ui>.workflow-generation-row>.node-ui-task-status{margin:0 16px 0 0;flex:0 1 auto;max-width:100%;min-width:0;font-size:13px;line-height:1.4;color:#c8c4bc;text-align:left}
 .node-ui-failure{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.h3-request{display:grid;gap:10px}.h3-request p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.h3-request .h3-key{color:#dfc196}
 
 
 .shot-card .shot-details{white-space:normal}.shot-details-text{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}

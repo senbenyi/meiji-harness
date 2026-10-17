@@ -70,7 +70,7 @@ export function videoPayload({ model, prompt, duration, aspectRatio, mode, input
   if (prompt.length > 7000) throw Object.assign(new Error('提示词最长 7000 个字符'), { status: 400 })
   if (!Number.isInteger(duration) || duration < 4 || duration > 15) throw Object.assign(new Error('时长必须是 4 到 15 的整数秒'), { status: 400 })
   const ratio = videoRatios[aspectRatio]
-  const body = { model: 'MiniMax-H3', mode: kind, prompt, duration, resolution: '768P' }
+  const body = { mode: kind, prompt, duration, resolution: '768P' }
   const image = value => {
     if (typeof value !== 'string' || !value.trim() || value.length > 48 * 1024 * 1024 ||
         !(/^(?:https:\/\/|mm_file:\/\/)/i.test(value) || /^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]+={0,2}$/i.test(value))) {
