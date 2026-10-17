@@ -362,7 +362,7 @@ export function validateCommand(command) {
       "command.business_type",
     );
   if (command.business_type === 'tail' && command.type !== 'query') invalid('business_type', '尾帧已并入视频任务');
-  if (['first-last-frame', 'multimodal'].includes(command.business_type) && !['query','submit'].includes(command.type)) invalid('business_type', '程序编排只支持执行或查询');
+  if (['first-last-frame', 'multimodal'].includes(command.business_type) && !['query','submit','override'].includes(command.type)) invalid('business_type', '程序编排只支持执行或查询');
   if (command.business_type === "shot-characters" && command.type !== "query") invalid("command.business_type", "角色与服装已并入镜头表，请重新生成镜头表");
   if (command.business_type === "character-image" && command.type !== "query")
     invalid("business_type", "独立角色图已移除，请生成人物定妆照");
@@ -402,7 +402,8 @@ export function validateCommand(command) {
     invalid("command.business_type", "只支持角色/服装删除");
   if (
     ["manual-edit", "override"].includes(command.type) &&
-    !NODE_TYPES.includes(command.business_type)
+    !NODE_TYPES.includes(command.business_type) &&
+    !(command.type === "override" && command.business_type === "script-split")
   )
     invalid("command.business_type", "人工操作只作用内容节点");
   if (

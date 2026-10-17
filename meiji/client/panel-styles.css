@@ -414,3 +414,5 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 
 .shot-card .shot-details{white-space:normal}.shot-details-text{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
 .shot-cast{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.node-ui-reason.is-clamped{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.node-ui-reason-toggle{margin-top:4px;padding:2px 8px;font-size:12px}

@@ -80,6 +80,25 @@ test('候选持续变化时允许用完原修订预算，不因同样时长类�
     assert.equal(calls.filter(c => c.step.kind !== 'review').length, 3);
   }));
 
+test('候选改写后审核意见仍是上一轮已指出的问题则停止', () => scenario('seconds', ({ step }, calls) => {
+  if (step.kind === 'review') {
+    const reviews = calls.filter(c => c.step.kind === 'review').length;
+    return { 是否通过: false, 原因: reviews === 1
+      ? '待审核内容遗漏了原文明示姓名并承担独立剧情作用的角色桑恪凌夫，还需补年龄'
+      : '遗漏了原文明示姓名并承担独立剧情作用的角色桑恪凌夫' };
+  }
+  const row = seconds(5);
+  row.storyboard[0].action = `开门${calls.filter(c => c.step.kind !== 'review').length}`;
+  return row;
+}, ({ snapshot, calls, taskId }) => {
+  const task = snapshot.tasks.find(t => t.id === taskId);
+  assert.equal(task.task_status, 'rejected');
+  assert.match(task.end_reason, /修订无进展/);
+  assert.equal(calls.filter(c => c.step.kind === 'review').length, 2);
+  assert.equal(snapshot.steps.find(s => s.result?.修订进展?.重复审核意见).result.修订进展.重复审核意见, true);
+  assert.equal(snapshot.steps.filter(s => s.kind === 'revise').length, 1);
+}));
+
 test('AI对相同候选拒绝只给定向反馈，不按原因同文提前判无解', () => scenario('seconds', ({ step }, calls) => {
   const reviews = calls.filter(c => c.step.kind === 'review').length;
   return step.kind !== 'review' ? seconds(5) : reviews < 3 ? { 是否通过: false, 原因: '需核对开门动作幅度' } : { 是否通过: true, 原因: '' };

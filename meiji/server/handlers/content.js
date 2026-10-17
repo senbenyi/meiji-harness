@@ -87,6 +87,11 @@ function detachExtractedPhotos(characters, changes) {
 export function commitContent(snapshot, task, content, { passed = true } = {}) {
   const project = snapshot.project, business = task.business_type;
   if (task.action === "delete") { applyDelete(snapshot, task); return []; }
+  if (business === "script-split" && task.action === "override") {
+    project.episodes = buildSplit(project.script.body, content).episodes.map(row => emptyEpisode(row));
+    assertOutput(project, business, task.target_id);
+    return [];
+  }
   if (task.action === "override") {
     assertOverride(project, business, task.target_id);
     stampDependencyHash(snapshot, business, task.target_id);

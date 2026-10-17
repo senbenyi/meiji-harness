@@ -1,5 +1,5 @@
 import { BUSINESS_DEFINITIONS } from '../shared/node-definitions.js';
-import { latestNodeTask, taskStatusRow, taskFailureRow } from './node-task-status.js';
+import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph } from './node-task-status.js';
 import { primaryCostumeImage } from "../shared/models/character_model.js";
 import { nodeOf } from "../shared/task_contract.js";
 import { detailsDialog } from "./project-forms.js";
@@ -12,12 +12,15 @@ const groupLabels = {
   failed: "失败", rejected: "未通过", cancelled: "已取消", superseded: "已取消",
 };
 function stoppedNodeMessage(project, tasks) {
-  const stopped = tasks.find((task) => ["failed", "rejected"].includes(task.task_status));
+  const stopped = tasks.find((task) => ["failed", "rejected", "cancelled"].includes(task.task_status));
   if (!stopped) return "";
   let node = null;
   try { node = nodeOf(project, stopped.business_type, stopped.target_id); } catch { node = null; }
-  if (stopped.task_status === "failed") return stopped.end_reason || "";
+  if (stopped.task_status === "failed" || stopped.task_status === "cancelled") return stopped.end_reason || "";
   return node?.node_state.reason || stopped.end_reason || "";
+}
+function groupStopMessage(project, group) {
+  return ["failed", "rejected", "cancelled"].includes(group?.status) ? stoppedNodeMessage(project, group.tasks) : "";
 }
 function canResumeGroup(entry, groups) {
   if (!entry || entry.tasks.some(task => BUSINESS_DEFINITIONS[task.business_type]?.retired && task.task_status !== "completed")) return false;
@@ -290,6 +293,8 @@ export function renderOverview(root, env) {
     splitStatus = p.episodes.length ? "generated" : "empty";
   episodes.querySelector(".section-titles").append(element("span", labels[splitStatus] || splitStatus, "node-data-tag"));
   const splitTaskRow = taskStatusRow(latestSplitTask);
+  const splitRound = revisionNote(latestSplitTask, env.snapshot?.steps, BUSINESS_DEFINITIONS["script-split"]?.retryRounds);
+  if (splitTaskRow && splitRound) splitTaskRow.textContent += ` · ${splitRound}`;
   let add = null, addLabel = "";
   if (splitting) {
     addLabel = p.episodes.length ? "重新生成" : "AI生成";
@@ -337,6 +342,11 @@ export function renderOverview(root, env) {
     add.setAttribute("aria-label", "新增剧集");
     episodeButtons.append(add);
   }
+  if (splitting && !splitBusy && latestSplitTask?.task_status === "rejected") {
+    episodeButtons.append(button("人工放行", () => act({
+      type: "override", business_type: "script-split", target_id: p.id,
+    })));
+  }
   if (splitting) {
     episodeButtons.append(button(
       "任务历史",
@@ -373,8 +383,28 @@ export function renderOverview(root, env) {
     episodeUi.append(opinion);
     const failureRow = taskFailureRow(latestSplitTask);
     if (failureRow) episodeUi.append(failureRow);
-    if (latestSplitTask?.task_status === "rejected" && latestSplitTask.end_reason)
-      episodeUi.append(element("p", `未通过原因：${latestSplitTask.end_reason}`, "error node-ui-reason"));
+    if (latestSplitTask?.task_status === "rejected" && latestSplitTask.end_reason) {
+      episodeUi.append(reasonParagraph(`未通过原因：${latestSplitTask.end_reason}`));
+      // 提取剧集没有项目节点，未通过候选只在任务历史；修复始终修订该候选，不要求已有正式剧集。
+      if (!splitBusy) {
+        const repair = element("div", "", "node-ui-buttons node-ui-repair-row");
+        repair.append(button(repairButtonLabel("script-split"), () => {
+          const typed = (state.opinions?.[opinionKey] || "").trim();
+          if (typed) {
+            state.opinionPending ??= {};
+            state.opinionPending[opinionKey] = true;
+          }
+          return act({
+            type: "submit",
+            business_type: "script-split",
+            target_id: p.id,
+            action: "revise",
+            opinion: [latestSplitTask.end_reason.trim(), typed].filter(Boolean).join("\n"),
+          });
+        }));
+        episodeUi.append(repair);
+      }
+    }
   }
   episodes.append(episodeUi);
   const list = element("div", "", "episode-card-list");
@@ -499,7 +529,7 @@ export function renderOverview(root, env) {
   view.append(groupCard(
     "生成定妆照",
     costumeGroup?.status || "empty",
-    ["failed", "rejected"].includes(costumeGroup?.status) ? stoppedNodeMessage(p, costumeGroup.tasks) : "",
+    groupStopMessage(p, costumeGroup),
     costumeButtons,
   ));
   root.append(view);
@@ -617,7 +647,7 @@ export function renderEpisode(root, env, entries) {
       body.append(groupCard(
         "逐镜头成片",
         filmGroup?.status || "empty",
-        ["failed", "rejected"].includes(filmGroup?.status) ? stoppedNodeMessage(p, filmGroup.tasks) : "",
+        groupStopMessage(p, filmGroup),
         filmButtons,
       ));
     }
@@ -648,7 +678,7 @@ export function renderEpisode(root, env, entries) {
         ...(state.tab === "film" ? [
           taskGroupUi(
             shotGroup?.status || "empty",
-            ["failed", "rejected"].includes(shotGroup?.status) ? stoppedNodeMessage(p, shotGroup.tasks) : "",
+            groupStopMessage(p, shotGroup),
             groupButtons(button, act, {
               ready: shotReady,
               busy: shotBusy,

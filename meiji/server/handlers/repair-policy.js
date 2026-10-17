@@ -10,12 +10,22 @@ export function upstreamFailure(project, task, review) {
   return `需先修正上游，停止本节点自动修订：${location}\n` + issues.map(issue =>
     `${issue.来源} · ${issue.位置}\n依据：${issue.依据}\n建议：${issue.建议}`).join('\n') + `\n审核原因：${review.原因}`;
 }
+const normalizeReason = value => String(value || '').replace(/[\s“”"「」『』，。、；：！？,.!?;:（）()]/gu, '');
+
 export function revisionProgress(snapshot, task, step, review) {
   const generations = snapshot.steps.filter(s => s.task_id === task.id && ['generate', 'revise'].includes(s.kind)
     && s.step_status === 'done' && s.seq < step.seq).sort((a, b) => b.seq - a.seq);
-  if (generations.length < 2 || canonical(generations[0].result) !== canonical(generations[1].result)) return null;
+  if (generations.length < 2) return null;
   const prior = snapshot.steps.filter(s => s.task_id === task.id && s.kind === 'review' && s.step_status === 'rejected'
     && s.seq < generations[0].seq).sort((a, b) => b.seq - a.seq)[0];
+  const same = canonical(generations[0].result) === canonical(generations[1].result);
+  if (!same) {
+    const previous = normalizeReason(prior?.result?.原因 || prior?.error_reason);
+    const current = normalizeReason(review?.原因);
+    if (current.length < 20 || !previous || (previous !== current && !previous.includes(current))) return null;
+    return { 候选相同: false, 重复程序错误: false, 重复审核意见: true,
+      提示: `修订无进展：审核意见仍是上一轮已经指出的问题，候选改写没有消除该意见。\n${review.原因}` };
+  }
   const deterministic = step.name.includes('程序审核') && prior?.name.includes('程序审核')
     && prior.result?.原因 === review.原因;
   return { 候选相同: true, 重复程序错误: deterministic,

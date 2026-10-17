@@ -453,3 +453,43 @@ test('全部覆盖问题进入同一轮修订，通过后逐字保存原文且�
     for (const range of ['P001—P001', 'P003—P003', 'P006—P006']) assert.ok(review.error_reason.includes(range));
   } finally { await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
 });
+
+test("提取剧集人工放行收下容量未过的候选，覆盖错误不改剧集", async () => {
+  const home = await mkdtemp(join(tmpdir(), "meiji-split-override-"));
+  let runtime;
+  try {
+    const fat = covered([{ 序号: 1, 起始段落: "P001", 结束段落: "P006", 预估时长秒: 400 }]);
+    const gap = covered([{ 序号: 1, 起始段落: "P001", 结束段落: "P002", 预估时长秒: 60 }]);
+    let mode = "fat";
+    runtime = await createAppRuntime({ home, gateway: { chat: async ({ step }) => {
+      if (step.kind === "review") return { 是否通过: true, 原因: "" };
+      return mode === "fat" ? fat : gap;
+    } } });
+    const project = scriptProject();
+    project.reference_episode_duration_seconds = 150;
+    const model = await runtime.repository.create(project);
+    const submit = (action) => runtime.tasks.command({ type: "submit", project_id: project.id, target_id: project.id, business_type: "script-split", action, request_id: randomUUID() });
+    const first = await submit("generate");
+    await runtime.tasks.idle(project.id);
+    assert.equal(model.read().tasks.find((task) => task.id === first.task_id).task_status, "rejected");
+    assert.equal(model.read().project.episodes.length, 0);
+    const accepted = await runtime.tasks.command({ type: "override", project_id: project.id, target_id: project.id, business_type: "script-split", request_id: randomUUID() });
+    await runtime.tasks.idle(project.id);
+    const after = model.read();
+    assert.equal(after.tasks.find((task) => task.id === accepted.task_id).task_status, "completed", after.tasks.find((task) => task.id === accepted.task_id).end_reason);
+    assert.equal(after.project.episodes.length, 1);
+    assert.equal(after.project.episodes[0].plot, script);
+    assert.equal(after.project.episodes[0].duration_seconds, 400);
+    mode = "gap";
+    const again = await submit("regenerate");
+    await runtime.tasks.idle(project.id);
+    assert.equal(model.read().tasks.find((task) => task.id === again.task_id).task_status, "rejected");
+    const kept = model.read().project.episodes.map((episode) => episode.plot).join("");
+    const blocked = await runtime.tasks.command({ type: "override", project_id: project.id, target_id: project.id, business_type: "script-split", request_id: randomUUID() });
+    await runtime.tasks.idle(project.id);
+    const end = model.read();
+    assert.equal(end.tasks.find((task) => task.id === blocked.task_id).task_status, "rejected");
+    assert.match(end.tasks.find((task) => task.id === blocked.task_id).end_reason, /遗漏/);
+    assert.equal(end.project.episodes.map((episode) => episode.plot).join(""), kept);
+  } finally { await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
+});

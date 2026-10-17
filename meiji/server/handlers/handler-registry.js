@@ -3,7 +3,7 @@ import { locateTarget } from "../../shared/task_contract.js";
 import { validateNodeResult } from "../http/ai-routes.js";
 import { prepareContent, commitContent } from "./content.js";
 import { taskNodeInput } from './node-inputs.js';
-import { buildSplit } from "./script-split.js";
+import { buildSplit, rejectedSplitCandidate } from "./script-split.js";
 
 export function createHandlerRegistry({ text, media, videoPrompt }) {
   return async (context) => {
@@ -30,6 +30,11 @@ export function createHandlerRegistry({ text, media, videoPrompt }) {
         return { result: { affected_video_ids: shots.map(shot => shot.id) } };
       }
       if (step.kind === "apply") return { content: { delete_id: object.id }, result: { deleted_id: object.id } };
+    }
+    if (task.action === "override" && business === "script-split") {
+      const candidate = rejectedSplitCandidate(snapshot, task);
+      buildSplit(project.script.body, candidate);
+      return { content: candidate, result: { override: true } };
     }
     if (task.action === "override") {
       assertOverride(project, business, task.target_id);

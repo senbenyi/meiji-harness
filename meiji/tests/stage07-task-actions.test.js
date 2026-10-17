@@ -63,7 +63,7 @@ test("任务生成按钮按内容和审核状态互斥，修复直接提交未�
     assert.equal(commands.at(-1).action, "regenerate");
     assert.equal(commands.at(-1).opinion, undefined);
 
-    await click("修复");
+    await click("修复（再给 2 轮）");
     assert.equal(root.querySelector("dialog"), null);
     assert.equal(commands.at(-1).action, "revise");
     assert.equal(commands.at(-1).opinion, "需要修订");
@@ -106,7 +106,7 @@ test('三个生成入口均携带公共输入框的本次执行意见', async ()
   try {
     const snapshot = snapshotFixture(), episode = snapshot.project.episodes[0], root = document.querySelector('main');
     const context = { session_id: 'session-test', view: { page: 'episode', episode_id: episode.id, tab: 'script' }, refresh: async () => {}, paint: () => {}, onError: error => { throw error; } };
-    for (const [label, action] of [['AI生成', 'generate'], ['重新生成', 'regenerate'], ['修复', 'revise']]) {
+    for (const [label, action] of [['AI生成', 'generate'], ['重新生成', 'regenerate'], ['修复（再给 2 轮）', 'revise']]) {
       episode.summary.body = action === 'generate' ? '' : '上次摘要';
       episode.summary.node_state.status = action === 'generate' ? 'empty' : 'rejected';
       episode.summary.node_state.reason = action === 'generate' ? '' : '未通过原因';

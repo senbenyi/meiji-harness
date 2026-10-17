@@ -218,7 +218,7 @@ test("剧本卡片即剧本节点：无状态标签与版本、不展示审核�
     const reasonRow = ui.querySelector(".node-ui-reason"), repairRow = ui.querySelector(".node-ui-repair-row");
     assert.match(reasonRow.textContent, /未通过原因：1\. 第一场末补一句/);
     assert.equal(children.indexOf(repairRow), children.indexOf(reasonRow) + 1, "修改按钮在原因下方");
-    assert.deepEqual([...repairRow.querySelectorAll("button")].map(b => b.textContent), ["修改"]);
+    assert.deepEqual([...repairRow.querySelectorAll("button")].map(b => b.textContent), ["修改（再给 1 轮）"]);
     repairRow.querySelector("button").click();
     await new Promise(r => setTimeout(r, 0));
     const command = sent.at(-1).command;
@@ -248,7 +248,7 @@ test("修改进行中：剧本卡片状态行标明修改流程与当前步骤�
   });
   try {
     const card = root.querySelector("[data-business=script-review]");
-    assert.equal(card.querySelector(".node-ui-task-status").textContent, "最新任务：生成中 · 按审核意见修改剧本 · 当前：第 1 轮修改剧本");
+    assert.equal(card.querySelector(".node-ui-task-status").textContent, "最新任务：生成中 · 按审核意见修改剧本 · 当前：第 1 轮修改剧本 · 自动修订 1/1");
     const labels = [...card.querySelectorAll(".node-ui button")].map(b => b.textContent);
     assert.ok(labels.includes("取消"));
     for (const hidden of ["修改", "重新审核", "人工放行"]) assert.ok(!labels.includes(hidden), hidden);

@@ -29,10 +29,9 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     if (previous) requireNode('seconds', previous.id, `前镜 ${previous.number} 每秒分镜`);
   }
   if (task.action === "override") {
-    if (
-      !TEXT_BUSINESSES.includes(task.business_type) ||
-      original !== "rejected"
-    )
+    if (task.business_type === "script-split") return { passed: true };
+    const programNode = ["first-last-frame", "multimodal", "assembly"].includes(task.business_type);
+    if ((!TEXT_BUSINESSES.includes(task.business_type) && !programNode) || original !== "rejected")
       invalid("precheck", "只允许放行结构有效的未通过文本");
     assertOverride(p, task.business_type, task.target_id);
     return { passed: true };

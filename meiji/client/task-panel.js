@@ -1,5 +1,5 @@
 import { sceneCatalog } from '../shared/scene-inputs.js';
-import { latestNodeTask, taskStatusRow, taskFailureRow } from './node-task-status.js';
+import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph } from './node-task-status.js';
 import { NODE_DEFINITIONS } from '../shared/node-definitions.js';
 import { shotSceneSetup } from '../shared/shot-text-inputs.js';
 import { editor, fieldLabels, readable } from "./content-forms.js";
@@ -200,6 +200,8 @@ export function renderTaskPanel(root, snapshot, context) {
       const name = latest.action === "revise" ? "按审核意见修改剧本" : "审核剧本";
       taskRow.textContent += ` · ${name}${current ? ` · 当前：${current.name}` : ""}`;
     }
+    const roundNote = revisionNote(latest, snapshot.steps, NODE_DEFINITIONS[business]?.retryRounds);
+    if (taskRow && roundNote) taskRow.textContent += ` · ${roundNote}`;
     const buttonBox = element("div", "", "node-ui-buttons");
     for (const item of buttons) buttonBox.append(item);
     if (!readOnly && NODE_DEFINITIONS[business] && !NODE_DEFINITIONS[business].retired &&
@@ -220,7 +222,7 @@ export function renderTaskPanel(root, snapshot, context) {
     const failureRow = taskFailureRow(latest);
     if (failureRow) ui.append(failureRow);
     if (node.node_state.status === "rejected" && node.node_state.reason)
-      ui.append(element("p", `未通过原因：${node.node_state.reason}`, "error node-ui-reason"));
+      ui.append(reasonParagraph(`未通过原因：${node.node_state.reason}`));
     if (repair) {
       const row = element("div", "", "node-ui-buttons node-ui-repair-row");
       row.append(repair);
@@ -288,11 +290,15 @@ export function renderTaskPanel(root, snapshot, context) {
           state.opinionPending ??= {};
           state.opinionPending[`${business}:${id}`] = true;
         }
+        if (business === "video" && text) return act({
+          type: "submit", business_type: "video", target_id: id,
+          action: hasOutput ? "regenerate" : "generate", opinion: text,
+        });
         return act(business === "video" ? {
           type: "submit-group", group_type: "episode-film",
           action: hasOutput ? "regenerate" : "generate",
           episode_id: p.episodes.find(e => e.shot_list.shots.some(s => s.id === id)).id,
-          shot_id: id, ...(text ? { opinion: text } : {}),
+          shot_id: id,
         } : {
           type: "submit",
           business_type: business,
@@ -307,14 +313,15 @@ export function renderTaskPanel(root, snapshot, context) {
     const rejectedText = NODE_DEFINITIONS[business]?.handler === "text" &&
       (node.node_state.status === "rejected" || latest?.task_status === "rejected");
     const reviewReason = node.node_state.reason || (latest?.task_status === "rejected" ? latest.end_reason : "") || "";
+    const rejectedVideo = business === "video" && node.node_state.status === "rejected";
     const quiet = ["project-summary", "episode-summary"].includes(business);
     // 剧本节点：审核、重新审核、人工放行；未通过时原因下方为「修改」（按审核意见修改剧本后再审核），不提供原结果修订和人工编辑。
     const reviewOnly = business === "script-review";
     const buttons = [];
-    const repair = rejectedText && !program && !active && !readOnly && reviewReason.trim()
-      ? button(reviewOnly ? "修改" : "修复", () => generate(reviewReason, hasOutput)) : null;
-    if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : reviewOnly ? (hasOutput ? "重新审核" : "AI审核") : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate()));
-    if (!program && !reviewOnly && !active && !readOnly && !rejectedText && hasOutput && (NODE_DEFINITIONS[business]?.handler === "text" || node.node_state.status === "rejected"))
+    const repair = (rejectedText || rejectedVideo) && !program && !active && !readOnly && reviewReason.trim()
+      ? button(repairButtonLabel(business), () => generate(reviewReason, hasOutput)) : null;
+    if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : reviewOnly ? (hasOutput ? "重新审核" : "AI审核") : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate(program && node.node_state.status === "rejected" ? reviewReason : "")));
+    if (!program && !reviewOnly && !active && !readOnly && !rejectedText && !rejectedVideo && hasOutput && (NODE_DEFINITIONS[business]?.handler === "text" || node.node_state.status === "rejected"))
       buttons.push(
         button("原结果修订", () =>
           editor(
@@ -403,7 +410,7 @@ export function renderTaskPanel(root, snapshot, context) {
             ),
       ),
     );
-    if (!program && !active && !readOnly && !quiet && node.node_state.status === "rejected")
+    if (!active && !readOnly && !quiet && node.node_state.status === "rejected" && (!program || hasOutput))
       buttons.push(
         button("人工放行", () =>
           act({ type: "override", business_type: business, target_id: id }),

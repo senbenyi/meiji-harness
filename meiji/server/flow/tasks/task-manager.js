@@ -561,7 +561,7 @@ export class TaskService {
             const upstream = upstreamFailure(s.project, t, review);
             const progress = revisionProgress(s, t, step, review);
             if (progress) st.result = { ...review, 修订进展: progress };
-            if (upstream || progress?.重复程序错误) {
+            if (upstream || progress?.重复程序错误 || (progress?.重复审核意见 && t.business_type !== "script-review")) {
               // 上游问题和无进展不提交本轮候选，不污染原正式内容及依赖。
               const reason = upstream || progress.提示;
               st.error_reason = reason;
@@ -585,6 +585,7 @@ export class TaskService {
         }
         if (!s.steps.some(x => x.task_id === id && x.step_status === "ready")) {
           const content = ["generate", "revise", "review", "apply"].includes(step.kind) ? draft
+            : step.kind === "override" && t.business_type === "script-split" ? output.content
             : step.kind === "override" ? null : output.content;
           const derived = this.#commitOutput(s, t, content, { passed: true });
           if (task.action !== "delete") expireDownstream(s, t.business_type, t.target_id);

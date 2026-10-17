@@ -101,3 +101,14 @@ export function buildSplit(text, raw, referenceDuration) {
     invalid("拆分剧集", "拼接结果与归入剧集的段落不一致");
   return { episodes };
 }
+
+export function rejectedSplitCandidate(snapshot, task) {
+  const previous = (snapshot.tasks || [])
+    .filter((row) => row.id !== task.id && row.business_type === "script-split" && row.target_id === task.target_id && row.task_status === "rejected")
+    .sort((a, b) => b.queue_order - a.queue_order)[0];
+  const result = (snapshot.steps || [])
+    .filter((row) => row.task_id === previous?.id && ["generate", "revise"].includes(row.kind) && row.step_status === "done")
+    .sort((a, b) => b.seq - a.seq)[0]?.result;
+  if (!result || !Array.isArray(result.剧集)) invalid("人工放行", "没有可收下的切分候选");
+  return result;
+}

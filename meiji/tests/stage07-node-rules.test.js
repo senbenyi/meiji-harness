@@ -34,6 +34,12 @@ test('规则接口覆盖所有AI路由，鉴权/绑定先行且无写入或AI调
     assert.match(nodeRules('costume-image').review, /没有 AI 审核/);
     assert.match(nodeRules('video').review, /程序审核/);
     assert.match(nodeRules('outline').generate, /明显不足/);
+    const characters = nodeRules('project-characters');
+    assert.match(characters.generate, /只被借用其方法、发明、言论的人物不纳入/);
+    assert.match(characters.revise, /修改意见与纳入规则冲突时以纳入规则为准/);
+    assert.match(characters.review, /不得因未列入这类人判不通过/);
+    assert.match(characters.review, /仅被提及的姓名不算遗漏/);
+    assert.match(characters.review, /修改意见只用来核对上一轮问题是否已经改掉/);
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
 

@@ -380,7 +380,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
       labelsOf(cardOf("项目摘要")).filter((label) => ["重新生成", "原结果修订", "修复"].includes(label)),
       ["重新生成"],
     );
-    assert.equal(cardOf("项目摘要").querySelector('.node-ui-repair-row button').textContent, '修复');
+    assert.equal(cardOf("项目摘要").querySelector('.node-ui-repair-row button').textContent, '修复（再给 2 轮）');
     assert.equal(cardOf("剧本").querySelector(".section-titles .status-label"), null);
     assert.equal(cardOf("剧本").querySelector(".workflow-generation-row .node-ui-status").textContent, "未通过");
     assert.deepEqual(
@@ -390,7 +390,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     assert.equal(titled("提取人物").querySelector(".node-data-tag").textContent, "未通过");
     assert.ok(titled("提取人物").textContent.includes("未通过"));
     assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "人工编辑", "人工放行", "任务历史", "查看规则"]);
-    assert.equal(titled("提取人物").querySelector('.node-ui-repair-row button').textContent, '修复');
+    assert.equal(titled("提取人物").querySelector('.node-ui-repair-row button').textContent, '修复（再给 2 轮）');
   } finally {
     globalThis.document = previous;
     dom.window.close();
