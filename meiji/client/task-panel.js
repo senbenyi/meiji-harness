@@ -1,5 +1,6 @@
 import { sceneCatalog } from '../shared/scene-inputs.js';
-import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph } from './node-task-status.js';
+import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph, reviewTypeLabel, reasonHeading } from './node-task-status.js';
+import { scriptText } from '../shared/script-text.js';
 import { NODE_DEFINITIONS } from '../shared/node-definitions.js';
 import { shotSceneSetup } from '../shared/shot-text-inputs.js';
 import { editor, fieldLabels, readable } from "./content-forms.js";
@@ -220,10 +221,11 @@ export function renderTaskPanel(root, snapshot, context) {
       input.oninput = () => { state.opinions[key] = input.value; };
       ui.append(input);
     }
-    const failureRow = taskFailureRow(latest);
+    const failureType = reviewTypeLabel(snapshot.steps, latest);
+    const failureRow = taskFailureRow(latest, failureType);
     if (failureRow) ui.append(failureRow);
     if (node.node_state.status === "rejected" && node.node_state.reason)
-      ui.append(reasonParagraph(`未通过原因：${node.node_state.reason}`));
+      ui.append(reasonParagraph(reasonHeading("未通过原因", node.node_state.reason, latest?.task_status === "rejected" ? failureType : "")));
     const repairButtons = [repair, override].filter(Boolean);
     if (repairButtons.length) {
       const row = element("div", "", "node-ui-buttons node-ui-repair-row");
@@ -520,9 +522,9 @@ export function renderTaskPanel(root, snapshot, context) {
     const card = element("section", "", "overview-card");
     card.append(
       element("p", `版本 ${p.script.version} · ${p.script.updated_at}`, "meta"),
-      element("p", p.script.body, "prompt full"),
+      element("p", scriptText(p.script.body), "prompt full"),
     );
-    appendJsonCopy(card, p.script.body);
+    appendJsonCopy(card, scriptText(p.script.body));
     root.append(card);
   } else if (state.page === "settings") {
     const page = renderSettings(root, {

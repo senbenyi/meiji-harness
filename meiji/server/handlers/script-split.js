@@ -1,8 +1,10 @@
 import { splitBudget } from "../prompts/duration-policy.js";
+import { scriptText } from "../../shared/script-text.js";
 import { invalid } from "../../shared/task_contract.js";
 
 // 编号是完整句/完整发言的候选切点，不是强制分集；字符与空白全部保留。
 export function scriptParagraphs(text) {
+  text = scriptText(text);
   const paragraphs = [], quotes = [];
   const pairs = { '“': '”', '「': '」', '『': '』' };
   let pending = '';

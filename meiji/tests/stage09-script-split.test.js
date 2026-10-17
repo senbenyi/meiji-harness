@@ -98,6 +98,15 @@ test("拆分只保留剧情：模型排除人物说明和间隔后才不写入�
   assert.match(prompt.system, /排除段落/);
 });
 
+test("JSON 包装的剧本按 content 正文编号，不再把整回收成一段", () => {
+  const content = "却说光阴如电，又届初冬。实验日期，愈觉逼近。";
+  const body = JSON.stringify({ title: "月界旅行", content });
+  const parts = scriptParagraphs(body);
+  assert.deepEqual(parts.map((part) => part.trim()), ["却说光阴如电，又届初冬。", "实验日期，愈觉逼近。"]);
+  assert.match(numberedScript(body), /^P001 却说光阴如电/);
+  assert.doesNotMatch(numberedScript(body), /"title"|P004/);
+});
+
 test("拆分校验：按段落原文写入各集，遗漏、重叠、倒序、未到结尾、序号与时长错误均拒绝", () => {
   const result = buildSplit(script, { 剧集: rows });
   assert.deepEqual(result.episodes.map((e) => e.duration_seconds), [150, 150]);

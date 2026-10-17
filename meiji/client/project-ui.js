@@ -1,5 +1,5 @@
 import { BUSINESS_DEFINITIONS } from '../shared/node-definitions.js';
-import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph } from './node-task-status.js';
+import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph, reviewTypeLabel, reasonHeading } from './node-task-status.js';
 import { primaryCostumeImage } from "../shared/models/character_model.js";
 import { nodeOf } from "../shared/task_contract.js";
 import { detailsDialog } from "./project-forms.js";
@@ -420,10 +420,11 @@ export function renderOverview(root, env) {
     opinion.value = state.opinions[opinionKey] || "";
     opinion.oninput = () => { state.opinions[opinionKey] = opinion.value; };
     episodeUi.append(opinion);
-    const failureRow = taskFailureRow(latestSplitTask);
+    const splitType = reviewTypeLabel(env.snapshot?.steps, latestSplitTask);
+    const failureRow = taskFailureRow(latestSplitTask, splitType);
     if (failureRow) episodeUi.append(failureRow);
     if (latestSplitTask?.task_status === "rejected" && latestSplitTask.end_reason) {
-      episodeUi.append(reasonParagraph(`未通过原因：${latestSplitTask.end_reason}`));
+      episodeUi.append(reasonParagraph(reasonHeading("未通过原因", latestSplitTask.end_reason, splitType)));
       // 提取剧集没有项目节点，未通过候选只在任务历史；修复始终修订该候选，不要求已有正式剧集。
       if (!splitBusy) {
         const repair = element("div", "", "node-ui-buttons node-ui-repair-row");

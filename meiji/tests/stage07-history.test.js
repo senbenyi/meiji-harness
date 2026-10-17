@@ -65,11 +65,11 @@ test('收起仍展示起止时间、原因和入口，复制完整结果及原�
   assert.equal(card.tagName,'LI');
   assert.equal(card.classList.contains('is-expanded'),false);
   assert.match(card.textContent,/开始时间 → 结束时间/);
-  assert.match(card.querySelector('.run-step-error').textContent,/未通过原因：第一行原因/);
+  assert.match(card.querySelector('.run-step-error').textContent,/未通过原因（模型问题）：第一行原因/);
   assert.equal(card.querySelector('.run-step-result pre').textContent,JSON.stringify(result,null,2));
   card.querySelector('[aria-label="复制步骤结果"]').click();
   card.querySelector('[aria-label="复制原因"]').click();
-  assert.deepEqual(copies,[JSON.stringify(result,null,2),result.原因]);
+  assert.deepEqual(copies,[JSON.stringify(result,null,2),`未通过原因（模型问题）：${result.原因}`]);
   card.querySelector('.run-step-toggle').click();
   assert.equal(card.querySelector('.run-step-toggle').getAttribute('aria-expanded'),'true');
   assert.equal(card.querySelector('.run-step-result pre').textContent,JSON.stringify(result,null,2));

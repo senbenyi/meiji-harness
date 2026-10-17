@@ -59,13 +59,14 @@ test('拆分未通过时原因下方修复直接修订候选，不弹框', async
     s.project.episodes = [];
     const reason = '第1集超过容量上限';
     s.tasks = [{ id: 'split-rejected', business_type: 'script-split', target_id: s.project.id, task_status: 'rejected', end_reason: reason, queue_order: 1 }];
+    s.steps = [{ id: 'review', task_id: 'split-rejected', seq: 2, kind: 'review', step_status: 'rejected', result: { 是否通过: false, 类型: '模型问题', 原因: reason } }];
     const view = { page: 'overview' };
     renderTaskPanel(root, s, { session_id: 'session-test', view, refresh: async () => {}, paint: () => {}, onError: (message) => { throw new Error(message); } });
     const card = [...root.querySelectorAll('section')].find((item) => item.querySelector('h3')?.textContent === '剧集');
     const ui = card.querySelector('.node-ui');
     assert.deepEqual([...ui.querySelector('.workflow-generation-row').querySelectorAll('button')].map((button) => button.textContent), ['AI生成', '人工放行', '任务历史', '查看规则']);
     const notice = ui.querySelector('.node-ui-opinion').nextElementSibling;
-    assert.equal(notice.textContent, `未通过原因：${reason}`);
+    assert.equal(notice.textContent, `未通过原因（模型问题）：${reason}`);
     const repair = notice.nextElementSibling;
     assert.equal(repair.className, 'node-ui-buttons node-ui-repair-row');
     assert.equal(repair.querySelector('button').textContent, '修复（再给 2 轮）');

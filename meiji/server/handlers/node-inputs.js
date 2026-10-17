@@ -3,6 +3,7 @@ import { shotTextInputs, characterTextCatalog } from '../../shared/shot-text-inp
 import { nodeOf, locateTarget } from '../../shared/task_contract.js';
 import { shotCharacterContext } from '../../shared/node-dependencies.js';
 import { aiProjection } from './content.js';
+import { scriptText } from '../../shared/script-text.js';
 import { scriptParagraphs, paragraphNumber } from './script-split.js';
 import { nodeAction } from '../http/ai-routes.js';
 import { reviewType } from '../../shared/task-plan.js';
@@ -80,13 +81,13 @@ function previousSplit(project) {
 
 // 各节点独立提取执行时资料；不向节点接口传入 project/snapshot。
 const inputs = {
-  'script-review': ({ project }) => ({ script: project.script.body }),
-  'project-summary': ({ project }) => ({ script: project.script.body }),
-  'project-characters': ({ project }) => ({ script: project.script.body, characters: characterTextCatalog(project) }),
-  'script-split': ({ project }) => ({ script: project.script.body, duration: project.reference_episode_duration_seconds }),
+  'script-review': ({ project }) => ({ script: scriptText(project.script.body) }),
+  'project-summary': ({ project }) => ({ script: scriptText(project.script.body) }),
+  'project-characters': ({ project }) => ({ script: scriptText(project.script.body), characters: characterTextCatalog(project) }),
+  'script-split': ({ project }) => ({ script: scriptText(project.script.body), duration: project.reference_episode_duration_seconds }),
   'episode-summary': ({ episode }) => ({ plot: episode.plot }),
   outline: ({ episode }) => ({ plot: episode.plot, duration: episode.duration_seconds, requirements: episode.episode_requirements || '' }),
-  'episode-scenes': ({project,episode}) => ({segments:episode.story_outline.segments,scenes:sceneCatalog(project),script:project.script.body || project.episodes.map(e=>e.plot).join('\n\n')}),
+  'episode-scenes': ({project,episode}) => ({segments:episode.story_outline.segments,scenes:sceneCatalog(project),script:scriptText(project.script.body) || project.episodes.map(e=>e.plot).join('\n\n')}),
   shots: ({ project, episode }) => ({ segments: episode.story_outline.segments, duration: episode.duration_seconds,
     characters: shotCharacterContext(project), scenes: sceneCatalog(project, episode) }),
   seconds: ({ project, episode, object }) => shotTextInputs(project, episode, object, 'seconds'),

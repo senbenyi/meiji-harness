@@ -9,9 +9,16 @@ export function taskStatusRow(task) {
   if(!task)return null;
   return element('p',`最新任务：${labels[task.task_status]||task.task_status}`,'node-ui-task-status');
 }
-export function taskFailureRow(task) {
+export function reviewTypeLabel(steps, task) {
+  return (steps || []).filter(step => step.task_id === task?.id && step.kind === 'review' && step.result?.类型)
+    .sort((a, b) => b.seq - a.seq)[0]?.result.类型 || '';
+}
+export function reasonHeading(label, reason, type) {
+  return type ? `${label}（${type}）：${reason}` : `${label}：${reason}`;
+}
+export function taskFailureRow(task, type = '') {
   return task?.task_status === 'failed' && task.end_reason
-    ? element('p', `失败原因：${task.end_reason}`, 'error node-ui-reason node-ui-failure')
+    ? element('p', reasonHeading('失败原因', task.end_reason, type), 'error node-ui-reason node-ui-failure')
     : null;
 }
 export function repairButtonLabel(business) {

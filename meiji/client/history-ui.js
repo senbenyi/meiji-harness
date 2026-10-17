@@ -1,6 +1,7 @@
 import { historyGroups, taskName, stepName } from "../shared/task-labels.js";
 import { NODE_TYPES } from "../shared/task_contract.js";
 import { element } from "./panel-dom.js";
+import { reviewTypeLabel, reasonHeading } from "./node-task-status.js";
 import { historyRecords, groupRecords, taskGroupRecord } from "./task-records.js";
 const nodeTypeNames = {
   "script-review": "剧本",
@@ -241,9 +242,11 @@ export function renderHistory(root, env, snapshot) {
       ),
     );
     if (selected.end_reason) {
+      const rejectedTask = selected.task_status === "rejected";
+      const reasonText = reasonHeading(selected.task_status === "failed" ? "失败原因" : rejectedTask ? "未通过原因" : "原因", selected.end_reason, rejectedTask ? reviewTypeLabel(detailSteps, selected) : "");
       const reason = element("div", "", "run-step-error");
-      reason.append(element("p", selected.end_reason, "error"),
-        copyButton("复制原因", () => selected.end_reason, "复制原因"));
+      reason.append(element("p", reasonText, "error"),
+        copyButton("复制原因", () => reasonText, "复制原因"));
       view.append(reason);
     }
     const list = element("ol", "", "run-step-list");
@@ -286,9 +289,10 @@ export function renderHistory(root, env, snapshot) {
       const detail = element("div", "", "run-step-detail");
       const reason = step.error_reason || (rejected ? step.result?.原因 : '');
       if (reason) {
+        const reasonText = reasonHeading(rejected ? '未通过原因' : failed ? '失败原因' : '原因', reason, step.result?.类型 || '');
         const error = element("div", "", "run-step-error");
-        error.append(element("p", `${rejected ? '未通过原因' : failed ? '失败原因' : '原因'}：${reason}`, "error"),
-          copyButton("复制原因", () => reason, "复制原因"));
+        error.append(element("p", reasonText, "error"),
+          copyButton("复制原因", () => reasonText, "复制原因"));
         detail.append(error);
       }
       detail.append(element("p", `${step.started_at || "未开始"} → ${step.ended_at || "未结束"}`, "meta"));
