@@ -23,10 +23,8 @@ export function nodeRules(business) {
   const program = definition.programReview ? '本节点另有程序审核，按节点结构、时长或引用约束判定。' : '';
   return {
     business, label: definition.label,
-    generate: action('generate') || (business === 'video'
-      ? '使用已审核的分镜提示词三个段落原文生成本镜视频。文生直接提交；首尾帧以前镜尾帧为首帧；多模态使用本镜角色与服装参考图。按本镜时长与项目画幅提交，不再调用文本模型改写提示词。'
-      : '本节点没有生成规则。'),
-    revise: action('regenerate') || (business === 'video' ? '按本次修改意见修订视频请求，保留已审核三段原文及对应类型的参考素材。' : ''),
+    generate: action('generate') || route.rules?.generate || '本节点没有生成规则。',
+    revise: action('regenerate') || route.rules?.revise || '',
     review: [definition.aiReview ? action('review') : '本节点没有 AI 审核。', program].filter(Boolean).join('\n\n'),
   };
 }

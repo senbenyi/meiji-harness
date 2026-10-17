@@ -54,43 +54,49 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 旧格式项目/旧会话不迁移、不适配。旧项目目录名称可以出现在片库拒绝提示中，不读取旧正文；只允许用户显式删除。历史任务保留原 ID 和执行时资料，不能按当前项目资料重建历史请求。
 
+项目Model每次事务提交后，以临时文件原子替换 `projects/<项目ID>/project.json`，内容为完整project对象（不含任务/步骤/运行时或模型连接配置）。SQLite仍为唯一数据来源；启动从数据库补齐或修复镜像，删除项目一并删除。数据库回滚不发布JSON；数据库已提交而镜像写入失败时，更新返回storage_warning，内存仍保持已提交内容，幂等重试和重启可以修复。JSON不是反向导入入口。
+
+v13迁移保留旧正文和历史，将缺交接的生成态每秒节点及相关下游标为过期并同步排队快照；按镜头顺序重生成。
+
+task/group/step 创建时保存 name，后续资料改名不改历史；已有记录缺名称时只读补显；持久化任务必须有父组，运行时不创建虚拟组。角色新增明确服装后，原未绑定图片及其终态历史保留，只读展示，不加入新生成组。
+
 ## 状态、前置和任务
 
-- 剧本节点（`script-review`）：剧本本身是节点（`script.node_state`），审核与修改都是它的任务。审核（generate/regenerate）只有 precheck→AI 审核，未通过不自动修改，原因为修改意见；修改（revise）precheck→AI 改写剧本→AI 审核，未通过再修改一次（retryRounds 1，两轮），写入新剧本时版本递增并记修改历史。剧本模式创建项目后自动审核。提取剧集与提取人物在自身前置通过后要求剧本节点已生成且未过期。不支持 manual-edit。见 [项目-剧本](../meiji/dev_docs/dots/项目-剧本审核.md)。
-
-- 4 种节点数据状态为 empty、generated、rejected、expired；任务开始、失败或取消不写节点状态、不清除审核原因。任务状态独立读取当前关联任务或数据库最近记录；从未执行隐藏该行。剧本没有节点状态。
-- 入队不改节点状态，只保存原状态/原因；排队取消或作废按快照写回。上游变化更新节点本身，并同步更新排队快照中的 generated→expired。正文和媒体地址保留。
-- 仅 generated、结构有效且保存 hash 与当前依赖相符的节点可作为前置；空 hash 不视为有效。执行时重读当前 Model；不足记录 failed/precheck，不调用 AI，不自动补上游。
-- 故事大纲（outline）完整保留本集剧情；原剧情明显不足以自然撑满参考时长时，允许 AI 根据已有剧情补充合理情节，内容足够时不强行扩写。两种模式均要求本集 plot 非空；先判断内容量、规划原剧情与必要补充并锁定逐段预算，再写完整正文。生成/修订/审核统一保留原事件顺序、台词、核心事实及结局，不靠空等或重复凑时长；合规补充不因无逐句原文依据被拒绝。任务名称统一为“故事大纲”。
-- 剧本是制作工作流的输入资料；工作流包含提取剧集，不包含剧本生成或修改。
-- 单任务针对一个节点操作；文本 precheck→generate→程序审核→AI 审核，节点没有的审核跳过。程序审核或 AI 审核未通过时，按该节点重试轮次 revise→再审核；修订次数用尽后才是 rejected。生成/修订的可解析JSON缺必填字段由程序审核判未通过并修订；耗尽保留旧正式内容与hash。其余协议/结构/网络错误 failed，保留旧内容与历史；网络、接口失败原因不自动上传提示词。
-- 图片 precheck→generate，无审核。视频 precheck→generate→apply（校验、实测、截帧）→程序 review；每次 revise 后重复 apply/review，最多两次修订。独立 tail 已退役，last_frame 保留为视频配对产物。文件失败/取消不覆盖旧配对，不重试付费生成；审核耗尽保存最后配对为 rejected。合片为程序任务，输入文件在 precheck 校验，无审核或自动修订。视频人工导入为 precheck→manual_edit→apply，其余人工编辑与 override 为两步，均不调用 AI；manual_edit 校验结构，override 只对 rejected 文本跳过 AI 审核，结构及程序时长审核仍须通过。
-- 删除任务 precheck→impact→apply。被镜头出镜/对白或素材库引用的角色不能删除；默认/素材库引用服装不能删除；其他服装删除同次重绑为默认并使相关视频过期。
-- 项目内执行串行；完成后自动下一项；failed/rejected/cancelled 停止队列。面板再次生成最新任务为失败、未通过、取消或作废的同一节点时，创建新任务并保留旧终态；有内容时 `generate` 按 `regenerate` 受理；首次无内容失败仍允许 `generate`。若该重试已排队则复用；无其他未结束任务时直接启动；有其他等待/运行任务时明确冲突，不误启动其他任务。开始/移除排队项、人工操作与删除只能从面板发起。
-- 服务重启把尚未完成的排队和进行中任务都结算为 cancelled（已取消）。未完成步骤同样取消，已完成步骤与历史终态保留；排队节点恢复快照，运行节点结算 cancelled 并保留内容。旧任务不重放，新任务可直接执行；晚到结果不得覆盖已结算任务。库里已有的 superseded 仍可读，界面与已取消相同。
-- 任务管理器 current(model) 从 queued/running 任务推导当前数组和运行状态；不存在暂停开关。面板与会话提交自动串行调度，同节点未结束任务复用。取消停止本项目全部未结束任务；失败/未通过取消剩余队列，保留全部历史。新任务在旧请求清理后自动执行。v14迁移删除 projects.queue_stopped；删除 start-queued/remove-queued。
-- 成片使用 episode-film；当前逐镜任务为每秒分镜→分镜提示词→适用的程序编排→视频（内含尾帧）。执行到视频前才按有效绑定判型：有角色多模态、无人后镜首尾帧、无人首镜文生。缺图等待补图，不降级。程序编排任务在同组插到视频前，继续时重新判型，不复制失效分支。submit-group 的 action=generate 补齐无效节点，action=regenerate 重跑所选镜头；跳过有效节点前计算本次及已排队上游任务将造成的下游过期。可选 shot_id 限定单镜，镜头必须属于指定剧集，opinion 保存到组内任务且要求 regenerate。同集成片队列结束、本集全部视频有效时，最后完成组追加唯一合片；单镜组不代生成其他镜头，合片失败后继续只创建合片。episode-seconds 保留单项及历史契约，不再有独立标签入口。组合整组受理，冲突整组拒绝；停止后后序记为 cancelled，继续新建组并保留旧终态。
-- 每镜视频完成后记录 FFprobe 实测的实际时长秒（保留一位小数），人工导入视频同样测量；写回视频或替换镜头集合时，剧集实际时长立即累加各镜实测值。合片文件的实测值留步骤结果，不覆盖该累计值；参考预算不变。现有未测量的镜头暂不展示实际时长，不追溯重写已有媒体。
-- 每次独立操作创建 single 组；角色提取、拆分剧集创建 workflow 组。角色提取只存资料；人物卡 submit-costumes 单独创建 workflow 组，按服装顺序生成全部定妆照，无服装生成一张；拆分剧集只包含拆分任务，写入各集剧情后完成，不自动派生每集摘要。父任务已完成不因子任务失败被改写。task/group/step 创建时保存 name，后续资料改名不改历史；已有记录缺名称时只读补显；持久化任务必须有父组，运行时不创建虚拟组。
-- 删除整个项目不受制作进度限制，概要与片库的删除入口不随运行任务冻结。TaskService 删除入口先封闭该项目新增任务、取消全部未结束任务，abort 当前执行并等待本地清理完成，再串行删除项目及清除绑定；不等待项目制作完成，不影响其他项目。远端视频取消能力沿用网关现状。
-- 角色卡按最新提取任务组（含续作组）显示聚合状态和原因；中途停止时提供继续。面板继续组在无其他未结束任务时直接启动，有其他排队或运行任务则冲突；会话来源仍按队列规则排队。
-- 任务历史以组为列表入口，组内直接排列各任务全部步骤。组状态只读聚合，部分完成加其余取消显示已取消；继续从停点创建新组，组不保存来源组或意见；意见仅在对应任务，旧历史保留。人工/删除任务从原入口重新操作，不提供通用组继续。
-- 按项目数据结构的过期表传播。拆分剧集整表替换剧集，不把旧节点标为过期。输出语言、画幅、声音、默认服装配置只影响后续步骤，不使已有资源过期。图片依赖使用本节点实际提示资料：首套定妆照读取人物描述、服装和可选参考图，其余套另依赖首套定妆照；未参与提示的资料不触发图片过期。
-- 每秒分镜的对白保存在 `dialogue[]` 的 `speaker_id` 和 `speaker_name`；未建卡人物/独立旁白保留原称谓和空 `speaker_id`，不自动建卡。
-
-定妆照任务有服装时 `target_id=co_id`，定位该角色 `costume_images[costume_id=co_id]`；空服装时 `target_id=c_id`，定位唯一 `costume_id: ""` 条目，不建立假服装。角色新增明确服装后，原未绑定图片及其终态历史保留，只读展示，不加入新生成组。
+节点与任务状态、动作、步骤和任务组字段见 [step_model.md](../meiji/dev_docs/step_model.md)；制作顺序、审核与修订流程、项目执行与取消、删除规则和面板按钮见[制作工作流](../meiji/dev_docs/制作工作流.md)；各节点前置、重试与审核开关见 `shared/node-definitions.js`，依赖与过期传播见 `shared/node-dependencies.js`。本文不复述。
 
 ## 提示词与网关
 
-业务与输出结构以制作工作流、step_model、project_detail 和 dots 为开发依据；`server/http/nodes/` 按节点和动作定义业务输入与输出格式，提示词渲染、模型返回校验及人工编辑共用输出契约。`server/prompts/models/` 保存生成、审核、按意见重新生成要求，节点文件的 `compose` 编排该节点业务参数；视频使用 `http/video-request.js` 直接编排已审核三段，无 PromptModel，`render.js` 渲染正文。输出格式只在 system，user 的任务是 Model 固定正文。占位符缺失直接失败；注入资料不二次展开。配置变更不追溯改写历史。
+规则唯一来源：发给 AI 的节点规则只写在 `meiji/server/prompts/models/<节点>.js`，多节点共用的句子在同目录 `common.js`；同一节点各动作引用文件顶部的 `generateRules`，不逐动作复制（`tests/stage30-rule-source.test.js` 守护）。输出契约只写在 `server/http/nodes/<节点>.js`，video 面板规则在其 `rules` 字段。单个节点的前置、重试、审核开关、依赖与保存以代码为准（`shared/node-definitions.js`、`shared/node-dependencies.js`、`server/http/nodes/`），不另写节点文档。`meiji/dev_docs/` 只给开发者阅读，程序代码不得读取（同一测试守护）；各类内容的唯一位置见制作工作流「文档」表。改规则时改所属位置的原文，不在文末追加补丁段落，改动经过写入 `docs/implement/`。
 
-文本按对应节点声明解析：项目/剧集摘要为纯文本，人物和切点等按 JSON 结构校验；分镜提示词保留其既定段落协议。可解析 JSON 缺少必填字段时由程序审核判 rejected 并按既有轮次修订，原始候选留任务历史；耗尽后保留旧正式内容和 hash，仅写节点未通过及原因。不属于缺字段的 JSON 结构/解析错误仍 failed 并保留旧内容；网络、接口异常仅记失败，不自动带入提示词；可用候选的业务审核未通过时按节点轮次修订，耗尽后将最后内容及 rejected 原因存正式节点，不刷新 hash、不传播、不派生。拆分先做程序覆盖与声明时长审核，再按对白、剧情、动作和串并行关系做AI容量审核，不按字数换算；两类审核共用原有修订预算，拒绝候选留任务历史且不替换剧集。定妆照的姓名、性别、年代、定位、年龄段、身材、发型、签名道具、不可改特征任一项去除首尾空白后非空即可生成；全部为空时拒绝。首套可有或没有用户参考图；后续定妆照固定且唯一地引用首套定妆照，所有生成/修订动作一致。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图；仅首尾帧类型使用前镜尾帧，节拍文本继承前镜交接资料。生成与下载阶段均保留HTTP详情。
+业务流程以制作工作流、step_model、project_detail 为开发依据；`server/http/nodes/` 按节点和动作定义业务输入与输出格式，提示词渲染、模型返回校验及人工编辑共用输出契约。`server/prompts/models/` 保存生成、审核、按意见重新生成要求，节点文件的 `compose` 编排该节点业务参数；视频使用 `http/video-request.js` 直接编排已审核三段，无 PromptModel，`render.js` 渲染正文。输出格式只在 system，user 的任务是 Model 固定正文。占位符缺失直接失败；注入资料不二次展开。配置变更不追溯改写历史。
+
+文本按对应节点声明解析：项目/剧集摘要为纯文本，人物和切点等按 JSON 结构校验；分镜提示词保留其既定段落协议。可解析 JSON 缺少必填字段时由程序审核判 rejected 并按既有轮次修订，原始候选留任务历史；耗尽后保留旧正式内容和 hash，仅写节点未通过及原因。不属于缺字段的 JSON 结构/解析错误仍 failed 并保留旧内容；网络、接口异常仅记失败，不自动带入提示词；可用候选的业务审核未通过时按节点轮次修订，耗尽后将最后内容及 rejected 原因存正式节点，不刷新 hash、不传播、不派生。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图；仅首尾帧类型使用前镜尾帧，节拍文本继承前镜交接资料。生成与下载阶段均保留HTTP详情。
 
 文本由 `shared/models/settings_model.js` 的 SettingsModel 固定选择：独立 llm-server 提供的 `qwen3.5:27b` 或 `codex-gpt`。图片可选krea2 turbo V2.5或gpt-image；视频固定为MiniMax-H3，旧配置elysium-video映射到该模型。`elysium-chat`、`elysium-image` 已移出选项，保存或读取时按无效模型拒绝；旧配置用迁移脚本改为默认值。选择 Qwen、Codex 文本或 `gpt-image` 时，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 messages、stream=false（生成/审核为 system/user，文本修订为 system/user/assistant/user）；Qwen 的 reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5 默认参数已迁到独立 llm-server；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由节点路由契约注入提示词，并按同一契约进行本地校验。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../meiji/README.md)。
 
 当前媒体接口按模型分派：gpt-image调用images/generations，krea调用images/comfy，MiniMax-H3调用videos/generations等待成功URL后下载；均为本机服务。参数、素材与取消边界以视频接口设计为准，不再使用旧网关视频提交/轮询/content协议。新增视频和合片按项目像素归一化、保留音轨，文件经FFprobe及FFmpeg解码校验。
 
 配置为运行目录 `models.json`，默认值来自 `config/models.json` 和被忽略的 `config/models.local.json`；测试覆盖使用 `MEIJI_MODELS_LOCAL`。已有配置须显式运行 `meiji/scripts/migrate-settings-model.js`，先备份、保留连接与并发设置、将 chat/story 合并为 text，不在固定选项内的选择改为默认值，不用运行时旧配置兜底替代迁移。密钥不得写入 Git、浏览器响应或日志。设置页只显示语言与模型选项，选择自动保存，且不依赖已打开的项目。语言保存在 output_language，模型选择保存在 text/image/video.model；两者只作用于之后的生成。缺省语言为 zh-CN。聊天通过公开 credentials/settings 同步选中服务；Qwen 使用 ollama 与上下文 32768，网关使用服务端密钥与接口文档声明的 65536。`gpt-image` 走本地 `POST /v1/images/generations`，占位密钥 `ollama`，`size` 为 `auto`，画幅写入提示词；krea经本机images/comfy；MiniMax-H3经本机videos/generations。设置 API 仅公开和接收选择，不公开连接地址与凭据。
+
+文本重新生成 task.action=regenerate 首轮调用 generate，仅 system/user，不带旧结果；本次意见作为生成要求。原结果修订 task.action=revise 必须有意见，单个文本节点可用，多轮 system/user/assistant/user；自动 revise 步骤同样多轮并使用本任务最近候选。公共文本节点已有结果且没有未结束任务时展示原结果修订，不限未通过状态。
+
+Codex 制作模型：`codex-gpt` 使用本地 textBaseUrl 和 llmServerClient，但提示来源为 codex，首条为 developer，背景 JSON 放末尾；原结果修订保留 assistant 历史。设置选择 Codex 时 syncChatModel 不修改 Harness 工具会话，避免把工具流量送入纯文本桥接。图片 `gpt-image` 使用同一本地地址的文生图接口，不改变文本编排。llm-server 使用官方 App Server 的 ChatGPT 登录和 ephemeral 会话，测试及实施见 `docs/implement/1015-实施-GPT-Codex接入.md` 与 `docs/implement/1015-实施-GPT文生图接入.md`。
+
+镜头表的可解析JSON在shots[]及内部对象出现未知字段（如reference_anchor.body）时，也沿用已有结构修订通路与两次预算，保留原候选；不静默搬移字段，不将该规则扩大到其他节点或根响应未知字段。出镜人物与服装使用分组DOM，服装与描述归属对应人物，ID存储结构不变。
+
+修复链路公共规则见制作工作流：结构化上游问题停止下游自动修订；同一候选重复同一确定性程序错误提前结束，AI同文拒绝只加定向反馈。镜头修订优先按ID的mode=patch，增删拆并重排需显式mode=replace完整表，合并后再全表校验。明确对白和最终<d>序列做逐字检查，不按字数推算时间。以上提前结束保留旧正文与hash，候选及诊断留步骤历史，原有修订上限不变。
+
+视频固定MiniMax-H3，发送到本机textBaseUrl的`/videos/generations`；编排与发送共用videoPayload。首尾帧用前镜尾帧作first_frame且ratio=adaptive，多模态按images顺序注明人物/稳定speaker_tag/服装。实际发送已保存编排正文，发送前核对三段与当前已审核正文一致。新HTTP使用duration/resolution/ratio而非内部兼容seconds/size。设计与验收限制见[视频接口与成片编排设计](../docs/implement/1016-视频接口与成片编排设计.md)。
+
+同任务自动修订使用最近一次已完成生成或修订的原始返回；跨任务修改使用当前节点内容。基稿只在 assistant 出现一次，本轮意见只在最后 user。system 只保留规则、语言与输出格式，不再附加角色声明。提示词详情按实际 messages 顺序展示与复制；已有历史只读展示原记录。
+
+待审核对象按完整JSON传递，保留空字符串、空数组、空对象和嵌套空值。空交接项表示无待续事项，不得在章节渲染时省略为缺字段。提示词模板的空补充要求仍可省略；候选内容与模板标题采用不同处理。
+
+镜头表局部修订：生成仍返回完整shots。原结果修订及自动修订优先返回 `{"mode":"patch","shots":[{"id":"原镜头ID","changes":{"body":"新正文"}}]}`。程序从当前完整基稿按ID覆盖指定字段，未返回字段/镜头保持，合并后继续执行完整结构、角色服装、时长和AI审核。嵌套对象修改需提供该嵌套对象完整值。patch不能改ID、删除镜头、增加未知字段或重复ID；空patch表示无需修改。
+
+需要新增、删除、拆并或重排镜头时，显式返回 `mode=replace` 和完整shots；无mode的片段不得隐式删除镜头。旧协议全表在镜头ID和顺序不变时仍可接受。请求/响应保留原patch，步骤result与后续审核使用合并后的完整候选。错误patch的下一轮修订仍读取完整基稿，不把错误片段当整表；取消或审核前停止不发布候选。
+
+参考图以 data URL 放入 `images`，最多 5 张；定妆照节点仍最多一张。返回的 PNG 在 `data[0].b64_json`。Codex 订阅登录、默认可用模型、取消与超时由 llm-server 负责，应用不保存 Codex 登录令牌。文本输入与hash共用shared/shot-text-inputs.js，图片不影响文本。
 
 ## 双端与通知
 
@@ -110,23 +116,3 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 - 测试从本次八阶段设计重新创建。HTTP/DOM/生命周期使用隔离 home；网关协议使用 mock，FFmpeg 使用真实临时文件。生产网关和真实 Harness 走查证据单独记录，不能混称自动测试全部覆盖生产模型质量。
 - 收尾执行 `git diff --check`、入口依赖/旧文件检查、必要 shell 语法检查，再更新图谱。
 - `configure-harness.sh` 链接插件并启动；`restart-harness.sh` 验证进程归属、停止旧实例并确认端口释放后启动。SQLite schema 升级由数据库启动事务自动执行；端口被非预期进程占用或旧进程不退出则拒绝启动新实例。
-
-逐镜文本：镜头表直接保存on_screen_characters（character_id/costume_id）和background_characters。不再有独立识别节点；镜头表、每秒分镜及文生提示词要求有效角色库，不要求定妆照。episode-seconds只安排逐镜每秒分镜。文本输入与hash共用shared/shot-text-inputs.js，图片不影响文本；seconds按节拍连续覆盖，末段结束须精确等于本镜参考时长，不使用±5秒误差。
-
-每秒分镜新增 end_state、pending_actions、pending_dialogue、continuing_audio；后镜 previous 读取前镜已审核交接与末尾3秒相交的完整节拍，首镜 null。镜末交接在每秒阶段生成，不在镜头表预生成。v13迁移保留旧正文和历史，将缺交接的生成态每秒节点及相关下游标为过期并同步排队快照；按镜头顺序重生成。
-
-文本重新生成 task.action=regenerate 首轮调用 generate，仅 system/user，不带旧结果；本次意见作为生成要求。原结果修订 task.action=revise 必须有意见，单个文本节点可用，多轮 system/user/assistant/user；自动 revise 步骤同样多轮并使用本任务最近候选。公共文本节点已有结果且没有未结束任务时展示原结果修订，不限未通过状态。
-
-项目Model每次事务提交后，以临时文件原子替换 `projects/<项目ID>/project.json`，内容为完整project对象（不含任务/步骤/运行时或模型连接配置）。SQLite仍为唯一数据来源；启动从数据库补齐或修复镜像，删除项目一并删除。数据库回滚不发布JSON；数据库已提交而镜像写入失败时，更新返回storage_warning，内存仍保持已提交内容，幂等重试和重启可以修复。JSON不是反向导入入口。
-
-Codex 制作模型：`codex-gpt` 使用本地 textBaseUrl 和 llmServerClient，但提示来源为 codex，首条为 developer，背景 JSON 放末尾；原结果修订保留 assistant 历史。设置选择 Codex 时 syncChatModel 不修改 Harness 工具会话，避免把工具流量送入纯文本桥接。图片 `gpt-image` 使用同一本地地址的文生图接口，不改变文本编排。llm-server 使用官方 App Server 的 ChatGPT 登录和 ephemeral 会话，测试及实施见 `docs/implement/1015-实施-GPT-Codex接入.md` 与 `docs/implement/1015-实施-GPT文生图接入.md`。
-
-镜头表的可解析JSON在shots[]及内部对象出现未知字段（如reference_anchor.body）时，也沿用已有结构修订通路与两次预算，保留原候选；不静默搬移字段，不将该规则扩大到其他节点或根响应未知字段。出镜人物与服装使用分组DOM，服装与描述归属对应人物，ID存储结构不变。
-
-修复链路公共规则见制作工作流：结构化上游问题停止下游自动修订；同一候选重复同一确定性程序错误提前结束，AI同文拒绝只加定向反馈。镜头修订优先按ID的mode=patch，增删拆并重排需显式mode=replace完整表，合并后再全表校验。明确对白和最终<d>序列做逐字检查，不按字数推算时间。以上提前结束保留旧正文与hash，候选及诊断留步骤历史，原有修订上限不变。
-
-视频固定MiniMax-H3，发送到本机textBaseUrl的`/videos/generations`；编排与发送共用videoPayload。首尾帧用前镜尾帧作first_frame且ratio=adaptive，多模态按images顺序注明人物/稳定speaker_tag/服装。实际发送已保存编排正文，发送前核对三段与当前已审核正文一致。新HTTP使用duration/resolution/ratio而非内部兼容seconds/size。设计与验收限制见[视频接口与成片编排设计](../docs/implement/1016-视频接口与成片编排设计.md)。
-
-每集参考时长由切集或人工编辑确定；大纲保存不再自动回写。大纲与镜头表共用该固定参考±30秒，镜头表还需符合大纲取整目标±30秒，取交集，不逐层增加容差。节拍、对白字段与摄影职责详见当前制作工作流。
-
-场景流程：大纲后独立执行episode-scenes，只提取反复出现、重要或人为明确指定地点，空结果合法。scene-image以sc_ID为目标，单张按需生成或人工导入，不批量派生。镜头按scene_id/state/transition引用；多模态同时引用人物图与场景图，合计最多9张。规则见制作工作流及dots/剧集-提取场景.md。

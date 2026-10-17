@@ -94,10 +94,16 @@ export function mount() {
           ]
         : [];
     for (const node of [...editors, ...drafts]) node.remove();
+    const applyGroups = (groups, revision) => {
+      const applied = context.mergeGroups(groups, revision);
+      if (applied) paint();
+      return applied;
+    };
     renderTaskPanel(shell.content, snapshot, {
       session_id: session,
       view,
       refresh,
+      applyGroups,
       paint,
       onError: report,
       renderLibrary: (root) => renderLibrary(root),
@@ -195,11 +201,11 @@ export function mount() {
     stream.projectId = projectId;
     stream.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      if (
-        data.project_id === context.token().project_id &&
-        data.revision >= (context.read()?.runtime.revision || 0)
-      )
-        void refresh().catch(report);
+      if (data.project_id !== context.token().project_id) return;
+      if ((data.revision || 0) < (context.read()?.runtime.revision || 0)) return;
+      // 任务状态走本组快照；只有项目正文变化才重新读取整份项目。
+      if (data.groups?.length && context.mergeGroups(data.groups, data.revision)) paint();
+      if (data.content || !Array.isArray(data.groups)) void refresh().catch(report);
     };
     stream.onerror = () => report("连接恢复中，操作结果以已保存数据为准");
   };

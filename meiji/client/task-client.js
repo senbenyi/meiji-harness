@@ -17,6 +17,20 @@ export class PanelContext {
       project_id: this.#project,
     };
   }
+  mergeGroups(groups, revision) {
+    const snapshot = this.#snapshot;
+    if (!snapshot || !groups?.length) return false;
+    if (revision != null && revision < snapshot.runtime.revision) return false;
+    for (const view of groups) {
+      if (!view?.group?.id || !Array.isArray(view.tasks)) continue;
+      const taskIds = new Set(view.tasks.map(task => task.id));
+      snapshot.tasks = snapshot.tasks.filter(task => task.group_id !== view.group.id && !taskIds.has(task.id)).concat(view.tasks);
+      snapshot.steps = snapshot.steps.filter(step => !taskIds.has(step.task_id)).concat(view.steps || []);
+      snapshot.groups = snapshot.groups.filter(group => group.id !== view.group.id).concat(view.group);
+    }
+    if (revision != null) snapshot.runtime.revision = Math.max(snapshot.runtime.revision || 0, revision);
+    return true;
+  }
   accept(token, snapshot) {
     if (
       token.epoch !== this.#epoch ||

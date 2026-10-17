@@ -8,6 +8,17 @@ import { normalizeModels } from "../../models/model-config.js";
 import { redactJson } from "../gateway/redact.js";
 const clientRoot = fileURLToPath(new URL("../../client/", import.meta.url));
 const sharedRoot = fileURLToPath(new URL("../../shared/", import.meta.url));
+// 面板刷新只需要步骤状态。历史提示词约几十 MB，留在打开记录时再取。
+export function panelSnapshot(snapshot) {
+  if (!snapshot) return null;
+  return {
+    ...snapshot,
+    steps: snapshot.steps.map(step => {
+      const { prompt, ...rest } = step;
+      return { ...rest, has_prompt: prompt != null };
+    }),
+  };
+}
 const json = (res, status, value) => {
   res.writeHead(status, {
     "Content-Type": "application/json",
@@ -100,8 +111,17 @@ export function createTaskHttpHandler(
           return json(res, 200, {
             session_id: sid,
             project_id: id,
-            snapshot: id ? (await runtime.repository.open(id)).read() : null,
+            snapshot: id ? panelSnapshot((await runtime.repository.open(id)).read()) : null,
           });
+        }
+        if (path === "/api/meiji/step") {
+          const sid = url.searchParams.get("session_id");
+          const projectId = await runtime.bindings.projectForSession(sid);
+          if (!projectId) return json(res, 404, { message: "项目不存在" });
+          const stepId = url.searchParams.get("step_id");
+          const step = (await runtime.repository.open(projectId)).read().steps.find(item => item.id === stepId);
+          if (!step) return json(res, 404, { message: "步骤不存在" });
+          return json(res, 200, { prompt: step.prompt ?? null });
         }
         if (path === "/api/meiji/events") {
           const pid = url.searchParams.get("project_id");

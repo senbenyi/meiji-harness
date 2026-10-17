@@ -20,36 +20,6 @@ export function enqueueNode(project, task) {
   const { status, reason, fail_message = "" } = node.node_state;
   task.previous_node_state = { status, reason, fail_message };
 }
-export function releaseQueuedNodeStatus(project, tasks) {
-  const apply = (business, id, node) => {
-    if (node?.node_state?.status !== "queued") return;
-    const match = (status) => tasks.find((task) => task.business_type === business && task.target_id === id && task.task_status === status);
-    const previous = match("queued")?.previous_node_state;
-    if (match("running")) Object.assign(node.node_state, { status: "running", reason: "", fail_message: "" });
-    else if (previous && previous.status !== "queued") Object.assign(node.node_state, { status: previous.status, reason: previous.reason || "", fail_message: previous.fail_message || "" });
-    else Object.assign(node.node_state, { status: "cancelled", reason: "排队中已从节点状态移除", fail_message: "" });
-  };
-  apply("script-review", project.id, project.script);
-  apply("project-summary", project.id, project.project_summary);
-  apply("project-characters", project.id, project.character_library);
-  for (const character of project.character_library?.characters || [])
-    for (const image of character.costume_images || [])
-      apply("costume-image", image.costume_id || character.id, image);
-  for (const episode of project.episodes || []) {
-    apply("episode-summary", episode.id, episode.summary);
-    apply("outline", episode.id, episode.story_outline);
-    apply("shots", episode.id, episode.shot_list);
-    apply("assembly", episode.id, episode.assembly);
-    for (const shot of episode.shot_list?.shots || []) {
-      apply("seconds", shot.id, shot.seconds_storyboard);
-      apply("storyboard", shot.id, shot.text_to_video_prompt);
-      apply("first-last-frame", shot.id, shot.first_last_frame_prompt);
-      apply("multimodal", shot.id, shot.multimodal_prompt);
-      apply("video", shot.id, shot.video);
-      apply("tail", shot.id, shot.last_frame);
-    }
-  }
-}
 export function hasNodeContent(project, business, targetId) {
   if (business === "script-split") return project.episodes.length > 0;
   const node = nodeOf(project, business, targetId);

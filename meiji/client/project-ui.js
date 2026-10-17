@@ -173,6 +173,45 @@ function shotResultStrip(project, episode, shot, media) {
 }
 const editIcon =
   '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.7 2.3 13.7 6.3 5.4 14.6H1.4v-4L9.7 2.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+// 横向卡片列表：鼠标拖动滚动，拖动后不触发卡片点击；触控沿用原生滑动。
+function dragScroll(list) {
+  let drag = null, dragged = false;
+  list.onpointerdown = (event) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    dragged = false;
+    if (list.scrollWidth <= list.clientWidth) return;
+    drag = { id: event.pointerId, x: event.clientX, left: list.scrollLeft };
+  };
+  list.onpointermove = (event) => {
+    if (!drag || event.pointerId !== drag.id) return;
+    const dx = event.clientX - drag.x;
+    if (!dragged && Math.abs(dx) < 5) return;
+    if (!dragged) {
+      dragged = true;
+      list.setPointerCapture(event.pointerId);
+      list.classList.add("is-dragging");
+    }
+    event.preventDefault();
+    list.scrollLeft = drag.left - dx;
+  };
+  const finishDrag = () => {
+    if (!drag) return;
+    const id = drag.id;
+    drag = null;
+    list.classList.remove("is-dragging");
+    if (list.hasPointerCapture(id)) list.releasePointerCapture(id);
+  };
+  list.onpointerup = list.onlostpointercapture = finishDrag;
+  list.onpointercancel = () => { finishDrag(); dragged = false; };
+  list.ondragstart = (event) => event.preventDefault();
+  list.addEventListener("click", (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    dragged = false;
+  }, true);
+}
+
 export function renderOverview(root, env) {
   const { p, button, act, nodeCard, go, media, labels, state } = env;
   const view = element("section", "", "project-overview overview-page"),
@@ -408,41 +447,7 @@ export function renderOverview(root, env) {
   }
   episodes.append(episodeUi);
   const list = element("div", "", "episode-card-list");
-  let drag = null, dragged = false;
-  list.onpointerdown = (event) => {
-    if (event.pointerType !== "mouse" || event.button !== 0) return;
-    dragged = false;
-    if (list.scrollWidth <= list.clientWidth) return;
-    drag = { id: event.pointerId, x: event.clientX, left: list.scrollLeft };
-  };
-  list.onpointermove = (event) => {
-    if (!drag || event.pointerId !== drag.id) return;
-    const dx = event.clientX - drag.x;
-    if (!dragged && Math.abs(dx) < 5) return;
-    if (!dragged) {
-      dragged = true;
-      list.setPointerCapture(event.pointerId);
-      list.classList.add("is-dragging");
-    }
-    event.preventDefault();
-    list.scrollLeft = drag.left - dx;
-  };
-  const finishDrag = () => {
-    if (!drag) return;
-    const id = drag.id;
-    drag = null;
-    list.classList.remove("is-dragging");
-    if (list.hasPointerCapture(id)) list.releasePointerCapture(id);
-  };
-  list.onpointerup = list.onlostpointercapture = finishDrag;
-  list.onpointercancel = () => { finishDrag(); dragged = false; };
-  list.ondragstart = (event) => event.preventDefault();
-  list.addEventListener("click", (event) => {
-    if (!dragged) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    dragged = false;
-  }, true);
+  dragScroll(list);
   episodes.append(list);
   for (const e of [...p.episodes].sort((a, b) => a.sequence - b.sequence)) {
     const c = element("article", "", "episode-card");
@@ -605,22 +610,37 @@ export function renderEpisode(root, env, entries) {
       element("p", e.plot || "尚无剧情", "prompt full"),
       plotActions,
     );
+    const scenesNode = nodeCard("episode-scenes", e.id, e.scene_catalog);
+    const scenes = e.scene_catalog.scene_ids
+      .map((id) => p.scene_library.scenes.find((item) => item.id === id))
+      .filter(Boolean);
+    if (scenes.length) {
+      // 本集场景横向排列，一屏两张，可左右滑动。
+      const list = element("div", "", "scene-card-list");
+      // 参考图缩略图采用项目视频画幅；原图比例不同时按画幅框裁切，点击放大看原图。
+      const [frameW, frameH] = String(p.aspect_ratio || "768x1344").split("x").map(Number);
+      list.style.setProperty("--scene-aspect", `${frameW} / ${frameH}`);
+      list.dataset.orientation = frameH > frameW ? "portrait" : "landscape";
+      dragScroll(list);
+      for (const scene of scenes) {
+        const card = element("section", "", "session-project scene-setting");
+        card.dataset.sceneId = scene.id;
+        card.append(
+          element("h3", scene.name),
+          element("p", [scene.description, scene.layout, scene.materials, scene.lighting].filter(Boolean).join("\n"), "prompt full"),
+          nodeCard("scene-image", scene.id, scene.reference_image),
+        );
+        card.querySelector('[data-business="scene-image"] img')?.classList.add("scene-thumb");
+        list.append(card);
+      }
+      scenesNode.append(list);
+    }
     body.append(
       nodeCard("outline", e.id, e.story_outline),
-      nodeCard("episode-scenes", e.id, e.scene_catalog),
+      scenesNode,
       summary,
       plot,
     );
-  }
-  if (state.tab === 'script') {
-    for (const id of e.scene_catalog.scene_ids) {
-      const scene = p.scene_library.scenes.find(item => item.id === id);
-      const card = element('section','','session-project scene-setting');
-      card.dataset.sceneId = id;
-      card.append(element('h3',scene.name),element('p',[scene.description,scene.layout,scene.materials,scene.lighting].filter(Boolean).join('\n'),'prompt full'));
-      card.append(nodeCard('scene-image',id,scene.reference_image));
-      body.append(card);
-    }
   }
   if (state.tab === "shots") {
     body.append(nodeCard("shots", e.id, e.shot_list));
@@ -697,17 +717,7 @@ export function renderEpisode(root, env, entries) {
           shotResultStrip(p, e, s, media),
         ] : []),
       );
-      if (state.tab === 'script') {
-    for (const id of e.scene_catalog.scene_ids) {
-      const scene = p.scene_library.scenes.find(item => item.id === id);
-      const card = element('section','','session-project scene-setting');
-      card.dataset.sceneId = id;
-      card.append(element('h3',scene.name),element('p',[scene.description,scene.layout,scene.materials,scene.lighting].filter(Boolean).join('\n'),'prompt full'));
-      card.append(nodeCard('scene-image',id,scene.reference_image));
-      body.append(card);
-    }
-  }
-  if (state.tab === "shots") {
+      if (state.tab === "shots") {
         const details = element("div", "", "shot-details prompt full");
         details.append(element("p", readable({
           body: s.body,

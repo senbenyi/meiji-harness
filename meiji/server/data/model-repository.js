@@ -12,6 +12,7 @@ import {
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { ProjectModel } from "../model/project_transaction_model.js";
+import { activityGroups } from "./task-store.js";
 import { validateProject } from "../../shared/project_contract.js";
 import {
   assertFields,
@@ -405,10 +406,14 @@ export class ModelRepository extends EventEmitter {
       const next = structuredClone(before);
       const result = await mutate(next);
       next.runtime.revision = before.runtime.revision + 1;
+      const content = JSON.stringify(before.project) !== JSON.stringify(next.project);
+      const groups = activityGroups(before, next);
       const accepted = {
         ...structuredClone(result),
         accepted: true,
         revision: next.runtime.revision,
+        content,
+        groups: structuredClone(groups),
       };
       next.runtime.requests.push({
         id: key,
@@ -429,15 +434,15 @@ export class ModelRepository extends EventEmitter {
       try { await this.#syncProjectJSON(committed); }
       catch (error) { storageWarning = [storageWarning, error.message].filter(Boolean).join("\n"); }
       this.#install(committed);
-      this.#notify(id, committed.runtime.revision);
+      this.#notify(id, committed.runtime.revision, { content, groups: accepted.groups });
       return structuredClone({ ...accepted, ...(storageWarning ? { storage_warning: storageWarning } : {}) });
     });
   }
-  #notify(projectId, revision) {
+  #notify(projectId, revision, extra = {}) {
     // 订阅者抛错不应把已提交命令变成未受理，也不应阻断其他订阅者。
     for (const listener of this.listeners("change"))
       try {
-        listener({ project_id: projectId, revision });
+        listener({ project_id: projectId, revision, ...extra });
       } catch {}
   }
 }

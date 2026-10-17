@@ -25,6 +25,7 @@ import { emptyCharacterModel } from '../shared/models/character_model.js';
 import { createMediaHandler } from '../server/handlers/media-handler.js';
 import { createAiRoutes } from '../server/http/ai-routes.js';
 import { config } from './fixtures/ai.js';
+import { prepareContent, commitContent } from '../server/handlers/content.js';
 
 const png = 'data:image/png;base64,aGVsbG8=';
 function withScene(p = projectFixture()) {
@@ -50,6 +51,32 @@ test('场景按地点复用，同名与别名ID保留原图片；空提取不删
   assert.equal(mergeScenes(p,[]).scenes.length,1);assert.deepEqual(mergeScenes(p,[]).scene_ids,[]);
   assert.throws(()=>mergeScenes(p,[row,row]),/重复/);
   assert.throws(()=>mergeScenes(p,[{...row,id:'sc_unknown'}]),/已有ID/);
+});
+test('AI提取复用已有场景时直接取项目资料不改写，人工编辑可更新；新地点加入项目',()=>{
+  const {p,scene}=withScene();const original=sceneText(scene);
+  const rewritten={...original,description:'被改写的描述',layout:'门改在东墙'};
+  const byId=mergeScenes(p,[rewritten]);
+  assert.deepEqual(sceneText(byId.scenes.find(item=>item.id===scene.id)),original,'按ID复用不改写');
+  const byName=mergeScenes(p,[{...rewritten,id:''}]);
+  assert.deepEqual(byName.scene_ids,[scene.id]);assert.deepEqual(sceneText(byName.scenes[0]),original,'按唯一同名复用不改写');
+  const added=mergeScenes(p,[rewritten,{id:'',name:'县衙公堂',description:'审案正堂',layout:'公案居中',materials:'青砖',lighting:'天光'}]);
+  assert.equal(added.scenes.length,2);assert.equal(added.scene_ids.length,2);assert.match(added.scene_ids[1],/^sc_/);
+  assert.equal(added.scenes.find(item=>item.id===added.scene_ids[1]).layout,'公案居中','新地点写入完整资料');
+  const edited=mergeScenes(p,[rewritten],{updateExisting:true});
+  assert.equal(edited.scenes[0].layout,'门改在东墙','人工编辑可更新已有场景');
+});
+test('保存提取场景只让资料变化的已有场景过期，直接复用的参考图保持有效',()=>{
+  const {p,scene,snapshot}=withScene(),e=p.episodes[0];
+  assert.equal(isNodeCurrent(snapshot,'scene-image',scene.id),true);
+  const rewritten={...sceneText(scene),description:'被改写的描述'};
+  const aiTask=taskFixture(p,'episode-scenes',e.id,{action:'regenerate'});
+  commitContent(snapshot,aiTask,prepareContent(snapshot,aiTask,{scenes:[rewritten]}));
+  assert.equal(scene.description,'反复出现的家中客厅');assert.equal(scene.reference_image.node_state.status,'generated');
+  assert.equal(isNodeCurrent(snapshot,'scene-image',scene.id),true,'AI复用不使参考图过期');
+  const editTask=taskFixture(p,'episode-scenes',e.id,{action:'manual_edit'});
+  commitContent(snapshot,editTask,prepareContent(snapshot,editTask,{scenes:[rewritten]}));
+  const saved=p.scene_library.scenes.find(item=>item.id===scene.id);
+  assert.equal(saved.description,'被改写的描述');assert.equal(saved.reference_image.node_state.status,'expired','人工改写使参考图过期');
 });
 test('场景提取三动作强调选择性收录与去重，允许空结果，拒绝未知ID',()=>{
   const p=projectFixture(),e=p.episodes[0],snapshot={project:p,tasks:[],steps:[]};
@@ -281,12 +308,31 @@ test('v20到v21事务迁移保留正文、媒体与ID，缺场景绑定节点过
 });
 test('面板在大纲后展示场景选择，已有场景展示共用资料及单张参考图操作',()=>{
   const {p,scene}=withScene(),dom=new JSDOM('<main></main>'),previous=globalThis.document;
+  dom.window.HTMLDialogElement.prototype.show=function(){this.open=true;};
+  dom.window.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new dom.window.Event('close'));};
   try{
     globalThis.document=dom.window.document;const root=document.querySelector('main');
     renderTaskPanel(root,{...snapshotFixture(),project:p},{session_id:'s',view:{page:'episode',episode_id:p.episodes[0].id,tab:'script'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
     const outline=root.querySelector('[data-business=outline]'),scenes=root.querySelector('[data-business=episode-scenes]');
-    assert.equal(outline.nextElementSibling,scenes);assert.match(root.querySelector(`[data-scene-id="${scene.id}"]`).textContent,/木门与窗户/);
+    assert.equal(outline.nextElementSibling,scenes);
+    const list=scenes.querySelector('.scene-card-list');assert.ok(list,'场景卡应在提取场景节点内的横向列表中');
+    const cards=[...list.children];assert.deepEqual(cards.map(card=>card.dataset.sceneId),p.episodes[0].scene_catalog.scene_ids);
+    assert.match(list.querySelector(`[data-scene-id="${scene.id}"]`).textContent,/木门与窗户/);
+    assert.equal(root.querySelectorAll('.scene-setting').length,cards.length,'页面其他位置不再重复渲染场景卡');
+    assert.ok(![...scenes.querySelectorAll('p.meta')].some(item=>item.textContent.includes(scene.name)),'有场景卡时不重复显示名称行');
     const image=root.querySelector('[data-business=scene-image]');assert.ok(image.querySelector('img'));
     assert.ok([...image.querySelectorAll('button')].some(button=>button.textContent==='人工编辑'));
+    const thumb=image.querySelector('img.scene-thumb');assert.ok(thumb,'场景参考图使用缩略图样式');
+    assert.equal(list.style.getPropertyValue('--scene-aspect'),p.aspect_ratio.replace('x',' / '));
+    assert.equal(list.dataset.orientation,p.aspect_ratio==='768x1344'?'portrait':'landscape');
+    thumb.click();assert.equal(root.querySelector('dialog.still-preview img').src,thumb.src,'点击放大查看原图');
+    root.querySelector('dialog.still-preview [aria-label="关闭图片预览"]').click();
+    p.aspect_ratio='1344x768';root.replaceChildren();
+    renderTaskPanel(root,{...snapshotFixture(),project:p},{session_id:'s',view:{page:'episode',episode_id:p.episodes[0].id,tab:'script'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
+    const wide=root.querySelector('.scene-card-list');assert.equal(wide.style.getPropertyValue('--scene-aspect'),'1344 / 768');assert.equal(wide.dataset.orientation,'landscape');
+    p.episodes[0].scene_catalog.scene_ids=[];root.replaceChildren();
+    renderTaskPanel(root,{...snapshotFixture(),project:p},{session_id:'s',view:{page:'episode',episode_id:p.episodes[0].id,tab:'script'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
+    assert.equal(root.querySelector('.scene-card-list'),null,'无场景时不显示空列表');
+    assert.match(root.querySelector('[data-business=episode-scenes]').textContent,/在大纲之后选择性提取|本集没有需要固定的场景/);
   }finally{globalThis.document=previous;dom.window.close();}
 });

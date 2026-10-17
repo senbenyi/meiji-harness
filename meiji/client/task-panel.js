@@ -134,7 +134,7 @@ export function renderTaskPanel(root, snapshot, context) {
   const p = snapshot.project,
     runningTask = snapshot.tasks.find((t) => t.task_status === "running"),
     busy = Boolean(runningTask),
-    { session_id, refresh, onError } = context,
+    { session_id, refresh, onError, applyGroups } = context,
     state =
       context.view ||
       (context.view = {
@@ -154,7 +154,8 @@ export function renderTaskPanel(root, snapshot, context) {
           },
           project,
         );
-        await refresh();
+        const applied = result.groups?.length && applyGroups?.(result.groups, result.revision);
+        if (!applied || result.content !== false) await refresh();
         return result;
       } catch (error) {
         onError(error.message);
@@ -262,7 +263,9 @@ export function renderTaskPanel(root, snapshot, context) {
     } else if (business === 'episode-scenes') {
       const episode = p.episodes.find(item => item.id === id);
       const scenes = sceneCatalog(p,episode);
-      card.append(element('p', node.has_result && !scenes.length ? '本集没有需要固定的场景；一次性不重要地点保留在镜头正文。' : scenes.map(scene => scene.name).join('、') || '在大纲之后选择性提取重要、反复出现或指定的场景。','meta'));
+      // 有场景时由剧情页的横向场景卡展示，这里不再重复列名称。
+      if (!scenes.length)
+        card.append(element('p', node.has_result ? '本集没有需要固定的场景；一次性不重要地点保留在镜头正文。' : '在大纲之后选择性提取重要、反复出现或指定的场景。','meta'));
     } else if (business === "outline") {
       const segments = element("div", "", "outline-segments");
       for (const part of [...(node.segments || [])].sort((a, b) => a.sequence - b.sequence))
@@ -476,6 +479,7 @@ export function renderTaskPanel(root, snapshot, context) {
     names,
     onError,
     openRules,
+    session_id,
   };
   if (state.page === "overview") {
     const body = element("div", "", "session-body");

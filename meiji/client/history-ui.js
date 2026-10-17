@@ -2,6 +2,7 @@ import { historyGroups, taskName, stepName } from "../shared/task-labels.js";
 import { NODE_TYPES } from "../shared/task_contract.js";
 import { BUSINESS_DEFINITIONS } from "../shared/node-definitions.js";
 import { element } from "./panel-dom.js";
+import { request } from "./task-client.js";
 const nodeTypeNames = {
   "script-review": "剧本",
   "project-summary": "项目摘要",
@@ -83,6 +84,11 @@ function tabRow(label, entries, selected, change) {
   return row;
 }
 // 步骤的提示词或 HTTP 详情页。
+function cachedPrompt(state, step) {
+  if (step.prompt !== undefined) return step.prompt;
+  if (state.stepPrompts && Object.hasOwn(state.stepPrompts, step.id)) return state.stepPrompts[step.id];
+  return undefined;
+}
 function renderStepRecord(view, env, task, step) {
   const { state, go, button, names } = env,
     kind = state.step_view,
@@ -100,12 +106,35 @@ function renderStepRecord(view, env, task, step) {
   );
   const page = element("div", "", "run-record-page");
   view.append(header, page);
+  const saved = cachedPrompt(state, step);
+  if (step.has_prompt && saved === undefined) {
+    page.append(element("p", state.stepPromptError?.[step.id] || "正在读取记录", state.stepPromptError?.[step.id] ? "error" : "meta"));
+    if (!state.stepPromptLoading?.[step.id] && !state.stepPromptError?.[step.id]) {
+      state.stepPromptLoading ??= {};
+      state.stepPromptLoading[step.id] = true;
+      request("step?" + new URLSearchParams({ session_id: env.session_id || "", step_id: step.id }))
+        .then(data => {
+          state.stepPrompts ??= {};
+          state.stepPrompts[step.id] = data.prompt ?? null;
+        })
+        .catch(error => {
+          state.stepPromptError ??= {};
+          state.stepPromptError[step.id] = error.message || "读取记录失败";
+        })
+        .finally(() => {
+          delete state.stepPromptLoading[step.id];
+          go("history", { task_id: state.task_id, group_id: state.group_id, step_id: state.step_id, step_view: state.step_view });
+        });
+    }
+    return;
+  }
+  const promptSource = saved === undefined ? step.prompt : saved;
   const prompt =
-    step.prompt && typeof step.prompt === "object" ? step.prompt : null;
+    promptSource && typeof promptSource === "object" ? promptSource : null;
   if (kind === "prompt") {
-    if (step.prompt == null)
+    if (promptSource == null)
       return page.append(element("p", "此步骤没有提示词", "meta"));
-    if (!prompt) return page.append(recordCard("提示词", step.prompt));
+    if (!prompt) return page.append(recordCard("提示词", promptSource));
     const entries = prompt.messages
       ? prompt.messages.map((message, index) => [`${index + 1}. ${message.role}`, message.content])
       : ["system", "user"]

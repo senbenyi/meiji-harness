@@ -1,4 +1,4 @@
-import { mergeScenes, sceneCatalog } from '../../shared/scene-inputs.js';
+import { mergeScenes, sceneCatalog, sceneText } from '../../shared/scene-inputs.js';
 import storyboardRoute from '../http/nodes/storyboard.js';
 import { parseSections } from '../prompts/parse-sections.js';
 import { expireDownstream, stampDependencyHash } from "../../shared/node-dependencies.js";
@@ -31,7 +31,7 @@ export function prepareContent(snapshot, task, raw) {
   if (business === "script-split") return structuredClone(raw);
   let content;
   if (business === 'episode-scenes') {
-    content = mergeScenes(project, raw.scenes);
+    content = mergeScenes(project, raw.scenes, { updateExisting: task.action === 'manual_edit' });
   } else if (business === "project-characters") {
     content = { ...mergeCharacters(project, raw.characters), changes: structuredClone(raw.characters) };
   } else if (business === "script-review") {
@@ -86,6 +86,7 @@ function detachExtractedPhotos(characters, changes) {
 
 export function commitContent(snapshot, task, content, { passed = true } = {}) {
   const project = snapshot.project, business = task.business_type;
+  let changedScenes = [];
   if (task.action === "delete") { applyDelete(snapshot, task); return []; }
   if (business === "script-split" && task.action === "override") {
     project.episodes = buildSplit(project.script.body, content).episodes.map(row => emptyEpisode(row));
@@ -121,6 +122,8 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   }
   if (business === 'episode-scenes') {
     if (!passed) return [];
+    const previousText = new Map(project.scene_library.scenes.map(scene => [scene.id, JSON.stringify(sceneText(scene))]));
+    changedScenes = content.scenes.filter(scene => previousText.has(scene.id) && previousText.get(scene.id) !== JSON.stringify(sceneText(scene))).map(scene => scene.id);
     project.scene_library.scenes = structuredClone(content.scenes);
     node.scene_ids = [...content.scene_ids];
     node.has_result = true;
@@ -151,7 +154,8 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   stampDependencyHash(snapshot, business, task.target_id);
   if (business === 'video') stampDependencyHash(snapshot, 'tail', task.target_id);
   if (business === 'episode-scenes') {
-    for (const id of node.scene_ids) expireDownstream(snapshot, 'scene-setting', id, '场景资料已更新');
+    // 只有资料实际变化的已有场景才使参考图和引用镜头过期；直接复用的场景不受影响。
+    for (const id of changedScenes) expireDownstream(snapshot, 'scene-setting', id, '场景资料已更新');
   }
   if (business !== "project-characters") return [];
   // 正式资料可能已保存过拒绝候选，是否过期须与图片生成时的依赖 hash 比较。
