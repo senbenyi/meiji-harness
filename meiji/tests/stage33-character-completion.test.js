@@ -17,28 +17,38 @@ const person = () => ({
 });
 const input = (fields = {}) => ({ language: 'zh-CN', requirements: '', script, characters: [], opinion: '', content: { characters: [person()] }, ...fields });
 
-test('人物生成/修订/审核共用补全口径，真实渲染与规则面板不再要求来源标签或逐字照抄', () => {
-  const details = promptModel.generate.system.规则.资料提取与补全;
-  assert.equal(promptModel.regenerate.system.规则.资料提取与补全, details);
-  assert.equal(promptModel.review.system.规则.资料提取与补全, details);
-  const costumes = promptModel.generate.system.规则.服装套数与补全;
-  assert.equal(promptModel.regenerate.system.规则.服装套数与补全, costumes);
-  assert.equal(promptModel.review.system.规则.服装套数与补全, costumes);
+test('人物生成、修订和审核都使用短规则', () => {
+  assert.match(promptModel.review.system.规则.核对清单, /具体姓名/);
+  assert.equal(promptModel.review.system.规则.资料提取与补全, undefined);
+  assert.match(promptModel.regenerate.system.规则.修改范围, /完整角色数组/);
   for (const model of ['codex-gpt', 'qwen3.5:27b']) for (const action of ['generate', 'regenerate', 'review']) {
     const args = input(); if (action === 'generate') { delete args.content; delete args.opinion; }
     const rendered = composeNodePrompt('project-characters', action, args, model);
     assert.doesNotMatch(rendered.system, /句末标“背景补”|必须含“背景补”|原样保留|原文有则必须保留原句/);
-    assert.match(rendered.system, /自由补充/);
-    assert.match(rendered.system, /不要求照抄原句/);
-    assert.match(rendered.system, /只补一套/);
-    assert.match(rendered.system, /大致相同的服装归为一套/);
-    assert.match(rendered.system, /只有完整剧本明确该角色实际换装/);
-    assert.match(rendered.system, /不以保留旧设定为由继续沿用/);
-    assert.match(rendered.system, /未提取这类人物不是遗漏/);
+    if (action === 'generate') {
+      assert.match(rendered.system, /同时满足三项/);
+      assert.match(rendered.system, /不写“未明确”/);
+      assert.match(rendered.system, /只补一套默认造型/);
+      assert.match(rendered.system, /换成另一套/);
+      assert.match(rendered.user, /先按三项条件列出全部应建卡的人/);
+      assert.doesNotMatch(rendered.system, /修订时先核对套数|审核只要求/);
+    } else if (action === 'regenerate') {
+      assert.match(rendered.system, /完整角色数组/);
+      assert.match(rendered.system, /不自行起名/);
+      assert.match(rendered.system, /不写“未明确”/);
+      assert.match(rendered.system, /先核对套数/);
+      assert.match(rendered.user, /未点到的人保持不变/);
+      assert.doesNotMatch(rendered.system, /只调整修改意见明确涉及的内容|审核只要求|自由补充/);
+    } else {
+      assert.match(rendered.system, /具体姓名/);
+      assert.match(rendered.system, /不是遗漏/);
+      assert.match(rendered.system, /合理补全可以通过/);
+      assert.match(rendered.system, /修改意见只用来核对上次的问题是否已解决/);
+      assert.match(rendered.user, /按核对清单审核/);
+      assert.doesNotMatch(rendered.system, /自由补充|未提取这类人物不是遗漏/);
+    }
     if (action === 'review') {
-      assert.match(rendered.system, /报告遗漏时必须写出缺少的具体姓名/);
-      assert.match(rendered.system, /该项不是错误，不能再用它拒绝/);
-      assert.match(rendered.system, /其余服装、字段等独立问题仍照常审核/);
+      assert.match(rendered.system, /建议不建卡的项不能再用来拒绝/);
     }
     if (action === 'regenerate') {
       assert.equal(rendered.messages.filter(m => m.role === 'assistant').length, 1);
@@ -46,15 +56,16 @@ test('人物生成/修订/审核共用补全口径，真实渲染与规则面板
     }
   }
   const rules = nodeRules('project-characters');
-  for (const key of ['generate', 'revise', 'review']) {
-    assert.doesNotMatch(rules[key], /句末标“背景补”|必须含“背景补”|原样保留/);
-    assert.match(rules[key], /自由补充/);
-    assert.match(rules[key], /不得把完整角色名单缩小到这一个人/);
-    assert.match(rules[key], /补全细节不等于新增服装造型/);
-    assert.match(rules[key], /此排除优先于剧情重要性与名单完整性要求/);
-  }
-  assert.match(rules.review, /不因未列全称号、经历或某个原文形容词拒绝/);
-  assert.match(rules.review, /无剧本依据增加服装套数、近似服装重复建套/);
+  assert.doesNotMatch(rules.generate, /句末标“背景补”|必须含“背景补”|原样保留/);
+  assert.match(rules.generate, /按剧情、时代和身份补成能拍定妆照的设定/);
+  assert.match(rules.generate, /不缩小名单/);
+  assert.match(rules.revise, /不要只返回意见点名的人/);
+  assert.match(rules.revise, /先核对套数/);
+  assert.doesNotMatch(rules.revise, /自由补充|只调整修改意见明确涉及的内容/);
+  assert.doesNotMatch(rules.review, /句末标“背景补”|必须含“背景补”|原样保留|自由补充/);
+  assert.match(rules.review, /具体姓名/);
+  assert.match(rules.review, /没有换装原文却多出服装套/);
+  assert.match(rules.review, /一行一条/);
   const candidate = { characters: [person()] };
   assert.doesNotThrow(() => validateNodeResult('project-characters', 'generate', candidate, input()));
   const invalid = structuredClone(candidate); invalid.characters[0].signature_props = '眼镜';

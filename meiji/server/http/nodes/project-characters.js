@@ -59,11 +59,11 @@ export default {
   actions: {
     generate: {
       input: {"language":"string","requirements":"string","script":"string","characters":"array"},
-      output: output0,
+      output: { ...output0, requirements: "只返回上述 JSON，不附解释或 Markdown 代码围栏。不返回 ID、编号、图片地址或额外字段。数组没有内容时返回 []。" },
     },
     regenerate: {
       input: {"language":"string","requirements":"string","script":"string","characters":"array","opinion":"string","content":"object"},
-      output: output0,
+      output: { ...output0, requirements: "只返回上述 JSON，不附解释或 Markdown 代码围栏。不返回 ID、编号、图片地址或额外字段。必须返回完整角色数组，不能只返回被点名的人。道具没有内容时返回 []。" },
     },
     review: {
       input: {"language":"string","requirements":"string","script":"string","characters":"array","opinion":"string","content":"object"},

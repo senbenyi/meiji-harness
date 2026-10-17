@@ -494,14 +494,23 @@ export function renderTaskPanel(root, snapshot, context) {
   else if (state.page === "history") renderHistory(root, env, snapshot);
   else if (state.page === 'skill') {
     const business = state.rule_business;
+    const opinionKey = `${business}:${state.rule_target}`;
     const supplement = business === 'outline'
-      ? p.episodes.find(e => e.id === state.rule_target)?.episode_requirements || ''
-      : ['costume-image', 'video'].includes(business) ? '' : p.creative_direction || '';
+      ? { label: '本集要求', value: p.episodes.find(e => e.id === state.rule_target)?.episode_requirements || '' }
+      : ['costume-image', 'video'].includes(business) ? null
+      : { label: '补充需求', value: p.creative_direction || '' };
     root.append(renderSkillDetail({
       label: names[business] || business,
       supplement,
-      opinion: state.opinions?.[`${business}:${state.rule_target}`] || '',
+      opinion: state.opinions?.[opinionKey] || '',
     }, {
+      onOpinion: value => { state.opinions ??= {}; state.opinions[opinionKey] = value; },
+      onSupplement: (value, commit) => {
+        if (!commit) return;
+        return business === 'outline'
+          ? act({ type: 'edit-episode', episode_id: state.rule_target, fields: { episode_requirements: value } }, true)
+          : act({ type: 'edit', fields: { creative_direction: value } }, true);
+      },
       load: () => request('rules?' + new URLSearchParams({ session_id, project_id: p.id, business })),
       back: () => go(state.rule_return || 'overview'),
     }));
