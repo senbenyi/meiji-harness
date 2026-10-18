@@ -1,13 +1,14 @@
-// 镜头表出镜绑定决定类型，缺图不改变类型。
+// 只使用对应人物服装和场景的可用参考图；缺图时由实际素材决定视频类型。
 export function previousShot(episode, shot) {
   const shots = [...episode.shot_list.shots].sort((a, b) => a.sequence - b.sequence);
   return shots[shots.findIndex(item => item.id === shot.id) - 1] || null;
 }
-export function videoType(episode, shot) {
-  const previous = previousShot(episode,shot);
-  if (shot.on_screen_characters.length) return '多模态';
-  if (previous && shot.scene_transition === '连续接拍' && shot.scene_id === previous.scene_id && shot.scene_state === previous.scene_state) return '首尾帧';
-  return shot.scene_id ? '多模态' : '文生';
+export function videoType(project, episode, shot) {
+  if (videoImages(project, shot).length) return '多模态';
+  const previous = previousShot(episode, shot);
+  if (previous && shot.scene_transition === '连续接拍' && shot.scene_id === previous.scene_id && shot.scene_state === previous.scene_state
+      && previous.last_frame.address && previous.last_frame.node_state.status === 'generated') return '首尾帧';
+  return '文生';
 }
 export const videoPack = type => ({ '首尾帧': 'first-last-frame', '多模态': 'multimodal' }[type] || null);
 export function videoImages(project, shot) {
@@ -19,5 +20,5 @@ export function videoImages(project, shot) {
     const scene = project.scene_library.scenes.find(item => item.id === shot.scene_id);
     images.push({kind:'scene',business_type:'scene-image',id:shot.scene_id,image:scene?.reference_image,scene});
   }
-  return images;
+  return images.filter(({ image }) => image?.address && image.node_state.status === 'generated');
 }

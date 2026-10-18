@@ -10,7 +10,7 @@ import { dataUrl } from '../gateway/model-gateway.js';
 export function createVideoPromptHandler({ media }) {
   return async ({ snapshot, task, signal }) => {
     const project = snapshot.project, { object: shot, episode } = locateTarget(project, task.business_type, task.target_id);
-    const type = videoType(episode, shot);
+    const type = videoType(project, episode, shot);
     if (videoPack(type) !== task.business_type) invalid('视频编排', '当前类型不适用此编排');
     const addresses = type === '首尾帧' ? [previousShot(episode, shot).last_frame.address] : videoImages(project, shot).map(({ image }) => image.address);
     const images = [];

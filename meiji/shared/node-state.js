@@ -63,7 +63,15 @@ export function assertOutput(project, business, targetId) {
   if (business === "storyboard") nonempty(node.integrated_multimodal_description, "文生视频提示词");
 }
 
-// 数值业务审核只在程序审核和人工放行执行；人工编辑及可消费结构校验不重复审核。
+// 正式三段提示词的首段标记属于确定性格式，不交给AI猜测。
+export function assertPromptShotMarker(text) {
+  const first = text.match(/\[Shot\s+(\d+)\]/);
+  if (!first || first[1] !== '1') invalid('分镜提示词', '首段必须包含 [Shot 1]，不能省略或从其他编号开始');
+  if (/^\s*At\s+\d{2}:\d{2}\.\d{3}/.test(text.slice(first.index + first[0].length)))
+    invalid('分镜提示词', '[Shot 1] 从本镜0秒开始，不写At时间戳；后续镜内切镜才写对应时间');
+}
+
+// 程序审核与人工放行的业务核验；人工编辑及可消费结构校验不重复执行本层。
 export function assertProgramReview(project, business, targetId) {
   assertOutput(project, business, targetId);
   const { object } = locateTarget(project, business, targetId), node = nodeOf(project, business, targetId);
@@ -81,8 +89,10 @@ export function assertProgramReview(project, business, targetId) {
     if (Math.abs(end - object.duration_seconds) > 1e-9)
       invalid("每秒分镜", `节拍总时长 ${end} 秒需等于本镜参考 ${object.duration_seconds} 秒`);
   }
-  if (business === 'storyboard') assertPromptDialogue(object.seconds_storyboard,
-    node.integrated_multimodal_description);
+  if (business === 'storyboard') {
+    assertPromptDialogue(object.seconds_storyboard, node.integrated_multimodal_description);
+    assertPromptShotMarker(node.integrated_multimodal_description);
+  }
   if (business === 'episode-scenes' && !node.has_result) invalid('提取场景', '本集场景为空');
   if (business === "outline") {
     const total = node.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0);
@@ -90,6 +100,9 @@ export function assertProgramReview(project, business, targetId) {
       invalid("分集改编", `小段总时长 ${total} 秒超出允许范围（本集参考时长 ${object.duration_seconds} 秒，允许误差±30秒）`);
   }
   if (business === "shots") {
+    for (const shot of node.shots)
+      if (shot.on_screen_characters.length > 3)
+        invalid("镜头表", `${shot.number} ${shot.title}：实际出镜重要人物 ${shot.on_screen_characters.length} 人，单镜最多3人；请拆分或调整可见范围，不能仅删除绑定；不具名群演不计入`);
     if (node.shots.some(shot => shot.duration_seconds < 4 || shot.duration_seconds > 15))
       invalid("镜头表", "镜头时长需为 4–15 秒");
     const expected = Math.round(object.story_outline.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0));

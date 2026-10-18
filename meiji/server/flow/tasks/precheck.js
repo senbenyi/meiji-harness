@@ -109,21 +109,19 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     'video-pack': () => {
       requireNode('shots', episode.id);
       requireNode('storyboard', object.id);
-      const type = videoType(episode, object);
+      const type = videoType(p, episode, object);
       if (videoPack(type) !== business) invalid('precheck', '视频类型已变化，请重新提交视频任务');
       if (type === '多模态') {
         const refs = videoImages(p, object);
         if (refs.length > 9) invalid('precheck', '人物与场景参考图合计最多9张');
-        for (const row of refs) requireNode(row.business_type, row.id, row.kind === 'scene' ? '场景参考图' : '定妆照');
       } else requireNode('tail', previousShot(episode, object).id);
     },
     video: () => {
       requireNode('shots', episode.id);
       requireNode('storyboard', object.id);
-      const type = videoType(episode, object), pack = videoPack(type);
+      const type = videoType(p, episode, object), pack = videoPack(type);
       if (object.video_generation_type !== type) invalid('precheck', '视频类型尚未确定');
       if (pack) requireNode(pack, object.id);
-      if (type === '多模态') for (const row of videoImages(p, object)) requireNode(row.business_type, row.id, row.kind === 'scene' ? '场景参考图' : '定妆照');
       if (type === '首尾帧') requireNode('tail', previousShot(episode, object).id);
     },
     assembly: () => {

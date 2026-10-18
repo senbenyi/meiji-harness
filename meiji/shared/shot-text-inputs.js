@@ -1,5 +1,5 @@
 import { shotScene } from './scene-inputs.js';
-import { previousShot } from './video-inputs.js';
+import { previousShot, videoImages } from './video-inputs.js';
 
 export function characterTextCatalog(project) {
   return project.character_library.characters.map(({ id, name, gender, era, position, age_range, body_type, hairstyle, signature_props, immutable_traits, voice, costumes }) => ({
@@ -55,12 +55,13 @@ export function sceneReferenceDescription(scene) {
 }
 export function shotReferenceBindings(project, episode, shot) {
   const participants = shotTextInputs(project, episode, shot, 'storyboard').characters;
-  const bindings = shot.on_screen_characters.map(row => {
+  const selected = new Set(videoImages(project, shot).map(row => row.id));
+  const bindings = shot.on_screen_characters.filter(row => selected.has(row.costume_id || row.character_id)).map(row => {
     const person = participants.find(person => person.id === row.character_id);
     const costume = person?.costumes.find(costume => costume.id === row.costume_id);
     return { name: person?.name || '', speaker_tag: person?.speaker_tag || '', costume: costume ? [costume.name, costume.description, costume.color, costume.material, ...costume.props].filter(Boolean).join('，') : '' };
   });
-  if (shot.scene_id) {
+  if (shot.scene_id && selected.has(shot.scene_id)) {
     const scene = project.scene_library.scenes.find(item => item.id === shot.scene_id);
     bindings.push({ kind: 'scene', name: scene.name, description: sceneReferenceDescription(scene), state: shot.scene_state });
   }

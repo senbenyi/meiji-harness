@@ -469,7 +469,7 @@ export class TaskService {
           if (t?.task_status !== 'queued') return { inserted: false };
           const { object: shot, episode } = locateTarget(s.project, 'video', t.target_id);
           if (!isNodeCurrent(s, 'shots', episode.id) || !isNodeCurrent(s, 'storyboard', shot.id)) return { inserted: false };
-          const type = videoType(episode, shot), business = videoPack(type);
+          const type = videoType(s.project, episode, shot), business = videoPack(type);
           shot.video_generation_type = type;
           if (!business || isNodeCurrent(s, business, shot.id)) return { inserted: false };
           const order = t.queue_order, seq = t.group_seq;

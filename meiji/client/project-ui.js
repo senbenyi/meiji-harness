@@ -84,28 +84,28 @@ function stepTone(status) {
   if (status === "rejected" || status === "expired") return "failed";
   return "empty";
 }
-function packNode(episode, shot) {
-  const type = shot.video_generation_type || videoType(episode, shot);
+function packNode(project, episode, shot) {
+  const type = videoType(project, episode, shot);
   if (type === "首尾帧") return ["首尾帧", shot.first_last_frame_prompt];
   if (type === "多模态") return ["多模态", shot.multimodal_prompt];
   if (type === "文生") return ["文生", { node_state: { status: "generated" }, prompt: "文生，不编排额外提示词" }];
   return ["多模态/首尾帧", { node_state: { status: "empty" }, prompt: "" }];
 }
-function filmPackLabel(episode, shot) {
-  const [name] = packNode(episode, shot);
+function filmPackLabel(project, episode, shot) {
+  const [name] = packNode(project, episode, shot);
   return name === "多模态/首尾帧" ? "待视频任务执行时确定" : name;
 }
-function filmPackCards(episode, shot, nodeCard) {
-  const [name] = packNode(episode, shot);
+function filmPackCards(project, episode, shot, nodeCard) {
+  const [name] = packNode(project, episode, shot);
   if (name === "首尾帧") return [nodeCard("first-last-frame", shot.id, shot.first_last_frame_prompt)];
   if (name === "多模态") return [nodeCard("multimodal", shot.id, shot.multimodal_prompt)];
   return [];
 }
-function filmNodes(episode, shot) {
+function filmNodes(project, episode, shot) {
   return [
     ["每秒分镜", shot.seconds_storyboard],
     ["文本提示词", shot.text_to_video_prompt],
-    packNode(episode, shot),
+    packNode(project, episode, shot),
     ["视频", shot.video],
   ];
 }
@@ -130,9 +130,9 @@ function taskGroupUi(status, message, buttons) {
   if (message) ui.append(element("p", message, "error"));
   return ui;
 }
-function shotStepRow(episode, shot) {
+function shotStepRow(project, episode, shot) {
   const row = element("ol", "", "shot-steps");
-  filmNodes(episode, shot).forEach(([name, node], index) => {
+  filmNodes(project, episode, shot).forEach(([name, node], index) => {
     const status = node?.node_state?.status || "empty";
     const item = element("li", "", `shot-step is-${stepTone(status)}`);
     item.title = nodeStatusLabels[status] || status;
@@ -177,7 +177,7 @@ function shotResultText(project, name, node) {
 }
 function shotResultStrip(project, episode, shot, media, root) {
   const strip = element("div", "", "shot-results");
-  for (const [name, node] of filmNodes(episode, shot)) {
+  for (const [name, node] of filmNodes(project, episode, shot)) {
     const card = element("article", "", "shot-result");
     const status = node?.node_state?.status || "empty";
     card.append(element("h4", name, `is-${stepTone(status)}`));
@@ -587,8 +587,8 @@ export function renderEpisode(root, env, entries) {
         element("p", `参考 ${shot.duration_seconds} 秒${shot.actual_duration_seconds > 0 ? ` · 实际 ${shot.actual_duration_seconds} 秒` : ""}`, "meta"),
         nodeCard("seconds", shot.id, shot.seconds_storyboard),
         nodeCard("storyboard", shot.id, shot.text_to_video_prompt),
-        element("p", `视频类型：${filmPackLabel(e, shot)}`, "meta"),
-        ...filmPackCards(e, shot, nodeCard),
+        element("p", `视频类型：${filmPackLabel(p, e, shot)}`, "meta"),
+        ...filmPackCards(p, e, shot, nodeCard),
         video,
       );
     root.append(body);
@@ -726,7 +726,7 @@ export function renderEpisode(root, env, entries) {
               onHistory: () => go("history", { history_episode: e.id }),
             }),
           ),
-          shotStepRow(e, s),
+          shotStepRow(p, e, s),
           shotScript(s),
           shotResultStrip(p, e, s, media, root),
         ] : []),

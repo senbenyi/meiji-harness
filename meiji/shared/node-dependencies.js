@@ -97,7 +97,7 @@ function dependencyMaterial(snapshot, business, id) {
   }
   if (['video', 'first-last-frame', 'multimodal'].includes(business)) {
     const { object: shot, episode } = locateTarget(project, business, id);
-    const type = videoType(episode, shot), previous = previousShot(episode, shot);
+    const type = videoType(project, episode, shot), previous = previousShot(episode, shot);
     const pack = videoPack(type);
     return { type, duration: shot.duration_seconds, aspectRatio: project.aspect_ratio,
       prompt: body(shot.text_to_video_prompt), upstream: upstream('storyboard', id),
@@ -222,7 +222,7 @@ export function downstream(snapshot, business, id) {
   }
   if (business === 'episode-scenes') return [one('shots',id)];
   if (business === 'scene-setting') return [one('scene-image',id), ...p.episodes.filter(e => e.scene_catalog.scene_ids.includes(id)).map(e => ({...one('shots',e.id),context_only:true}))];
-  if (business === 'scene-image') return p.episodes.flatMap(e => e.shot_list.shots.filter(shot => shot.scene_id === id && videoType(e,shot) === '多模态').flatMap(shot => [one('multimodal',shot.id),one('video',shot.id)]));
+  if (business === 'scene-image') return p.episodes.flatMap(e => e.shot_list.shots.filter(shot => shot.scene_id === id).flatMap(shot => [one('multimodal',shot.id),one('video',shot.id)]));
   if (business === "shots")
     return [
       ...e.shot_list.shots.map((x) => one("seconds", x.id)),
@@ -241,7 +241,7 @@ export function downstream(snapshot, business, id) {
   if (business === "tail") {
     const list = [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence),
       next = list[list.findIndex((x) => x.id === id) + 1];
-    return next && videoType(e, next) === '首尾帧' ? [one('first-last-frame', next.id), one('video', next.id)] : [];
+    return next && videoType(p,e, next) === '首尾帧' ? [one('first-last-frame', next.id), one('video', next.id)] : [];
   }
   if (business === "character-setting") return [...s.costume_images.map(image => one("costume-image", image.costume_id || id)), ...roleContext()];
   if (business === "costume-setting") return [one("costume-image", id), ...roleContext()];
@@ -253,7 +253,7 @@ export function downstream(snapshot, business, id) {
       .map(image => one("costume-image", image.costume_id || character.id)) : [];
     for (const episode of p.episodes)
       for (const shot of episode.shot_list.shots) {
-        const used = videoType(episode, shot) === '多模态' && videoImages(p, shot).some(row => row.id === id || (business === 'character-image' && row.id === character.id));
+        const used = shot.on_screen_characters.some(row => row.costume_id === id || (!row.costume_id && row.character_id === character.id));
         if (used) result.push(one('multimodal', shot.id), one('video', shot.id));
       }
     return result;

@@ -10,7 +10,7 @@
     }
   },
   "scripts": {
-    "test": "set -- tests/*.test.js; if [ ! -f \"$1\" ]; then echo \"尚无阶段测试，未验证\" >&2; exit 1; fi; node --test \"$@\""
+    "test": "set -- tests/*.test.js; if [ ! -f \"$1\" ]; then echo \"未找到正式测试，未验证\" >&2; exit 1; fi; node --test \"$@\""
   },
   "exports": {
     ".": "./index.js",

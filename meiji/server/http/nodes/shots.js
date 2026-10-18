@@ -74,6 +74,8 @@ export default {
     if (action === 'review') return;
     const issues = [];
     for (const [shotIndex, shot] of value.shots.entries()) {
+      if (shot.on_screen_characters.length > 3)
+        issues.push(`响应.shots[${shotIndex}].on_screen_characters（第${shotIndex + 1}镜 ${shot.title}）：实际出镜重要人物 ${shot.on_screen_characters.length} 人，单镜最多3人；请在同一小段内拆分镜头或调整真实可见范围，并同步正文、绑定、衔接和人物位置。不得仅删绑定却保留出镜动作，不删除原事件或原对白；不具名群演不计入。`);
       if (!['连续接拍','切换机位','换场'].includes(shot.scene_transition)) invalid('响应.scene_transition','需为连续接拍、切换机位或换场');
       if (shot.scene_id && !(input.scenes || []).some(scene => scene.id === shot.scene_id)) invalid('响应.scene_id','需引用本集已提取场景；一次性不重要地点为空');
       const seen = new Set();
