@@ -51,7 +51,7 @@ CREATE TABLE task_steps (
   task_id TEXT NOT NULL,
   seq INTEGER NOT NULL CHECK(seq >= 1),
   name TEXT,
-  kind TEXT NOT NULL CHECK(kind IN ('precheck','generate','review','revise','manual_edit','override','impact','apply')),
+  kind TEXT NOT NULL CHECK(kind IN ('precheck','generate','review','revise','manual_edit','override','impact','download','apply')),
   round INTEGER NOT NULL CHECK(round BETWEEN 0 AND 2),
   step_status TEXT NOT NULL CHECK(step_status IN ('ready','running','done','rejected','failed','skipped','cancelled','superseded')),
   executor TEXT NOT NULL CHECK(executor IN ('ai','program')),
@@ -92,4 +92,7 @@ INSERT INTO schema_migrations VALUES (19,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (20,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (21,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (22,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
-PRAGMA user_version=22;
+INSERT INTO schema_migrations VALUES (23,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+INSERT INTO schema_migrations VALUES (24,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+INSERT INTO schema_migrations VALUES (25,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+PRAGMA user_version=25;

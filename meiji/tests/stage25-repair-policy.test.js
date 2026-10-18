@@ -9,7 +9,7 @@ import { createAppRuntime } from '../server/runtime/app-runtime.js';
 import { composeNodePrompt, validateNodeResult } from '../server/http/ai-routes.js';
 import { taskNodeInput } from '../server/handlers/node-inputs.js';
 import { nodeRules } from '../server/http/node-rules.js';
-import { assertShotDialogue, assertPromptDialogue } from '../shared/dialogue-integrity.js';
+import { assertShotDialogue, assertPromptDialogue, assertPendingDialogue } from '../shared/dialogue-integrity.js';
 import { stampDependencyHash, isNodeCurrent } from '../shared/node-dependencies.js';
 
 const seconds = end => ({ end_state: '人物停在门边。', pending_actions: '', pending_dialogue: '', continuing_audio: '',
@@ -56,11 +56,11 @@ test('三字段审核契约与skill完整同源，拒绝无类型、未知类型
 });
 
 test('上游矛盾停止下游修订，保留正式镜头、hash和完整审核历史', () => scenario('shots', ({ step }, calls, p) =>
-  step.kind === 'review' ? { 是否通过: false, 类型: '上游资料问题', 原因: '故事大纲 · 小段1：舱门已封闭。乘员随后登舱。先封门后登舱，时间关系冲突，需先修正大纲顺序。' }
+  step.kind === 'review' ? { 是否通过: false, 类型: '上游资料问题', 原因: '分集改编 · 小段1：舱门已封闭。乘员随后登舱。先封门后登舱，时间关系冲突，需先修正大纲顺序。' }
     : { shots: rows(p).map((r, i) => ({ ...r, body: i ? r.body : '候选新正文' })) },
   ({ snapshot, before, calls, taskId }) => {
     const t = snapshot.tasks.find(t => t.id === taskId), node = snapshot.project.episodes[0].shot_list;
-    assert.equal(t.task_status, 'rejected'); assert.match(t.end_reason, /需先修正上游.*\n故事大纲 · 小段1/s);
+    assert.equal(t.task_status, 'rejected'); assert.match(t.end_reason, /需先修正上游.*\n分集改编 · 小段1/s);
     assert.equal(calls.length, 2); assert.equal(snapshot.steps.filter(s => s.kind === 'revise').length, 0);
     assert.deepEqual(node.shots, before.episodes[0].shot_list.shots);
     assert.equal(node.node_state.dependency_hash, before.episodes[0].shot_list.node_state.dependency_hash);
@@ -211,4 +211,35 @@ test('patch在审核期间取消，晚到审核不写入正式镜头', async () 
     assert.equal(model.readAll().tasks.find(t => t.id === submitted.task_id).task_status, 'cancelled');
     assert.deepEqual(model.readAll().project.episodes[0].shot_list.shots, normalizedOld);
   } finally { release(); await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+
+test('被打断的原话已说出时无需续说，错误待续引用不能重播',()=>{
+  const node=seconds(5);node.storyboard[0].dialogue=[{speaker_id:'',speaker_name:'甲',mode:'画内',dialogue_text:'我不同意——'}];
+  assert.doesNotThrow(()=>assertPendingDialogue(node));
+  node.pending_dialogue='甲：“我不同意——”已说出，台词未完。';
+  assert.throws(()=>assertPendingDialogue(node),/pending_dialogue.*已在本镜实际对白中说出/);
+  node.pending_dialogue='甲下一镜接着说：“这件事还得商量。”';
+  assert.doesNotThrow(()=>assertPendingDialogue(node),'明确未发声的后续仍可交接');
+});
+
+test('本镜问号完整时通过，重复前镜台词和丢问号仍严格拒绝',()=>{
+  const p=projectFixture(),shot=p.episodes[0].shot_list.shots[0],node=seconds(5);
+  shot.audio_arrangement.dialogue='乙：“你确定？”丙：“确定。”';shot.audio_arrangement.narration='';
+  const line=text=>({speaker_id:'',speaker_name:'乙',mode:'画内',dialogue_text:text});
+  node.storyboard[0].dialogue=[line('你确定？'),line('确定。')];
+  assert.doesNotThrow(()=>assertShotDialogue(shot,node));
+  node.storyboard[0].dialogue.unshift(line('我不同意——'));
+  assert.throws(()=>assertShotDialogue(shot,node),/完整发声序列/);
+  node.storyboard[0].dialogue=[line('你确定'),line('确定。')];
+  assert.throws(()=>assertShotDialogue(shot,node),/对白完整性/);
+});
+
+test('每秒生成与审核共用打断和待续判定，审核核对当前实际对白',()=>{
+  const rules=nodeRules('seconds');
+  for(const value of [rules.generate,rules.review]) {
+    assert.match(value,/不因破折号或省略号认定需要续说/);
+    assert.match(value,/不重播前镜已说片段/);
+  }
+  assert.match(rules.review,/已存在的字句和标点不得判遗漏/);
 });

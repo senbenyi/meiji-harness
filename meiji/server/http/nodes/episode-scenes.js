@@ -4,7 +4,7 @@ import { invalid } from '../../../shared/task_contract.js';
 const output = { type: 'JSON', structure: { scenes: [{ id: '', name: '地点名称', description: '空间身份与风格', layout: '固定布局和地标', materials: '材质与色彩', lighting: '基础光源' }] }, requirements: '只返回上述JSON。新增场景id为空并填写完整资料；已有场景原样复用id，其余字段照抄已有资料，程序以项目资料为准。只提取反复出现、重要或用户明确要求固定的地点；一次性不重要地点不收录，没有符合条件的地点返回scenes:[]。按实际地点去重，不按镜头、机位、昼夜或天气增加条目。不得返回图片地址或节点状态。' };
 const input = { language:'string', requirements:'string', segments:'array', scenes:'array', script:'string' };
 export default { promptModel,
-  compose: value => ({ ...commonValues(value), 故事大纲:value.segments, 已有场景:value.scenes, 剧情上下文:value.script }),
+  compose: value => ({ ...commonValues(value), 分集改编:value.segments, 已有场景:value.scenes, 剧情上下文:value.script }),
   validateResult(value, input, action) {
     if (action === 'review') return;
     const ids = new Set(), names = new Set();

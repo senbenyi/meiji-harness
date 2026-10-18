@@ -213,7 +213,7 @@ button.delete-content:not(:disabled):hover{color:#ffc1c1;background:#442c31;bord
 .panel-dialog-overlay{position:fixed;top:0;bottom:0;right:0;width:var(--meiji-panel-width,min(360px,44vw));background:#0009;backdrop-filter:blur(3px)}
 dialog.panel-dialog{position:fixed;top:50%;left:auto;right:calc(var(--meiji-panel-width,min(360px,44vw)) / 2);transform:translate(50%,-50%);margin:0;width:480px;max-width:calc(var(--meiji-panel-width,min(360px,44vw)) - 24px);max-height:calc(100dvh - 32px);box-sizing:border-box}
 dialog.panel-dialog.still-preview{width:max-content}
-dialog.panel-dialog.still-preview img{max-width:calc(var(--meiji-panel-width,min(360px,44vw)) - 48px);max-height:calc(100dvh - 64px)}
+dialog.panel-dialog.still-preview img,dialog.panel-dialog.video-preview video{max-width:calc(var(--meiji-panel-width,min(360px,44vw)) - 48px);max-height:calc(100dvh - 64px)}
 
 /* skill 页面：基础全文、补充管理和预览独立分区，正文随页面滚动。 */
 .skill-detail-page{min-width:0}.skill-page-head{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px}.skill-page-head h2{margin:0;overflow-wrap:anywhere}.skill-detail-page .settings-group{min-width:0;margin:18px 0;padding:16px;border:1px solid #383a41;border-radius:10px}.skill-detail-page .settings-group>h3{margin-top:0}.skill-detail-page .skill-base .skill-text,.skill-detail-page .skill-constraints .skill-text,.skill-supplement-card .skill-text{max-height:none;overflow:visible}.skill-detail-page textarea{width:100%;box-sizing:border-box;min-height:150px}.skill-supplement-card{margin:12px 0;padding:12px;background:#1b1c21;border:1px solid #383a41;border-radius:8px}.skill-detail-page .skill-preview details{margin-top:12px}.skill-detail-page .skill-preview summary{cursor:pointer}.skill-detail-page .skill-status:empty{display:none}@media(max-width:600px){.skill-detail-page .settings-group{padding:12px}.skill-page-head{gap:8px}}
@@ -400,7 +400,7 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .shot-result{min-width:0;min-height:148px;margin:0;padding:10px 8px;border:1px solid #383a41;border-radius:8px;background:#23252c}
 .shot-result h4{margin:0 0 8px;font-size:12px;line-height:16px}
 .shot-result p{margin:0;font-size:12px;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden}
-.shot-result video,.shot-result img{display:block;width:100%;height:72px;object-fit:cover;border-radius:6px;background:#111}
+.shot-result video,.shot-result img{display:block;width:100%;height:72px;object-fit:cover;border-radius:6px;background:#111;cursor:pointer}
 .seconds-beats{display:flex;flex-direction:column;gap:14px}
 .seconds-beat,.seconds-summary{display:flex;flex-direction:column;gap:4px}
 .seconds-beat p,.seconds-summary p,.seconds-shot-setup p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -420,3 +420,5 @@ button.character-portrait-open:focus-visible,button.scene-card-preview:focus-vis
 .scene-card-list{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;margin-top:8px;padding:2px 0 10px;scroll-snap-type:x proximity;cursor:grab;user-select:none}.scene-card-list.is-dragging{cursor:grabbing;scroll-snap-type:none}.scene-card-list>.scene-setting{flex:0 0 calc((100% - 8px) / 2);min-width:0;margin:0;padding:8px;border:1px solid #383a41;border-radius:8px;box-sizing:border-box;scroll-snap-align:start;overflow-wrap:anywhere}.scene-card-list>.scene-setting img{max-width:100%;height:auto}
 .scene-card-list .scene-thumb{display:block;aspect-ratio:var(--scene-aspect,768 / 1344);object-fit:cover;border-radius:6px;background:#24262d;cursor:zoom-in}.scene-card-list[data-orientation=portrait] .scene-thumb{height:180px;width:auto;max-width:100%}.scene-card-list[data-orientation=landscape] .scene-thumb{width:100%;height:auto}
 .run-step-executor{flex:none;font-size:11px;line-height:16px;padding:0 6px;border-radius:4px;border:1px solid #4a4d57;color:#a7aab5}.run-step-executor.is-ai{border-color:#5b6fa8;color:#b9c6f2}
+
+.video-media-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(64px,120px);align-items:start;gap:16px}.video-media-row>video{display:block;width:100%;min-width:0;max-height:60vh;object-fit:contain;background:#111}.video-media-row>.tail-step{margin:0;min-width:0}.video-media-row>.tail-step>img{display:block;width:100%;height:auto;max-height:220px;object-fit:contain;border-radius:6px}.video-media-row>.tail-step>button{max-width:100%;margin:0}

@@ -34,10 +34,6 @@ export function prepareContent(snapshot, task, raw) {
     content = mergeScenes(project, raw.scenes, { updateExisting: task.action === 'manual_edit' });
   } else if (business === "project-characters") {
     content = { ...mergeCharacters(project, raw.characters), changes: structuredClone(raw.characters) };
-  } else if (business === "script-review") {
-    // 按审核意见改写后的完整剧本。
-    if (typeof raw !== "string" || !raw.trim()) invalid("剧本", "修改后的剧本为空");
-    content = { body: raw.trim() };
   } else if (["project-summary", "episode-summary"].includes(business)) {
     if (typeof raw !== "string" || !raw.trim()) invalid(business, "摘要内容为空");
     content = { body: raw.trim() };
@@ -106,20 +102,6 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
     return [];
   }
   const node = nodeOf(project, business, task.target_id);
-  if (business === "script-review") {
-    // 审核任务没有正文产出；修改任务写入新剧本，版本递增并记录修改历史。
-    if (content?.body && content.body !== node.body) {
-      node.body = content.body;
-      node.version += 1;
-      node.updated_at = new Date().toISOString();
-      node.revision_history.push({ timestamp: node.updated_at, task_id: task.id, revision_notes: task.opinion || "" });
-    }
-    validateProject(project);
-    if (!passed) return [];
-    assertOutput(project, business, task.target_id);
-    stampDependencyHash(snapshot, business, task.target_id);
-    return [];
-  }
   if (business === 'episode-scenes') {
     if (!passed) return [];
     const previousText = new Map(project.scene_library.scenes.map(scene => [scene.id, JSON.stringify(sceneText(scene))]));
@@ -137,6 +119,7 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   } else if (["scene-image", "costume-image", "video", "tail", "assembly"].includes(business)) {
     node.address = content.address;
     if (business === 'video') {
+      if (typeof content.server_address === 'string') node.server_address = content.server_address;
       const shot = locateTarget(project, business, task.target_id).object;
       if (!content.last_frame?.address) invalid('视频', '缺少配对尾帧');
       shot.actual_duration_seconds = content.actual_duration_seconds;

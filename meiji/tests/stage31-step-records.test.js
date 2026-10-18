@@ -52,7 +52,7 @@ test('v22迁移：旧记录拆出HTTP、去掉重复提示词、脱敏参考图�
     assert.equal(c.prompt, null); assert.deepEqual(c.http, []);
     await repo.close();
     db = new DatabaseSync(join(home, 'meiji.sqlite'));
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 23); db.close();
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 25); db.close();
   } finally { await rm(home, { recursive: true, force: true }); }
 });
 
@@ -95,7 +95,7 @@ test('任务组详情打开时按组读取一次；运行中版本前进时重�
     s.tasks = [{ id: 't', group_id: 'g', group_seq: 1, business_type: 'outline', task_status: 'running', queue_order: 1, source: 'panel' }];
     s.groups = [{ id: 'g', group_type: 'single', source: 'panel' }];
     s.steps = [{ id: 's', task_id: 't', seq: 1, kind: 'generate', step_status: 'running', executor: 'ai', has_prompt: true, has_http: true, result: null }];
-    const env = { p: s.project, state, session_id: 'sid', names: { outline: '故事大纲' }, go: (page, v) => { Object.assign(state, { page }, v); paint(); }, act: () => {},
+    const env = { p: s.project, state, session_id: 'sid', names: { outline: '分集改编' }, go: (page, v) => { Object.assign(state, { page }, v); paint(); }, act: () => {},
       button: (label, fn) => { const b = document.createElement('button'); b.textContent = label; b.onclick = () => fn(); return b; } };
     const paint = () => { root.replaceChildren(); renderHistory(root, env, s); };
     paint();
@@ -111,4 +111,26 @@ test('任务组详情打开时按组读取一次；运行中版本前进时重�
     await new Promise(resolve => setTimeout(resolve, 0)); await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(calls.length, 2, '读取完成后版本一致，不重复读取');
   } finally { globalThis.document = previous.document; globalThis.fetch = previous.fetch; dom.window.close(); }
+});
+
+test('v24迁移按列名复制旧追加列顺序，保留步骤内容与位置', async () => {
+  const home=await mkdtemp(join(tmpdir(),'meiji-v24-columns-'));
+  let repo;
+  try {
+    repo=new ModelRepository(home);const p=projectFixture();const model=await repo.create(p);
+    await seedQueuedTasks(model,[['project-summary',p.id]]);
+    await repo.close();repo=null;
+    const db=new DatabaseSync(join(home,'meiji.sqlite'));
+    const before=db.prepare('SELECT * FROM task_steps ORDER BY position').all();
+    const names=db.prepare('PRAGMA table_info(task_steps)').all().map(c=>c.name);
+    const legacy=[...names.filter(n=>!['executor','http_json'].includes(n)),'executor','http_json'].join(',');
+    db.exec(`CREATE TABLE legacy_steps AS SELECT ${legacy} FROM task_steps; DROP TABLE task_steps; ALTER TABLE legacy_steps RENAME TO task_steps; PRAGMA user_version=23;`);
+    db.close();
+    repo=new ModelRepository(home);await repo.open(p.id);await repo.close();repo=null;
+    const migrated=new DatabaseSync(join(home,'meiji.sqlite'));
+    assert.equal(migrated.prepare('PRAGMA user_version').get().user_version,25);
+    const after=migrated.prepare('SELECT * FROM task_steps ORDER BY position').all();
+    assert.deepEqual(after,before);
+    migrated.close();
+  } finally {await repo?.close();await rm(home,{recursive:true,force:true});}
 });

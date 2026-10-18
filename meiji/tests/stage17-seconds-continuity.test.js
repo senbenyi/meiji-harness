@@ -1,3 +1,4 @@
+import { assertProgramReview } from '../shared/node-state.js';
 import { seedQueuedTasks } from './fixtures/queued-tasks.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -162,7 +163,7 @@ test('v12迁移保留正文/历史/任务终态，过期节点与排队快照且
     db = new DatabaseSync(path);
     assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(), steps);
     assert.deepEqual(db.prepare('SELECT id,task_status FROM tasks').all(), tasks);
-    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 23);
+    assert.equal(db.prepare('PRAGMA user_version').get().user_version, 25);
     assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
     db.close();
     store = new SQLiteStore(path);
@@ -197,4 +198,24 @@ test('迁移只调整排队快照，不改写已结束任务的历史快照', ()
   const before = structuredClone(task);
   migrateSecondsContinuity(s);
   assert.deepEqual(task, before);
+});
+
+
+test('下镜前置定位前镜错误待续，修正为空或真实后续则通过',()=>{
+  const {s,first,second}=chain();
+  first.seconds_storyboard.pending_dialogue='旁白：“台词4”已说完却标为待续。';
+  assert.throws(()=>precheck(s,taskFixture(s.project,'seconds',second.id)),/前镜 S01 交接资料.pending_dialogue/);
+  first.seconds_storyboard.pending_dialogue='';
+  assert.doesNotThrow(()=>precheck(s,taskFixture(s.project,'seconds',second.id)));
+  first.seconds_storyboard.pending_dialogue='旁白后续原话：“明日再见。”';
+  assert.doesNotThrow(()=>precheck(s,taskFixture(s.project,'seconds',second.id)));
+});
+
+
+test('错误待续在本镜程序审核拒绝，不等到下镜模型重演',()=>{
+  const {s,first}=chain();
+  first.seconds_storyboard.pending_dialogue='旁白：“台词4”还没说完。';
+  assert.throws(()=>assertProgramReview(s.project,'seconds',first.id),/pending_dialogue.*已在本镜实际对白中说出/);
+  first.seconds_storyboard.pending_dialogue='';
+  assert.doesNotThrow(()=>assertProgramReview(s.project,'seconds',first.id));
 });

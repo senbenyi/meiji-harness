@@ -4,7 +4,7 @@ import { nodeOf, locateTarget } from '../../shared/task_contract.js';
 import { shotCharacterContext } from '../../shared/node-dependencies.js';
 import { aiProjection } from './content.js';
 import { scriptText } from '../../shared/script-text.js';
-import { scriptParagraphs, paragraphNumber } from './script-split.js';
+import { adaptationContext, adaptedStory } from '../../shared/adaptation-context.js';
 import { nodeAction } from '../http/ai-routes.js';
 import { reviewType } from '../../shared/task-plan.js';
 
@@ -25,7 +25,7 @@ function shotRepairBase(step) {
 }
 
 function candidate(business, value) {
-  if (['project-summary', 'episode-summary', 'script-review'].includes(business)) return typeof value === 'string' ? value : value?.body || '';
+  if (['project-summary', 'episode-summary'].includes(business)) return typeof value === 'string' ? value : value?.body || '';
   if (business === 'project-characters') {
     const fields = ['name', 'gender', 'era', 'position', 'age_range', 'body_type', 'hairstyle', 'facial_features', 'height', 'nationality', 'voice', 'signature_props', 'immutable_traits'];
     return { characters: (value?.changes || value?.characters || []).map(character => ({
@@ -38,55 +38,21 @@ function candidate(business, value) {
   return aiProjection(value || {});
 }
 
-function contiguousSplit(project) {
-  let start = 0;
-  return {
-    剧集: [...project.episodes].sort((a, b) => a.sequence - b.sequence).map(episode => {
-      const count = scriptParagraphs(episode.plot).length;
-      const row = { 序号: episode.sequence, 起始段落: paragraphNumber(start), 结束段落: paragraphNumber(Math.max(start, start + count - 1)), 预估时长秒: episode.duration_seconds };
-      start += count;
-      return row;
-    }),
-    排除段落: [],
-  };
-}
-
-// 上一版剧情是原文段落去掉排除项后的拼接。对回完整剧本时，范围内部未写入的编号也记为排除段落。
 function previousSplit(project) {
-  const paragraphs = scriptParagraphs(project.script.body);
-  const episodes = [...project.episodes].sort((a, b) => a.sequence - b.sequence);
-  if (!episodes.length) return { 剧集: [], 排除段落: [] };
-  let cursor = 0;
-  const rows = [];
-  const excluded = [];
-  for (const episode of episodes) {
-    const piece = scriptParagraphs(episode.plot);
-    if (!piece.length) return contiguousSplit(project);
-    const consumed = [];
-    let pieceAt = 0;
-    for (let i = cursor; i < paragraphs.length && pieceAt < piece.length; i++)
-      if (paragraphs[i] === piece[pieceAt]) { consumed.push(i); pieceAt++; }
-    if (pieceAt !== piece.length) return contiguousSplit(project);
-    const start = consumed[0];
-    const end = consumed[consumed.length - 1];
-    while (cursor < start) excluded.push(paragraphNumber(cursor++));
-    for (let at = start; at <= end; at++)
-      if (!consumed.includes(at)) excluded.push(paragraphNumber(at));
-    rows.push({ 序号: episode.sequence, 起始段落: paragraphNumber(start), 结束段落: paragraphNumber(end), 预估时长秒: episode.duration_seconds });
-    cursor = end + 1;
-  }
-  while (cursor < paragraphs.length) excluded.push(paragraphNumber(cursor++));
-  return { 剧集: rows, 排除段落: excluded };
+  return { 剧集: [...project.episodes].sort((a,b) => a.sequence - b.sequence).map(episode => ({
+    序号: episode.sequence, 本集规划: episode.plot, 预估时长秒: episode.duration_seconds,
+  })) };
 }
 
 // 各节点独立提取执行时资料；不向节点接口传入 project/snapshot。
 const inputs = {
-  'script-review': ({ project }) => ({ script: scriptText(project.script.body) }),
   'project-summary': ({ project }) => ({ script: scriptText(project.script.body) }),
   'project-characters': ({ project }) => ({ script: scriptText(project.script.body), characters: characterTextCatalog(project) }),
   'script-split': ({ project }) => ({ script: scriptText(project.script.body), duration: project.reference_episode_duration_seconds }),
-  'episode-summary': ({ episode }) => ({ plot: episode.plot }),
-  outline: ({ episode }) => ({ plot: episode.plot, duration: episode.duration_seconds, requirements: episode.episode_requirements || '' }),
+  'episode-summary': ({ episode }) => ({ plot: adaptedStory(episode) || episode.plot }),
+  outline: ({ project, episode }) => ({ plot: episode.plot, duration: episode.duration_seconds,
+    ...adaptationContext(project, episode), sequence: episode.sequence,
+    requirements: [project.creative_direction, episode.episode_requirements].filter(Boolean).join('\n') }),
   'episode-scenes': ({project,episode}) => ({segments:episode.story_outline.segments,scenes:sceneCatalog(project),script:scriptText(project.script.body) || project.episodes.map(e=>e.plot).join('\n\n')}),
   shots: ({ project, episode }) => ({ segments: episode.story_outline.segments, duration: episode.duration_seconds,
     characters: shotCharacterContext(project), scenes: sceneCatalog(project, episode) }),
@@ -148,8 +114,6 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
       value.content = draft || (task.opinion && rejected) || previousSplit(project);
     }
   }
-  // 剧本审核没有待审候选时审核当前剧本。
-  if (business === 'script-review' && action === 'review' && !value.content) value.content = project.script.body;
   if (action === 'regenerate' && step.kind === 'revise') {
     const previous = (snapshot.steps || []).filter(row => row.task_id === task.id
       && ['generate', 'revise'].includes(row.kind) && row.step_status === 'done'

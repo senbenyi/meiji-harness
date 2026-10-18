@@ -49,10 +49,10 @@ export default {
   promptModel,
   validateInput(input) {
     if (!input.segments.length || input.segments.some(part => !Number.isFinite(part?.duration_seconds) || part.duration_seconds <= 0))
-      invalid('上游故事大纲', '需要非空小段及有限正数预算');
+      invalid('上游分集改编', '需要非空小段及有限正数预算');
     const total = input.segments.reduce((sum, part) => sum + part.duration_seconds, 0);
     if (Math.abs(total - input.duration) > 30)
-      invalid('上游故事大纲', `小段合计 ${total} 秒不在固定本集参考 ${input.duration} 秒±30秒内；请先修正大纲或人工调整本集参考时长，不继续让镜头表反复修订`);
+      invalid('上游分集改编', `小段合计 ${total} 秒不在固定本集参考 ${input.duration} 秒±30秒内；请先修正大纲或人工调整本集参考时长，不继续让镜头表反复修订`);
   },
   compose(input) {
     return {

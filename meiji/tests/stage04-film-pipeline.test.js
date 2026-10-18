@@ -44,7 +44,7 @@ test('本集成片逐镜完整链：每秒审核通过后提示词/视频/尾帧
   assert.deepEqual(tasks.map(t=>t.business_type),['seconds','storyboard','video','seconds','storyboard','first-last-frame','video','assembly']);
  assert.ok(tasks.every(t=>t.task_status==='completed'));
  const first=p.episodes[0].shot_list.shots[0].id;
- assert.deepEqual(events.filter(e=>e[0]===first).map(e=>e.slice(1)),[['seconds','generate'],['seconds','review'],['seconds','revise'],['seconds','review'],['seconds','review'],['storyboard','generate'],['storyboard','review'],['video','generate'],['video','apply'],['video','review']]);
+ assert.deepEqual(events.filter(e=>e[0]===first).map(e=>e.slice(1)),[['seconds','generate'],['seconds','review'],['seconds','revise'],['seconds','review'],['seconds','review'],['storyboard','generate'],['storyboard','review'],['video','generate'],['video','download'],['video','apply']]);
  assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].actual_duration_seconds,5.2);assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].duration_seconds,5);
 }));
 

@@ -55,14 +55,14 @@ test('审核分类来源限定为本节点输入，位置与原文依据统一�
 
 function nodeInput(node, action) {
   const p = projectFixture(), ep = p.episodes[0], shot = ep.shot_list.shots[0];
-  if (node === 'scene-image') return {language:'zh-CN',requirements:'',scene:{name:'客厅'},aspectRatio:'768x1344',references:[],...(action === 'regenerate' ? {opinion:'保留布局'} : {})};
-  if (node === 'costume-image') return { language: 'zh-CN', requirements: '', person: '人物甲', costume: '蓝衣', referenceDescription: '', aspectRatio: '768x1344', references: [], ...(action === 'regenerate' ? { opinion: '保持身份' } : {}) };
-  if (node === 'video') return { type: '文生', textPrompt: { integrated_multimodal_description: '人物静立', overall_soundscape: '风声', non_diegetic_music: 'N/A' }, duration: 5, aspectRatio: '768x1344', ...(action === 'regenerate' ? { opinion: '保持动作' } : {}) };
+  if (node === 'scene-image') return {language:'zh-CN',requirements:'',scene:{name:'客厅'},aspectRatio:'9:16',references:[],...(action === 'regenerate' ? {opinion:'保留布局'} : {})};
+  if (node === 'costume-image') return { language: 'zh-CN', requirements: '', person: '人物甲', costume: '蓝衣', referenceDescription: '', aspectRatio: '9:16', references: [], ...(action === 'regenerate' ? { opinion: '保持身份' } : {}) };
+  if (node === 'video') return { type: '文生', textPrompt: { integrated_multimodal_description: '人物静立', overall_soundscape: '风声', non_diegetic_music: 'N/A' }, duration: 5, aspectRatio: '9:16', ...(action === 'regenerate' ? { opinion: '保持动作' } : {}) };
   const target = ['project-summary','project-characters','script-review','script-split'].includes(node) ? p.id : ['outline','shots','episode-summary','episode-scenes'].includes(node) ? ep.id : shot.id;
   return taskNodeInput({ project: p, tasks: [], steps: [] }, { id: 'audit', business_type: node, target_id: target, opinion: '保持原话与动作' }, null, action);
 }
 
-test('全部13节点35动作可渲染，每份审核完整公共规则只出现一次', () => {
+test('全部12节点33动作可渲染，每份审核完整公共规则只出现一次', () => {
   let actions = 0, reviews = 0;
   for (const [node, route] of Object.entries(nodeRoutes)) for (const action of Object.keys(route.actions)) {
     const prompt = composeNodePrompt(node, action, nodeInput(node, action), 'codex-gpt');
@@ -70,7 +70,7 @@ test('全部13节点35动作可渲染，每份审核完整公共规则只出现�
     if (action === 'review') { reviews++; assert.equal((prompt.system.match(/审核只返回是否通过、类型、原因三个字段/g) || []).length, 1, node); }
     assert.doesNotMatch(prompt.body, /\{\{[^{}]+\}\}/, `${node}/${action}`);
   }
-  assert.equal(actions, 35); assert.equal(reviews, 10);
+  assert.equal(actions, 33); assert.equal(reviews, 9);
 });
 
 test('生成修订审核共用节拍、对白字段和摄影边界，不要求额外表演字段', () => {
@@ -125,6 +125,6 @@ test('上游大纲预算已不合法时，在配置和模型请求前停止镜�
   const input = nodeInput('shots', 'generate');
   input.duration = 180;
   input.segments[0].duration_seconds = 240;
-  await assert.rejects(ai('shots', 'generate', input), /上游故事大纲.*先修正大纲/);
+  await assert.rejects(ai('shots', 'generate', input), /上游分集改编.*先修正大纲/);
   assert.equal(reads, 0);
 });

@@ -96,7 +96,7 @@ for (const hasOutput of [false, true]) test(`网络失败只展示原因，${has
   } finally { globalThis.document = previous.document; globalThis.fetch = previous.fetch; dom.window.close(); }
 });
 
-test('视频未通过的修复只提交该镜视频，长原因可展开，取消的定妆照组显示原因', async () => {
+test('历史视频未通过不提供修复，长原因可展开，取消的定妆照组显示原因', async () => {
   const dom = new JSDOM('<main></main>');
   const previous = { document: globalThis.document, fetch: globalThis.fetch };
   globalThis.document = dom.window.document;
@@ -121,13 +121,8 @@ test('视频未通过的修复只提交该镜视频，长原因可展开，取�
     assert.ok(card.querySelector('.node-ui-reason').classList.contains('is-clamped'));
     card.querySelector('.node-ui-reason-toggle').click();
     assert.equal(card.querySelector('.node-ui-reason-toggle').textContent, '收起');
-    card.querySelector('.node-ui-repair-row button').click();
-    await new Promise(resolve => setImmediate(resolve));
-    assert.equal(commands.at(-1).type, 'submit');
-    assert.equal(commands.at(-1).business_type, 'video');
-    assert.equal(commands.at(-1).target_id, shot.id);
-    assert.equal(commands.at(-1).action, 'regenerate');
-    assert.equal(commands.at(-1).opinion, reason);
+    assert.equal(labels.some(label => /^修复/.test(label)), false);
+    assert.equal(commands.length, 0);
 
     snapshot.groups = [{ id: 'cg', group_type: 'workflow', name: '定妆照' }];
     snapshot.tasks = [{ id: 'ct', group_id: 'cg', group_seq: 1, queue_order: 1, business_type: 'costume-image', target_id: 'missing', task_status: 'cancelled', end_reason: '用户取消项目全部任务' }];
@@ -137,3 +132,33 @@ test('视频未通过的修复只提交该镜视频，长原因可展开，取�
     assert.equal(costume.querySelector('.error').textContent, '用户取消项目全部任务');
   } finally { globalThis.document = previous.document; globalThis.fetch = previous.fetch; dom.window.close(); }
 });
+
+for (const [nextStatus, label] of [[null,'已取消'],['completed','已通过'],['running','生成中'],['failed','失败']]) {
+  test(`成片列表按后续单节点任务更新：${nextStatus || '没有后续任务'}`, () => {
+    const dom = new JSDOM('<main></main>'), previous = globalThis.document;
+    globalThis.document = dom.window.document;
+    try {
+      const snapshot = snapshotFixture(), p = snapshot.project, e = p.episodes[0], shot = e.shot_list.shots[0];
+      const group = { id:'old-film', group_type:'episode-film', episode_id:e.id, shot_ids:[shot.id] };
+      const original = { id:'old-video', group_id:group.id, group_seq:1, business_type:'video', target_id:shot.id, queue_order:1, task_status:'cancelled', end_reason:'用户取消' };
+      snapshot.groups = [group]; snapshot.tasks = [original];
+      p.latest_groups[`episode-film:${e.id}`] = group.id;
+      p.latest_groups[`shot-film:${shot.id}`] = group.id;
+      if (nextStatus) {
+        snapshot.groups.push({ id:'new-single', group_type:'single' });
+        snapshot.tasks.push({ ...original, id:'new-video', group_id:'new-single', queue_order:2, task_status:nextStatus, end_reason:nextStatus==='failed'?'下载失败':'' });
+      }
+      const before = structuredClone(snapshot);
+      const root = document.querySelector('main');
+      renderTaskPanel(root,snapshot,{session_id:'test',view:{page:'episode',episode_id:e.id,tab:'film'},refresh:async()=>{},paint(){},onError:assert.fail});
+      const overview = [...root.querySelectorAll('.session-project')].find(el=>el.querySelector('h3')?.textContent==='逐镜头成片');
+      const card = root.querySelector('.shot-card');
+      for (const area of [overview,card]) {
+        assert.equal(area.querySelector('.task-group-ui .node-ui-status').textContent,label);
+        assert.equal(area.textContent.includes('用户取消'), !nextStatus);
+        assert.equal(area.textContent.includes('下载失败'), nextStatus==='failed');
+      }
+      assert.deepEqual(snapshot,before,'展示不改写历史任务或组');
+    } finally { globalThis.document=previous; dom.window.close(); }
+  });
+}

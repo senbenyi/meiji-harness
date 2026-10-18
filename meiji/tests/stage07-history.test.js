@@ -13,7 +13,7 @@ function fixture(work) {
  try {
   const s=snapshotFixture(), root=document.querySelector('main'), state={page:'history'}, commands=[];
   s.tasks=[{id:'t',group_id:'g',group_seq:1,business_type:'outline',task_status:'queued',queue_order:1,source:'panel'}];s.steps=[];s.groups=[{id:'g',group_type:'single',source:'panel'}];
-  const env={p:s.project,state,names:{outline:'故事大纲'},go:(page,v)=>Object.assign(state,{page},v),act:c=>commands.push(c),button:(label,fn)=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>fn();return b;}};
+  const env={p:s.project,state,names:{outline:'分集改编'},go:(page,v)=>Object.assign(state,{page},v),act:c=>commands.push(c),button:(label,fn)=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>fn();return b;}};
   // 步骤按新结构准备：记录（提示词/HTTP）预先填入按组缓存，面板步骤只带标记与执行方式。
   const paint=()=>{
    root.replaceChildren();
@@ -155,7 +155,7 @@ test('组列表只显示一张卡片，详情排列全部任务步骤，二级�
  assert.deepEqual([...typeSelect.options].map(o=>[o.value,o.textContent]),[
   ['','全部对象'],['script-review','剧本'],['project-summary','项目摘要'],['project-characters','剧本重要角色'],
   ['character-image','角色图片'],['costume-image','角色定妆照'],['episode-summary','展示摘要'],
-  ['outline','故事大纲'],['episode-scenes','提取场景'],['scene-image','场景参考图'],['shots','镜头表'],
+  ['outline','分集改编'],['episode-scenes','提取场景'],['scene-image','场景参考图'],['shots','镜头表'],
   ['seconds','每秒分镜'],['storyboard','文本提示词'],['first-last-frame','首尾帧参数编排'],['multimodal','多模态参数编排'],['video','视频'],['tail','尾帧'],['assembly','合片']]);
  state.history_business='character-image';paint();assert.equal(root.querySelectorAll('.run-list-row').length,1);
  state.history_business='shots';paint();assert.equal(root.querySelectorAll('.run-list-row').length,0);
@@ -233,10 +233,10 @@ test('只有AI生成修订审核显示提示词，前置检查和各类程序步
  state.task_id='t';
  const cases=[
   ['outline','precheck','前置检查',false],
-  ['outline','generate','生成故事大纲',true],
-  ['outline','revise','修订故事大纲',true],
-  ['outline','review','程序审核故事大纲',false],
-  ['outline','review','AI审核故事大纲',true],
+  ['outline','generate','生成分集改编',true],
+  ['outline','revise','修订分集改编',true],
+  ['outline','review','程序审核分集改编',false],
+  ['outline','review','AI审核分集改编',true],
   ['project-characters','review','程序审核剧本重要角色',false],
   ['project-characters','review','AI审核剧本重要角色',true],
   ['costume-image','generate','生成定妆照',true],

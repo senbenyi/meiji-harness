@@ -14,18 +14,18 @@ const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', ()
 const close = async server => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); };
 const input = {
   language: 'zh-CN', requirements: '', person: '阿明；男性。', costume: '青布短衫',
-  referenceDescription: '参考图用于人物身份和面相，服装按本次资料。', aspectRatio: '1344x768', references: [reference],
+  referenceDescription: '参考图用于人物身份和面相，服装按本次资料。', aspectRatio: '16:9', references: [reference],
 };
 
 test('Krea 图片走 Comfy 接口，项目画幅换成 16:9 或 9:16，质量默认正常', () => {
   const route = modelRoute({ baseUrl: 'https://gateway.test/v1', textBaseUrl: 'http://127.0.0.1:9/v1', apiKey: mediaKey, text: { model: 'qwen3.5:27b' }, image: { model: 'krea2 turbo V2.5' }, video: { model: 'elysium-video' } }, 'image');
   assert.equal(route.baseUrl, 'http://127.0.0.1:9/v1');
   assert.equal(route.apiKey, 'ollama');
-  const wide = imageParameters({ ...route, apiKey: mediaKey, prompt: '定妆照', aspectRatio: '1344x768', references: [{ mime: 'image/png', bytes: png }], taskId });
+  const wide = imageParameters({ ...route, apiKey: mediaKey, prompt: '定妆照', aspectRatio: '16:9', references: [{ mime: 'image/png', bytes: png }], taskId });
   assert.equal(wide.url.pathname, '/v1/images/comfy');
   assert.deepEqual(wide.body, { model: 'krea2 turbo V2.5', prompt: '定妆照', quality: 'normal', aspect: '16:9' });
   assert.equal(wide.headers['X-Task-ID'], taskId);
-  assert.equal(imageParameters({ ...route, prompt: '定妆照', aspectRatio: '768x1344' }).body.aspect, '9:16');
+  assert.equal(imageParameters({ ...route, prompt: '定妆照', aspectRatio: '9:16' }).body.aspect, '9:16');
   assert.doesNotMatch(JSON.stringify(wide), new RegExp(mediaKey));
   assert.throws(() => imageParameters({ ...route, prompt: '定妆照', aspectRatio: '100x100' }), /画幅不受支持/);
 });
@@ -35,7 +35,7 @@ test('GPT图片参数固定文生图接口，画幅写入提示词，不接收�
   const route = modelRoute({ baseUrl: 'https://gateway.test/v1', textBaseUrl: 'http://127.0.0.1:9/v1', apiKey: mediaKey, text: { model: 'codex-gpt' }, image: { model: 'gpt-image' }, video: { model: 'elysium-video' } }, 'image');
   assert.equal(route.baseUrl, 'http://127.0.0.1:9/v1');
   assert.equal(route.apiKey, 'ollama');
-  const request = imageParameters({ ...route, apiKey: mediaKey, prompt: '定妆照', aspectRatio: '768x1344', references: [{ mime: 'image/png', bytes: png }], taskId });
+  const request = imageParameters({ ...route, apiKey: mediaKey, prompt: '定妆照', aspectRatio: '9:16', references: [{ mime: 'image/png', bytes: png }], taskId });
   assert.equal(request.url.pathname, '/v1/images/generations');
   assert.equal(request.headers.Authorization, 'Bearer ollama');
   assert.equal(request.headers['X-Task-ID'], taskId);
@@ -43,7 +43,7 @@ test('GPT图片参数固定文生图接口，画幅写入提示词，不接收�
   assert.deepEqual(fixed, { model: 'gpt-image', background: 'auto', n: 1, size: 'auto', quality: 'auto', output_format: 'png' });
   assert.match(prompt, /画面为竖版 9:16/);
   assert.equal(images[0].image_url, reference);
-  assert.equal(gptImagePrompt('定妆照', '1344x768').endsWith('画面为横版 16:9。'), true);
+  assert.equal(gptImagePrompt('定妆照', '16:9').endsWith('画面为横版 16:9。'), true);
   assert.doesNotMatch(JSON.stringify(request), new RegExp(mediaKey));
   assert.throws(() => imageParameters({ ...route, prompt: '定妆照', references: Array.from({ length: 6 }, () => ({ mime: 'image/png', bytes: png })) }), /参考图最多 5 张/);
 });

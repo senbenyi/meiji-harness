@@ -3,9 +3,9 @@ import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revis
 import { primaryCostumeImage } from "../shared/models/character_model.js";
 import { nodeOf } from "../shared/task_contract.js";
 import { detailsDialog } from "./project-forms.js";
-import { element, tabs } from "./panel-dom.js";
+import { element, tabs, showImagePreview, showVideoPreview } from "./panel-dom.js";
 import { editor, readable } from "./content-forms.js";
-import { historyGroups } from "../shared/task-labels.js";
+import { historyGroups, groupStatus } from "../shared/task-labels.js";
 import { videoType } from "../shared/video-inputs.js";
 const groupLabels = {
   empty: "未生成", queued: "排队中", running: "生成中", completed: "已通过",
@@ -45,7 +45,7 @@ function groupButtons(button, act, { ready, busy, resume, tasks, onPrimary, onRe
   }, false));
   return items;
 }
-function tailStep(shot, { button, act, media }) {
+function tailStep(shot, { button, act, media, root }) {
   const frame = shot.last_frame;
   const step = element("section", "", "tail-step");
   const labels = {
@@ -57,7 +57,8 @@ function tailStep(shot, { button, act, media }) {
     const image = element("img");
     image.src = media(frame.address);
     image.alt = "尾帧";
-    image.style.maxWidth = "100%";
+    image.style.cursor = "zoom-in";
+    image.onclick = () => showImagePreview(root, image);
     step.append(image);
   }
   if (shot.video.address && !frame.address) {
@@ -110,6 +111,15 @@ function filmNodes(episode, shot) {
 }
 function shotFilmEntry(listed, episode, shot) {
   return listed.find((row) => row.group.group_type === "episode-film" && row.group.episode_id === episode.id && row.group.shot_ids?.length === 1 && row.group.shot_ids[0] === shot.id);
+}
+// 成片列表展示各节点当前任务的汇总；历史组及其终态保持原记录。
+function currentFilmGroup(entry, tasks) {
+  if (!entry) return null;
+  const current = entry.tasks.map(task => {
+    const latest = latestNodeTask(tasks, task.business_type, task.target_id);
+    return latest && latest.queue_order > task.queue_order ? latest : task;
+  });
+  return { ...entry, tasks: current, ...groupStatus(current) };
 }
 function taskGroupUi(status, message, buttons) {
   const ui = element("div", "", "task-group-ui"),
@@ -165,7 +175,7 @@ function shotResultText(project, name, node) {
   if (name === "首尾帧" || name === "多模态") return clipPreview(node.prompt);
   return "未生成";
 }
-function shotResultStrip(project, episode, shot, media) {
+function shotResultStrip(project, episode, shot, media, root) {
   const strip = element("div", "", "shot-results");
   for (const [name, node] of filmNodes(episode, shot)) {
     const card = element("article", "", "shot-result");
@@ -177,6 +187,7 @@ function shotResultStrip(project, episode, shot, media) {
       video.muted = true;
       video.preload = "metadata";
       video.setAttribute("aria-label", `${shot.number} 视频预览`);
+      video.onclick = () => showVideoPreview(root, video.src, `${shot.number} 视频`);
       card.append(video);
     } else card.append(element("p", shotResultText(project, name, node)));
     strip.append(card);
@@ -262,20 +273,7 @@ export function renderOverview(root, env) {
     heading,
     element("p", `${p.aspect_ratio} · ${p.episodes.length} 集`, "meta"),
   );
-  const taskLabels = {
-      queued: "排队中",
-      running: "生成中",
-      completed: "已完成",
-      failed: "失败",
-      rejected: "未通过",
-      cancelled: "已取消",
-      superseded: "已取消",
-    },
-    latestTask = (business) =>
-      [...(env.snapshot?.tasks || [])]
-        .filter((t) => t.business_type === business && t.target_id === p.id)
-        .sort((a, b) => b.queue_order - a.queue_order)[0],
-    card = (title, statusText) => {
+  const card = (title, statusText) => {
       const c = element("section", "", "overview-card"),
         h = element("div", "", "overview-card-title"),
         titles = element("div", "", "section-titles"),
@@ -312,13 +310,7 @@ export function renderOverview(root, env) {
   summary.querySelector(".section-head").className = "overview-card-title";
   summary.querySelector(".json-copy-row")?.remove();
   view.append(summary);
-  const scriptTask = latestTask("script"),
-    { c: script, actions: scriptActions } = card(
-      "剧本",
-      scriptTask
-        ? taskLabels[scriptTask.task_status] || scriptTask.task_status
-        : "",
-    ),
+  const { c: script } = card("剧本"),
     scriptRow = element("div", "", "script-title-row"),
     open = button(p.name, () => go("script"), false);
   open.className = "script-file-name";
@@ -327,12 +319,6 @@ export function renderOverview(root, env) {
   arrow.setAttribute("aria-label", "打开剧本详情");
   scriptRow.append(open, arrow);
   script.append(scriptRow);
-  // 剧本本身是节点，审核与修改都是它的任务：剧本的有无即其数据状态，不展示状态标签；公共节点 UI 放在剧本信息下方。
-  if (p.script.body.trim()) {
-    const node = nodeCard("script-review", p.id, p.script);
-    script.dataset.business = "script-review";
-    script.append(...node.querySelectorAll(":scope > .node-ui"));
-  }
   const splitting = p.creation_mode === "剧本",
     latestSplitTask = splitting ? latestNodeTask(env.snapshot?.tasks || [], "script-split", p.id) : null,
     { c: episodes, actions: episodeActions } = card("剧集");
@@ -437,7 +423,7 @@ export function renderOverview(root, env) {
     if (failureRow) episodeUi.append(failureRow);
     if (latestSplitTask?.task_status === "rejected" && latestSplitTask.end_reason) {
       episodeUi.append(reasonParagraph(reasonHeading("未通过原因", latestSplitTask.end_reason, splitType)));
-      // 提取剧集没有项目节点，未通过候选只在任务历史；修复始终修订该候选，不要求已有正式剧集。
+      // 全集规划没有项目节点，未通过候选只在任务历史；修复始终修订该候选，不要求已有正式剧集。
       if (!splitBusy) {
         const repair = element("div", "", "node-ui-buttons node-ui-repair-row");
         repair.append(button(repairButtonLabel("script-split"), () => {
@@ -495,7 +481,7 @@ export function renderOverview(root, env) {
         "meta",
       ),
     );
-    copy.append(h, element("p", e.summary.body || "尚未生成摘要"));
+    copy.append(h, element("p", e.plot || "尚无规划"));
     c.append(cover, copy);
     list.append(c);
   }
@@ -503,7 +489,7 @@ export function renderOverview(root, env) {
     const empty = element("div", "", "episode-placeholder");
     empty.append(
       element("strong", "还没有剧集"),
-      element("p", splitting ? "拆分剧本后开始制作" : "新增剧集后开始制作"),
+      element("p", splitting ? "完成全集规划后开始制作" : "新增剧集后开始制作"),
     );
     if (add) empty.append(button(addLabel, () => add.click()));
     list.append(empty);
@@ -587,7 +573,16 @@ export function renderEpisode(root, env, entries) {
   const body = element("div", "", "session-body");
   if (shot) {
     const video = nodeCard('video', shot.id, shot.video);
-    video.append(tailStep(shot, { button, act, media }));
+    const mediaRow = element('div', '', 'video-media-row');
+    const player = video.querySelector('video');
+    if (player) {
+      player.before(mediaRow);
+      mediaRow.append(player);
+    } else {
+      mediaRow.append(element('p', '尚未生成视频', 'meta'));
+      video.append(mediaRow);
+    }
+    mediaRow.append(tailStep(shot, { button, act, media, root }));
     body.append(
         element("p", `参考 ${shot.duration_seconds} 秒${shot.actual_duration_seconds > 0 ? ` · 实际 ${shot.actual_duration_seconds} 秒` : ""}`, "meta"),
         nodeCard("seconds", shot.id, shot.seconds_storyboard),
@@ -611,18 +606,18 @@ export function renderEpisode(root, env, entries) {
       plotTitles = element("div", "", "section-titles"),
       plotActions = element("div", "", "workflow-generation-row");
     summary.querySelector("h3").textContent = "本集摘要";
-    plotTitles.append(element("h3", "本集剧情"));
+    plotTitles.append(element("h3", "本集规划"));
     plotHead.append(plotTitles);
     plotActions.append(
-      button("编辑剧情", () =>
-        detailsDialog(root, "编辑剧情", { plot: e.plot, duration_seconds: e.duration_seconds }, (fields) =>
+      button("编辑规划", () =>
+        detailsDialog(root, "编辑规划", { plot: e.plot, duration_seconds: e.duration_seconds }, (fields) =>
           act({ type: "edit-episode", episode_id: e.id, fields }, true),
         ),
       ),
     );
     plot.append(
       plotHead,
-      element("p", e.plot || "尚无剧情", "prompt full"),
+      element("p", e.plot || "尚无规划", "prompt full"),
       plotActions,
     );
     const scenesNode = nodeCard("episode-scenes", e.id, e.scene_catalog);
@@ -633,7 +628,7 @@ export function renderEpisode(root, env, entries) {
       // 本集场景横向排列，一屏两张，可左右滑动。
       const list = element("div", "", "scene-card-list");
       // 参考图缩略图采用项目视频画幅；原图比例不同时按画幅框裁切，点击放大看原图。
-      const [frameW, frameH] = String(p.aspect_ratio || "768x1344").split("x").map(Number);
+      const [frameW, frameH] = p.aspect_ratio.split(":").map(Number);
       list.style.setProperty("--scene-aspect", `${frameW} / ${frameH}`);
       list.dataset.orientation = frameH > frameW ? "portrait" : "landscape";
       dragScroll(list);
@@ -666,13 +661,14 @@ export function renderEpisode(root, env, entries) {
     if (state.tab !== "shots") {
       const filmId = p.latest_groups?.[`episode-film:${e.id}`];
       const filmGroup = filmId ? listed.find(row => row.group.id === filmId) : listed.find((row) => row.group.group_type === "episode-film" && row.group.episode_id === e.id);
+      const currentFilm = currentFilmGroup(filmGroup, env.snapshot.tasks);
       const hasVideo = e.shot_list.shots.some((shot) => shot.video.address);
-      const filmBusy = filmGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status));
+      const filmBusy = currentFilm?.tasks.some((task) => ["queued", "running"].includes(task.task_status));
       const filmButtons = groupButtons(button, act, {
         ready: hasVideo,
         busy: filmBusy,
         resume: canResumeGroup(filmGroup, listed),
-        tasks: filmGroup?.tasks,
+        tasks: currentFilm?.tasks,
         onPrimary: () => act({
           type: "submit-group", group_type: "episode-film",
           action: hasVideo ? "regenerate" : "generate", episode_id: e.id,
@@ -682,8 +678,8 @@ export function renderEpisode(root, env, entries) {
       });
       body.append(groupCard(
         "逐镜头成片",
-        filmGroup?.status || "empty",
-        groupStopMessage(p, filmGroup),
+        currentFilm?.status || "empty",
+        groupStopMessage(p, currentFilm),
         filmButtons,
       ));
     }
@@ -708,19 +704,20 @@ export function renderEpisode(root, env, entries) {
       );
       const shotGroupId = p.latest_groups?.[`shot-film:${s.id}`];
       const shotGroup = state.tab === "film" ? (shotGroupId ? listed.find(row => row.group.id === shotGroupId) : shotFilmEntry(listed, e, s)) : null;
+      const currentShot = currentFilmGroup(shotGroup, env.snapshot.tasks);
       const shotReady = Boolean(s.video.address);
-      const shotBusy = Boolean(shotGroup?.tasks.some((task) => ["queued", "running"].includes(task.task_status)));
+      const shotBusy = Boolean(currentShot?.tasks.some((task) => ["queued", "running"].includes(task.task_status)));
       card.append(
         h,
         ...(state.tab === "film" ? [
           taskGroupUi(
-            shotGroup?.status || "empty",
-            groupStopMessage(p, shotGroup),
+            currentShot?.status || "empty",
+            groupStopMessage(p, currentShot),
             groupButtons(button, act, {
               ready: shotReady,
               busy: shotBusy,
               resume: canResumeGroup(shotGroup, listed),
-              tasks: shotGroup?.tasks,
+              tasks: currentShot?.tasks,
               onPrimary: () => act({
                 type: "submit-group", group_type: "episode-film",
                 action: shotReady ? "regenerate" : "generate", episode_id: e.id, shot_id: s.id,
@@ -731,7 +728,7 @@ export function renderEpisode(root, env, entries) {
           ),
           shotStepRow(e, s),
           shotScript(s),
-          shotResultStrip(p, e, s, media),
+          shotResultStrip(p, e, s, media, root),
         ] : []),
       );
       if (state.tab === "shots") {

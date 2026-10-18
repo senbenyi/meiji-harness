@@ -1,3 +1,4 @@
+import { assertPendingDialogue } from '../../../shared/dialogue-integrity.js';
 import { videoType, videoPack, previousShot, videoImages } from '../../../shared/video-inputs.js';
 import { primaryCostumeImage } from "../../../shared/models/character_model.js";
 import {
@@ -26,7 +27,10 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
   };
   if (task.business_type === 'seconds') {
     const previous = previousShot(episode, object);
-    if (previous) requireNode('seconds', previous.id, `前镜 ${previous.number} 每秒分镜`);
+    if (previous) {
+      requireNode('seconds', previous.id, `前镜 ${previous.number} 每秒分镜`);
+      assertPendingDialogue(previous.seconds_storyboard, `前镜 ${previous.number} 交接资料`);
+    }
   }
   if (task.action === "override") {
     if (task.business_type === "script-split") return { passed: true };
@@ -63,14 +67,6 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
   if (["regenerate", "revise"].includes(task.action) && node && !hasNodeContent(p, task.business_type, task.target_id))
     invalid("precheck", "未生成节点请使用生成");
   const business = task.business_type;
-  // 提取剧集与提取人物以剧本审核通过（或人工放行）且剧本未变化为前提。
-  const requireScriptReview = () => {
-    const status = p.script.node_state.status;
-    if (status === "rejected")
-      invalid("precheck", `剧本审核未通过：${p.script.node_state.reason}。请在剧本上按审核意见修改，或人工放行`);
-    if (!isNodeCurrent(snapshot, "script-review", p.id))
-      invalid("precheck", status === "expired" ? "剧本已变化，请重新审核剧本" : "请先完成剧本审核");
-  };
   if (business === "script-split") {
     if (!p.script.body.trim()) invalid("precheck", "剧本为空");
     if (!Number.isInteger(p.reference_episode_duration_seconds) || p.reference_episode_duration_seconds < 1)
@@ -96,7 +92,7 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     },
     outline: () => {
       if (!episode.plot.trim())
-        invalid("precheck", "本集剧情为空，请先填写剧情或拆分剧集");
+        invalid("precheck", "本集剧情为空，请先填写剧情或全集规划");
     },
     'episode-scenes': () => { requireNode('outline', episode.id); },
     'scene-image': () => { if (![object.name, object.description, object.layout].some(value => value.trim())) invalid('precheck','场景资料为空'); },
@@ -152,7 +148,5 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     if (!check) invalid("precheck", `未定义节点前置检查：${precheckKey}`);
     check();
   }
-  // 节点自身前置通过后再核对剧本审核，剧本为空等原有原因优先提示。
-  if (["script-split", "project-characters"].includes(business)) requireScriptReview();
   return { passed: true, business_type: business, target_id: task.target_id };
 }

@@ -9,7 +9,6 @@ import node6 from './seconds.js';
 import node7 from './shots.js';
 import node8 from './storyboard.js';
 import node9 from './video.js';
-import scriptReview from './script-review.js';
 
 import episodeScenes from './episode-scenes.js';
 import sceneImage from './scene-image.js';
@@ -25,7 +24,6 @@ const routes = {
   'shots': node7,
   'storyboard': node8,
   'video': node9,
-  'script-review': scriptReview,
 };
 
 // 公共审核扩展只编排一次；渲染、HTTP校验和规则面板读取同一契约。

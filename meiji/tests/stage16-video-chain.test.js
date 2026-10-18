@@ -68,10 +68,11 @@ for (const mode of ['文生','首尾帧','多模态']) test(`真实视频链 ${m
   assert.equal(shot.video_generation_type,mode);
   assert.equal(shot.video.node_state.status,'generated'); assert.equal(shot.last_frame.node_state.status,'generated');
   assert.notEqual(shot.video.address,target.video.address); assert.notEqual(shot.last_frame.address,target.last_frame.address);
+  assert.match(shot.video.server_address, /\/videos\/v16\/content$/);
   await runtime.media.validate(shot.last_frame.address,p.id,'image');
   const tasks = model.readAll().tasks.filter(t=>t.group_id===task.group_id).sort((a,b)=>a.group_seq-b.group_seq);
   assert.deepEqual(tasks.map(t=>t.business_type),mode==='文生'?['video']:[mode==='首尾帧'?'first-last-frame':'multimodal','video']);
-  assert.deepEqual(model.readAll().steps.filter(st=>st.task_id===task.id).map(st=>st.kind),['precheck','generate','apply','review']);
+  assert.deepEqual(model.readAll().steps.filter(st=>st.task_id===task.id).map(st=>st.kind),['precheck','generate','download','apply']);
   assert.equal(calls.length,1);
   assert.equal(calls[0].mode,mode==='文生'?'text':mode==='首尾帧'?'first_frame':'reference');
   assert.equal(Boolean(calls[0].inputReference),mode==='首尾帧');
@@ -111,24 +112,25 @@ test('有角色缺图阻断视频；改为无人后继续重新判型，不复�
   person.costume_images[0].node_state.status='empty';person.costume_images[0].address='';stamp();
 }}));
 
-test('视频时长4–15及±5边界由程序审核；独立tail命令拒绝',()=>{
+test('视频不做时长业务审核；独立tail命令拒绝',()=>{
   const p=projectFixture(),shot=p.episodes[0].shot_list.shots[0];shot.duration_seconds=10;
   for(const actual of [5,15]) {shot.actual_duration_seconds=actual;assert.doesNotThrow(()=>assertProgramReview(p,'video',shot.id));}
-  for(const actual of [3.9,4.9,15.1]) {shot.actual_duration_seconds=actual;assert.throws(()=>assertProgramReview(p,'video',shot.id),/实测/);}
+  for(const actual of [3.9,4.9,15.1]) {shot.actual_duration_seconds=actual;assert.doesNotThrow(()=>assertProgramReview(p,'video',shot.id));}
   assert.throws(()=>validateCommand({type:'submit',project_id:p.id,request_id:'tail',business_type:'tail',target_id:shot.id,action:'regenerate'}),/并入视频/);
 });
 
-test('实测不通过共用两次修订；耗尽保存最后视频尾帧配对，成功hash不变',()=>fixture(async({runtime,p,episode,model,calls,submit})=>{
+test('实测15.1秒保存视频与尾帧，不审核或自动重生成',()=>fixture(async({runtime,model,calls,submit})=>{
   const realValidate=runtime.media.validate.bind(runtime.media);
-  runtime.media.validate=async(...args)=>{const info=await realValidate(...args);return args[2]==='video'?{...info,duration:15+calls.length}:info;};
-  const before=structuredClone(model.readAll().project.episodes[0].shot_list.shots[0]);
-  const task=await submit();assert.equal(task.task_status,'rejected',task.end_reason);
+  runtime.media.validate=async(...args)=>{const info=await realValidate(...args);return args[2]==='video'?{...info,duration:15.1}:info;};
+  const task=await submit();assert.equal(task.task_status,'completed',task.end_reason);
   const shot=model.readAll().project.episodes[0].shot_list.shots[0];
-  assert.equal(calls.length,3);assert.match(calls[1].prompt,/Revision instructions:[\s\S]*实测 16/);assert.match(calls[2].prompt,/实测 17/);
-  assert.equal(shot.video.node_state.status,'rejected');assert.equal(shot.last_frame.node_state.status,'rejected');
-  assert.equal(shot.actual_duration_seconds,18);assert.notEqual(shot.video.address,before.video.address);assert.notEqual(shot.last_frame.address,before.last_frame.address);
-  assert.equal(shot.video.node_state.dependency_hash,before.video.node_state.dependency_hash);assert.equal(shot.last_frame.node_state.dependency_hash,before.last_frame.node_state.dependency_hash);
-  assert.deepEqual(model.readAll().project.episodes[0].assembly,episode.assembly);
+  assert.equal(calls.length,1);
+  assert.equal(shot.video.node_state.status,'generated');assert.equal(shot.last_frame.node_state.status,'generated');
+  assert.equal(shot.actual_duration_seconds,15.1);
+  assert.match(shot.video.server_address, /\/videos\/v16\/content$/);
+  assert.ok(shot.video.address);
+  assert.notEqual(shot.video.address, shot.video.server_address);
+  assert.deepEqual(model.readAll().steps.filter(row=>row.task_id===task.id).map(row=>row.kind),['precheck','generate','download','apply']);
 }));
 
 for(const failure of ['截帧文件失败','取消']) test(`${failure}保留旧视频/尾帧/实测值，不重复生成`,()=>fixture(async({runtime,p,model,calls,submit})=>{
@@ -223,6 +225,9 @@ test('界面显示适用程序编排；尾帧是视频内步骤，失败时可�
     const failedVideo = root.querySelector('[data-business="video"]');
     assert.equal(failedVideo.querySelector('.node-ui-task-status').textContent, '最新任务：失败');
     assert.equal(failedVideo.querySelector('.node-ui-failure').textContent, '失败原因：截帧失败');
+    shot.video.node_state.status='rejected';shot.video.node_state.reason='历史时长审核原因';
+    renderTaskPanel(root,snapshot,{session_id:'test',view:{page:'episode',episode_id:episode.id,shot_id:shot.id,tab:'film'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
+    assert.equal([...root.querySelector('[data-business="video"]').querySelectorAll('button')].some(b=>/^修复|原结果修订/.test(b.textContent)),false);
     assert.match(root.textContent,/视频类型：首尾帧/);
     shot.first_last_frame_prompt.prompt='compiled';shot.first_last_frame_prompt.seconds=5;shot.first_last_frame_prompt.size='576x1024';shot.first_last_frame_prompt.input_reference='1.png';
     renderTaskPanel(root,snapshot,{session_id:'test',view:{page:'episode',episode_id:episode.id,shot_id:shot.id,tab:'film'},refresh:async()=>{},paint:()=>{},onError:()=>{}});

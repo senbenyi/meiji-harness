@@ -8,7 +8,7 @@ const output0 = {
   "structure": {
     "end_state": "最后一刻的人物、物件与环境状态",
     "pending_actions": "未完成动作；无则为空",
-    "pending_dialogue": "未结束对白及发声进度；无则为空",
+    "pending_dialogue": "尚未发声且明确需要跨镜继续的原话；已说内容不重抄，被打断且无后续则为空",
     "continuing_audio": "切点仍持续的声音与声源；无则为空",
     "storyboard": [
       {

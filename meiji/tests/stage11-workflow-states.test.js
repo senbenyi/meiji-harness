@@ -14,7 +14,7 @@ import { primaryCostumeImage } from '../shared/models/character_model.js';
 import { projectFixture, approveScriptReview } from './fixtures/project.js';
 
 const person = {name:'甲',gender:'男',era:'宋代',position:'主角',age_range:'成年',body_type:'高大',hairstyle:'束发',facial_features:'',height:'',nationality:'',voice:'',signature_props:[],immutable_traits:[],costumes:['常服','礼服'].map(name=>({name,color:'蓝',material:'布',props:[]}))};
-const split = {剧集:[{序号:1,起始段落:'P001',结束段落:'P002',预估时长秒:30}],排除段落:[]};
+const split = {剧集:[{序号:1,本集规划:'前集事件引出本集冲突，人物作出选择并留下后续期待。',预估时长秒:30}]};
 const deferred = () => { let resolve; const promise = new Promise(r=>{resolve=r;}); return {promise,resolve}; };
 async function scenario(work) {
  const root=await mkdtemp(join(tmpdir(),'meiji-state-matrix-'));
@@ -25,7 +25,7 @@ async function scenario(work) {
  const execute=createHandlerRegistry({text:createTextHandler({chat:async ctx=>{
   if(ctx.step.kind==='review')return {是否通过:mode!=='reject', "类型": (mode!=='reject') ? "" : "模型问题",原因:mode==='reject'?'角色审核拒绝':''};
   await invoke(ctx);
-  return ctx.task.business_type==='script-split' ? (mode==='reject'?{剧集:[],排除段落:[]} : split) : {characters:[person]};
+  return ctx.task.business_type==='script-split' ? (mode==='reject'?{剧集:[]} : split) : {characters:[person]};
  }}),media:async ctx=>{await invoke(ctx);return {content:{address:`${ctx.task.id}.png`}};}});
  async function invoke({signal}) {
   calls++;
@@ -45,7 +45,7 @@ for(const kind of ['script-split','project-characters','costume-image']) {
   x.setMode('ok');const next=await x.service.command({type:'continue-group',project_id:x.project.id,request_id:'continue',group_id:before.groups[0].id});await x.service.idle(x.project.id);
   const after=x.model.readAll();assert.deepEqual(after.tasks.slice(0,before.tasks.length),before.tasks);
   const current=after.tasks.filter(t=>t.group_id===next.group_id);assert.ok(current.every(t=>t.task_status==='completed'),current.map(t=>t.end_reason).join(','));assert.equal(current.length,kind==='costume-image'?2:1);
-  if(kind==='script-split')assert.equal(after.project.episodes.map(e=>e.plot).join(''),x.project.script.body);
+  if(kind==='script-split')assert.equal(after.project.episodes[0].plot,split.剧集[0].本集规划);
  }));
  test(`${kind} 取消运行任务，晚到结果不覆盖，继续可执行`,()=>scenario(async x=>{
   const entered=x.block();await x.service.command(x.command(kind));await entered;

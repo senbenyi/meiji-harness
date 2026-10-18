@@ -20,6 +20,13 @@ function mismatch(expected, actual, label) {
   while (at < expected.length && expected[at] === actual[at]) at++;
   invalid('对白完整性', `${label}在第${at + 1}个字符处不同；原话片段=${JSON.stringify(expected.slice(Math.max(0, at - 10), at + 25))}，候选片段=${JSON.stringify(actual.slice(Math.max(0, at - 10), at + 25))}。逐字保留标点、顺序及说话内容，不删句、不重复播放；可跨节拍分配，不改语速凑时长。`);
 }
+// 只核对明确引用的原话，不从“未完”等自然语言猜测不存在的后续台词。
+export function assertPendingDialogue(node, path = '镜末交接') {
+  const spoken = node.storyboard.flatMap(beat => beat.dialogue).map(line => line.dialogue_text).join('');
+  const repeated = quotedSpeech(node.pending_dialogue).find(quote => quote.text && spoken.includes(quote.text));
+  if (repeated) invalid(`${path}.pending_dialogue`, `待续对白引用${JSON.stringify(repeated.text)}已在本镜实际对白中说出，不能交给下镜重播；仅记录尚未发声的明确后续原话，被打断且无后续原话时留空。`);
+}
+
 export function assertShotDialogue(shot, node) {
   const source = shot.audio_arrangement.dialogue, quotes = quotedSpeech(source).filter(q => q.text);
   if (!quotes.length) return;

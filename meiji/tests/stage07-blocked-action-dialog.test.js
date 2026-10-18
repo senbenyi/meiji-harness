@@ -42,7 +42,7 @@ test("任务运行中点击生成按钮弹出阻塞任务原因且不发请求",
   const snapshot = snapshotFixture();
   snapshot.tasks = [{
     id: "t-running",
-    name: "第 1 集 · 生成故事大纲",
+    name: "第 1 集 · 生成分集改编",
     business_type: "outline",
     task_status: "running",
   }];
@@ -54,7 +54,7 @@ test("任务运行中点击生成按钮弹出阻塞任务原因且不发请求",
     ui.button.click();
     const dialog = ui.root.querySelector("dialog.blocking-reason");
     assert.ok(dialog?.open);
-    assert.match(dialog.textContent, /第 1 集 · 生成故事大纲/);
+    assert.match(dialog.textContent, /第 1 集 · 生成分集改编/);
     assert.match(dialog.textContent, /等待它结束后再试/);
   } finally {
     ui.cleanup();

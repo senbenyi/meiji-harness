@@ -69,7 +69,7 @@
 | 值 | 名称 | 说明 |
 |---|---|---|
 | `single` | 单任务 | 一次独立操作默认建组。可以没有 `episode_id`，`shot_ids` 为空 |
-| `workflow` | 派生流程 | 角色提取仅提取；拆分剧集仅拆分；人物定妆照单独组按服装顺序排入图片任务 |
+| `workflow` | 派生流程 | 角色提取仅提取；全集规划仅创建各集规划；人物定妆照单独组按服装顺序排入图片任务 |
 | `episode-seconds` | 每秒分镜 | 接口逐镜每秒分镜；面板通过成片组执行 |
 | `episode-film` | 成片 | 按镜头顺序逐镜执行：每秒分镜、文生视频提示词、按生成视频类型可选的首尾帧/多模态提示词、视频。视频任务内截取尾帧。可用 `shot_id` 限定当前剧集的一镜；所选任务完成且全剧集视频有效后，在同组追加合片 |
 
@@ -99,7 +99,7 @@
 | `group_seq` | `1` | 组内顺序 |
 | `task_status` | `queued` | 任务状态 |
 | `source` | `panel` | 面板或会话 |
-| `name` | 第 1 集 · 生成故事大纲 | 展示名 |
+| `name` | 第 1 集 · 生成分集改编 | 展示名 |
 | `queue_order` | `1` | 队列顺序 |
 | `end_reason` | | 终态原因 |
 | `created_at` | | 创建时间 |
@@ -120,7 +120,7 @@
 | `override` | 人工放行 | 新建 `precheck` → `override`。结构和程序审核通过后节点写成 `generated`、原因清空。只跳过 AI 审核，旧任务保持原终态 |
 | `delete` | 删除资料 | 新建删除任务 |
 
-每个任务的第一步是程序 `precheck`：目标是否属于该项目、原状态是否允许、必需输入是否已生成、实际使用的素材和参数。人工放行在这里检查未通过的稿。人工编辑的 `precheck` 直接通过，结构在后面的 `manual_edit` 步校验；不合法则该步和任务 `rejected`，旧稿保留。删除在 `precheck` 检查引用。前置业务检查未通过时任务记为 `rejected`，不调用模型，后面的步骤作废。生成之后先做程序审核，再做 AI 审核，各记一步，用步骤名称区分。时长在程序审核中判定，允许差值取该节点的误差时长。节点文档中的“重试轮次 N”是首次生成之后最多修订 N 次，生成与修订最多共 N+1 轮；程序审核和 AI 审核共用此计数。审核未通过且仍有修订次数时，把原因以及问题数组中的位置、依据和建议作为修改意见进入修订，再从程序审核做起。修订次数用尽仍未通过，才把最后一轮内容保存为未通过，原因分别写入 `node_state.reason` 和任务 `end_reason`，不更新下游依赖 hash。再次提交该节点时，必须将该原因作为修改意见带入任务和模型输入。误差时长和重试轮次写在各节点文档开头。`script-split` 是项目级 AI 任务：AI 生成分集切点，程序审核并按原剧本拼接各集剧情。它不对应持久化项目节点，因此未通过原因和最后一轮候选记录在任务历史，不写项目 `node_state`，也不替换项目现有剧集。
+每个任务的第一步是程序 `precheck`：目标是否属于该项目、原状态是否允许、必需输入是否已生成、实际使用的素材和参数。人工放行在这里检查未通过的稿。人工编辑的 `precheck` 直接通过，结构在后面的 `manual_edit` 步校验；不合法则该步和任务 `rejected`，旧稿保留。删除在 `precheck` 检查引用。前置业务检查未通过时任务记为 `rejected`，不调用模型，后面的步骤作废。生成之后先做程序审核，再做 AI 审核，各记一步，用步骤名称区分。时长在程序审核中判定，允许差值取该节点的误差时长。节点文档中的“重试轮次 N”是首次生成之后最多修订 N 次，生成与修订最多共 N+1 轮；程序审核和 AI 审核共用此计数。审核未通过且仍有修订次数时，把原因以及问题数组中的位置、依据和建议作为修改意见进入修订，再从程序审核做起。修订次数用尽仍未通过，才把最后一轮内容保存为未通过，原因分别写入 `node_state.reason` 和任务 `end_reason`，不更新下游依赖 hash。再次提交该节点时，必须将该原因作为修改意见带入任务和模型输入。误差时长和重试轮次写在各节点文档开头。`script-review` 已退役，仅保留旧存储字段及历史读取，不创建任务。`script-split` 是项目级 AI 任务：AI 生成全部分集安排，程序审核并写入各集plot规划文本。它不对应持久化项目节点，因此未通过原因和最后一轮候选记录在任务历史，不写项目 `node_state`，也不替换项目现有剧集。
 
 ## 步骤字段
 
@@ -128,7 +128,7 @@
 |---|---|---|
 | `id` | `st_uuid` | 步骤 id |
 | `task_id` | `t_uuid` | 所属任务 |
-| `name` | 生成故事大纲 | 展示名 |
+| `name` | 生成分集改编 | 展示名 |
 | `seq` | `1` | 任务内顺序 |
 | `kind` | `generate` | 见下表 |
 | `round` | `1` | 轮次。修订、再审递增 |
@@ -195,7 +195,7 @@
 | `character_library.node_state` | 角色库状态。节点内容另有 `characters[]` |
 | `character_library.characters[].costume_images[].node_state` | 定妆照状态。节点内容另有 `costume_id`、`address` |
 | `episodes[].summary.node_state` | 剧集摘要状态。节点内容另有 `body` |
-| `episodes[].story_outline.node_state` | 故事大纲状态。节点内容另有 `segments[]` |
+| `episodes[].story_outline.node_state` | 分集改编状态。节点内容另有 `segments[]` |
 | `episodes[].shot_list.node_state` | 镜头表状态。节点内容另有 `shots[]` |
 | `episodes[].shot_list.shots[].seconds_storyboard.node_state` | 每秒分镜状态 |
 | `episodes[].shot_list.shots[].text_to_video_prompt.node_state` | 文生视频提示词状态 |
@@ -209,7 +209,7 @@
 
 ## 视频阶段步骤
 
-`first-last-frame` 和 `multimodal` 是程序节点，步骤为 precheck→generate（执行编排）。文生不创建程序编排任务。视频为 precheck→generate→apply（文件校验、实测、截帧与图片校验）→程序review；修订为 revise→apply→程序review，最多两次。manual_edit 视频为 precheck→manual_edit→apply，不调用AI、不要求文本节点。`apply` 是已有步骤类型；视频中其含义为媒体后处理。独立tail不接受新命令，历史可读，last_frame保存视频配对产物。
+`first-last-frame` 和 `multimodal` 是程序节点，步骤为 precheck→generate（执行编排）。文生不创建程序编排任务。视频为 precheck→generate→download→apply：生成只记录服务端地址，下载写入本地素材库，apply 做文件校验、实测、截帧与图片校验，不执行审核或自动修订。manual_edit 视频为 precheck→manual_edit→apply，不调用AI、不要求文本节点；新上传文件的服务端地址为空，沿用原文件时保留原服务端地址。`download` 是新增步骤类型，`apply` 仍是原有步骤类型；视频中前者取回文件，后者做媒体后处理。独立tail不接受新命令，历史可读，last_frame保存视频配对产物。
 
 单项文本原结果修订的 single/workflow 组 action 可为 revise；成片/每秒组合组仍只使用原有 generate、regenerate、continue。
 

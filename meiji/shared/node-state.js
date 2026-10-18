@@ -1,4 +1,4 @@
-import { assertShotDialogue, assertPromptDialogue } from './dialogue-integrity.js';
+import { assertShotDialogue, assertPromptDialogue, assertPendingDialogue } from './dialogue-integrity.js';
 import { nodeOf, invalid, locateTarget } from "./task_contract.js";
 import { validateProject } from "./project_contract.js";
 import { TEXT_BUSINESSES } from "./node-definitions.js";
@@ -40,7 +40,7 @@ export function assertOutput(project, business, targetId) {
     if (typeof value !== "string" || !value.trim()) invalid(path, "产出内容为空");
   };
   if (business === "script-split") {
-    if (!project.episodes.length) invalid("拆分剧集", "没有生成剧集");
+    if (!project.episodes.length) invalid("全集规划", "没有生成剧集");
     for (const episode of project.episodes) nonempty(episode.plot, "剧集.剧情");
     return;
   }
@@ -50,8 +50,8 @@ export function assertOutput(project, business, targetId) {
   if (["scene-image", "character-image", "costume-image", "video", "tail", "assembly"].includes(business)) nonempty(node.address, business);
   if (business === 'episode-scenes' && !node.has_result) invalid('提取场景', '本集场景为空');
   if (business === "outline") {
-    if (!node.segments.length) invalid("故事大纲", "产出内容为空");
-    for (const part of node.segments) nonempty(part.body, "故事大纲");
+    if (!node.segments.length) invalid("分集改编", "产出内容为空");
+    for (const part of node.segments) nonempty(part.body, "分集改编");
   }
   if (business === "shots" && !node.shots.length) invalid("镜头表", "产出内容为空");
   if (['first-last-frame', 'multimodal'].includes(business)) nonempty(node.prompt, '视频编排');
@@ -76,22 +76,18 @@ export function assertProgramReview(project, business, targetId) {
       end = next;
     }
     assertShotDialogue(object, node);
+    assertPendingDialogue(node);
     // 视频请求时长取镜头参考时长，节拍时间线必须与之精确一致。
     if (Math.abs(end - object.duration_seconds) > 1e-9)
       invalid("每秒分镜", `节拍总时长 ${end} 秒需等于本镜参考 ${object.duration_seconds} 秒`);
   }
   if (business === 'storyboard') assertPromptDialogue(object.seconds_storyboard,
     node.integrated_multimodal_description);
-  if (business === 'video') {
-    const actual = object.actual_duration_seconds;
-    if (actual < 4 || actual > 15 || Math.abs(actual - object.duration_seconds) > 5 + 1e-9)
-      invalid('视频时长', `实测 ${actual} 秒，需为4–15秒且与计划 ${object.duration_seconds} 秒相差不超过±5秒`);
-  }
   if (business === 'episode-scenes' && !node.has_result) invalid('提取场景', '本集场景为空');
   if (business === "outline") {
     const total = node.segments.reduce((sum, segment) => sum + segment.duration_seconds, 0);
     if (Math.abs(total - object.duration_seconds) > 30)
-      invalid("故事大纲", `小段总时长 ${total} 秒超出允许范围（本集参考时长 ${object.duration_seconds} 秒，允许误差±30秒）`);
+      invalid("分集改编", `小段总时长 ${total} 秒超出允许范围（本集参考时长 ${object.duration_seconds} 秒，允许误差±30秒）`);
   }
   if (business === "shots") {
     if (node.shots.some(shot => shot.duration_seconds < 4 || shot.duration_seconds > 15))

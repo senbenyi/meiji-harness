@@ -344,9 +344,8 @@ export class TaskService {
       invalid("target_id", "已有明确服装，请选择对应服装生成定妆照");
     const node = nodeOf(s.project, business, id);
     const previous = business === "script-split" ? this.#latestTask(s, business, id) : null;
-    // 剧本的未通过原因是给剧本的修改意见：按意见修改时带上，重新审核不把它当作本次审核要求。
-    const rejectedReason = business === "script-review" && action !== "revise" ? ""
-      : node?.node_state.status === "rejected" ? node.node_state.reason
+    // 业务未通过原因随新任务带入修改意见。
+    const rejectedReason = node?.node_state.status === "rejected" ? node.node_state.reason
       : previous?.task_status === "rejected" ? previous.end_reason : "";
     if (["generate", "regenerate", "revise", "continue"].includes(action) && rejectedReason && !opinion.includes(rejectedReason))
       opinion = [rejectedReason, opinion].filter(Boolean).join("\n");
@@ -575,7 +574,7 @@ export class TaskService {
       } else output = await this.#execute(context);
       if (signal.aborted || model.read().tasks.find(t => t.id === id)?.task_status !== "running") return;
       if (["generate", "revise"].includes(step.kind)) validationFailure = output.validationFailure || "";
-      if (["generate", "revise", "manual_edit", "apply"].includes(step.kind) || (step.kind === "review" && output.content !== undefined)) draft = output.content;
+      if (["generate", "revise", "manual_edit", "download", "apply"].includes(step.kind) || (step.kind === "review" && output.content !== undefined)) draft = output.content;
       if (output.prompt !== undefined || output.http !== undefined)
         await record({ ...(output.prompt !== undefined ? { prompt: output.prompt } : {}), ...(output.http !== undefined ? { http: output.http } : {}) });
       await model.update(`step-end:${step.id}`, { step: step.id }, s => {
@@ -607,20 +606,17 @@ export class TaskService {
             const upstream = upstreamFailure(s.project, t, review);
             const progress = revisionProgress(s, t, step, review);
             if (progress) st.result = { ...review, 修订进展: progress };
-            if (upstream || progress?.重复程序错误 || (progress?.重复审核意见 && t.business_type !== "script-review")) {
+            if (upstream || progress?.重复程序错误 || progress?.重复审核意见) {
               // 上游、规则、其他问题和无进展不提交本轮候选，不污染原正式内容及依赖。
               const reason = upstream || progress.提示;
               st.error_reason = reason;
               this.#finish(s, t, "rejected", reason);
               return {};
             }
-            // 剧本审核任务只审核；只有按意见修改的任务才在未通过时继续修改。
-            const reviewOnly = t.business_type === "script-review" && t.action !== "revise";
-            if (!reviewOnly && step.round < BUSINESS_DEFINITIONS[t.business_type].retryRounds) {
+            if (step.round < BUSINESS_DEFINITIONS[t.business_type].retryRounds) {
               const round = step.round + 1;
               let seq = Math.max(...s.steps.filter(x => x.task_id === id).map(x => x.seq));
               s.steps.push(newStep(t, ++seq, "revise", round));
-              if (t.business_type === 'video') s.steps.push(newStep(t, ++seq, 'apply', round));
               for (const reviewer of reviewTypes(t)) s.steps.push(newStep(t, ++seq, "review", round, reviewer));
               return {};
             }
@@ -630,7 +626,7 @@ export class TaskService {
           }
         }
         if (!s.steps.some(x => x.task_id === id && x.step_status === "ready")) {
-          const content = ["generate", "revise", "review", "apply"].includes(step.kind) ? draft
+          const content = ["generate", "revise", "review", "download", "apply"].includes(step.kind) ? draft
             : step.kind === "override" && t.business_type === "script-split" ? output.content
             : step.kind === "override" ? null : output.content;
           const derived = this.#commitOutput(s, t, content, { passed: true });

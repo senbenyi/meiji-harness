@@ -1,3 +1,4 @@
+import { PROJECT_ASPECT_RATIOS } from '../shared/media-parameters.js';
 import { element, showPanelDialog } from "./panel-dom.js";
 import { request } from "./task-client.js";
 export function projectDialog(root, save) {
@@ -56,12 +57,12 @@ export function projectDialog(root, save) {
   name.autofocus = true;
   const aspect = field("画幅", "aspect", element("select"));
   aspect.name = "aspect";
-  for (const v of ["1344x768", "768x1344"]) {
+  for (const v of PROJECT_ASPECT_RATIOS) {
     const o = element("option", v);
     o.value = v;
     aspect.append(o);
   }
-  aspect.value = "768x1344";
+  aspect.value = "9:16";
   const premiseGroup = element("div", "", "create-premise-fields"),
     label = element("label", "AI 创作方向（必填）"),
     premise = element("textarea");
@@ -223,7 +224,7 @@ export function detailsDialog(
           duration_seconds: "本集时长（秒）",
           episode_requirements: "本集要求（选填）",
           reference_episode_duration_seconds: "参考单集时长（秒）",
-          plot: "本集剧情（剧本原文）",
+          plot: "本集规划（核心事件与前后集衔接）",
         }[key] || key,
       ),
       input = element(
@@ -236,7 +237,7 @@ export function detailsDialog(
     input.name = key;
     input.setAttribute("aria-label", label.textContent);
     if (key === "aspect_ratio")
-      for (const v of ["1344x768", "768x1344"]) {
+      for (const v of PROJECT_ASPECT_RATIOS) {
         const o = element("option", v);
         o.value = v;
         input.append(o);

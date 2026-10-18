@@ -1,7 +1,7 @@
+import { PROJECT_ASPECT_RATIOS } from '../../../shared/media-parameters.js';
 import { gatewayBaseUrl } from '../../../models/model-config.js';
 
-const frames = { '1344x768': '横版 16:9', '768x1344': '竖版 9:16' };
-const kreaAspects = { '1344x768': '16:9', '768x1344': '9:16', '16:9': '16:9', '9:16': '9:16', '1:1': '1:1', '4:3': '4:3', '3:4': '3:4', '3:2': '3:2', '2:3': '2:3' };
+const frames = { '16:9': '横版 16:9', '9:16': '竖版 9:16' };
 const kreaImageModel = 'krea2 turbo V2.5';
 
 // Codex 文生图的 size 固定为 auto，项目画幅只能写进提示词。
@@ -21,8 +21,8 @@ function requestHeaders(taskId) {
 function kreaImageParameters({ baseUrl, prompt, aspectRatio, quality = 'normal', taskId }) {
   if (typeof prompt !== 'string' || !prompt.trim()) throw Object.assign(new Error('需要非空提示词'), { status: 400 });
   if (prompt.length > 8000) throw Object.assign(new Error('提示词最长 8000 个字符'), { status: 400 });
-  const aspect = aspectRatio ? kreaAspects[aspectRatio] : '1:1';
-  if (!aspect) throw Object.assign(new Error('画幅不受支持'), { status: 400 });
+  const aspect = aspectRatio || '1:1';
+  if (!PROJECT_ASPECT_RATIOS.includes(aspect)) throw Object.assign(new Error('画幅不受支持'), { status: 400 });
   if (!['low', 'normal', 'high', '低', '正常', '高清'].includes(quality)) throw Object.assign(new Error('质量不受支持'), { status: 400 });
   return {
     url: new URL(`${gatewayBaseUrl(baseUrl)}/images/comfy`),
@@ -55,10 +55,6 @@ export function imageParameters({ baseUrl, model, prompt, aspectRatio, quality, 
   };
 }
 
-const videoRatios = {
-  '1344x768': '16:9', '768x1344': '9:16', '16:9': '16:9', '9:16': '9:16',
-  '21:9': '21:9', '4:3': '4:3', '1:1': '1:1', '3:4': '3:4',
-}
 const videoModes = { text: '文生', first_frame: '首尾帧', reference: '多模态' }
 
 // 三种方式都调用 MiniMax-H3。mode 只用文生、首尾帧、多模态；比例规则随方式变化。
@@ -69,7 +65,7 @@ export function videoPayload({ model, prompt, duration, aspectRatio, mode, input
   if (typeof prompt !== 'string' || !prompt.trim()) throw Object.assign(new Error('需要非空提示词'), { status: 400 })
   if (prompt.length > 7000) throw Object.assign(new Error('提示词最长 7000 个字符'), { status: 400 })
   if (!Number.isInteger(duration) || duration < 4 || duration > 15) throw Object.assign(new Error('时长必须是 4 到 15 的整数秒'), { status: 400 })
-  const ratio = videoRatios[aspectRatio]
+  const ratio = PROJECT_ASPECT_RATIOS.includes(aspectRatio) ? aspectRatio : undefined
   const body = { mode: kind, prompt, duration, resolution: '768P' }
   const image = value => {
     if (typeof value !== 'string' || !value.trim() || value.length > 48 * 1024 * 1024 ||

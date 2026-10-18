@@ -37,8 +37,7 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
         chat: async ({ task, step }) => {
           if (step.kind === "review") return { 是否通过: true, "类型": "", 原因: "" };
           return {
-            "script-split": { 剧集: [{ 序号: 1, 起始段落: "P001", 结束段落: "P001", 预估时长秒: 5 }], 排除段落: [] },
-            "script-review": { story_continuous: true, continuity: "单一场景连贯", filmable: true, filmability: "静物特写可直接拍摄", suggestions: "" },
+            "script-split": { 剧集: [{ 序号: 1, 本集规划: "钟表秒针走动，建立时间压力并停在下一步行动前。", 预估时长秒: 5 }] },
             "project-summary": "钟表静物", "episode-summary": "钟表静物",
             "project-characters": { characters: [] },
             "episode-scenes": { scenes: [] },
@@ -71,10 +70,10 @@ test("S8-06/07 全业务注册制作链，视频失败后新组继续，旧历�
       const t = model.readAll().tasks.find((t) => t.id === r.task_id);
       assert.equal(t.task_status, "completed", t.end_reason);
     };
-    for (const b of ["script-review", "script-split", "project-summary", "project-characters"])
+    for (const b of ["script-split", "project-summary", "project-characters"])
       await submit(b, p.id);
     const e = model.readAll().project.episodes[0];
-    assert.equal(e.plot, "五秒钟表静物");
+    assert.equal(e.plot, "钟表秒针走动，建立时间压力并停在下一步行动前。");
     assert.equal(e.duration_seconds, 5);
     for (const b of ["outline", "episode-scenes", "shots"])
       await submit(b, e.id);

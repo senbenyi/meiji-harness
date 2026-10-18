@@ -1,3 +1,4 @@
+import { PROJECT_ASPECT_RATIOS } from '../shared/media-parameters.js';
 import { element, showPanelDialog } from "./panel-dom.js";
 export const fieldLabels = {
   name: "名称", position: "定位", age_range: "年龄段", body_type: "身材", hairstyle: "发型",
@@ -5,7 +6,7 @@ export const fieldLabels = {
   era: "年代", height: "身高", facial_features: "面相", voice: "声音", required_appearance: "必出",
   default_costume_id: "默认服装", costumes: "服装", characters: "角色", color: "颜色", material: "材质", props: "道具",
   number: "编号", sequence: "序号", duration_seconds: "参考时长（秒）", title: "标题", body: "正文", opinion: "修改意见",
-  description: "描述", segments: "故事小段", shots: "镜头", causal: "因果衔接", plot: "本集剧情",
+  description: "描述", segments: "故事小段", shots: "镜头", causal: "因果衔接", plot: "本集规划",
   shot_scale: "景别", hook: "钩子", continuity_transition: "连续性衔接", reference_anchor: "参考锚点",
   fixed_landmark: "固定地标", character_positions: "人物位置", departed_characters: "离场角色", lighting: "光位",
   audio_arrangement: "音频安排", narration: "旁白", sound_effects: "音效",
@@ -79,7 +80,7 @@ export function fieldsForm(
     const label = element("label"),
       caption = element("span", fieldLabels[key] || key, "image-text-key");
     const options = {
-      aspect_ratio: ["1344x768", "768x1344"],
+      aspect_ratio: PROJECT_ASPECT_RATIOS,
       scope: ["project", "node"],
       category: ["动作", "表情", "武术", "特效", "声音", "对白", "配乐", "其他"],
       constraint: ["必须", "参考"],

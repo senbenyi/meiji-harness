@@ -1,4 +1,4 @@
-// 剧集及其摘要、大纲、镜头表和合片模型。
+// 剧集及其摘要、分集改编、镜头表和合片模型；plot保存本集规划。
 import { emptySceneCatalogModel } from './scene_model.js';
 import { createId } from "../task_contract.js";
 import { emptyEpisodeSummaryModel } from "./episode_summary_model.js";

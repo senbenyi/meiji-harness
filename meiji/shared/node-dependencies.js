@@ -1,3 +1,4 @@
+import { adaptationContext, adaptedStory } from './adaptation-context.js';
 import { sceneCatalog, sceneText, sceneImageContext } from './scene-inputs.js';
 import { videoType, videoPack, previousShot, videoImages } from './video-inputs.js';
 import { shotTextInputs } from './shot-text-inputs.js';
@@ -68,10 +69,11 @@ function dependencyMaterial(snapshot, business, id) {
   }
   if (business === 'scene-image') return { scene:sceneText(locateTarget(project,business,id).object), context:sceneImageContext(project,id), requirements:project.creative_direction };
   if (business === "episode-summary")
-    return { 剧情: locateTarget(project, business, id).episode.plot };
+    return { 剧情: adaptedStory(locateTarget(project, business, id).episode) || locateTarget(project, business, id).episode.plot };
   if (business === "outline") {
     const episode = locateTarget(project, business, id).episode;
-    return { 剧情: episode.plot, 参考时长秒: episode.duration_seconds };
+    return { ...adaptationContext(project, episode), 本集规划: episode.plot, 本集序号: episode.sequence, 参考时长秒: episode.duration_seconds,
+      requirements: [project.creative_direction, episode.episode_requirements].filter(Boolean).join('\n') };
   }
   if (business === "shots") {
     const episode = locateTarget(project, business, id).episode;
@@ -195,7 +197,7 @@ export function downstream(snapshot, business, id) {
         : business === "costume-setting"
           ? "costume-image"
           : business === "scene-setting" ? "scene-image"
-          : ["episode-plot", "episode-plot-sync", "episode-duration"].includes(business)
+          : ["episode-plot", "episode-duration"].includes(business)
             ? "outline"
             : business,
       id,
@@ -207,18 +209,17 @@ export function downstream(snapshot, business, id) {
     { ...one("shots", episode.id), context_only: true },
     ...episode.shot_list.shots.flatMap(shot => ['seconds', 'storyboard'].map(business => ({ ...one(business, shot.id), context_only: true }))),
   ]);
-  if (business === "script") return [one("script-review", p.id), one("project-summary", p.id), one("project-characters", p.id)];
-  // 剧集剧情（剧本原文）不是节点：拆分写入或人工编辑使摘要与故事大纲过期；
-  // 自由创作剧本更新回写剧情时，故事大纲是剧情的来源，只使摘要过期。
+  if (business === "script") return [one("project-summary", p.id), one("project-characters", p.id), ...p.episodes.map(episode => ({ ...one("outline", episode.id), context_only: true }))];
+  // 本集规划不是节点，改动后按全集上下文检查各集改编的依赖。
   if (business === "episode-plot")
-    return [one("episode-summary", id), one("outline", id)];
-  if (business === "episode-plot-sync") return [one("episode-summary", id)];
+    return [one("episode-summary", id), ...p.episodes.map(episode => ({ ...one('outline', episode.id), context_only: true }))];
   if (business === "episode-duration") return [one("outline", id), one("shots", id)];
-  // 修改剧本后，依据剧本正文的项目摘要与角色按 hash 过期。
-  if (business === "script-review") return [one("project-summary", p.id), one("project-characters", p.id)];
   if (business === "project-characters") return roleContext();
   if (business === "script-split") return [];
-  if (business === "outline") return [one('episode-scenes',id), one("shots", id)];
+  if (business === "outline") {
+    const next = [...p.episodes].sort((a,b) => a.sequence - b.sequence).find(episode => episode.sequence > e.sequence);
+    return [{ ...one('episode-summary',id), context_only: true }, one('episode-scenes',id), one('shots',id), ...(next ? [{ ...one('outline',next.id), context_only: true }] : [])];
+  }
   if (business === 'episode-scenes') return [one('shots',id)];
   if (business === 'scene-setting') return [one('scene-image',id), ...p.episodes.filter(e => e.scene_catalog.scene_ids.includes(id)).map(e => ({...one('shots',e.id),context_only:true}))];
   if (business === 'scene-image') return p.episodes.flatMap(e => e.shot_list.shots.filter(shot => shot.scene_id === id && videoType(e,shot) === '多模态').flatMap(shot => [one('multimodal',shot.id),one('video',shot.id)]));

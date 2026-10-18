@@ -116,7 +116,7 @@ test("UI-1 原创建表单默认剧本；本地导入、移除和自由模式提
     await tick();
     assert.equal(output.creation_mode, "剧本");
     assert.equal(output.script.body, "第一幕");
-    assert.equal(output.aspect_ratio, "768x1344");
+    assert.equal(output.aspect_ratio, "9:16");
     const second = projectDialog(root, (v) => {
       output = v;
     });
@@ -390,14 +390,14 @@ test("UI-5 片库恢复短剧状态/素材分类/原卡片，分类切换不显�
                 {
                   id: "p",
                   name: "未完成",
-                  aspect_ratio: "1344x768",
+                  aspect_ratio: "16:9",
                   episode_count: 1,
                   completed: false,
                 },
                 {
                   id: "q",
                   name: "已完成",
-                  aspect_ratio: "768x1344",
+                  aspect_ratio: "9:16",
                   episode_count: 2,
                   completed: true,
                 },
@@ -423,10 +423,10 @@ test("UI-5 片库恢复短剧状态/素材分类/原卡片，分类切换不显�
     await renderLibrary(root, env);
     assert.ok(root.querySelector(".library-view"));
     assert.match(root.textContent, /未完成/);
-    assert.equal(root.textContent.includes("768x1344"), false);
+    assert.equal(root.textContent.includes("9:16"), false);
     state.library_status = "completed";
     await renderLibrary(root, env);
-    assert.match(root.textContent, /768x1344/);
+    assert.match(root.textContent, /9:16/);
     state.library_tab = "assets";
     state.library_category = "scripts";
     await renderLibrary(root, env);
@@ -606,8 +606,8 @@ test('旧提取组内图片失败不冒充提取失败，也不显示已移除�
 }));
 
 test("项目模型默认竖版，显式横版保持不变", () => {
-  assert.equal(emptyProjectModel().aspect_ratio, "768x1344");
-  assert.equal(emptyProjectModel({ aspect_ratio: "1344x768" }).aspect_ratio, "1344x768");
+  assert.equal(emptyProjectModel().aspect_ratio, "9:16");
+  assert.equal(emptyProjectModel({ aspect_ratio: "16:9" }).aspect_ratio, "16:9");
 });
 
 test("出镜角色按ID展示姓名、服装名称与描述，不展示关联UUID", () => domTest(root => {

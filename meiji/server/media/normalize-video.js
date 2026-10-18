@@ -1,3 +1,4 @@
+import { projectFrameSize } from '../../shared/media-parameters.js';
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
@@ -9,9 +10,7 @@ const execute = promisify(execFile);
 
 // 网关支持的请求尺寸与项目输出像素不同；只处理本次新生成的媒体。
 export async function normalizeVideo(bytes, size, signal) {
-  const match = /^(1344)x(768)$|^(768)x(1344)$/.exec(size);
-  if (!match) throw new Error("视频输出画幅无效");
-  const [width, height] = size.split("x").map(Number);
+  const [width, height] = projectFrameSize(size);
   signal?.throwIfAborted();
   const temp = await mkdtemp(join(tmpdir(), "meiji-video-size-"));
   try {

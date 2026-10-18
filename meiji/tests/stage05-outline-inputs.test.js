@@ -28,22 +28,20 @@ function fixture(mode, action = "generate") {
 }
 
 for (const mode of ["剧本", "自由创作"]) {
-  test(`${mode} 大纲生成、修订及审核允许按时长合理补充，保留原剧情约束`, () => {
+  test(`${mode} 分集改编生成、修订及审核允许合理增删改并遵守规划`, () => {
     const { p, e, task } = fixture(mode);
     e.duration_seconds = 180;
     for (const action of ["generate", "regenerate", "review"]) {
       const rendered = renderTaskPrompt({ project: p, steps: [] }, task, e.story_outline, action);
-      assert.match(rendered.system, /明显不足|明显撑不满/);
-      assert.match(rendered.system, /补充.*合理情节|合理补充/);
-      assert.match(rendered.system, /内容足够时不强行扩写/);
-      assert.match(rendered.system, /原台词逐字保留|逐字核对原台词/);
-      assert.match(rendered.system, /不改变原事件结果|拒绝改变原事件结果/);
-      assert.doesNotMatch(rendered.system, /只拆分和整理原剧情，不续写|拒绝新增人物、动机、动作|唯一剧情事实来源|反查每段内容都有原文依据/);
+      assert.match(rendered.system, /允许改写对白、增删或合并局部事件/);
+      assert.match(rendered.system, /跨集连续/);
+      assert.match(rendered.system, /核心人物设定、主线因果和结局/);
+      assert.doesNotMatch(rendered.system, /原台词逐字保留|逐字核对原台词|全部 body 按顺序覆盖原剧情/);
       assert.ok(rendered.messages[1].content.includes(e.plot));
     }
   });
 
-  test(`${mode} 按预算补充剧情的任务保留扩写正文且不改源剧情`, async () => {
+  test(`${mode} 分集改编保存新正文且不覆盖源剧本或本集规划`, async () => {
     const root = await mkdtemp(join(tmpdir(), "meiji-outline-expand-"));
     try {
       const { p, e } = fixture(mode);
@@ -58,7 +56,7 @@ for (const mode of ["剧本", "自由创作"]) {
         execute: createTextHandler({ chat: async ({ step, messages }) => {
           if (step.kind === "review") {
             reviewed = true;
-            assert.match(messages[0].content, /不能仅因合理补充没有原文逐句依据而判未通过/);
+            assert.match(messages[0].content, /合理增删改或对白重写可通过/);
             assert.ok(messages.some(message => message.content.includes(expanded.segments[1].body)));
             return { 是否通过: true, "类型": "", 原因: "" };
           }
@@ -103,7 +101,7 @@ for (const mode of ["剧本", "自由创作"]) {
             seen.push(step.kind);
             assert.ok(!prompt.includes("项目摘要"));
             assert.ok(prompt.includes(e.plot));
-            assert.ok(!prompt.includes("方向哨兵"));
+            assert.equal(prompt.includes("方向哨兵"), mode === "自由创作");
             return step.kind === "review" ? { 是否通过: true, "类型": "", 原因: "" }
               : { segments: [{ sequence: 1, duration_seconds: 10, body: "新的剧情", causal: "" }] };
           } }) }),
@@ -118,11 +116,11 @@ for (const mode of ["剧本", "自由创作"]) {
         assert.deepEqual(snapshot.project.project_summary, p.project_summary);
         assert.equal(snapshot.tasks.length, 1);
         assert.equal(snapshot.project.episodes[0].plot, e.plot);
-        assert.match(task.name, /生成故事大纲/);
-        assert.match(snapshot.groups[0].name, /生成故事大纲/);
+        assert.match(task.name, /生成分集改编/);
+        assert.match(snapshot.groups[0].name, /生成分集改编/);
         const steps = snapshot.steps.filter(step => step.task_id === task.id);
-        assert.match(steps.find(step => step.kind === "generate").name, /生成故事大纲/);
-        assert.ok(steps.filter(step => step.kind === "review").every(step => step.name.includes("审核故事大纲")));
+        assert.match(steps.find(step => step.kind === "generate").name, /生成分集改编/);
+        assert.ok(steps.filter(step => step.kind === "review").every(step => step.name.includes("审核分集改编")));
       } finally { await rm(root, { recursive: true, force: true }); }
     });
   }
@@ -162,7 +160,7 @@ for (const mode of ["剧本", "自由创作"]) {
   });
 }
 
-test("B-8 镜头表要求有效故事大纲与角色库", () => {
+test("B-8 镜头表要求有效分集改编与角色库", () => {
   const { p, e } = fixture("剧本"),
     s = { business_type: "shots", target_id: e.id, action: "generate",
       previous_node_state: { status: "empty", reason: "" } };

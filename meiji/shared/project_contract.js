@@ -1,3 +1,4 @@
+import { PROJECT_ASPECT_RATIOS } from './media-parameters.js';
 import {
   createId,
   assertId,
@@ -122,7 +123,7 @@ export function validateProject(project) {
     ids.add(value);
   };
   register(project.id, "project.id");
-  if (!/^\d+x\d+$/.test(project.aspect_ratio)) invalid("project.aspect_ratio", "需为分辨率");
+  assertEnum(project.aspect_ratio, PROJECT_ASPECT_RATIOS, "project.aspect_ratio");
   assertEnum(project.creation_mode, ["剧本", "自由创作"], "project.creation_mode");
   if (!Number.isInteger(project.reference_episode_duration_seconds) || project.reference_episode_duration_seconds < 1)
     invalid("project.reference_episode_duration_seconds", "需为正整数");

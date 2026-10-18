@@ -9,7 +9,7 @@ export function createHandlerRegistry({ text, media, videoPrompt }) {
   return async (context) => {
     const { snapshot, task, step, draft, reviewType } = context;
     const project = snapshot.project, business = task.business_type;
-    if (step.kind === "review" && reviewType === "program" && (TEXT_BUSINESSES.includes(business) || business === "video")) {
+    if (step.kind === "review" && reviewType === "program" && TEXT_BUSINESSES.includes(business)) {
       try {
         if (business === "script-split") buildSplit(project.script.body, draft, project.reference_episode_duration_seconds);
         else {

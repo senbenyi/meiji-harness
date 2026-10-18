@@ -169,7 +169,7 @@ test("S7-07 实际 DOM 保留页面与四标签，状态/原因直读，运行�
   }
 });
 
-test("故事大纲按小段顺序展示正文、参考时长与因果衔接", () => {
+test("分集改编按小段顺序展示正文、参考时长与因果衔接", () => {
   const dom = new JSDOM("<main></main>"),
     previous = globalThis.document;
   globalThis.document = dom.window.document;
@@ -212,7 +212,7 @@ test("故事大纲按小段顺序展示正文、参考时长与因果衔接", ()
     );
     assert.deepEqual(
       cards.map((card) => card.querySelector("h3").textContent),
-      ["故事大纲", "本集摘要", "本集剧情"],
+      ["分集改编", "本集摘要", "本集规划"],
     );
     assert.equal(cards[0].querySelector(".node-data-tag").textContent, "已生成");
     assert.equal(cards[1].querySelector(".node-data-tag").textContent, "未生成");
@@ -226,7 +226,7 @@ test("故事大纲按小段顺序展示正文、参考时长与因果衔接", ()
     assert.match(cards[2].textContent, /本集剧情原文/);
     assert.ok(
       [...cards[2].querySelectorAll("button")].some(
-        (button) => button.textContent === "编辑剧情",
+        (button) => button.textContent === "编辑规划",
       ),
     );
     assert.equal(
@@ -348,8 +348,8 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     assert.equal(cardOf("剧集").querySelector("[aria-label=重新生成]"), null);
     assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "取消"));
     assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "任务历史"));
-    // 剧本本身是剧本审核节点，剧本卡片带审核按钮。
-    assert.deepEqual(labelsOf(cardOf("剧本")), ["重新审核", "任务历史", "查看规则"]);
+    // 原始剧本只读展示，不再挂载审核按钮。
+    assert.deepEqual(labelsOf(cardOf("剧本")), []);
     project.creation_mode = "自由创作";
     project.project_summary.node_state.status = "rejected";
     project.project_summary.node_state.reason = "摘要缺少结局";
@@ -382,7 +382,7 @@ test("项目详情状态与操作按钮同一排，生成按钮按内容显示",
     );
     assert.equal(cardOf("项目摘要").querySelector('.node-ui-repair-row button').textContent, '修复（再给 2 轮）');
     assert.equal(cardOf("剧本").querySelector(".section-titles .status-label"), null);
-    assert.equal(cardOf("剧本").querySelector(".workflow-generation-row .node-ui-status").textContent, "未通过");
+    assert.equal(cardOf("剧本").querySelector(".workflow-generation-row .node-ui-status"), null);
     assert.deepEqual(
       labelsOf(cardOf("剧本")).filter((label) => ["重新生成", "原结果修订"].includes(label)),
       [],
@@ -416,7 +416,7 @@ test("新建项目没有剧集时概览可以渲染，占位按钮打开对应�
     assert.match(root.querySelector("dialog").textContent, /新增剧集/);
     paint("剧本");
     const scriptPlaceholder = root.querySelector(".episode-placeholder");
-    assert.equal(scriptPlaceholder.querySelector("p").textContent, "拆分剧本后开始制作");
+    assert.equal(scriptPlaceholder.querySelector("p").textContent, "完成全集规划后开始制作");
     scriptPlaceholder.querySelector("button").click();
     assert.match(root.querySelector("dialog").textContent, /参考单集时长/);
   } finally {
@@ -425,7 +425,7 @@ test("新建项目没有剧集时概览可以渲染，占位按钮打开对应�
   }
 });
 
-test('编辑剧情可调整本集时长，保存走项目命令并完整保留原剧情', async () => {
+test('编辑规划可调整本集时长，保存走项目命令并完整保留原剧情', async () => {
   const dom = new JSDOM('<main></main>'), savedDocument = globalThis.document, savedFetch = globalThis.fetch;
   globalThis.document = dom.window.document;
   const calls = [];
@@ -437,7 +437,7 @@ test('编辑剧情可调整本集时长，保存走项目命令并完整保留�
     const snapshot = snapshotFixture(), e = snapshot.project.episodes[0], root = document.querySelector('main');
     const original = e.plot;
     renderTaskPanel(root, snapshot, { session_id: 'session-test', view: { page: 'episode', episode_id: e.id, tab: 'script' }, refresh: async () => {}, paint: () => {}, onError: () => {} });
-    [...root.querySelectorAll('button')].find(b => b.textContent === '编辑剧情').click();
+    [...root.querySelectorAll('button')].find(b => b.textContent === '编辑规划').click();
     const dialog = root.querySelector('dialog');
     dialog.close = () => dialog.remove();
     assert.equal(dialog.querySelector('[name="plot"]').value, original);

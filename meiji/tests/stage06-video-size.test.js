@@ -4,8 +4,9 @@ import { mkdtemp,readFile,writeFile,rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { PROJECT_ASPECT_RATIOS, projectFrameSize } from '../shared/media-parameters.js';
 import { normalizeVideo } from '../server/media/normalize-video.js';
-for (const size of ['1344x768','768x1344']) test(`网关视频本地导出${size}并保留音轨`,async()=>{
+for (const size of PROJECT_ASPECT_RATIOS) test(`网关视频本地导出${size}并保留音轨`,async()=>{
  const temp=await mkdtemp(join(tmpdir(),'meiji-pixels-test-'));
  try{
   const input=join(temp,'input.mp4'),output=join(temp,'output.mp4');
@@ -13,7 +14,7 @@ for (const size of ['1344x768','768x1344']) test(`网关视频本地导出${size
   const original=await readFile(input),bytes=await normalizeVideo(original,size,new AbortController().signal);
   await writeFile(output,bytes);
   const probe=JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams','-of','json',output]));
-  const video=probe.streams.find(s=>s.codec_type==='video');assert.equal(`${video.width}x${video.height}`,size);
+  const video=probe.streams.find(s=>s.codec_type==='video');assert.equal(`${video.width}x${video.height}`,projectFrameSize(size).join('x'));
   assert.equal(probe.streams.find(s=>s.codec_type==='audio').codec_name,'aac');
   assert.deepEqual(await normalizeVideo(bytes,size,new AbortController().signal),bytes);
   const controller=new AbortController();controller.abort();await assert.rejects(normalizeVideo(original,size,controller.signal),/abort/i);

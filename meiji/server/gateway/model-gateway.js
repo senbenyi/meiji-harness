@@ -8,8 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { decodeImageData } from "../media/decode-image-data.js";
 
 const imageSizes = {
-  "1344x768": "1344x768",
-  "768x1344": "768x1344",
+  "21:9": "1792x768",
   "16:9": "1344x768",
   "9:16": "768x1344",
   "1:1": "1024x1024",
@@ -43,7 +42,7 @@ function normalizeImagePixels(value) {
 }
 
 export function gatewayImageSize(aspectRatio) {
-  if (!aspectRatio || aspectRatio === "auto") return imageSizes["1344x768"];
+  if (!aspectRatio || aspectRatio === "auto") return imageSizes["16:9"];
   return normalizeImagePixels(imageSizes[aspectRatio] || aspectRatio);
 }
 

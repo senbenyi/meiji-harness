@@ -9,10 +9,10 @@ import { renderPrompt } from '../prompts/render.js';
 import { textProvider } from '../prompts/providers.js';
 import { modelRoute } from '../../models/model-config.js';
 import { elysiumClient } from './elysium/client.js';
-import { llmServerClient } from './llm-server/client.js';
+import { llmServerClient, videoContentAddress } from './llm-server/client.js';
 import { withGatewayTrace } from '../gateway/gateway-trace.js';
 import { stepPrompt } from '../data/step-records.js';
-import { generateGatewayImage, submitGatewayVideo, retrieveGatewayVideo } from '../gateway/model-gateway.js';
+import { generateGatewayImage, submitGatewayVideo } from '../gateway/model-gateway.js';
 
 export { nodeRoutes };
 const clients = { codex: llmServerClient, elysium: elysiumClient, 'llm-server': llmServerClient };
@@ -98,19 +98,23 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
         }
       } else {
         let bytes;
+        if (kind === 'video') {
+          const located = connection.model === 'MiniMax-H3' && !gateway.submitVideo
+            ? await (gateway.video || llmServerClient.generateVideo)({ ...options, ...composed.request })
+            : await (gateway.submitVideo || submitGatewayVideo)({ ...options, ...composed.request });
+          const remote_id = located.taskId || located.id;
+          const server_address = located.url || videoContentAddress(connection.baseUrl, remote_id);
+          if (!remote_id || !server_address) invalid('响应', '需返回服务端视频地址');
+          prompt.parameters = { remote_id, server_address };
+          result = { server_address, remote_id };
+          await record({ result, prompt });
+          signal?.throwIfAborted();
+          result = validateNodeResult(node, action, result, input);
+          return { result, prompt, http };
+        }
         if (kind === 'image') {
           const generate = gateway.image || (['krea2 turbo V2.5', 'gpt-image'].includes(connection.model) ? llmServerClient.generateImage : generateGatewayImage);
           bytes = await generate({ ...options, prompt: composed.body, aspectRatio: input.aspectRatio, references: input.references.map(value => decodeImageData(value)) });
-        } else if (connection.model === 'MiniMax-H3' && !gateway.submitVideo) {
-          const generated = await (gateway.video || llmServerClient.generateVideo)({ ...options, ...composed.request });
-          prompt.parameters = { remote_id: generated.taskId };
-          await record({ result: { remote_id: generated.taskId }, prompt });
-          bytes = generated.bytes;
-        } else {
-          const remote = await (gateway.submitVideo || submitGatewayVideo)({ ...options, ...composed.request });
-          prompt.parameters = { remote_id: remote.id };
-          await record({ result: { remote_id: remote.id }, prompt });
-          bytes = await (gateway.retrieveVideo || retrieveGatewayVideo)({ ...options, promptId: remote.id });
         }
         signal?.throwIfAborted();
         if (!Buffer.isBuffer(bytes) || !bytes.length) invalid('响应', '需为非空媒体文件');

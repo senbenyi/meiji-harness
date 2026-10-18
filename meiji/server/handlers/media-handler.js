@@ -11,6 +11,7 @@ import { aiProjection } from "./content.js";
 import { saveLastFrame } from "../media/extract-video-tail.js";
 import { concatFilms } from "../media/concat-videos.js";
 import { decodeImageData } from "../media/decode-image-data.js";
+import { withGatewayTrace } from "../gateway/gateway-trace.js";
 import { normalizeVideo } from "../media/normalize-video.js";
 // 实际时长按成片文件测得，保留一位小数。
 const seconds = (value) => Math.round((Number(value) || 0) * 10) / 10;
@@ -31,7 +32,7 @@ export function personSentence(person) {
   ].filter(Boolean);
   return parts.length ? `${parts.join("；")}。` : "";
 }
-export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-CN' }) {
+export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-CN', downloadVideo }) {
   return async ({ snapshot, task, step, draft, signal, record }) => {
     const language = await readLanguage();
     const p = snapshot.project,
@@ -57,8 +58,28 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
         const tail = await media.put(p.id, frame, 'png', signal);
         signal.throwIfAborted();
         const content = { ...draft, actual_duration_seconds: seconds(info.duration), last_frame: { address: tail.address } };
-        return { content, result: { address: content.address, duration: content.actual_duration_seconds, last_frame: tail.address } };
+        return { content, result: { address: content.address, server_address: content.server_address || '', duration: content.actual_duration_seconds, last_frame: tail.address } };
       } finally { await rm(temp, { recursive: true, force: true }); }
+    }
+    if (business === 'video' && step.kind === 'download') {
+      const server_address = draft?.server_address;
+      if (!server_address) invalid('视频', '缺少服务端视频地址');
+      const generated = snapshot.steps.find(row => row.task_id === task.id && row.kind === 'generate' && row.step_status === 'done');
+      const http = [];
+      let file = await withGatewayTrace(async (transfer, options) => {
+        if (options?.drop) {
+          const index = http.indexOf(transfer);
+          if (index >= 0) http.splice(index, 1);
+        } else if (!http.includes(transfer)) http.push(transfer);
+        await record({ http });
+      }, () => downloadVideo({ server_address, remote_id: generated?.result?.remote_id || '', signal }));
+      signal.throwIfAborted();
+      file = await normalizeVideo(file, p.aspect_ratio, signal);
+      signal.throwIfAborted();
+      const asset = await media.put(p.id, file, 'mp4', signal);
+      signal.throwIfAborted();
+      const content = { server_address, address: asset.address, actual_duration_seconds: seconds(asset.duration) };
+      return { content, result: { server_address, address: asset.address, duration: asset.duration } };
     }
     let bytes,
       prompt = null,
@@ -142,7 +163,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
         firstFrame = dataUrl(await media.read(packed.input_reference, p.id), 'image/png');
       }
       const prev = previousShot(episode, object);
-      const opinion = step.kind === 'revise' ? snapshot.steps.filter(row => row.task_id === task.id && row.kind === 'review' && row.step_status === 'rejected' && row.seq < step.seq).sort((a,b) => b.seq-a.seq)[0]?.result?.原因 : task.opinion;
+      const opinion = task.opinion;
       const modify = Boolean(opinion?.trim());
       const response = await ai(business, modify ? 'regenerate' : 'generate', {
         type,
@@ -156,10 +177,14 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
         } : firstFrame ? { firstFrame } : {}),
         ...(modify ? { opinion } : {}),
       }, { signal, record, task, step });
-      bytes = Buffer.from(response.result.data, 'base64');
       prompt = response.prompt;
       prompt.parameters = { ...prompt.parameters, duration: object.duration_seconds, aspectRatio: p.aspect_ratio, reference_ids: referenceIds, first_frame: firstFrame ? prev.last_frame.address : null };
       await record({ prompt });
+      return {
+        content: { server_address: response.result.server_address },
+        result: { server_address: response.result.server_address, remote_id: response.result.remote_id },
+        prompt,
+      };
     } else invalid("媒体", "未知业务");
     if (["video", "assembly"].includes(business) && task.action !== "manual_edit")
       bytes = await normalizeVideo(bytes, p.aspect_ratio, signal);
@@ -176,6 +201,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
     return {
       content: {
         address: asset.address,
+        ...(business === 'video' && task.action === 'manual_edit' ? { server_address: '' } : {}),
         ...(["video", "assembly"].includes(business) ? { actual_duration_seconds: seconds(asset.duration) } : {}),
       },
       result: {

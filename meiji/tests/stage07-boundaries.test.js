@@ -226,7 +226,7 @@ test("S7-13 画幅、声音和默认服装不追溯过期，项目不再接受�
         type: "edit",
         project_id: p.id,
         request_id: "settings",
-        fields: { aspect_ratio: "768x1344" },
+        fields: { aspect_ratio: "9:16" },
       },
       sid,
     );

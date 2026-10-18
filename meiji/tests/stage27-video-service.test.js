@@ -10,7 +10,7 @@ import { emptyCharacterModel } from '../shared/models/character_model.js';
 
 const image = 'data:image/png;base64,aW1hZ2U=';
 const textPrompt = { integrated_multimodal_description: '(S1)<d>别走。我还有话说。</d>', overall_soundscape: '风声', non_diegetic_music: 'N/A' };
-const input = { type: '文生', textPrompt, duration: 4, aspectRatio: '768x1344' };
+const input = { type: '文生', textPrompt, duration: 4, aspectRatio: '9:16' };
 const options = { baseUrl: 'http://localhost:11435/v1', model: 'MiniMax-H3' };
 const response = extra => new Response(JSON.stringify({ task_id: 'remote-video', status: 'succeeded', url: 'https://cdn.example/result.mp4?signature=temporary', ...extra }));
 
@@ -80,14 +80,23 @@ test('程序编排按图片顺序映射全项目稳定speaker_tag及本镜服装
   assert.doesNotMatch(JSON.stringify(content), /data:image/);
 });
 
-test('成功响应后下载无本地凭据，HTTP历史含下载状态和字节数', async () => {
+test('成功响应只返回服务端地址，不在生成时下载', async () => {
+  const calls = [];
+  const fetchImpl = async (url, request) => { calls.push({ url: String(url), request }); return response(); };
+  const result = await llmServerClient.generateVideo({ ...options, ...videoRequest(input), fetchImpl });
+  assert.equal(result.taskId, 'remote-video');
+  assert.equal(result.url, 'https://cdn.example/result.mp4?signature=temporary');
+  assert.equal(calls.length, 1);
+});
+
+test('下载步骤按服务端地址取文件且不发送本地凭据', async () => {
   const calls = [], transfers = [];
-  const fetchImpl = async (url, request) => { calls.push({ url: String(url), request }); return calls.length === 1 ? response() : new Response('mp4'); };
-  const result = await withGatewayTrace(transfer => { if (!transfers.includes(transfer)) transfers.push(transfer); }, () => llmServerClient.generateVideo({ ...options, ...videoRequest(input), fetchImpl }));
-  assert.equal(result.bytes.toString(), 'mp4'); assert.equal(result.taskId, 'remote-video');
-  assert.equal(calls[1].request.headers, undefined);
-  assert.equal(transfers[1].fn, 'downloadVideo'); assert.equal(transfers[1].bytes, 3); assert.equal(transfers[1].ok, true);
-  assert.doesNotMatch(transfers[1].path, /signature/);
+  const fetchImpl = async (url, request) => { calls.push({ url: String(url), request }); return new Response('mp4'); };
+  const bytes = await withGatewayTrace(transfer => { if (!transfers.includes(transfer)) transfers.push(transfer); }, () => llmServerClient.downloadVideo({ url: 'https://cdn.example/result.mp4?signature=temporary', fetchImpl }));
+  assert.equal(bytes.toString(), 'mp4');
+  assert.equal(calls[0].request.headers, undefined);
+  assert.equal(transfers[0].fn, 'downloadVideo'); assert.equal(transfers[0].bytes, 3); assert.equal(transfers[0].ok, true);
+  assert.doesNotMatch(transfers[0].path, /signature/);
 });
 
 test('非成功状态和服务端402/503拒绝，不下载也不重新提交', async () => {
@@ -102,8 +111,8 @@ test('非成功状态和服务端402/503拒绝，不下载也不重新提交', a
 test('下载失败和空文件记入HTTP详情并拒绝，不返回假视频', async () => {
   for (const file of [new Response('expired', { status: 403 }), new Response('')]) {
     let calls = 0; const transfers = [];
-    await assert.rejects(withGatewayTrace(transfer => { if (!transfers.includes(transfer)) transfers.push(transfer); }, () => llmServerClient.generateVideo({ ...options, ...videoRequest(input), fetchImpl: async () => ++calls === 1 ? response() : file })), /下载失败|空的/);
-    assert.equal(calls, 2); assert.equal(transfers.at(-1).ok, false); assert.match(transfers.at(-1).error, /下载失败|空的/);
+    await assert.rejects(withGatewayTrace(transfer => { if (!transfers.includes(transfer)) transfers.push(transfer); }, () => llmServerClient.downloadVideo({ url: 'https://cdn.example/result.mp4', fetchImpl: async () => { calls++; return file; } })), /下载失败|空的/);
+    assert.equal(calls, 1); assert.equal(transfers.at(-1).ok, false); assert.match(transfers.at(-1).error, /下载失败|空的/);
   }
 });
 

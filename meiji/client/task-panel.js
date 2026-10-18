@@ -1,3 +1,4 @@
+import { aspectRatioOfSize } from '../shared/media-parameters.js';
 import { sceneCatalog } from '../shared/scene-inputs.js';
 import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph, reviewTypeLabel, reasonHeading } from './node-task-status.js';
 import { scriptText } from '../shared/script-text.js';
@@ -39,13 +40,12 @@ function blockingDialog(root, message) {
   close.focus();
 }
 const names = {
-  "script-review": "剧本",
   "project-summary": "项目摘要",
   "project-characters": "角色库",
   "episode-summary": "展示摘要",
   "episode-scenes": "提取场景", "scene-image": "场景参考图",
-  outline: "故事大纲",
-  "script-split": "拆分剧集",
+  outline: "分集改编",
+  "script-split": "全集规划",
   shots: "镜头表",
   seconds: "每秒分镜",
   storyboard: "文本提示词",
@@ -73,7 +73,7 @@ function imageDataLabel(address) {
   return `data:${mime};base64,…`;
 }
 function h3RequestBody(mode, node) {
-  const ratio = mode === "首尾帧" ? "adaptive" : { "576x1024": "9:16", "1024x576": "16:9" }[node.size] || "";
+  const ratio = mode === "首尾帧" ? "adaptive" : aspectRatioOfSize(node.size || "");
   const body = {
     mode,
     prompt: node.prompt || "",
@@ -239,13 +239,6 @@ export function renderTaskPanel(root, snapshot, context) {
     const actions = element("div", "", "workflow-generation-row");
     const latest = latestNodeTask(snapshot.tasks, business, id);
     const taskRow = taskStatusRow(latest);
-    // 剧本节点的审核与修改都在同一节点上进行，进行中时标明当前步骤（如「第 1 轮修改剧本」），让修改流程可见。
-    if (taskRow && business === "script-review" && ["queued", "running"].includes(latest.task_status)) {
-      const current = (snapshot.steps || []).filter((step) => step.task_id === latest.id && ["running", "ready"].includes(step.step_status))
-        .sort((a, b) => (a.step_status === "running" ? -1 : 0) - (b.step_status === "running" ? -1 : 0) || a.seq - b.seq)[0];
-      const name = latest.action === "revise" ? "按审核意见修改剧本" : "审核剧本";
-      taskRow.textContent += ` · ${name}${current ? ` · 当前：${current.name}` : ""}`;
-    }
     const roundNote = revisionNote(latest, snapshot.steps, NODE_DEFINITIONS[business]?.retryRounds);
     if (taskRow && roundNote) taskRow.textContent += ` · ${roundNote}`;
     const buttonBox = element("div", "", "node-ui-buttons");
@@ -295,8 +288,6 @@ export function renderTaskPanel(root, snapshot, context) {
         asset.onclick = () => showImagePreview(root, asset);
       }
       card.append(asset);
-    } else if (business === "script-review") {
-      // 剧本节点的正文在剧本详情页展示，卡片只放公共节点 UI。
     } else if (business === "seconds") {
       const shot = p.episodes.flatMap(episode => episode.shot_list.shots).find(shot => shot.id === id);
       if (shot) {
@@ -331,10 +322,10 @@ export function renderTaskPanel(root, snapshot, context) {
           "prompt full",
         ),
       );
-    if (typeof node.body === "string" && business !== "script-review") appendJsonCopy(card, node.body);
+    if (typeof node.body === "string") appendJsonCopy(card, node.body);
     const program = ["first-last-frame", "multimodal", "assembly"].includes(business);
     const isPack = ["first-last-frame", "multimodal"].includes(business);
-    const hasOutput = isPack ? Boolean(node.prompt.trim()) : business === "script-review" ? node.node_state.status !== "empty" : hasContent(node),
+    const hasOutput = isPack ? Boolean(node.prompt.trim()) : hasContent(node),
       typedOpinion = () => (state.opinions?.[`${business}:${id}`] || "").trim(),
       generate = (opinion = "", revise = false) => {
         const text = [opinion, typedOpinion()].filter(Boolean).join("\n");
@@ -365,15 +356,12 @@ export function renderTaskPanel(root, snapshot, context) {
     const rejectedText = NODE_DEFINITIONS[business]?.handler === "text" &&
       (node.node_state.status === "rejected" || latest?.task_status === "rejected");
     const reviewReason = node.node_state.reason || (latest?.task_status === "rejected" ? latest.end_reason : "") || "";
-    const rejectedVideo = business === "video" && node.node_state.status === "rejected";
     const quiet = ["project-summary", "episode-summary"].includes(business);
-    // 剧本节点：审核、重新审核、人工放行；未通过时原因下方为「修改」（按审核意见修改剧本后再审核），不提供原结果修订和人工编辑。
-    const reviewOnly = business === "script-review";
     const buttons = [];
-    const repair = (rejectedText || rejectedVideo) && !program && !active && !readOnly && reviewReason.trim()
+    const repair = rejectedText && !program && !active && !readOnly && reviewReason.trim()
       ? button(repairButtonLabel(business), () => generate(reviewReason, hasOutput)) : null;
-    if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : reviewOnly ? (hasOutput ? "重新审核" : "AI审核") : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate(program && node.node_state.status === "rejected" ? reviewReason : "")));
-    if (!program && !reviewOnly && !active && !readOnly && !rejectedText && !rejectedVideo && hasOutput && (NODE_DEFINITIONS[business]?.handler === "text" || node.node_state.status === "rejected"))
+    if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate(program && node.node_state.status === "rejected" ? reviewReason : "")));
+    if (!program && !active && !readOnly && !rejectedText && hasOutput && (NODE_DEFINITIONS[business]?.handler === "text" || (business !== "video" && node.node_state.status === "rejected")))
       buttons.push(
         button("原结果修订", () =>
           editor(
@@ -427,7 +415,7 @@ export function renderTaskPanel(root, snapshot, context) {
       };
       card.append(upload);
     }
-    if (!program && !reviewOnly && !active && !readOnly && !quiet) buttons.push(
+    if (!program && !active && !readOnly && !quiet) buttons.push(
       button("人工编辑", () =>
         isMedia
           ? upload.click()

@@ -43,6 +43,21 @@ export function showImagePreview(root, asset) {
   dialog.addEventListener('close', () => dialog.remove(), { once: true });
   showPanelDialog(dialog);
 }
+export function showVideoPreview(root, source, label = '视频播放') {
+  const dialog = element('dialog', '', 'still-preview video-preview');
+  const video = element('video'), close = element('button', '×', 'cancel');
+  video.src = source;
+  video.controls = true;
+  video.autoplay = true;
+  video.setAttribute('aria-label', label);
+  dialog.setAttribute('aria-label', label);
+  close.setAttribute('aria-label', '关闭视频');
+  close.onclick = () => dialog.close();
+  dialog.append(video, close);
+  root.append(dialog);
+  dialog.addEventListener('close', () => { video.pause(); dialog.remove(); }, { once: true });
+  showPanelDialog(dialog);
+}
 
 export function tabs(label, entries, selected, onChange) {
   const row = element('div', '', 'tabs')

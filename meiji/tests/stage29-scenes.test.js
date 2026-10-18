@@ -328,16 +328,35 @@ test('面板在大纲后展示场景选择，已有场景展示共用资料及�
     const image=root.querySelector('[data-business=scene-image]');assert.ok(image.querySelector('img'));
     assert.ok([...image.querySelectorAll('button')].some(button=>button.textContent==='人工编辑'));
     const thumb=image.querySelector('img.scene-thumb');assert.ok(thumb,'场景参考图使用缩略图样式');
-    assert.equal(list.style.getPropertyValue('--scene-aspect'),p.aspect_ratio.replace('x',' / '));
-    assert.equal(list.dataset.orientation,p.aspect_ratio==='768x1344'?'portrait':'landscape');
+    assert.equal(list.style.getPropertyValue('--scene-aspect'),p.aspect_ratio.replace(':',' / '));
+    assert.equal(list.dataset.orientation,p.aspect_ratio==='9:16'?'portrait':'landscape');
     thumb.click();assert.equal(root.querySelector('dialog.still-preview img').src,thumb.src,'点击放大查看原图');
     root.querySelector('dialog.still-preview [aria-label="关闭图片预览"]').click();
-    p.aspect_ratio='1344x768';root.replaceChildren();
+    p.aspect_ratio='16:9';root.replaceChildren();
     renderTaskPanel(root,{...snapshotFixture(),project:p},{session_id:'s',view:{page:'episode',episode_id:p.episodes[0].id,tab:'script'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
-    const wide=root.querySelector('.scene-card-list');assert.equal(wide.style.getPropertyValue('--scene-aspect'),'1344 / 768');assert.equal(wide.dataset.orientation,'landscape');
+    const wide=root.querySelector('.scene-card-list');assert.equal(wide.style.getPropertyValue('--scene-aspect'),'16 / 9');assert.equal(wide.dataset.orientation,'landscape');
     p.episodes[0].scene_catalog.scene_ids=[];root.replaceChildren();
     renderTaskPanel(root,{...snapshotFixture(),project:p},{session_id:'s',view:{page:'episode',episode_id:p.episodes[0].id,tab:'script'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
     assert.equal(root.querySelector('.scene-card-list'),null,'无场景时不显示空列表');
     assert.match(root.querySelector('[data-business=episode-scenes]').textContent,/在大纲之后选择性提取|本集没有需要固定的场景/);
   }finally{globalThis.document=previous;dom.window.close();}
+});
+
+test('场景图生成与修改共用全场构图要求，保留资料与指定画幅', async () => {
+  const {scene}=withScene();
+  const input={language:'zh-CN',requirements:'',scene:sceneText(scene),context:{plots:[]},aspectRatio:'9:16',references:[]};
+  const initial=composeNodePrompt('scene-image','generate',input,'gpt-image');
+  const modified=composeNodePrompt('scene-image','regenerate',{...input,opinion:'拉远机位展示整个场地'},'gpt-image');
+  assert.equal(initial.system,modified.system);
+  assert.match(initial.system,/主要分区、出入口、通路与关键地标/);
+  assert.match(initial.system,/竖幅也应拉远收纳横向布局/);
+  assert.match(modified.system,/原图取景过近或范围不全时允许拉远/);
+  assert.doesNotMatch(modified.system,/其余保持原样/);
+  assert.match(modified.body,/拉远机位展示整个场地/);
+  assert.match(initial.body,new RegExp(scene.name));
+  const calls=[];
+  const ai=createAiRoutes({readConfig:async()=>config,gateway:{image:async options=>{calls.push(options);return Buffer.from('image');}}});
+  for(const action of ['generate','regenerate']) await ai('scene-image',action,{...input,...(action==='regenerate'?{opinion:'拉远机位展示整个场地'}:{})});
+  assert.deepEqual(calls.map(c=>c.aspectRatio),['9:16','9:16']);
+  for(const call of calls) assert.match(call.prompt,/单一真实透视/);
 });

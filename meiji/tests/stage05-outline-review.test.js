@@ -110,7 +110,7 @@ test("摘要和大纲修订注入候选；大纲三种模板均有参考值与�
     const revised = renderTaskPrompt(snapshot, task, draft, "regenerate", { kind: "revise" });
     assert.ok(revised.messages[2].content.includes(marker));
     assert.match(revised.user, /保留红色粗布/);
-    assert.ok(revised.messages[1].content.includes(story));
+    assert.ok(revised.messages[1].content.includes(business === "outline" ? story : episode.story_outline.segments[0].body));
   }
   for (const suffix of ["generate", "regenerate", "review"]) {
     const task = taskFixture(project, "outline", episode.id);

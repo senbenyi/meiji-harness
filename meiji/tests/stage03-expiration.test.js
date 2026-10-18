@@ -87,9 +87,9 @@ test("S3-04 剧本更新使依赖剧本的节点过期，配置变化不触发�
   p.script.body = "修改后的剧本";
   expireDownstream(snapshot, "script", p.id);
   assert.equal(p.project_summary.node_state.status, "expired");
-  assert.equal(p.episodes[0].story_outline.node_state.status, "generated");
-  p.aspect_ratio = "768x1344";
-  assert.equal(s.video.node_state.status, "generated");
+  assert.equal(p.episodes[0].story_outline.node_state.status, "expired");
+  p.aspect_ratio = "9:16";
+  assert.equal(s.video.node_state.status, "expired");
   expireDownstream(snapshot, "seconds", s.id, "上游已修改", { compareHash: false });
   assert.equal(s.text_to_video_prompt.node_state.status, "rejected");
   assert.equal(s.text_to_video_prompt.node_state.reason, "未通过");
@@ -154,7 +154,7 @@ test("剧情变化即使大纲小段未改，镜头表也过期", () => {
   stampGenerated(snapshot);
   episode.plot = "新剧情";
   expireDownstream(snapshot, "episode-plot", episode.id, "剧情已修改");
-  assert.equal(episode.summary.node_state.status, "expired");
+  assert.equal(episode.summary.node_state.status, "generated");
   assert.equal(episode.story_outline.node_state.status, "expired");
   assert.equal(episode.shot_list.node_state.status, "expired");
   assert.equal(episode.story_outline.segments[0].body, "故事");
@@ -203,11 +203,11 @@ test("声音不改变角色图片指纹，不可改特征变化使图片和引�
   assert.equal(shot.video.node_state.status, "expired");
   assert.equal(shot.video.address, "1.mp4");
 });
-test("剧情同步更新只使展示摘要过期，不使故事大纲过期", () => {
+test("改编正文更新只使展示摘要过期，不使分集改编过期", () => {
   const snapshot = snapshotFixture(),
     e = snapshot.project.episodes[0];
-  e.plot = "同步后的剧情";
-  expireDownstream(snapshot, "episode-plot-sync", e.id, "剧情已更新");
+  e.story_outline.segments[0].body = "更新后的改编剧情";
+  expireDownstream(snapshot, "outline", e.id, "改编已更新");
   assert.equal(e.summary.node_state.status, "expired");
   assert.equal(e.story_outline.node_state.status, "generated");
 });
@@ -341,14 +341,14 @@ test("角色文字投影与hash排除图片、声音、默认服装，文本变�
   assert.equal(e.shot_list.shots[0].video.node_state.status, "expired");
 });
 
-test("角色节点仅因剧本变为过期，文字未变化不阻断镜头表", () => {
+test("角色节点仅因剧本变为过期，分集改编和镜头表随原剧本一起过期", () => {
   const snapshot = withCharacter(), p = snapshot.project;
   p.character_library.node_state.status = "generated";
   stampDependencyHash(snapshot, "project-characters", p.id);
   p.script.body = "新的剧本";
   expireDownstream(snapshot, "script", p.id);
   assert.equal(p.character_library.node_state.status, "expired");
-  assert.equal(p.episodes[0].shot_list.node_state.status, "generated");
+  assert.equal(p.episodes[0].shot_list.node_state.status, "expired");
 });
 
 test("服装文本编辑与角色删除都检查镜头表，删除后无需定位旧角色", () => {

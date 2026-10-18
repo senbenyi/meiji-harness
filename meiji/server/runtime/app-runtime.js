@@ -13,6 +13,9 @@ import { createHandlerRegistry } from "../handlers/handler-registry.js";
 import { commitContent } from "../handlers/content.js";
 import { MediaStore } from "../media/media-store.js";
 import { createAiRoutes } from '../http/ai-routes.js';
+import { llmServerClient, isGatewayContentAddress } from '../http/llm-server/client.js';
+import { modelRoute } from '../../models/model-config.js';
+import { retrieveGatewayVideo } from '../gateway/model-gateway.js';
 import { modelStore } from "../data/model-settings.js";
 import { SettingsModel } from "../../shared/models/settings_model.js";
 import { NotificationOutbox } from "../host/notification-outbox.js";
@@ -35,7 +38,15 @@ export async function createAppRuntime({
   const readLanguage = async () => new SettingsModel(await models.read()).output_language;
   const ai = createAiRoutes({ readConfig: () => models.read(), gateway: injected });
   const text = createTextHandler({ ai, readLanguage }),
-    mediaHandler = createMediaHandler({ media, ai, readLanguage }),
+    mediaHandler = createMediaHandler({
+      media, ai, readLanguage,
+      downloadVideo: async ({ server_address, remote_id, signal }) => {
+        const connection = modelRoute(await models.read(), 'video');
+        if (isGatewayContentAddress(server_address, remote_id))
+          return (injected?.retrieveVideo || retrieveGatewayVideo)({ ...connection, promptId: remote_id, signal });
+        return llmServerClient.downloadVideo({ url: server_address, apiKey: connection.apiKey, signal });
+      },
+    }),
     execute = createHandlerRegistry({ text, media: mediaHandler, videoPrompt: createVideoPromptHandler({ media }) }),
     tasks = new TaskService({
       repository,
@@ -124,17 +135,7 @@ export async function createAppRuntime({
           sessionId,
           source,
         );
-        // 导入剧本后先自动审核一次；提交失败不撤销已创建的项目，原因随结果返回。
-        if (!p.script.body.trim()) return opened;
-        try {
-          const review = await runtime.command({
-            type: "submit", project_id: p.id, request_id: `script-review:${p.id}`,
-            business_type: "script-review", target_id: p.id, action: "generate",
-          }, opened.session_id, source);
-          return { ...opened, script_review_task_id: review.task_id };
-        } catch (error) {
-          return { ...opened, script_review_error: error.message };
-        }
+        return opened;
       }
       if (command.type === "open") {
         const model = await repository.open(command.project_id);
@@ -183,7 +184,7 @@ export async function createAppRuntime({
           if (s.tasks.some((t) => t.task_status === "running"))
             invalid("状态", "运行中不能编辑");
           if (s.project.creation_mode === "剧本")
-            invalid("剧集", "剧本创作方式请使用拆分剧集");
+            invalid("剧集", "剧本创作方式请使用全集规划");
           for (const key of Object.keys(command.fields || {}))
             if (!["duration_seconds", "episode_requirements"].includes(key))
               invalid(key, "未定义剧集创建字段");

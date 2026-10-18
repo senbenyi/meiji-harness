@@ -87,7 +87,7 @@ test("S1-06 图片生成 JSON 与参考图编辑 multipart 保持协议和字节
     const result = await generateGatewayImage({
       ...connection,
       prompt: "图片",
-      aspectRatio: "1344x768",
+      aspectRatio: "16:9",
       seed: 42,
       references: edit ? [{ mime: "image/png", bytes: png }] : [],
       fetchImpl: async (url, options) => {
@@ -120,7 +120,7 @@ test("S1-06 视频提交记录远端 ID，轮询终态后下载；失败终态�
     ...connection,
     prompt: "视频",
     duration: 5,
-    aspectRatio: "1344x768",
+    aspectRatio: "16:9",
     mode: "reference",
     referenceImages: [`data:image/png;base64,${png.toString("base64")}`],
     fetchImpl: async (url, options) => {

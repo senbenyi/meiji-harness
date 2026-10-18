@@ -1,3 +1,4 @@
+import { migrateAspectRatio } from './aspect-ratio-migration.js';
 import { splitLegacyPrompt } from './step-records.js';
 import { stepExecutor } from '../../shared/task-plan.js';
 import { migrateScenes } from './scene-migration.js';
@@ -11,7 +12,7 @@ import { readFileSync, chmodSync, lstatSync } from "node:fs";
 import { validateProject as validateCurrentProject } from "../../shared/project_contract.js";
 import { detachOutputLanguage, removeProjectRules, splitFailureMessages } from "../../shared/node-dependencies.js";
 
-const validateProject = project => validateCurrentProject(migrateScenes(project));
+const validateProject = project => validateCurrentProject(migrateAspectRatio(migrateScenes(project)));
 
 const columns = {
   task_groups: "id project_id episode_id name group_type action source shot_ids_json created_at position".split(" "),
@@ -300,7 +301,68 @@ export class SQLiteStore {
           this.#db.exec('PRAGMA user_version=23; COMMIT'); version = 23;
         } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
       }
-      if (version !== 23) throw new Error(`不支持的数据库版本：${version}`);
+      if (version === 23) {
+        this.#db.exec('BEGIN IMMEDIATE');
+        try {
+          this.#db.exec(`CREATE TABLE task_steps_v24 (
+            id TEXT PRIMARY KEY NOT NULL,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            task_id TEXT NOT NULL,
+            seq INTEGER NOT NULL CHECK(seq >= 1),
+            name TEXT,
+            kind TEXT NOT NULL CHECK(kind IN ('precheck','generate','review','revise','manual_edit','override','impact','download','apply')),
+            round INTEGER NOT NULL CHECK(round BETWEEN 0 AND 2),
+            step_status TEXT NOT NULL CHECK(step_status IN ('ready','running','done','rejected','failed','skipped','cancelled','superseded')),
+            executor TEXT NOT NULL CHECK(executor IN ('ai','program')),
+            prompt_json TEXT NOT NULL CHECK(json_valid(prompt_json)),
+            http_json TEXT NOT NULL CHECK(json_valid(http_json)),
+            result_json TEXT NOT NULL CHECK(json_valid(result_json)),
+            error_reason TEXT NOT NULL,
+            started_at TEXT,
+            ended_at TEXT,
+            position INTEGER NOT NULL,
+            UNIQUE(task_id,seq),
+            FOREIGN KEY(project_id,task_id) REFERENCES tasks(project_id,id) DEFERRABLE INITIALLY DEFERRED
+          ) STRICT`);
+          const stepColumns = columns.task_steps.join(',');
+          this.#db.exec(`INSERT INTO task_steps_v24 (${stepColumns}) SELECT ${stepColumns} FROM task_steps`);
+          this.#db.exec('DROP TABLE task_steps');
+          this.#db.exec('ALTER TABLE task_steps_v24 RENAME TO task_steps');
+          this.#db.exec('CREATE INDEX IF NOT EXISTS steps_project ON task_steps(project_id)');
+          for (const row of this.#db.prepare('SELECT id,data_json FROM projects').all()) {
+            const project = JSON.parse(row.data_json);
+            let changed = false;
+            for (const episode of project.episodes || [])
+              for (const shot of episode.shot_list?.shots || [])
+                if (shot.video && typeof shot.video.server_address !== 'string') {
+                  shot.video.server_address = '';
+                  changed = true;
+                }
+            if (changed) {
+              validateProject(project);
+              this.#db.prepare('UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?').run(JSON.stringify(project), row.id);
+            }
+          }
+          this.#db.prepare("INSERT OR IGNORE INTO schema_migrations VALUES (24,strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec('PRAGMA user_version=24; COMMIT'); version = 24;
+        } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
+      }
+      if (version === 24) {
+        this.#db.exec('BEGIN IMMEDIATE');
+        try {
+          for (const row of this.#db.prepare('SELECT id,data_json FROM projects').all()) {
+            const project=JSON.parse(row.data_json);
+            const before=project.aspect_ratio;
+            migrateAspectRatio(project);
+            validateCurrentProject(project);
+            if (before!==project.aspect_ratio)
+              this.#db.prepare('UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?').run(JSON.stringify(project),row.id);
+          }
+          this.#db.prepare("INSERT OR IGNORE INTO schema_migrations VALUES (25,strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec('PRAGMA user_version=25; COMMIT'); version=25;
+        } catch(error) { this.#db.exec('ROLLBACK'); throw error; }
+      }
+      if (version !== 25) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         // 已有行不改 position（保持写入顺序）；步骤的提示词与 HTTP 只经 writeStepRecord 写入。
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => !["id", "position", "prompt_json", "http_json"].includes(f)).map(f => `${f}=excluded.${f}`).join(",")}`));

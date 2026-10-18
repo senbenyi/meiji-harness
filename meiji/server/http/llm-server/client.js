@@ -75,9 +75,30 @@ async function generateVideo(options) {
   if (typeof data?.url !== 'string' || !data.url || typeof data.task_id !== 'string' || !data.task_id) {
     throw Object.assign(new Error('模型未返回视频'), { status: 502 });
   }
+  assertVideoUrl(data.url);
+  return { taskId: data.task_id, url: data.url };
+}
+
+function assertVideoUrl(value) {
   let target;
-  try { target = new URL(data.url); } catch { throw Object.assign(new Error('视频下载地址无效'), { status: 502 }); }
+  try { target = new URL(value); } catch { throw Object.assign(new Error('视频下载地址无效'), { status: 502 }); }
   if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password) throw Object.assign(new Error('视频下载地址无效'), { status: 502 });
+  return target;
+}
+
+export function videoContentAddress(baseUrl, id) {
+  const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  return new URL(`videos/${encodeURIComponent(id)}/content`, base).href;
+}
+
+export function isGatewayContentAddress(serverAddress, remoteId) {
+  if (!serverAddress || !remoteId) return false;
+  try { return new URL(serverAddress).pathname.endsWith(`/videos/${encodeURIComponent(remoteId)}/content`) || new URL(serverAddress).pathname.endsWith(`/videos/${remoteId}/content`); }
+  catch { return false; }
+}
+
+export async function downloadRemoteVideo({ url, signal, fetchImpl = fetch, apiKey }) {
+  const target = assertVideoUrl(url);
   const downloadPath = `${target.origin}${target.pathname}`;
   const download = { fn: 'downloadVideo', method: 'GET', path: downloadPath, request: { method: 'GET', path: downloadPath, headers: {} } };
   const downloadStarted = Date.now();
@@ -93,7 +114,7 @@ async function generateVideo(options) {
     signal?.throwIfAborted();
     if (!bytes.length) throw Object.assign(new Error('模型返回的视频是空的'), { status: 502 });
     await recordTransfer(Object.assign(download, { durationMs: Date.now() - downloadStarted, status: file.status, ok: true, bytes: bytes.length }));
-    return { bytes, taskId: data.task_id };
+    return bytes;
   } catch (error) {
     await recordTransfer(Object.assign(download, { durationMs: Date.now() - downloadStarted, status: file?.status ?? null, ok: false, error: redactJson(error.message, apiKey) }));
     throw error;
@@ -104,6 +125,7 @@ export const llmServerClient = Object.freeze({
   complete(options) { return sendChat(chatParameters(options), options); },
   generateImage,
   generateVideo,
+  downloadVideo: downloadRemoteVideo,
   async gpu({ baseUrl, fetchImpl = fetch }) {
     try {
       const response = await fetchImpl(`${gatewayBaseUrl(baseUrl)}/gpu`, {

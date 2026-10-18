@@ -7,6 +7,8 @@ test('成片展示四节点且视频按钮提交单镜完整组，剧集无每�
  const dom=new JSDOM('<main></main>',{url:'http://localhost'}), prev={document:globalThis.document,fetch:globalThis.fetch};
  try {
   globalThis.document=dom.window.document;const s=snapshotFixture(), e=s.project.episodes[0], shot=e.shot_list.shots[0], requests=[];
+  dom.window.HTMLDialogElement.prototype.show = function () { this.open = true; };
+  dom.window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new dom.window.Event('close')); };
   globalThis.fetch=async(_url,opts)=>{requests.push(JSON.parse(opts.body));return {ok:true,json:async()=>({group_id:'group'})};};
   const root=document.querySelector('main'),view={page:'episode',episode_id:e.id,tab:'film'};
   const context={session_id:'session-test',view,refresh:async()=>{},paint:()=>renderTaskPanel(root,s,context),onError:()=>{}};
@@ -37,6 +39,17 @@ test('成片展示四节点且视频按钮提交单镜完整组，剧集无每�
   assert.equal(filmCard.querySelector('.shot-body h4').textContent,'本镜内容');
   assert.equal(filmCard.querySelector('.shot-body').nextElementSibling.classList.contains('shot-results'),true);
   assert.equal(filmCard.querySelectorAll('.shot-result').length,4);
+  shot.video.address = 'clip.mp4';
+  context.paint();
+  const preview = root.querySelector('.shot-card .shot-result video');
+  assert.equal(preview.getAttribute('aria-label'), `${shot.number} 视频预览`);
+  preview.click();
+  const player = root.querySelector('dialog.video-preview video');
+  assert.ok(player);
+  assert.equal(player.controls, true);
+  assert.match(player.getAttribute('src'), /clip\.mp4/);
+  root.querySelector('dialog.video-preview button').click();
+  assert.equal(root.querySelector('dialog.video-preview'), null);
   assert.equal([...root.querySelectorAll('button')].some(button=>button.textContent==='查看详情'),true);
   assert.equal([...root.querySelectorAll('button')].some(button=>button.textContent==='打开镜头'),false);
   view.shot_id=shot.id;shot.actual_duration_seconds=5.2;context.paint();

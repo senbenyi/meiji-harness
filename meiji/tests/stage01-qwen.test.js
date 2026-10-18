@@ -120,7 +120,7 @@ test('千问：所有文本生成/审核/修订保留 system/user 分工，媒�
       assert.ok(!prompt.body.includes('# 响应约定'))
     }
   }
-  assert.equal(textCount, 29)
+  assert.equal(textCount, 27)
   assert.equal(mediaCount, 6)
 })
 

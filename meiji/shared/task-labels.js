@@ -27,7 +27,7 @@ export function taskName(task, project) {
   if (['first-last-frame', 'multimodal'].includes(task.business_type)) return `${target} · 执行${business}`;
   const action = { generate: "生成", regenerate: "重新生成", revise: "原结果修订", continue: "生成", manual_edit: "编辑", override: "放行", delete: "删除" }[task.action] || "生成";
   if (task.business_type === "script-review") return { override: "放行剧本", regenerate: "重新审核剧本", revise: "按审核意见修改剧本" }[task.action] || "审核剧本";
-  if (task.business_type === "script-split") return `${task.action === "manual_edit" ? "编辑拆分设置" : "拆分剧集"}`;
+  if (task.business_type === "script-split") return `${task.action === "manual_edit" ? "编辑拆分设置" : "全集规划"}`;
   if (task.business_type === "project-characters" && task.action !== "revise") return `${task.action === "regenerate" ? "重新提取" : "提取"}剧本重要角色`;
   return `${target ? target + " · " : ""}${action}${business}`;
 }
@@ -41,7 +41,7 @@ export function stepName(step, task) {
     precheck: "前置检查", generate: task.business_type === "project-characters" ? "提取角色资料" : `${['first-last-frame','multimodal'].includes(task.business_type) ? '执行' : task.action === 'revise' ? '原结果修订' : task.action === 'regenerate' ? '重新生成' : '生成'}${business}`,
     review: `${step.round ? `第 ${step.round} 轮` : ""}${step.review_type === "program" ? "程序审核" : "AI审核"}${business}`,
     revise: `第 ${step.round} 轮修订${business}`, manual_edit: "保存人工编辑",
-    override: "人工放行", impact: "检查删除影响", apply: task.business_type === 'video' ? '校验视频、测量时长与截取尾帧' : '执行删除',
+    override: "人工放行", impact: "检查删除影响", download: "下载到本地", apply: task.business_type === 'video' ? '校验视频、测量时长与截取尾帧' : '执行删除',
   }[step.kind] || step.kind;
 }
 export function groupName(group, tasks, project) {

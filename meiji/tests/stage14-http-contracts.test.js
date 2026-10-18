@@ -24,7 +24,8 @@ test('视频三种类型实际发出互斥协议，生成三段原文不被系�
       retrieveVideo: async () => Buffer.from('candidate'),
     } });
     const { result } = await ai('video', 'generate', input);
-    assert.equal(result.mime, 'video/mp4');
+    assert.equal(result.remote_id, 'remote');
+    assert.match(result.server_address, /\/videos\/remote\/content$/);
     assert.equal(chats, 0);
     assert.equal(payload.seconds, '5');
     assert.equal(payload.size, '1024x576');
@@ -51,8 +52,8 @@ test('三种视频方式都发给 MiniMax H3，mode 固定为文生、首尾帧�
     const ai = createAiRoutes({ readConfig: async () => ({ ...config, textBaseUrl }) });
     for (const input of [video, { ...video, type: '首尾帧', firstFrame: image }, { ...video, type: '多模态', referenceImages: [image] }]) {
       const { result, prompt } = await ai('video', 'generate', input);
-      assert.equal(result.mime, 'video/mp4');
-      assert.equal(Buffer.from(result.data, 'base64').toString(), 'mp4');
+      assert.equal(result.remote_id, `task-${seen.length}`);
+      assert.equal(result.server_address, `http://127.0.0.1:${server.address().port}/out.mp4`);
       assert.equal(prompt.model, 'MiniMax-H3');
       assert.equal(prompt.parameters.remote_id, `task-${seen.length}`);
     }

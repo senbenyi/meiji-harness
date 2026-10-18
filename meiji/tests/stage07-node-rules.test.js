@@ -32,8 +32,8 @@ test('规则接口覆盖所有AI路由，鉴权/绑定先行且无写入或AI调
     }
     for (const business of ['unknown', '__proto__', 'assembly', 'tail', 'multimodal']) assert.equal((await get(business)).status, 404);
     assert.match(nodeRules('costume-image').review, /没有 AI 审核/);
-    assert.match(nodeRules('video').review, /程序审核/);
-    assert.match(nodeRules('outline').generate, /明显不足/);
+    assert.doesNotMatch(nodeRules('video').review, /程序审核/);
+    assert.match(nodeRules('outline').generate, /允许改写对白/);
     const characters = nodeRules('project-characters');
     assert.match(characters.generate, /只被提及、只被引用方法或言论/);
     assert.match(characters.generate, /按剧情、时代和身份补成能拍定妆照的设定/);
@@ -71,7 +71,7 @@ test('各AI节点可在运行时进入三栏规则并返回原位置，程序节
     const context = { session_id: 'session-test', view, refresh: async () => {}, onError: assert.fail,
       paint: () => renderTaskPanel(root, snapshot, context) };
     const cases = [
-      ['overview', {}, ['script-review', 'project-summary', 'project-characters']],
+      ['overview', {}, ['project-summary', 'project-characters']],
       ['episode', { episode_id: e.id, shot_id: null, tab: 'script' }, ['outline', 'episode-summary']],
       ['episode', { episode_id: e.id, shot_id: null, tab: 'shots' }, ['shots']],
       ['episode', { episode_id: e.id, shot_id: shot.id, tab: 'film' }, ['seconds', 'storyboard', 'video']],
@@ -124,7 +124,7 @@ test('各AI节点可在运行时进入三栏规则并返回原位置，程序节
     view.page = 'overview'; context.paint();
     const split = [...root.querySelectorAll('.episode-node-ui button, .node-ui button')].find(b => b.textContent === '查看规则' && !b.closest('[data-business]'));
     assert.ok(split); split.click(); await settle(); assert.equal(view.rule_business, 'script-split');
-    assert.equal(requests, 11);
+    assert.equal(requests, 10);
   } finally { globalThis.document = previous.document; globalThis.fetch = previous.fetch; Object.defineProperty(globalThis, 'navigator', { configurable: true, value: previous.navigator }); dom.window.close(); }
 });
 

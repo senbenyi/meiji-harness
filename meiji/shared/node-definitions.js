@@ -10,19 +10,8 @@ const freezeDefinitions = (definitions) =>
   );
 
 export const NODE_DEFINITIONS = freezeDefinitions({
-  // 剧本本身是节点，审核与修改都是作用于它的任务。审核任务只有 AI 审核步骤，未通过不自动修改；
-  // 修改任务按审核意见改写剧本再 AI 审核，未通过时再修改一次，共两轮修改与审核。
-  "script-review": {
-    targetKind: "project",
-    field: "script",
-    label: "剧本",
-    handler: "text",
-    output: "text",
-    programReview: false,
-    aiReview: true,
-    retryRounds: 1,
-    precheck: "project-text",
-  },
+  // 仅保留历史任务和原存储字段的只读定位；原剧本直接进入全集规划。
+  "script-review": { retired: true, targetKind: "project", field: "script", label: "剧本审核（已退役）", handler: "program", output: "none", programReview: false, aiReview: false, retryRounds: 0 },
   "project-summary": {
     targetKind: "project",
     field: "project_summary",
@@ -83,7 +72,7 @@ export const NODE_DEFINITIONS = freezeDefinitions({
   outline: {
     targetKind: "episode",
     field: "story_outline",
-    label: "故事大纲",
+    label: "分集改编",
     handler: "text",
     output: "text",
     programReview: true,
@@ -134,9 +123,9 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     label: "视频",
     handler: "media",
     output: "video",
-    programReview: true,
+    programReview: false,
     aiReview: false,
-    retryRounds: 2,
+    retryRounds: 0,
     precheck: "video",
   },
   tail: {
@@ -168,7 +157,7 @@ export const OPERATION_DEFINITIONS = freezeDefinitions({
   "shot-characters": { retired: true, targetKind: "shot", label: "镜头角色与服装（已并入镜头表）", handler: "program", output: "none", programReview: false, aiReview: false, retryRounds: 0 },
   "script-split": {
     targetKind: "project",
-    label: "拆分剧集",
+    label: "全集规划",
     handler: "text",
     output: "episodes",
     programReview: true,
