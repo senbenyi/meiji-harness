@@ -1,4 +1,4 @@
-import { nodeRequirements, ruleNode, ruleAction } from '../../shared/ai-node-rules.js';
+import { nodeRequirements, effectiveRules, ruleAction } from '../../shared/ai-node-rules.js';
 import { sceneCatalog } from '../../shared/scene-inputs.js';
 import { shotTextInputs, characterTextCatalog } from '../../shared/shot-text-inputs.js';
 import { nodeOf, locateTarget } from '../../shared/task_contract.js';
@@ -26,7 +26,8 @@ function shotRepairBase(step) {
 }
 
 function candidate(business, value) {
-  if (['project-summary', 'episode-summary'].includes(business)) return typeof value === 'string' ? value : value?.body || '';
+  if (business === 'script-review') return scriptText(typeof value === 'string' ? value : value?.body || '');
+  if (['script-review', 'project-summary', 'episode-summary'].includes(business)) return typeof value === 'string' ? value : value?.body || '';
   if (business === 'project-characters') {
     const fields = ['name', 'gender', 'era', 'position', 'age_range', 'body_type', 'hairstyle', 'facial_features', 'height', 'nationality', 'voice', 'signature_props', 'immutable_traits'];
     return { characters: (value?.changes || value?.characters || []).map(character => ({
@@ -47,6 +48,7 @@ function previousSplit(project) {
 
 // 各节点独立提取执行时资料；不向节点接口传入 project/snapshot。
 const inputs = {
+  'script-review': ({project}) => ({script:scriptText(project.script.body)}),
   'project-summary': ({ project }) => ({ script: scriptText(project.script.body) }),
   'project-characters': ({ project }) => ({ script: scriptText(project.script.body), characters: characterTextCatalog(project) }),
   'script-split': ({ project }) => ({ script: scriptText(project.script.body), duration: project.reference_episode_duration_seconds }),
@@ -80,8 +82,9 @@ function taskSteps(snapshot, taskId, options) {
 export function taskNodeInput(snapshot, task, draft, action, step = {}, language = "zh-CN") {
   const project = snapshot.project, business = task.business_type;
   const target = locateTarget(project, business, task.target_id);
-  const value = { language, rules: structuredClone(ruleNode(project, business, task.target_id).rules[ruleAction(action)]), requirements: nodeRequirements(project, business, task.target_id),
+  const value = { language, rules: structuredClone(effectiveRules(project, business, task.target_id)[ruleAction(action)]), requirements: nodeRequirements(project, business, task.target_id),
     ...inputs[business]({ project, ...target }) };
+  if (business === 'episode-scenes') value.updateExisting = task.action === 'revise';
   if (action === 'generate' && business === 'script-split') value.opinion = task.opinion || '';
   else if (action === 'generate' && task.opinion?.trim())
     value.requirements = [value.requirements, task.opinion.trim()].filter(Boolean).join('\n');
@@ -97,7 +100,7 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
     if (business === 'episode-scenes' && action === 'review' && rejectedReviews.length)
       value.opinion = [value.opinion, '本任务此前审核要求（按先后顺序，对照最新候选核查；已解决项不重复提出，改变拆并结论须给出新的具体事实）：',
         ...[...rejectedReviews].reverse().map(row => `${row.seq}. ${row.result?.原因 || row.error_reason}`)].filter(Boolean).join('\n');
-    const source = action === 'review' ? draft : draft || (business === 'episode-scenes' ? {scenes:sceneCatalog(project,target.episode)} : nodeOf(project, business, task.target_id));
+    const source = action === 'review' ? (draft ?? (business === 'script-review' ? project.script : draft)) : draft || (business === 'episode-scenes' ? {scenes:sceneCatalog(project,target.episode)} : nodeOf(project, business, task.target_id));
     value.content = candidate(business, source);
     // 修复被拒绝的表时，审核意见指向最后失败候选，不能拿保留的旧正式表代替。
     if (business === 'shots' && action === 'regenerate' && task.action === 'revise' && !draft

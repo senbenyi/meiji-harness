@@ -361,7 +361,7 @@ describe("storyboard-text-context", () => {
     } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
   });
 
-  test('参与角色外貌文字影响最终提示词指纹，图片及无关人物不影响，前置目录保持原样', () => {
+  test('参与角色外貌文字影响最终提示词指纹，图片及无关人物不影响，前置目录也携带完整外貌', () => {
     const { snapshot, shot, visible, unrelated } = fixture();
     const hash = () => dependencyHash(snapshot, 'storyboard', shot.id);
     const before = hash();
@@ -370,7 +370,7 @@ describe("storyboard-text-context", () => {
     visible.facial_features = '新面部特征'; assert.notEqual(hash(), before);
     const task = taskFixture(snapshot.project, 'seconds', shot.id);
     const input = taskNodeInput(snapshot, task, null, 'generate');
-    assert.equal(Object.hasOwn(input.characters[0], 'facial_features'), false);
+    assert.equal(input.characters.find(person => person.id === visible.id).facial_features, '新面部特征');
   });
 
   test('同一说话人在不同镜头子集及目录重排后使用同一标记，标记进入实际提示词', async () => {

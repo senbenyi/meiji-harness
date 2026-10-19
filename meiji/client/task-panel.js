@@ -1,4 +1,4 @@
-import { ruleNode } from '../shared/ai-node-rules.js';
+import { effectiveRules } from '../shared/ai-node-rules.js';
 import { aspectRatioOfSize } from '../shared/media-parameters.js';
 import { sceneCatalog } from '../shared/scene-inputs.js';
 import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph, reviewTypeLabel, reasonHeading } from './node-task-status.js';
@@ -41,6 +41,7 @@ function blockingDialog(root, message) {
   close.focus();
 }
 const names = {
+  "script-review": "剧本改编与审核",
   "project-summary": "项目摘要",
   "project-characters": "角色库",
   "episode-summary": "展示摘要",
@@ -59,7 +60,7 @@ const names = {
 function payload(node) {
   const walk = (value) => Array.isArray(value) ? value.map(walk)
     : value && typeof value === "object" ? Object.fromEntries(Object.entries(value)
-      .filter(([key]) => !["rules", "id", "node_state", "script_version", "character_image", "costume_images", "reference_image"].includes(key))
+      .filter(([key]) => !["adaptation_rules", "rules", "id", "node_state", "script_version", "character_image", "costume_images", "reference_image"].includes(key))
       .map(([key, child]) => [key, walk(child)])) : value;
   return walk(node);
 }
@@ -136,7 +137,7 @@ function hasContent(value) {
   if (Array.isArray(value)) return value.some(hasContent);
   if (!value || typeof value !== "object") return false;
   return Object.entries(value).some(([key, child]) =>
-    !["rules", "id", "node_state", "script_version", "number", "sequence", "duration_seconds", "actual_duration_seconds", "costume_id"].includes(key) && hasContent(child));
+    !["adaptation_rules", "rules", "id", "node_state", "script_version", "number", "sequence", "duration_seconds", "actual_duration_seconds", "costume_id"].includes(key) && hasContent(child));
 }
 export function renderSettings(root, { busy = false, settings, saveSettings, back }) {
   const page = element("section", "", "settings-page"),
@@ -303,7 +304,7 @@ export function renderTaskPanel(root, snapshot, context) {
       const scenes = sceneCatalog(p,episode);
       // 有场景时由剧情页的横向场景卡展示，这里不再重复列名称。
       if (!scenes.length)
-        card.append(element('p', node.has_result ? '本集没有需要固定的场景；一次性不重要地点保留在镜头正文。' : '在大纲之后选择性提取重要、反复出现或指定的场景。','meta'));
+        card.append(element('p', node.has_result ? '提取结果：0 个场景。本集未提取到需要单独建档的地点，一次性或不重要地点仍保留在剧情和镜头正文中。' : '在大纲之后选择性提取重要、反复出现或指定的场景。','meta'));
     } else if (business === "outline") {
       const segments = element("div", "", "outline-segments");
       for (const part of [...(node.segments || [])].sort((a, b) => a.sequence - b.sequence))
@@ -318,18 +319,20 @@ export function renderTaskPanel(root, snapshot, context) {
         element(
           "p",
           typeof node.body === "string"
-            ? node.body
+            ? business === 'script-review' ? scriptText(node.body) : node.body
             : readable(payload(node, p)),
           "prompt full",
         ),
       );
-    if (typeof node.body === "string") appendJsonCopy(card, node.body);
+    if (typeof node.body === "string") appendJsonCopy(card, business === 'script-review' ? scriptText(node.body) : node.body);
     const program = ["first-last-frame", "multimodal", "assembly"].includes(business);
     const isPack = ["first-last-frame", "multimodal"].includes(business);
-    const hasOutput = isPack ? Boolean(node.prompt.trim()) : hasContent(node),
+    const hasOutput = business === "script-review" ? Boolean(node.body.trim()) : isPack ? Boolean(node.prompt.trim()) : hasContent(node),
       typedOpinion = () => (state.opinions?.[`${business}:${id}`] || "").trim(),
       generate = (opinion = "", revise = false) => {
         const text = [opinion, typedOpinion()].filter(Boolean).join("\n");
+        if (business === 'script-review' && revise && !text.trim()) return onError('请在本次执行意见中填写改编要求');
+
         if (text) {
           state.opinionPending ??= {};
           state.opinionPending[`${business}:${id}`] = true;
@@ -361,8 +364,12 @@ export function renderTaskPanel(root, snapshot, context) {
     const buttons = [];
     const repair = rejectedText && !program && !active && !readOnly && reviewReason.trim()
       ? button(repairButtonLabel(business), () => generate(reviewReason, hasOutput)) : null;
-    if (!active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate(program && node.node_state.status === "rejected" ? reviewReason : "")));
-    if (!program && !active && !readOnly && !rejectedText && hasOutput && (NODE_DEFINITIONS[business]?.handler === "text" || (business !== "video" && node.node_state.status === "rejected")))
+    if (business === 'script-review' && !active && !readOnly) {
+      buttons.push(button('按意见改编', () => generate('',true)));
+      buttons.push(button('审核剧本', () => generate()));
+    }
+    if (business !== 'script-review' && !active && !readOnly) buttons.push(button(isPack ? (hasOutput ? '重新编排' : '执行编排') : hasOutput ? '重新生成' : business === "assembly" ? "生成合片" : "AI生成", () => generate(program && node.node_state.status === "rejected" ? reviewReason : "")));
+    if (!program && !active && !readOnly && !rejectedText && hasOutput && business !== "script-review" && (NODE_DEFINITIONS[business]?.handler === "text" || (business !== "video" && node.node_state.status === "rejected")))
       buttons.push(
         button("原结果修订", () =>
           editor(
@@ -423,7 +430,7 @@ export function renderTaskPanel(root, snapshot, context) {
           : editor(
               root,
               "人工编辑",
-              ["project-summary", "episode-summary"].includes(business)
+              ["script-review", "project-summary", "episode-summary"].includes(business)
                 ? node.body
                 : business === "storyboard"
                   ? `integrated_multimodal_description:\n${node.integrated_multimodal_description}\noverall_soundscape:\n${node.overall_soundscape}\nnon_diegetic_music:\n${node.non_diegetic_music}`
@@ -445,7 +452,7 @@ export function renderTaskPanel(root, snapshot, context) {
                   content,
                 }),
               {
-                json: !["project-summary", "episode-summary", "storyboard"].includes(business),
+                json: !["script-review", "project-summary", "episode-summary", "storyboard"].includes(business),
                 templates: { characters: blankCharacter() },
               },
             ),
@@ -533,7 +540,7 @@ export function renderTaskPanel(root, snapshot, context) {
   else if (state.page === 'skill') {
     const business = state.rule_business;
     const opinionKey = `${business}:${state.rule_target}`;
-    const rules = ruleNode(p, business, state.rule_target).rules;
+    const rules = effectiveRules(p, business, state.rule_target);
     root.append(renderSkillDetail({
       label: names[business] || business,
       rules,
@@ -544,19 +551,14 @@ export function renderTaskPanel(root, snapshot, context) {
         if (!commit) return;
         return act({ type: 'edit-rule', business_type: business, target_id: state.rule_target, action, field, value }, true);
       },
-      onSync: () => act({ type: 'sync-base-rules', business_type: business, target_id: state.rule_target }, true),
       load: () => request('rules?' + new URLSearchParams({ session_id, project_id: p.id, business })),
       back: () => go(state.rule_return || 'overview'),
     }));
   }
   else if (state.page === "script") {
     backHeader(root, "剧本详情", "返回项目概要", () => go("overview"));
-    const card = element("section", "", "overview-card");
-    card.append(
-      element("p", `版本 ${p.script.version} · ${p.script.updated_at}`, "meta"),
-      element("p", scriptText(p.script.body), "prompt full"),
-    );
-    appendJsonCopy(card, scriptText(p.script.body));
+    const card = nodeCard('script-review', p.id, p.script);
+    card.append(element("p", `版本 ${p.script.version} · ${p.script.updated_at}`, "meta"));
     root.append(card);
   } else if (state.page === "settings") {
     const page = renderSettings(root, {

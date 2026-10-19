@@ -1,3 +1,4 @@
+import { initializeScriptAdaptation } from './script-adaptation-migration.js';
 import { initializeSupplementRules, migrateSupplementRules } from './supplement-rules-migration.js';
 import { migrateAspectRatio } from './aspect-ratio-migration.js';
 import { splitLegacyPrompt } from './step-records.js';
@@ -368,14 +369,27 @@ export class SQLiteStore {
         try {
           for (const row of this.#db.prepare('SELECT id,data_json FROM projects').all()) {
             const project = migrateSupplementRules(JSON.parse(row.data_json));
-            validateCurrentProject(project);
+            validateCurrentProject(initializeScriptAdaptation(project));
             this.#db.prepare('UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?').run(JSON.stringify(project),row.id);
           }
           this.#db.prepare("INSERT OR IGNORE INTO schema_migrations VALUES (26,strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
           this.#db.exec('PRAGMA user_version=26; COMMIT'); version=26;
         } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
       }
-      if (version !== 26) throw new Error(`不支持的数据库版本：${version}`);
+      if (version === 26) {
+        this.#db.exec('BEGIN IMMEDIATE');
+        try {
+          for (const row of this.#db.prepare('SELECT id,data_json FROM projects').all()) {
+            const project=JSON.parse(row.data_json),missing=!Object.hasOwn(project.script,'adaptation_rules');
+            initializeScriptAdaptation(project);
+            validateCurrentProject(project);
+            if (missing) this.#db.prepare('UPDATE projects SET data_json=?,revision=revision+1 WHERE id=?').run(JSON.stringify(project),row.id);
+          }
+          this.#db.prepare("INSERT OR IGNORE INTO schema_migrations VALUES (27,strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec('PRAGMA user_version=27; COMMIT');version=27;
+        } catch(error) {this.#db.exec('ROLLBACK');throw error;}
+      }
+      if (version !== 27) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         // 已有行不改 position（保持写入顺序）；步骤的提示词与 HTTP 只经 writeStepRecord 写入。
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => !["id", "position", "prompt_json", "http_json"].includes(f)).map(f => `${f}=excluded.${f}`).join(",")}`));

@@ -21,6 +21,8 @@ import { createTaskGroupModel } from "../../../shared/models/task_group_model.js
 import { createTaskModel } from "../../../shared/models/task_model.js";
 import { BUSINESS_DEFINITIONS } from "../../../shared/node-definitions.js";
 import { precheck } from "./precheck.js";
+import { recoverableRequest } from '../../http/llm-server/task-request.js';
+import { resumeState } from './resume-state.js';
 const now = () => new Date().toISOString();
 const unfinished = (t) => ["queued", "running"].includes(t.task_status);
 const conflict = (tasks) => {
@@ -461,7 +463,7 @@ export class TaskService {
   async #loop(model, signal) {
     while (!this.#disposed && !signal.aborted) {
       const before = model.read();
-      const task = this.current(model).tasks.find(t => t.task_status === "queued");
+      const task = this.current(model).tasks.find(t => t.task_status === "running") || this.current(model).tasks.find(t => t.task_status === "queued");
       if (!task) return;
       if (task.business_type === 'video' && !['manual_edit','override'].includes(task.action)) {
         const inserted = await model.update(`prepare-video:${task.id}:${before.runtime.revision}`, { prepareVideo: task.id }, s => {
@@ -488,6 +490,7 @@ export class TaskService {
       if (signal.aborted) return;
       const started = await model.update(`start:${task.id}`, { start: task.id }, (s) => {
         const t = s.tasks.find((t) => t.id === task.id);
+        if (t?.task_status === "running") return { started: true };
         if (t?.task_status !== "queued") return { started: false };
         t.task_status = "running";
         t.started_at = now();
@@ -530,9 +533,14 @@ export class TaskService {
     let validationFailure = "";
     const initial = model.read();
     const current = initial.tasks.find(t => t.id === id);
+    if (initial.steps.some(st => st.task_id === id && st.step_status !== 'ready')) {
+      const restored = resumeState(initial, current);
+      draft = restored.draft;
+      validationFailure = restored.validationFailure;
+    }
     if (current.business_type === "script-split") {
       const previous = this.#latestTask(initial, current.business_type, current.target_id, id);
-      if (previous?.task_status === "rejected")
+      if (previous?.task_status === "rejected" && !initial.steps.some(st => st.task_id === id && ['generate', 'revise'].includes(st.kind) && st.step_status === 'done'))
         draft = this.#history(initial.project.id).stepsOf(previous.id).filter(st => ["generate", "revise"].includes(st.kind) && st.step_status === "done")
           .sort((a,b)=>b.seq-a.seq)[0]?.result ?? null;
     }
@@ -540,12 +548,16 @@ export class TaskService {
       const snapshot = model.read(),
         task = snapshot.tasks.find(t => t.id === id);
       if (task?.task_status !== "running") return;
-      const step = snapshot.steps.filter(st => st.task_id === id && st.step_status === "ready").sort((a,b)=>a.seq-b.seq)[0];
+      let step = snapshot.steps.filter(st => st.task_id === id && ['ready', 'running'].includes(st.step_status)).sort((a,b)=>a.seq-b.seq)[0];
       if (!step) return;
+      if (step.step_status === 'running') {
+        const stored = this.#history(model.id).stepsOf(id, { records: true }).find(st => st.id === step.id);
+        step = { ...step, ...stored, recovering: true };
+      }
       await model.update(`step-start:${step.id}`, { step: step.id }, s => {
         const st = s.steps.find(x => x.id === step.id);
         st.step_status = "running";
-        st.started_at = now();
+        st.started_at ||= now();
         return {};
       });
       // 运行中步骤的提示词与 HTTP：保存在本任务的内存记录并直接写入数据库行，不经项目提交。
@@ -613,7 +625,8 @@ export class TaskService {
               this.#finish(s, t, "rejected", reason);
               return {};
             }
-            if (step.round < BUSINESS_DEFINITIONS[t.business_type].retryRounds) {
+            if (step.round < BUSINESS_DEFINITIONS[t.business_type].retryRounds &&
+                !(t.business_type === "script-review" && t.action !== "revise")) {
               const round = step.round + 1;
               let seq = Math.max(...s.steps.filter(x => x.task_id === id).map(x => x.seq));
               s.steps.push(newStep(t, ++seq, "revise", round));
@@ -702,15 +715,17 @@ export class TaskService {
       if (entry.error) throw entry.error;
     }
   }
-  async recover(model) {
+  async recover(model, { shutdown = false } = {}) {
     const snapshot = model.read();
     if (!snapshot.tasks.some(unfinished)) return;
+    const resumableGroups = new Set(snapshot.tasks.filter(t => t.task_status === 'running' &&
+      this.#history(model.id).stepsOf(t.id, { records: true }).some(recoverableRequest)).map(t => t.group_id));
     await model.update(
       `restart:${createId("task")}`,
       { restart: true },
       (s) => {
         // 从队尾结算，避免前序停止把后序改写成另一条原因。
-        for (const task of s.tasks.filter(unfinished).sort((a, b) => b.queue_order - a.queue_order))
+        for (const task of s.tasks.filter(t => unfinished(t) && !resumableGroups.has(t.group_id)).sort((a, b) => b.queue_order - a.queue_order))
           this.#finish(
             s,
             task,
@@ -722,6 +737,7 @@ export class TaskService {
         return {};
       },
     );
+    if (!shutdown && resumableGroups.size) this.#pump(model);
   }
   async dispose() {
     this.#disposed = true;
@@ -730,7 +746,7 @@ export class TaskService {
       entry.controller.abort(new Error("服务关闭"));
     for (const [id] of active) {
       const model = await this.#repository.open(id);
-      await this.recover(model);
+      await this.recover(model, { shutdown: true });
     }
     await Promise.all(active.map(([, entry]) => entry.promise));
   }

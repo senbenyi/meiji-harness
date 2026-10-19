@@ -1,19 +1,21 @@
 import { emptySceneModel } from './models/scene_model.js';
 import { invalid } from './task_contract.js';
+import { scriptText } from './script-text.js';
 export const sceneFields = ['id', 'name', 'description', 'layout', 'materials', 'lighting'];
 export const sceneText = scene => Object.fromEntries(sceneFields.map(key => [key, scene[key]]));
 export const sceneCatalog = (project, episode) => project.scene_library.scenes
   .filter(scene => !episode || episode.scene_catalog.scene_ids.includes(scene.id)).map(sceneText);
 export const sceneImageContext = (project, id) => ({
+  script: scriptText(project.script.body),
   plots: project.episodes.filter(episode => episode.scene_catalog.scene_ids.includes(id))
-    .map(episode => ({ episode: episode.sequence, plot: episode.plot })),
+    .map(episode => ({ episode: episode.sequence, plot: episode.plot, story: episode.story_outline.segments.map(segment => segment.body).join('\n\n') })),
 });
 export function shotScene(project, shot) {
   const scene = project.scene_library.scenes.find(scene => scene.id === shot.scene_id);
   return scene ? { ...sceneText(scene), state: shot.scene_state } : null;
 }
 // 未返回的旧场景不删除；同名复用，别名由模型明确引用已有ID。
-// 已有场景从项目场景库直接取用；AI 提取不改写其资料（updateExisting=false），人工编辑可更新。
+// 已有场景从项目场景库直接取用；AI 提取不改写其资料（updateExisting=false），原结果修订及人工编辑可更新。
 export function mergeScenes(project, rows, { updateExisting = false } = {}) {
   if (!Array.isArray(rows)) invalid('场景', '需为数组');
   const scenes = structuredClone(project.scene_library.scenes), scene_ids = [], seenNames = new Set();

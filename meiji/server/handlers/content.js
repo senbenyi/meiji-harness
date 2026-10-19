@@ -16,7 +16,7 @@ import { buildSplit } from "./script-split.js";
 export function aiProjection(value) {
   const walk = (item) => Array.isArray(item) ? item.map(walk) : item && typeof item === "object"
     ? Object.fromEntries(Object.entries(item).flatMap(([key, data]) => {
-        if (["rules", "id", "node_state", "address", "reference_image", "revision_history", "new_ids", "removed_ids"].includes(key)) return [];
+        if (["adaptation_rules", "rules", "id", "node_state", "address", "reference_image", "revision_history", "new_ids", "removed_ids"].includes(key)) return [];
         if (key === "speaker_id") return [[key, data]];
         if (key.endsWith("_id")) return [];
 
@@ -31,11 +31,11 @@ export function prepareContent(snapshot, task, raw) {
   if (business === "script-split") return structuredClone(raw);
   let content;
   if (business === 'episode-scenes') {
-    content = mergeScenes(project, raw.scenes, { updateExisting: task.action === 'manual_edit' });
+    content = mergeScenes(project, raw.scenes, { updateExisting: ['manual_edit', 'revise'].includes(task.action) });
   } else if (business === "project-characters") {
     content = { ...mergeCharacters(project, raw.characters), changes: structuredClone(raw.characters) };
-  } else if (["project-summary", "episode-summary"].includes(business)) {
-    if (typeof raw !== "string" || !raw.trim()) invalid(business, "摘要内容为空");
+  } else if (["script-review", "project-summary", "episode-summary"].includes(business)) {
+    if (typeof raw !== "string" || !raw.trim()) invalid(business, business === "script-review" ? "改编后的剧本为空" : "摘要内容为空");
     content = { body: raw.trim() };
   } else if (business === "storyboard") {
     content = parseSections(raw, storyboardRoute.actions.generate.output.sections);
@@ -102,7 +102,15 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
     return [];
   }
   const node = nodeOf(project, business, task.target_id);
-  if (business === 'episode-scenes') {
+  if (business === 'script-review') {
+    if (typeof content?.body !== 'string' || !content.body.trim()) invalid('剧本','正文为空');
+    if (content.body !== node.body) {
+      node.body=content.body;
+      node.version++;
+      node.updated_at=new Date().toISOString();
+      node.revision_history.push({timestamp:node.updated_at,task_id:task.id,revision_notes:task.opinion || '人工编辑剧本'});
+    }
+  } else if (business === 'episode-scenes') {
     if (!passed) return [];
     const previousText = new Map(project.scene_library.scenes.map(scene => [scene.id, JSON.stringify(sceneText(scene))]));
     changedScenes = content.scenes.filter(scene => previousText.has(scene.id) && previousText.get(scene.id) !== JSON.stringify(sceneText(scene))).map(scene => scene.id);

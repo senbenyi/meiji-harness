@@ -21,7 +21,7 @@ node --experimental-test-coverage --test meiji/tests/*.test.js
 | 数据契约、模型、节点状态与依赖失效 | `contracts`、`node-state`、`node-dependencies` |
 | SQLite、事务恢复、迁移、历史持久化 | `storage`、`storage-migrations`、`step-records` |
 | ID 与删除、人工导入 | `asset-identity`、`asset-operations` |
-| 队列、取消、任务组、重启与完整制作链 | `task-queue`、`task-groups`、`runtime`、`film-pipeline` |
+| 队列、取消、任务组、重启与完整制作链 | `task-queue`、`task-groups`、`task-recovery`、`runtime`、`film-pipeline` |
 | 全集规划、分集改编、镜头角色服装绑定 | `planning`、`adaptation`、`shot-catalog` |
 | 人物提取、场景、逐镜文字上下文、对白 | `character-extraction`、`scenes`、`shot-context`、`dialogue` |
 | 文本执行、审核修订、提示词协议与规则源 | `text-execution`、`review-policy`、`prompt-contracts`、`prompt-rules`、`node-rules` |
@@ -39,3 +39,11 @@ node --experimental-test-coverage --test meiji/tests/*.test.js
 - JSON 错层、时长越界、对白丢失、服装归属错误、部分参考图缺失等真实故障保留回归用例。
 - 合并或删除用例需说明已有覆盖位置，并跑相关测试及全量测试；覆盖率只能辅助判断，不能代替行为检查。
 - 数据迁移和旧命令退役测试仍有保护作用，不因名字包含历史版本就删除。测试历史映射保存在本次实施记录中。
+
+`script-adaptation.test.js`：全文按意见改编与只审核、版本历史、规则隔离、v27迁移、刷新恢复及剧本详情提交。
+
+`speech-timing.test.js`：对白1.1倍目标的三动作共享规则、原发声安排直接进入三种视频请求、时序hash、无对白与长度边界。
+
+`rule-cards.test.js`：规则三标签页卡片顺序、基础全文只读及无内部滚动、补充保存与完整复制、媒体代码基础规则来源。
+
+- `multimodal-continuity.test.js`：连续多模态尾帧的图片顺序、程序引用和实际请求参数、换场与无效素材边界、依赖过期及九张图预算。

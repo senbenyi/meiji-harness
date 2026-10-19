@@ -15,6 +15,7 @@ import { createAppRuntime } from "../server/runtime/app-runtime.js";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { mergeCharacters } from "../shared/collection-identity.js";
 import { assertOutput, assertProgramReview } from "../shared/node-state.js";
+import { emptyCharacterModel } from "../shared/models/character_model.js";
 import { SQLiteStore } from "../server/data/sqlite-store.js";
 
 describe("scene-setup", () => {
@@ -51,6 +52,29 @@ describe("scene-setup", () => {
     expected.reference_anchor.lighting = '修改副本';
     assert.equal(shot.reference_anchor.lighting, '门后火光减弱。');
     assert.doesNotMatch(JSON.stringify(shotSceneSetup(shot)), /\.mp4|\.png|dependency_hash/);
+  });
+
+  test('角色库补全外貌无需复述到正文，镜头表、每秒及提示词读取同一文字且排除图片',()=>{
+    const {snapshot,episode,shot}=setup(),p=snapshot.project;
+    const person=emptyCharacterModel({name:'旅行者',nationality:'法兰西',height:'一米八',facial_features:'眉间有浅色旧疤'});
+    p.character_library.characters=[person];shot.on_screen_characters=[{character_id:person.id,costume_id:''}];
+    const body=shot.body;
+    for(const business of ['shots','seconds','storyboard']) {
+      const target=business==='shots'?episode.id:shot.id,task=taskFixture(p,business,target);
+      const input=taskNodeInput(snapshot,task,null,'generate');
+      const row=input.characters.find(row=>row.id===person.id);
+      for(const field of ['nationality','height','facial_features']) assert.equal(row[field],person[field]);
+      const prompt=renderTaskPrompt(snapshot,task,null,'generate');
+      assert.ok(prompt.messages.some(message=>message.content.includes('眉间有浅色旧疤')));
+      const before=dependencyHash(snapshot,business,target);
+      person.reference_image.address='not-text.png';person.costume_images[0].address='not-costume-text.png';
+      assert.equal(dependencyHash(snapshot,business,target),before);
+      person.facial_features+='，左眉较浓';assert.notEqual(dependencyHash(snapshot,business,target),before);
+      const after=dependencyHash(snapshot,business,target);person.height+='左右';
+      assert.notEqual(dependencyHash(snapshot,business,target),after);
+      assert.doesNotMatch(JSON.stringify(input),/not-text.png|not-costume-text.png/);
+    }
+    assert.equal(shot.body,body);assert.doesNotMatch(body,/浅色旧疤|一米八|法兰西/);
   });
 
   test('每秒卡片先展示本镜镜头表设定再展示时间线，刷新读取当前源且不改原结果', () => {
@@ -244,7 +268,7 @@ describe("shot-text-chain", () => {
       await repo.list();
       const path = join(root, 'meiji.sqlite');
       let db = new DatabaseSync(path);
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 26);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 27);
       for (const table of ['projects', 'task_groups', 'tasks', 'task_steps']) assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n, 0);
       db.close();
       await repo.create(fixtureProject()); await repo.close();
@@ -281,7 +305,7 @@ describe("shot-text-chain", () => {
       store.close();
       db = new DatabaseSync(path);
       const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 26);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 27);
       assert.equal(Object.hasOwn(opened, 'rules'), false);
       assert.equal(Object.hasOwn(opened, 'output_language'), false);
       assert.equal(opened.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.dependency_hash, dependencyHash({ project: opened, tasks: [], steps: [] }, 'seconds', shot.id));
@@ -311,7 +335,7 @@ describe("shot-text-chain", () => {
       db = new DatabaseSync(path);
       const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
       const openedShot = opened.episodes[0].shot_list.shots[0];
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 26);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 27);
       assert.equal(Object.hasOwn(opened, 'output_language'), false);
       assert.equal(openedShot.seconds_storyboard.storyboard[0].action, body);
       assert.equal(openedShot.seconds_storyboard.node_state.status, 'expired');

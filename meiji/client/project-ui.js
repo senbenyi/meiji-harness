@@ -9,6 +9,7 @@ import { historyGroups, groupStatus } from "../shared/task-labels.js";
 import { videoType } from "../shared/video-inputs.js";
 const groupLabels = {
   empty: "未生成", queued: "排队中", running: "生成中", completed: "已通过",
+  partial: "未完成",
   failed: "失败", rejected: "未通过", cancelled: "已取消", superseded: "已取消",
 };
 function stoppedNodeMessage(project, tasks) {
@@ -310,7 +311,7 @@ export function renderOverview(root, env) {
   summary.querySelector(".section-head").className = "overview-card-title";
   summary.querySelector(".json-copy-row")?.remove();
   view.append(summary);
-  const { c: script } = card("剧本"),
+  const { c: script, actions: scriptActions } = card("剧本"),
     scriptRow = element("div", "", "script-title-row"),
     open = button(p.name, () => go("script"), false);
   open.className = "script-file-name";
@@ -319,6 +320,7 @@ export function renderOverview(root, env) {
   arrow.setAttribute("aria-label", "打开剧本详情");
   scriptRow.append(open, arrow);
   script.append(scriptRow);
+  scriptActions.append(button("改编剧本", () => go("script"), false));
   const splitting = p.creation_mode === "剧本",
     latestSplitTask = splitting ? latestNodeTask(env.snapshot?.tasks || [], "script-split", p.id) : null,
     { c: episodes, actions: episodeActions } = card("剧集");
@@ -663,22 +665,32 @@ export function renderEpisode(root, env, entries) {
       const filmGroup = filmId ? listed.find(row => row.group.id === filmId) : listed.find((row) => row.group.group_type === "episode-film" && row.group.episode_id === e.id);
       const currentFilm = currentFilmGroup(filmGroup, env.snapshot.tasks);
       const hasVideo = e.shot_list.shots.some((shot) => shot.video.address);
-      const filmBusy = currentFilm?.tasks.some((task) => ["queued", "running"].includes(task.task_status));
+      const pendingShots = e.shot_list.shots.some(shot => !shot.video.address || shot.video.node_state.status !== 'generated' ||
+        !shot.last_frame.address || shot.last_frame.node_state.status !== 'generated');
+      const activeTasks = env.snapshot.tasks.filter(task => task.episode_id === e.id &&
+        ['seconds', 'storyboard', 'first-last-frame', 'multimodal', 'video', 'assembly'].includes(task.business_type) &&
+        ['queued', 'running'].includes(task.task_status));
+      const filmTasks = activeTasks.length ? activeTasks : currentFilm?.tasks;
+      const filmBusy = filmTasks?.some((task) => ["queued", "running"].includes(task.task_status));
+      const filmStatus = activeTasks.length ? groupStatus(activeTasks).status :
+        pendingShots && hasVideo && (!currentFilm || currentFilm.status === 'completed') ? 'partial' : currentFilm?.status || 'empty';
       const filmButtons = groupButtons(button, act, {
         ready: hasVideo,
         busy: filmBusy,
-        resume: canResumeGroup(filmGroup, listed),
-        tasks: currentFilm?.tasks,
+        resume: !filmBusy && ((hasVideo && pendingShots) || canResumeGroup(filmGroup, listed)),
+        tasks: filmTasks,
         onPrimary: () => act({
           type: "submit-group", group_type: "episode-film",
           action: hasVideo ? "regenerate" : "generate", episode_id: e.id,
         }),
-        onResume: () => act({ type: "continue-group", group_id: filmGroup.group.id }),
+        onResume: () => pendingShots ? act({
+          type: 'submit-group', group_type: 'episode-film', action: 'generate', episode_id: e.id,
+        }) : act({ type: "continue-group", group_id: filmGroup.group.id }),
         onHistory: () => go("history", { history_episode: e.id }),
       });
       body.append(groupCard(
         "逐镜头成片",
-        currentFilm?.status || "empty",
+        filmStatus,
         groupStopMessage(p, currentFilm),
         filmButtons,
       ));
@@ -689,7 +701,7 @@ export function renderEpisode(root, env, entries) {
         title = element("div", "", "shot-card-title");
       title.append(element("h3", `${s.number} ${s.title} · ${s.duration_seconds}s`));
       const scene = p.scene_library.scenes.find(item => item.id === s.scene_id);
-      title.append(element('p',scene ? `场景：${scene.name} · ${s.scene_state || '基础状态'} · ${s.scene_transition}` : '场景：本镜描述（无需独立参考图）','meta'));
+      if (state.tab === "film") title.append(element('p',scene ? `场景：${scene.name} · ${s.scene_state || '基础状态'} · ${s.scene_transition}` : '场景：本镜描述（无需独立参考图）','meta'));
       h.append(title);
       if (state.tab === "film") h.append(
         button(
@@ -735,6 +747,9 @@ export function renderEpisode(root, env, entries) {
         const details = element("div", "", "shot-details prompt full");
         details.append(element("p", readable({
           body: s.body,
+          场景: scene?.name || "本镜描述（无需独立参考图）",
+          场景状态: s.scene_state || "基础状态",
+          场景切换: s.scene_transition,
           shot_scale: s.shot_scale, hook: s.hook, continuity_transition: s.continuity_transition,
           reference_anchor: s.reference_anchor, audio_arrangement: s.audio_arrangement,
         }), "shot-details-text"));

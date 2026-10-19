@@ -356,8 +356,8 @@ describe("panel", () => {
       assert.equal(cardOf("剧集").querySelector("[aria-label=重新生成]"), null);
       assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "取消"));
       assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "任务历史"));
-      // 原始剧本只读展示，不再挂载审核按钮。
-      assert.deepEqual(labelsOf(cardOf("剧本")), []);
+      // 概览提供显式详情入口，改编与审核操作在详情执行。
+      assert.deepEqual(labelsOf(cardOf("剧本")), ["改编剧本"]);
       project.creation_mode = "自由创作";
       project.project_summary.node_state.status = "rejected";
       project.project_summary.node_state.reason = "摘要缺少结局";

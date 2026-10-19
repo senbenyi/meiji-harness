@@ -1,6 +1,6 @@
 import { defaultRules } from '../rule-defaults.js';
-// 剧本节点：正文、版本、修改历史与节点状态。剧本审核与按审核意见修改都是作用于剧本节点的任务。
+// 当前剧本正文、版本与修改历史；改编审核用adaptation_rules，全集规划独立使用rules。
 import { emptyNodeStateModel } from "./node_state_model.js";
 import { emptyScriptRevisionModel } from "./script_revision_model.js";
-export const emptyScriptModel = () => ({ rules: defaultRules('script-split'), version: 1, updated_at: "", body: "", future_plot: "", revision_history: [], node_state: emptyNodeStateModel() });
+export const emptyScriptModel = () => ({ adaptation_rules: defaultRules('script-review'), rules: defaultRules('script-split'), version: 1, updated_at: "", body: "", future_plot: "", revision_history: [], node_state: emptyNodeStateModel() });
 export { emptyScriptRevisionModel };

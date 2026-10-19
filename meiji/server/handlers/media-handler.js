@@ -1,6 +1,6 @@
-import { nodeRequirements } from '../../shared/ai-node-rules.js';
+import { nodeRequirements, effectiveRules } from '../../shared/ai-node-rules.js';
 import { sceneText, sceneImageContext } from '../../shared/scene-inputs.js';
-import { videoPack, previousShot, videoImages } from '../../shared/video-inputs.js';
+import { videoPack, previousShot, videoImages, videoSpeechTiming } from '../../shared/video-inputs.js';
 import { shotReferenceBindings } from '../../shared/shot-text-inputs.js';
 import { primaryCostumeImage } from "../../shared/models/character_model.js";
 import { dataUrl } from "../gateway/model-gateway.js";
@@ -122,7 +122,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
         await media.validate(node.address,p.id,'image');
         references.push(dataUrl(await media.read(node.address,p.id), node.address.endsWith('.jpg') ? 'image/jpeg' : node.address.endsWith('.webp') ? 'image/webp' : 'image/png'));
       }
-      const response = await ai(business, task.opinion.trim() ? 'regenerate' : 'generate', { language, rules: node.rules[task.opinion.trim() ? 'revise' : 'generate'], requirements:nodeRequirements(p,business,task.target_id), scene:sceneText(object), context:sceneImageContext(p,object.id), aspectRatio:p.aspect_ratio, references, ...(task.opinion.trim() ? {opinion:task.opinion} : {}) }, {signal,record,task,step});
+      const response = await ai(business, task.opinion.trim() ? 'regenerate' : 'generate', { language, rules: effectiveRules(p,business,task.target_id)[task.opinion.trim() ? 'revise' : 'generate'], requirements:nodeRequirements(p,business,task.target_id), scene:sceneText(object), context:sceneImageContext(p,object.id), aspectRatio:p.aspect_ratio, references, ...(task.opinion.trim() ? {opinion:task.opinion} : {}) }, {signal,record,task,step});
       bytes = Buffer.from(response.result.data,'base64'); prompt = response.prompt;
     } else if (business === "costume-image") {
       const modify = Boolean(node.address) && Boolean(task.opinion.trim());
@@ -137,7 +137,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
       const response = await ai(business, modify ? 'regenerate' : 'generate', {
         language,
         requirements: '',
-        rules: node.rules[modify ? 'revise' : 'generate'],
+        rules: effectiveRules(p,business,task.target_id)[modify ? 'revise' : 'generate'],
         person: personSentence(person),
         costume: object ? [object.name, object.color, object.material, ...object.props].filter(Boolean).join('，') : '',
         referenceDescription: reference ? first ? '参考图用于人物身份和面相，服装按本次资料。' : '参考图为第一套定妆照，保持人物身份、面相和体型，服装按本次资料。' : '',
@@ -169,9 +169,10 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
       const modify = Boolean(opinion?.trim());
       const response = await ai(business, modify ? 'regenerate' : 'generate', {
         type,
-        rules: node.rules[modify ? 'revise' : 'generate'],
+        rules: effectiveRules(p,business,task.target_id)[modify ? 'revise' : 'generate'],
         textPrompt: aiProjection(object.text_to_video_prompt),
         duration: object.duration_seconds,
+        speechTiming: videoSpeechTiming(object),
         aspectRatio: p.aspect_ratio,
         ...(packed ? { packedPrompt: packed.prompt } : {}),
         ...(refs.length ? {

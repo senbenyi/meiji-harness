@@ -26,14 +26,14 @@ export function taskName(task, project) {
   }
   if (['first-last-frame', 'multimodal'].includes(task.business_type)) return `${target} · 执行${business}`;
   const action = { generate: "生成", regenerate: "重新生成", revise: "原结果修订", continue: "生成", manual_edit: "编辑", override: "放行", delete: "删除" }[task.action] || "生成";
-  if (task.business_type === "script-review") return { override: "放行剧本", regenerate: "重新审核剧本", revise: "按审核意见修改剧本" }[task.action] || "审核剧本";
+  if (task.business_type === "script-review") return { override: "放行剧本", regenerate: "重新审核剧本", revise: "按意见改编剧本" }[task.action] || "审核剧本";
   if (task.business_type === "script-split") return `${task.action === "manual_edit" ? "编辑拆分设置" : "全集规划"}`;
   if (task.business_type === "project-characters" && task.action !== "revise") return `${task.action === "regenerate" ? "重新提取" : "提取"}剧本重要角色`;
   return `${target ? target + " · " : ""}${action}${business}`;
 }
 export function stepName(step, task) {
   if (step.name) return step.name;
-  if (task.business_type === "script-review" && step.kind === "generate") return "按审核意见修改剧本";
+  if (task.business_type === "script-review" && step.kind === "generate") return "按意见改编剧本";
   if (task.business_type === "script-review" && step.kind === "revise") return `第 ${step.round} 轮修改剧本`;
   if (task.business_type === "script-review" && step.kind === "review") return `${step.round ? `第 ${step.round} 轮` : ""}AI审核剧本`;
   const business = businessNames[task.business_type] || task.business_type;

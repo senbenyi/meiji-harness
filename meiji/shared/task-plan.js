@@ -20,6 +20,7 @@ export function stepKinds(task) {
   if (task.business_type === 'video' && task.action === 'manual_edit') return ['precheck', 'manual_edit', 'apply'];
   if (["manual_edit", "override"].includes(task.action))
     return ["precheck", task.action];
+  if (task.business_type === "script-review" && task.action !== "revise") return ["precheck", "review"];
   return ["precheck", "generate", ...(task.business_type === 'video' ? ['download', 'apply'] : []), ...reviewTypes(task).map(() => "review")];
 }
 // 调用模型（文本、图片、视频）的步骤为 AI，其余（前置、程序审核、编排、人工、写回）为程序。

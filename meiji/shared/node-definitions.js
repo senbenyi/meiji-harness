@@ -10,8 +10,8 @@ const freezeDefinitions = (definitions) =>
   );
 
 export const NODE_DEFINITIONS = freezeDefinitions({
-  // 仅保留历史任务和原存储字段的只读定位；原剧本直接进入全集规划。
-  "script-review": { retired: true, targetKind: "project", field: "script", label: "剧本审核（已退役）", handler: "program", output: "none", programReview: false, aiReview: false, retryRounds: 0 },
+  // 可选的全文改编与审核，不作为全集规划和人物提取的前置。
+  "script-review": { targetKind: "project", field: "script", label: "剧本改编与审核", handler: "text", output: "text", programReview: false, aiReview: true, retryRounds: 2, precheck: "project-text" },
   "project-summary": {
     targetKind: "project",
     field: "project_summary",

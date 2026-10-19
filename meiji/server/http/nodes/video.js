@@ -16,11 +16,11 @@ export default {
   },
   actions: {
     generate: {
-      input: {"type": "string", "textPrompt": ["object", "string"], "duration": "number", "aspectRatio": "string", "firstFrame": ["string", "undefined"], "lastFrame": ["string", "undefined"], "referenceImages": ["array", "undefined"], "referenceBindings": ["array", "undefined"], "packedPrompt": ["string", "undefined"]},
+      input: {"type": "string", "textPrompt": ["object", "string"], "duration": "number", "speechTiming": ["array", "undefined"], "aspectRatio": "string", "firstFrame": ["string", "undefined"], "lastFrame": ["string", "undefined"], "referenceImages": ["array", "undefined"], "referenceBindings": ["array", "undefined"], "packedPrompt": ["string", "undefined"]},
       output: output0,
     },
     regenerate: {
-      input: {"type": "string", "textPrompt": ["object", "string"], "duration": "number", "aspectRatio": "string", "firstFrame": ["string", "undefined"], "lastFrame": ["string", "undefined"], "referenceImages": ["array", "undefined"], "referenceBindings": ["array", "undefined"], "packedPrompt": ["string", "undefined"], "opinion": "string"},
+      input: {"type": "string", "textPrompt": ["object", "string"], "duration": "number", "speechTiming": ["array", "undefined"], "aspectRatio": "string", "firstFrame": ["string", "undefined"], "lastFrame": ["string", "undefined"], "referenceImages": ["array", "undefined"], "referenceBindings": ["array", "undefined"], "packedPrompt": ["string", "undefined"], "opinion": "string"},
       output: output0,
     },
   },

@@ -253,11 +253,12 @@ describe("node-rules", () => {
         assert.equal(root.querySelectorAll('[role=tab]').length, 3);
         assert.equal(root.querySelector('[data-rules=generate]').hidden, false);
         assert.deepEqual([...root.querySelectorAll('[role=tab]')].map(tab => tab.textContent), ['生成规则', '修订规则', '审核规则']);
-        assert.deepEqual([...root.querySelectorAll('[data-rules] button')].map(button => button.getAttribute('aria-label')), ['复制生成规则', '复制修订规则', '复制审核规则']);
+        assert.deepEqual([...root.querySelectorAll('[data-rules] button')].map(button => button.getAttribute('aria-label')), ['复制补充规则', '复制基础规则', '复制补充规则', '复制基础规则', '复制补充规则', '复制基础规则']);
         const saved = ruleNode(p, business, view.rule_target).rules;
         for (const action of ['generate', 'review', 'revise']) {
           const section = root.querySelector(`[data-rules=${action}]`);
-          assert.equal(section.querySelector('[aria-label="基础规则"]').value, saved[action].base);
+          assert.equal(section.querySelector('[aria-label="基础规则"]'),null);
+          assert.ok(section.querySelector('.skill-base pre').textContent.includes(defaultRules(business)[action].base));
           assert.equal(section.querySelector('[aria-label="补充规则"]').value, saved[action].supplement);
         }
         const reviseInput = root.querySelector('[data-rules=revise] [aria-label="本次修改意见"]');
@@ -267,14 +268,13 @@ describe("node-rules", () => {
         [...root.querySelectorAll('[role=tab]')].find(b => b.textContent === '审核规则').click();
         assert.equal(root.querySelector('[data-rules=review]').hidden, false);
         copies.length = 0;
-        root.querySelector('[data-rules=generate] [aria-label="复制生成规则"]').click();
-        root.querySelector('[data-rules=revise] [aria-label="复制修订规则"]').click();
-        root.querySelector('[data-rules=review] [aria-label="复制审核规则"]').click();
+        root.querySelector('[data-rules=generate] [aria-label="复制基础规则"]').click();
+        root.querySelector('[data-rules=revise] [aria-label="复制基础规则"]').click();
+        root.querySelector('[data-rules=review] [aria-label="复制基础规则"]').click();
         await settle();
-        assert.match(copies[0], /^生成规则\n\n/);
-        assert.doesNotMatch(copies[0], /修订规则/);
-        assert.match(copies[1], /^修订规则\n\n/);
-        assert.match(copies[2], /^审核规则\n\n/);
+        for(const [i,action]of ['generate','revise','review'].entries()) {
+          assert.equal(copies[i],root.querySelector(`[data-rules=${action}] .skill-base pre`).textContent);
+        }
         if (input) assert.doesNotMatch(copies.join('\n'), /意见哨兵/);
         root.querySelector('.skill-page-head button').click();
         assert.equal(view.page, page);

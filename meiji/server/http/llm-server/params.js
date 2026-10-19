@@ -1,5 +1,6 @@
 import { PROJECT_ASPECT_RATIOS } from '../../../shared/media-parameters.js';
 import { gatewayBaseUrl } from '../../../models/model-config.js';
+import { taskHeaders } from './task-request.js';
 
 const frames = { '16:9': '横版 16:9', '9:16': '竖版 9:16' };
 const kreaImageModel = 'krea2 turbo V2.5';
@@ -103,13 +104,13 @@ export function videoParameters(options) {
   }
 }
 
-export function chatParameters({ baseUrl, model, messages }) {
+export function chatParameters({ baseUrl, model, messages, step }) {
   if (!['qwen3.5:27b', 'codex-gpt'].includes(model)) throw Object.assign(new Error('llm-server 文本模型无效'), { status: 400 });
   // 部署采样参数由 llm-server 补齐，不携带媒体网关密钥。
   return {
     url: new URL(`${gatewayBaseUrl(baseUrl)}/chat/completions`),
     apiKey: 'ollama',
-    headers: { Authorization: 'Bearer ollama', 'Content-Type': 'application/json' },
+    headers: taskHeaders({ Authorization: 'Bearer ollama', 'Content-Type': 'application/json' }, step),
     body: { model, messages: structuredClone(messages), stream: false },
   };
 }

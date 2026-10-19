@@ -113,7 +113,9 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
       if (videoPack(type) !== business) invalid('precheck', '视频类型已变化，请重新提交视频任务');
       if (type === '多模态') {
         const refs = videoImages(p, object);
-        if (refs.length > 9) invalid('precheck', '人物与场景参考图合计最多9张');
+        if (refs.length > 9) invalid('precheck', '人物、场景与开场衔接尾帧参考图合计最多9张，请减少参考素材');
+        const continuity=refs.find(row=>row.kind==='continuity');
+        if (continuity) { requireNode('video',continuity.id,'前镜视频'); requireNode('tail',continuity.id,'前镜尾帧'); }
       } else requireNode('tail', previousShot(episode, object).id);
     },
     video: () => {

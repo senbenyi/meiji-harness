@@ -14,7 +14,8 @@ export function createTextHandler({ ai, readLanguage = async () => 'zh-CN' }) {
         return { result: error.candidate, prompt: error.prompt, http: error.http, content: null, validationFailure: error.message };
       throw error;
     }
-    if (step.kind === 'review') return response;
+    if (step.kind === 'review') return task.business_type === 'script-review'
+      ? {...response,content:draft ?? {body:snapshot.project.script.body}} : response;
     try { return { ...response, content: prepareContent(snapshot, task, response.result) }; }
     catch (error) {
       if (error.code === 'INVALID_CONTRACT')

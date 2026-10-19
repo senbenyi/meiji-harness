@@ -24,7 +24,6 @@ export function mount() {
     session = null,
     disposed = false,
     initialized = false,
-    recovery = null,
     paintedContext = "",
     paintVersion = 0,
     selection = null;
@@ -163,22 +162,9 @@ export function mount() {
       session !== currentSessionId()
     )
       return;
-    // 重新加载不承接旧执行；并发的首次刷新共用一次服务端取消。
+    // 页面重载只读取服务端任务快照；生成生命周期由后端和 AI 服务端管理。
     if (!initialized) {
-      recovery ??= (async () => {
-        const task = result.snapshot?.tasks.find((t) => ["running", "queued"].includes(t.task_status));
-        if (!task) return false;
-        await sendCommand(session, {
-          type: "cancel", project_id: result.project_id,
-          task_id: task.id, request_id: crypto.randomUUID(),
-        });
-        return true;
-      })();
-      let cancelled;
-      try { cancelled = await recovery; }
-      catch (error) { recovery = null; throw error; }
       initialized = true;
-      if (cancelled) return refresh();
       if (disposed || token.epoch !== context.token().epoch || session !== currentSessionId()) return;
     }
     if (!result.snapshot) {

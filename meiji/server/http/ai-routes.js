@@ -39,9 +39,10 @@ export function composeNodePrompt(node, action, input, model) {
   const { route, contract } = nodeAction(node, action);
   validateInput(input, contract.input);
   route.validateInput?.(input, action);
-  const rules = input.rules ?? defaultRules(node)[ruleAction(action)];
-  assertRecord(rules, '输入.rules');
-  if (Object.keys(rules).length !== 2 || typeof rules.base !== 'string' || typeof rules.supplement !== 'string') invalid('输入.rules', '需包含base、supplement两个文本字段');
+  const supplied = input.rules ?? defaultRules(node)[ruleAction(action)];
+  assertRecord(supplied, '输入.rules');
+  if (Object.keys(supplied).length !== 2 || typeof supplied.base !== 'string' || typeof supplied.supplement !== 'string') invalid('输入.rules', '需包含base、supplement两个文本字段');
+  const rules = {...defaultRules(node)[ruleAction(action)],supplement:supplied.supplement};
   if (route.render) {
     const composed = route.render(input, action, contract.output);
     const prefix = [rules.base, rules.supplement].filter(value => value.trim()).join('\n\n');
@@ -82,11 +83,12 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
     const connection = modelRoute(await readConfig(), kind);
     // composed 是本次调用使用的完整渲染结果；步骤只保存精简的 prompt 与独立的 http。
     const composed = composeNodePrompt(node, action, input, connection.model);
-    const prompt = stepPrompt({ node, action, model: connection.model, input, messages: composed.messages, body: composed.body });
+    const prompt = context.step?.recovering && context.step.prompt ? structuredClone(context.step.prompt)
+      : stepPrompt({ node, action, model: connection.model, input, messages: composed.messages, body: composed.body });
     const http = [];
     const { signal, record = async () => {} } = context;
     signal?.throwIfAborted();
-    await record({ prompt, http });
+    await record({ prompt, ...(context.step?.recovering ? {} : { http }) });
     return withGatewayTrace(async (transfer, options) => {
       const index = http.indexOf(transfer);
       if (options?.drop) { if (index >= 0) http.splice(index, 1); }

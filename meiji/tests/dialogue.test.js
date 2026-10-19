@@ -166,7 +166,7 @@ describe("seconds-continuity", () => {
       db = new DatabaseSync(path);
       assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(), steps);
       assert.deepEqual(db.prepare('SELECT id,task_status FROM tasks').all(), tasks);
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 26);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 27);
       assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
       db.close();
       store = new SQLiteStore(path);

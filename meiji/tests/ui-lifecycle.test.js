@@ -15,7 +15,7 @@ import { newStep } from "../shared/task-plan.js";
 import { createAppRuntime } from "../server/runtime/app-runtime.js";
 import { fileURLToPath } from "node:url";
 
-describe("refresh-cancel", () => {
+describe("refresh-preserve", () => {
   async function withPanel(read, cancel, work) {
     const dom = new JSDOM("<main></main>", { url: "http://localhost", pretendToBeVisual: true });
     const keys = ["window", "document", "localStorage", "fetch", "EventSource"];
@@ -49,7 +49,7 @@ describe("refresh-cancel", () => {
     }
   }
 
-  test("重新加载取消真实运行任务，Model 保存后渲染，abort 后晚到结果不写回", async () => {
+  test("重新加载保留真实运行和排队任务，原请求完成后正常写回", async () => {
     const root = await mkdtemp(join(tmpdir(), "meiji-refresh-"));
     const repository = new ModelRepository(root);
     const model = await repository.create(snapshotFixture().project);
@@ -57,6 +57,7 @@ describe("refresh-cancel", () => {
     const started = new Promise(resolve => { entered = resolve; });
     const gate = new Promise(resolve => { release = resolve; });
     const service = new TaskService({ repository, commitOutput: commitContent, execute: async context => {
+      if (context.step.kind === 'review') return { result: { 是否通过: true, 类型: '', 原因: '' } };
       signal = context.signal;
       entered();
       await gate;
@@ -69,23 +70,22 @@ describe("refresh-cancel", () => {
       await service.command({ type: "submit", project_id: p.id, request_id: "queue", business_type: "project-summary", target_id: p.id, action: "regenerate" });
       await withPanel(() => model.readAll(), command => service.command(command), async ({ app, commands }) => {
         await Promise.all([app.refresh(), app.refresh()]);
-        assert.equal(commands.length, 1);
-        assert.equal(commands[0].task_id, first.task_id);
-        assert.equal(signal.aborted, true);
+        assert.equal(commands.length, 0);
+        assert.equal(signal.aborted, false);
         const saved = model.readAll();
-        assert.equal(saved.tasks[0].task_status, "cancelled");
-        assert.equal(saved.tasks[1].task_status, "cancelled");
+        assert.equal(saved.tasks[0].task_status, "running");
+        assert.equal(saved.tasks[1].task_status, "queued");
 
         assert.equal(saved.project.episodes[0].summary.node_state.status, "generated");
-        assert.ok(saved.steps.filter(s => s.task_id === first.task_id).every(s => ["done", "cancelled"].includes(s.step_status)));
+        assert.ok(saved.steps.some(s => s.task_id === first.task_id && s.step_status === 'running'));
         Object.assign(app.view, { page: "episode", episode_id: p.episodes[0].id, tab: "script" });
         await app.refresh();
         const card = app.shell.content.querySelector('[data-business="episode-summary"]');
         assert.equal(card.querySelector(".node-data-tag").textContent, "已生成");
         release();
         await service.idle(p.id);
-        assert.equal(model.readAll().project.episodes[0].summary.body, p.episodes[0].summary.body);
-        assert.equal(model.readAll().tasks[0].task_status, "cancelled");
+        assert.equal(model.readAll().project.episodes[0].summary.body, "晚到的新正文");
+        assert.equal(model.readAll().tasks[0].task_status, "completed");
       });
     } finally {
       release();
@@ -95,12 +95,12 @@ describe("refresh-cancel", () => {
     }
   });
 
-  test("首次仅排队也取消，后续普通刷新、事件与恢复可见不取消新任务", async () => {
+  test("首次排队及后续刷新、事件与恢复可见均只读取状态", async () => {
     const snapshot = snapshotFixture();
     snapshot.tasks = [{ id: "queued", business_type: "episode-summary", target_id: snapshot.project.episodes[0].id, task_status: "queued" }];
     await withPanel(() => structuredClone(snapshot), () => { snapshot.tasks[0].task_status = "cancelled"; return {}; }, async ({ app, commands, streams, dom }) => {
       await app.refresh();
-      assert.equal(app.context.read().tasks[0].task_status, "cancelled");
+      assert.equal(app.context.read().tasks[0].task_status, "queued");
       snapshot.runtime.revision++;
       snapshot.tasks[0].task_status = "running";
       snapshot.project.episodes[0].summary.node_state.status = "running";
@@ -108,31 +108,27 @@ describe("refresh-cancel", () => {
       streams[0].onmessage({ data: JSON.stringify({ project_id: snapshot.project.id, revision: snapshot.runtime.revision }) });
       document.dispatchEvent(new dom.window.Event("visibilitychange"));
       await app.refresh();
-      assert.equal(commands.length, 1);
+      assert.equal(commands.length, 0);
       assert.equal(app.context.read().project.episodes[0].summary.node_state.status, "running");
     });
   });
 
-  test("初始化取消失败不伪造状态，后续刷新重试成功才展示已取消", async () => {
+  test("刷新不发送取消命令，保留运行状态并读取稍后完成的结果", async () => {
     const snapshot = snapshotFixture();
     const episode = snapshot.project.episodes[0];
     episode.summary.node_state.status = "running";
     snapshot.tasks = [{ id: "running", business_type: "episode-summary", target_id: episode.id, task_status: "running" }];
-    let fail = true;
-    await withPanel(() => structuredClone(snapshot), async () => {
-      if (fail) throw new Error("取消连接失败");
-      snapshot.tasks[0].task_status = "cancelled";
-      episode.summary.node_state.status = "cancelled";
-      episode.summary.node_state.reason = "用户取消";
-      snapshot.runtime.revision++;
-      return {};
-    }, async ({ app }) => {
-      await assert.rejects(app.refresh(), /取消连接失败/);
-      assert.equal(app.context.read(), null);
-      assert.equal(episode.summary.node_state.status, "running");
-      fail = false;
+    await withPanel(() => structuredClone(snapshot), async () => { assert.fail('刷新不得发送取消'); }, async ({ app, commands }) => {
       await app.refresh();
-      assert.equal(app.context.read().project.episodes[0].summary.node_state.status, "cancelled");
+      assert.equal(app.context.read().tasks[0].task_status, 'running');
+      assert.equal(episode.summary.node_state.status, "running");
+      snapshot.tasks[0].task_status = 'completed';
+      episode.summary.node_state.status = 'generated';
+      episode.summary.body = '从原请求取回的结果';
+      snapshot.runtime.revision++;
+      await app.refresh();
+      assert.equal(app.context.read().project.episodes[0].summary.body, '从原请求取回的结果');
+      assert.equal(commands.length, 0);
     });
   });
 });

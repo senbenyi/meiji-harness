@@ -9,8 +9,51 @@ import { createAppRuntime } from "../server/runtime/app-runtime.js";
 import { renderTaskPanel } from "../client/task-panel.js";
 import { snapshotFixture, projectFixture } from "./fixtures/project.js";
 import { apply } from "../session.js";
+import { emptyShot } from '../shared/project_contract.js';
 
 describe("button-regressions", () => {
+  test('本集4镜仅2镜完成时，即使最近组已通过也显示继续，提交整集补齐请求', async () => {
+    const dom = new JSDOM('<main></main>'), previous = { document: globalThis.document, fetch: globalThis.fetch };
+    globalThis.document = dom.window.document;
+    try {
+      const snapshot = snapshotFixture(), episode = snapshot.project.episodes[0], requests = [], root = document.querySelector('main');
+      episode.shot_list.shots.push(emptyShot({ sequence: 3, number: 'S03' }), emptyShot({ sequence: 4, number: 'S04' }));
+      snapshot.groups = [{ id: 'done', group_type: 'episode-film', episode_id: episode.id, shot_ids: episode.shot_list.shots.slice(0, 2).map(shot => shot.id) }];
+      snapshot.tasks = episode.shot_list.shots.slice(0, 2).map((shot, index) => ({ id: `done-${index}`, group_id: 'done', business_type: 'video', target_id: shot.id, episode_id: episode.id, task_status: 'completed', queue_order: index + 1 }));
+      globalThis.fetch = async (_url, options) => { requests.push(JSON.parse(options.body).command); return { ok: true, json: async () => ({}) }; };
+      const context = { session_id: 'session-test', view: { page: 'episode', episode_id: episode.id, tab: 'film' }, refresh: async () => {}, paint: () => {}, onError: message => assert.fail(message) };
+      const groupCard = () => [...root.querySelectorAll('.session-project')].find(card => card.querySelector('h3')?.textContent === '逐镜头成片');
+      renderTaskPanel(root, snapshot, context);
+      let card = groupCard();
+      assert.equal(card.querySelector('.node-ui-status').textContent, '未完成');
+      const resume = [...card.querySelectorAll('button')].find(button => button.textContent === '继续');
+      assert.ok(resume);
+      resume.click(); await new Promise(resolve => setTimeout(resolve, 0));
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0].type, 'submit-group'); assert.equal(requests[0].group_type, 'episode-film');
+      assert.equal(requests[0].action, 'generate'); assert.equal(requests[0].episode_id, episode.id);
+      assert.equal(requests[0].shot_id, undefined); assert.equal(requests[0].group_id, undefined);
+
+      snapshot.tasks.push({ id: 'running', group_id: 'active', business_type: 'video', target_id: episode.shot_list.shots[2].id, episode_id: episode.id, task_status: 'running', queue_order: 3 });
+      renderTaskPanel(root, snapshot, context); card = groupCard();
+      assert.equal(card.querySelector('.node-ui-status').textContent, '生成中');
+      assert.equal([...card.querySelectorAll('button')].some(button => button.textContent === '继续'), false);
+      assert.ok([...card.querySelectorAll('button')].some(button => button.textContent === '取消'));
+
+      snapshot.tasks.pop(); episode.shot_list.shots.splice(2);
+      renderTaskPanel(root, snapshot, context); card = groupCard();
+      assert.equal(card.querySelector('.node-ui-status').textContent, '已通过');
+      assert.equal([...card.querySelectorAll('button')].some(button => button.textContent === '继续'), false);
+      for (const missing of ['expired-video', 'missing-tail']) {
+        const shot = episode.shot_list.shots[1];
+        shot.video.node_state.status = missing === 'expired-video' ? 'expired' : 'generated';
+        shot.last_frame.address = missing === 'missing-tail' ? '' : 'tail.png';
+        renderTaskPanel(root, snapshot, context); card = groupCard();
+        assert.ok([...card.querySelectorAll('button')].some(button => button.textContent === '继续'), missing);
+      }
+    } finally { globalThis.document = previous.document; globalThis.fetch = previous.fetch; dom.window.close(); }
+  });
+
   test('整集成片按现有视频选择生成或重新生成，合片按钮独立提交合片节点', async () => {
    const dom=new JSDOM('<main></main>'), previous={document:globalThis.document,fetch:globalThis.fetch};
    globalThis.document=dom.window.document;

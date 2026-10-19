@@ -59,6 +59,25 @@ describe("film-pipeline", () => {
    assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].actual_duration_seconds,5.2);assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].duration_seconds,5);
   }));
 
+  test('最近单镜组已通过后继续整集，仅补齐剩余镜头并在最后合片', () => fixture(async ({ p, model, service, events, command }) => {
+    const [firstShot, remainingShot] = p.episodes[0].shot_list.shots;
+    const first = await service.command({ ...command, action: 'generate', shot_id: firstShot.id });
+    await service.idle(p.id);
+    assert.ok(model.readAll().tasks.filter(task => task.group_id === first.group_id).every(task => task.task_status === 'completed'));
+    const completed = structuredClone(model.readAll().project.episodes[0].shot_list.shots[0]);
+    const before = events.length;
+    const next = await service.command({ ...command, request_id: 'fill-remaining', action: 'generate' });
+    await service.idle(p.id);
+    const snapshot = model.readAll(), tasks = snapshot.tasks.filter(task => task.group_id === next.group_id);
+    assert.ok(tasks.length > 0);
+    assert.ok(tasks.every(task => task.task_status === 'completed'), tasks.map(task => task.end_reason).join(';'));
+    assert.ok(tasks.every(task => task.business_type === 'assembly' || task.target_id === remainingShot.id));
+    assert.deepEqual(snapshot.project.episodes[0].shot_list.shots[0], completed);
+    assert.equal(events.slice(before).some(event => event[0] === firstShot.id), false, '已完成镜头不重新调用AI');
+    assert.deepEqual(tasks.filter(task => ['seconds', 'storyboard', 'video', 'assembly'].includes(task.business_type)).map(task => task.business_type), ['seconds', 'storyboard', 'video', 'assembly']);
+    assert.equal(snapshot.tasks.filter(task => task.business_type === 'assembly').length, 1);
+  }));
+
   test('不同单镜组正常排队，由最后收尾的组派生一次合片',()=>fixture(async({p,model,service,control,command})=>{
    let release;control.gate=new Promise(resolve=>release=resolve);
    try {
@@ -326,15 +345,16 @@ describe("video-chain", () => {
     }});
   });
 
-  test('依赖按实际类型传播：多模态不依赖前尾帧，首尾帧不依赖角色图片，镜头重排改变类型',()=>{
+  test('依赖按实际类型传播：连续多模态依赖前尾帧，首尾帧不依赖角色图片，镜头重排改变类型',()=>{
     const snapshot=snapshotFixture(),p=snapshot.project,e=p.episodes[0],[first,second]=e.shot_list.shots;
     const person=mergeCharacters(p,[{name:'甲',gender:'女',era:'现代',position:'',age_range:'',body_type:'',hairstyle:'',signature_props:[],immutable_traits:[],costumes:[]}]).characters[0];
     p.character_library.characters=[person];person.costume_images[0].address='a.png';person.costume_images[0].node_state.status='generated';
     second.on_screen_characters=[{character_id:person.id,costume_id:''}];
+    second.multimodal_prompt.node_state.status='generated';
     for(const b of ['multimodal','video'])stampDependencyHash(snapshot,b,second.id);
     const hash=dependencyHash(snapshot,'video',second.id);
     first.last_frame.address='changed-tail.png';expireDownstream(snapshot,'tail',first.id);
-    assert.equal(dependencyHash(snapshot,'video',second.id),hash);assert.equal(second.video.node_state.status,'generated');
+    assert.notEqual(dependencyHash(snapshot,'video',second.id),hash);assert.equal(second.video.node_state.status,'expired');assert.equal(second.multimodal_prompt.node_state.status,'expired');
     person.costume_images[0].address='b.png';expireDownstream(snapshot,'costume-image',person.id);
     assert.equal(second.video.node_state.status,'expired');assert.equal(first.video.node_state.status,'generated');
     second.on_screen_characters=[];second.video.node_state.status='generated';second.video.node_state.reason='';

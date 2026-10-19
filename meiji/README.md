@@ -52,7 +52,7 @@ DeepSeek Harness 短剧制作插件。按项目 Model 保存剧本、角色与�
 
 ### HTTP 阶段契约（2026-10-16）
 
-目前注册 11 个 AI 节点、29 个动作（25 个文本动作、4 个媒体动作）。`script-split` 生成切点后由程序审核，没有 AI 审核动作；`script-review` 提供审核与改写，不提供独立生成剧本动作。已退役 `shot-characters`，人物和服装绑定直接由镜头表的 `on_screen_characters[].character_id/costume_id` 保存，不再使用角色编号、`character_binding` 或 `has_result`。不具名群演保存到 `background_characters`；卡内人物 ID 及其服装归属由程序校验。
+AI节点和审核动作以 `shared/node-definitions.js` 与 `server/http/nodes/` 为准。`script-split` 生成全集规划并执行程序及AI审核；`script-review` 为可选全文改编与审核，在剧本详情按本次意见改编并自动审核，或只审核当前正文。改编补充规则独立保存在 `script.adaptation_rules`，规划补充规则保存在 `script.rules`；基础规则统一由代码维护，base字段只保留快照，不提供界面编辑或同步。已退役 `shot-characters`，人物和服装绑定直接由镜头表的 `on_screen_characters[].character_id/costume_id` 保存，不再使用角色编号或 `character_binding`。不具名群演保存到 `background_characters`；卡内人物 ID 及其服装归属由程序校验。
 
 `storyboard` 的输入为 `language/requirements/storyboard/duration/characters`，审核/修订增加 `content/opinion`。人物只传所需文字资料，包含仅发声人物；不再接收 `assets/previous`。输出仍为固定三个非空段落。`costume-image.references` 最多一张图。
 

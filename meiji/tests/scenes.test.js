@@ -78,12 +78,43 @@ describe("scenes", () => {
     const saved=p.scene_library.scenes.find(item=>item.id===scene.id);
     assert.equal(saved.description,'被改写的描述');assert.equal(saved.reference_image.node_state.status,'expired','人工改写使参考图过期');
   });
+  test('原结果修订保留场景ID并修正资料，只使变化场景的图片及引用镜头过期',async()=>{
+    const home=await mkdtemp(join(tmpdir(),'meiji-scene-revise-'));let runtime;
+    try {
+      const {p,e,scene,snapshot}=withScene();
+      const untouched=emptySceneModel({name:'未选中的场景',layout:'石桥横跨河道'});
+      untouched.reference_image.address='bridge.png';untouched.reference_image.node_state.status='generated';
+      p.scene_library.scenes.push(untouched);stampDependencyHash(snapshot,'scene-image',untouched.id);
+      const task=taskFixture(p,'episode-scenes',e.id,{action:'regenerate'});
+      assert.equal(taskNodeInput(snapshot,task,null,'regenerate').updateExisting,false);
+      assert.equal(taskNodeInput(snapshot,task,{scenes:[]},'regenerate').updateExisting,false);
+      const revised={...sceneText(scene),layout:'发射设施埋设地下，竖直装填口连通炮底入口'};
+      let calls=0;
+      runtime=await createAppRuntime({home,gateway:{chat:async({step,trace})=>{
+        calls++;assert.equal(trace.input.updateExisting,true);
+        return step.kind==='review'?{是否通过:true,类型:'',原因:''}:{scenes:[revised]};
+      }}});
+      const model=await runtime.repository.create(p);
+      const submitted=await runtime.tasks.command({type:'submit',project_id:p.id,business_type:'episode-scenes',target_id:e.id,action:'revise',opinion:'按原文修正设施埋设及装填方向',request_id:crypto.randomUUID()});
+      await runtime.tasks.idle(p.id);
+      const saved=model.readAll(),result=saved.tasks.find(task=>task.id===submitted.task_id);
+      assert.equal(result.task_status,'completed',result.end_reason);assert.ok(calls>=2);
+      const current=saved.project.scene_library.scenes.find(row=>row.id===scene.id);
+      assert.equal(current.layout,revised.layout);assert.equal(current.reference_image.address,'room.png');
+      assert.equal(current.reference_image.node_state.status,'expired');
+      assert.equal(saved.project.episodes[0].shot_list.node_state.status,'expired');
+      const kept=saved.project.scene_library.scenes.find(row=>row.id===untouched.id);
+      assert.equal(kept.reference_image.node_state.status,'generated');assert.equal(kept.reference_image.address,'bridge.png');
+      const input=taskNodeInput(snapshot,{...task,action:'revise'},null,'regenerate');
+      assert.match(composeNodePrompt('episode-scenes','regenerate',input,'codex-gpt').user,/本次为原结果修订/);
+    } finally {await runtime?.dispose();await rm(home,{recursive:true,force:true});}
+  });
   test('场景提取三动作强调选择性收录与去重，允许空结果，拒绝未知ID',()=>{
     const p=projectFixture(),e=p.episodes[0],snapshot={project:p,tasks:[],steps:[]};
     for (const action of ['generate','regenerate','review']) {
       const input=taskNodeInput(snapshot,taskFixture(p,'episode-scenes',e.id),null,action);
       const prompt=composeNodePrompt('episode-scenes',action,input,'codex-gpt');
-      assert.match(prompt.system,/一次性、不重要地点/);assert.match(prompt.system,/返回空数组/);
+      assert.match(prompt.system,/一次性且不重要/);assert.match(prompt.system,/返回空数组/);
       assert.match(prompt.system,/同一段拆成多个镜头/);assert.match(prompt.system,/昼夜.*天气/);
       if(action==='generate') assert.deepEqual(validateNodeResult('episode-scenes',action,{scenes:[]},input),{scenes:[]});
     }
@@ -266,14 +297,22 @@ describe("scenes", () => {
       assert.equal(task.task_status,'completed',task.end_reason);assert.equal(isNodeCurrent(snapshot,'scene-image',scene.id),true);
     }finally{await runtime?.dispose();await rm(home,{recursive:true,force:true});}
   });
-  test('场景图片真实编排读取所引用剧集原剧情，输入与指纹同源且不混入无关集',async()=>{
+  test('场景图片真实编排区分原文、规划与改编，输入与指纹同源且不混入无关集',async()=>{
     const {p,e,scene,snapshot}=withScene();
-    e.plot='原始资料：平原上竖直装填的发射设施，旅行弹丸从上方垂入炮底。';
-    const other=emptyEpisode({plot:'不相关的海底城市'});p.episodes.push(other);
+    p.script.body='原文依据：旅行弹丸从上方垂入炮底。';
+    e.plot='规划依据：本集准备进入发射设施。';
+    e.story_outline.segments[0].body='改编依据：平原观礼空地旁有竖直装填口。';
+    const other=emptyEpisode({plot:'不相关的海底城市'});other.story_outline.segments=[{body:'不相关的水下通道'}];p.episodes.push(other);
     const hash=dependencyHash(snapshot,'scene-image',scene.id);
     other.plot='不相关的沙漠';assert.equal(dependencyHash(snapshot,'scene-image',scene.id),hash);
     e.plot+='周边是平坦观礼空地。';assert.notEqual(dependencyHash(snapshot,'scene-image',scene.id),hash);
-    assert.deepEqual(sceneImageContext(p,scene.id).plots,[{episode:e.sequence,plot:e.plot}]);
+    const afterPlan=dependencyHash(snapshot,'scene-image',scene.id);
+    p.script.body+='炮底有入口。';assert.notEqual(dependencyHash(snapshot,'scene-image',scene.id),afterPlan);
+    const afterScript=dependencyHash(snapshot,'scene-image',scene.id);
+    e.story_outline.segments[0].body+='入口接通地面通道。';assert.notEqual(dependencyHash(snapshot,'scene-image',scene.id),afterScript);
+    const afterStory=dependencyHash(snapshot,'scene-image',scene.id);
+    other.story_outline.segments=[];assert.equal(dependencyHash(snapshot,'scene-image',scene.id),afterStory);
+    assert.deepEqual(sceneImageContext(p,scene.id),{script:p.script.body,plots:[{episode:e.sequence,plot:e.plot,story:e.story_outline.segments.map(segment=>segment.body).join('\n\n')}]});
     scene.reference_image.address='';
     let sent='';
     const ai=createAiRoutes({readConfig:async()=>config,gateway:{image:async({prompt})=>{sent=prompt;return Buffer.from('image');}}});
@@ -281,7 +320,8 @@ describe("scenes", () => {
     const handler=createMediaHandler({media,ai});
     const result=await handler({snapshot,task:taskFixture(p,'scene-image',scene.id,{action:'generate',opinion:''}),step:{kind:'generate'},signal:new AbortController().signal,record:async()=>{}});
     assert.equal(result.content.address,'generated.png');assert.match(sent,/从上方垂入炮底/);
-    assert.match(sent,/严格按资料描述，呈现该专用设施的实际结构/);assert.doesNotMatch(sent,/不相关的/);
+    for(const text of ['原文依据','规划依据','改编依据','入口接通地面通道']) assert.ok(sent.includes(text));
+    assert.match(sent,/规划不能冒充原文/);assert.match(sent,/开口朝向、出入及装载方式/);assert.doesNotMatch(sent,/不相关的/);
   });
   test('人物与场景共同编排：人物在前场景在后，一图一职责，发送顺序与已保存编排一致',async()=>{
     const {p,e,scene,snapshot}=withScene(),shot=e.shot_list.shots[0];
@@ -342,19 +382,38 @@ describe("scenes", () => {
       p.episodes[0].scene_catalog.scene_ids=[];root.replaceChildren();
       renderTaskPanel(root,{...snapshotFixture(),project:p},{session_id:'s',view:{page:'episode',episode_id:p.episodes[0].id,tab:'script'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
       assert.equal(root.querySelector('.scene-card-list'),null,'无场景时不显示空列表');
-      assert.match(root.querySelector('[data-business=episode-scenes]').textContent,/在大纲之后选择性提取|本集没有需要固定的场景/);
+      assert.match(root.querySelector('[data-business=episode-scenes]').textContent,/提取结果：0 个场景/);
+      p.episodes[0].scene_catalog.has_result=false;root.replaceChildren();
+      renderTaskPanel(root,{...snapshotFixture(),project:p},{session_id:'s',view:{page:'episode',episode_id:p.episodes[0].id,tab:'script'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
+      assert.match(root.querySelector('[data-business=episode-scenes]').textContent,/在大纲之后选择性提取/);
+      assert.doesNotMatch(root.querySelector('[data-business=episode-scenes]').textContent,/提取结果：0 个场景/);
     }finally{globalThis.document=previous;dom.window.close();}
   });
 
-  test('场景图生成与修改共用全场构图要求，保留资料与指定画幅', async () => {
+  test('场景提取三动作只记录静态环境，人物站位和动作不进入场景资料', () => {
+    const input = { language: 'zh-CN', requirements: '', script: '士兵在炮场搬运弹药。', segments: [{ body: '士兵站在炮位旁，搬运弹药。' }], scenes: [] };
+    for (const action of ['generate', 'regenerate', 'review']) {
+      const prompt = composeNodePrompt('episode-scenes', action, { ...input, ...(action === 'generate' ? {} : { opinion: '', content: { scenes: [] } }) }, 'codex-gpt');
+      assert.match(prompt.system, /只记录静态环境、布局、材质与基础光源/);
+      assert.match(prompt.system, /不写人物出场、站位或动作/);
+      assert.equal(prompt.system.split('不写人物出场、站位或动作').length - 1, 1);
+      assert.match(prompt.body, /士兵/);
+    }
+  });
+
+  test('场景图生成与修改只画无人静态背景，共用全场构图并保留资料与指定画幅', async () => {
     const {scene}=withScene();
-    const input={language:'zh-CN',requirements:'',scene:sceneText(scene),context:{plots:[]},aspectRatio:'9:16',references:[]};
+    const input={language:'zh-CN',requirements:'',scene:sceneText(scene),context:{plots:[{body:'士兵与围观人群站在场地中央。'}]},aspectRatio:'9:16',references:[]};
     const initial=composeNodePrompt('scene-image','generate',input,'gpt-image');
     const modified=composeNodePrompt('scene-image','regenerate',{...input,opinion:'拉远机位展示整个场地'},'gpt-image');
     assert.equal(initial.system,modified.system);
     assert.match(initial.system,/主要分区、出入口、通路与关键地标/);
     assert.match(initial.system,/竖幅也应拉远收纳横向布局/);
     assert.match(modified.system,/原图取景过近或范围不全时允许拉远/);
+    assert.match(initial.system,/只呈现静态环境背景、设施与陈设/);
+    assert.match(initial.system,/不得出现任何人物/);
+    assert.match(modified.system,/剧情、场景资料或原图中有人物时也不纳入画面/);
+    assert.match(modified.system,/修改原图时移除其中人物并还原被遮挡的背景/);
     assert.doesNotMatch(modified.system,/其余保持原样/);
     assert.match(modified.body,/拉远机位展示整个场地/);
     assert.match(initial.body,new RegExp(scene.name));
@@ -362,7 +421,12 @@ describe("scenes", () => {
     const ai=createAiRoutes({readConfig:async()=>config,gateway:{image:async options=>{calls.push(options);return Buffer.from('image');}}});
     for(const action of ['generate','regenerate']) await ai('scene-image',action,{...input,...(action==='regenerate'?{opinion:'拉远机位展示整个场地'}:{})});
     assert.deepEqual(calls.map(c=>c.aspectRatio),['9:16','9:16']);
-    for(const call of calls) assert.match(call.prompt,/单一真实透视/);
+    for(const call of calls) {
+      assert.match(call.prompt,/单一真实透视/);
+      assert.match(call.prompt,/不得出现任何人物/);
+      assert.match(call.prompt,/修改原图时移除其中人物并还原被遮挡的背景/);
+      assert.match(call.prompt,/士兵与围观人群/);
+    }
   });
 
   test('部分人物缺图仍使用其他人物与场景，编号和上传顺序一致',async()=>{

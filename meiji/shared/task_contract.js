@@ -370,7 +370,6 @@ export function validateCommand(command) {
       Object.keys(BUSINESS_TARGET),
       "command.business_type",
     );
-  if (command.business_type === 'script-review' && command.type !== 'query') invalid('business_type', '剧本审核已移除，请直接进行全集规划');
   if (command.business_type === 'tail' && command.type !== 'query') invalid('business_type', '尾帧已并入视频任务');
   if (['first-last-frame', 'multimodal'].includes(command.business_type) && !['query','submit','override'].includes(command.type)) invalid('business_type', '程序编排只支持执行或查询');
   if (command.business_type === "shot-characters" && command.type !== "query") invalid("command.business_type", "角色与服装已并入镜头表，请重新生成镜头表");

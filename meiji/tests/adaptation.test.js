@@ -359,6 +359,9 @@ describe("adaptation", () => {
       assert.ok(prompt.messages.some(message=>message.content.includes('红色钥匙')));
       assert.ok(prompt.messages.some(message=>message.content.includes(second.plot)));
       assert.match(prompt.system,/允许改写对白、增删或合并局部事件/);
+      assert.match(prompt.system,/补齐可拍摄的布局、材质、色彩、陈设与基础光源/);
+      assert.match(prompt.system,/在场景首次出现或结构变化的小段body中/);
+      assert.equal(prompt.system.split('专用设施不能套成外观相似的普通物件').length,2);
       assert.doesNotMatch(prompt.system,/原台词逐字保留|原剧情必须完整保留/);
     }
   });

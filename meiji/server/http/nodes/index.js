@@ -10,9 +10,11 @@ import node7 from './shots.js';
 import node8 from './storyboard.js';
 import node9 from './video.js';
 
+import scriptReview from './script-review.js';
 import episodeScenes from './episode-scenes.js';
 import sceneImage from './scene-image.js';
 const routes = {
+  'script-review': scriptReview,
   'episode-scenes': episodeScenes, 'scene-image': sceneImage,
   'costume-image': node0,
   'episode-summary': node1,

@@ -23,7 +23,7 @@ export function taskFailureRow(task, type = '') {
 }
 export function repairButtonLabel(business) {
   const rounds = BUSINESS_DEFINITIONS[business]?.retryRounds || 0;
-  const name = business === 'script-review' ? '修改' : '修复';
+  const name = business === 'script-review' ? '改编' : '修复';
   return rounds ? `${name}（再给 ${rounds} 轮）` : name;
 }
 export function revisionNote(task, steps, limit) {

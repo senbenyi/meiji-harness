@@ -1,3 +1,4 @@
+import { initializeScriptAdaptation } from './script-adaptation-migration.js';
 import { dependencyHash } from '../../shared/node-dependencies.js';
 import { defaultRules } from '../../shared/rule-defaults.js';
 
@@ -15,6 +16,7 @@ function ruleRows(p) {
 }
 // 仅供显式版本迁移；正常读写必须满足新模型。
 export function initializeSupplementRules(p) {
+  initializeScriptAdaptation(p);
   for (const {business,node} of ruleRows(p)) if (!Object.hasOwn(node,'rules')) node.rules = defaultRules(business);
   return p;
 }

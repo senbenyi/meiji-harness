@@ -1,6 +1,7 @@
 import { invalid } from '../../shared/task_contract.js';
 
 const sources = {
+  'script-review': ['来源剧本'],
   'script-split': ['剧本'], 'project-summary': ['剧本'], 'project-characters': ['剧本'],
   'episode-scenes': ['分集改编', '场景资料'], 'episode-summary': ['本集剧情'], outline: ['原始剧本', '全集规划', '本集规划', '前集实际剧情'], shots: ['分集改编', '角色资料', '场景资料'],
   seconds: ['镜头表', '前镜交接', '角色资料'], storyboard: ['节拍分镜', '镜头表', '角色资料'],

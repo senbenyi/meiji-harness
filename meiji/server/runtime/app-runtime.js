@@ -1,4 +1,3 @@
-import { defaultRules } from '../../shared/rule-defaults.js';
 import { ruleNode } from '../../shared/ai-node-rules.js';
 import { createVideoPromptHandler } from '../handlers/video-prompt-handler.js';
 import { LibraryStore } from "../data/library-store.js";
@@ -279,19 +278,16 @@ export async function createAppRuntime({
             );
           return {};
         });
-      if (['edit-rule', 'sync-base-rules'].includes(command.type))
+      if (command.type === 'sync-base-rules') invalid('type','基础规则仅由代码维护，已移除同步操作');
+      if (command.type === 'edit-rule')
         return model.update(command.request_id, command, s => {
           if (source !== 'panel') invalid('source', '规则只允许面板维护');
           if (s.tasks.some(t => ['queued', 'running'].includes(t.task_status))) invalid('状态', '有未结束任务时不能编辑规则');
           const node = ruleNode(s.project, command.business_type, command.target_id);
           const before = JSON.stringify(node.rules);
-          if (command.type === 'sync-base-rules') {
-            const defaults = defaultRules(command.business_type);
-            for (const action of ['generate', 'review', 'revise']) node.rules[action].base = defaults[action].base;
-          } else {
-            if (!['generate', 'review', 'revise'].includes(command.action) || !['base', 'supplement'].includes(command.field) || typeof command.value !== 'string') invalid('rules', '需指定动作、base或supplement及文本值');
-            node.rules[command.action][command.field] = command.value;
-          }
+          if (!['generate', 'review', 'revise'].includes(command.action) || command.field !== 'supplement' || typeof command.value !== 'string')
+            invalid('rules', '仅允许编辑本动作补充规则，基础规则由代码维护');
+          node.rules[command.action].supplement = command.value;
           if (before === JSON.stringify(node.rules)) return {};
           if (command.business_type === 'script-split') {
             for (const episode of s.project.episodes) expireDownstream(s, 'episode-plot', episode.id, '全集规划规则已修改');

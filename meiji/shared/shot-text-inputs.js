@@ -2,8 +2,8 @@ import { shotScene } from './scene-inputs.js';
 import { previousShot, videoImages } from './video-inputs.js';
 
 export function characterTextCatalog(project) {
-  return project.character_library.characters.map(({ id, name, gender, era, position, age_range, body_type, hairstyle, signature_props, immutable_traits, voice, costumes }) => ({
-    id, name, gender, era, position, age_range, body_type, hairstyle, signature_props, immutable_traits, voice,
+  return project.character_library.characters.map(({ id, name, gender, era, position, age_range, nationality, height, facial_features, body_type, hairstyle, signature_props, immutable_traits, voice, costumes }) => ({
+    id, name, gender, era, position, age_range, nationality, height, facial_features, body_type, hairstyle, signature_props, immutable_traits, voice,
     costumes: costumes.map(({ id, name, description, color, material, props }) => ({ id, name, description, color, material, props })),
   }));
 }
@@ -38,10 +38,9 @@ export function shotTextInputs(project, episode, shot, business) {
   // 使用完整目录生成跨镜统一标记；不按本镜子集重新编号，目录重排也不改变编号。
   const speakerTags = new Map([...characters].sort((a, b) => a.id.localeCompare(b.id))
     .map((person, index) => [person.id, `(S${index + 1})`]));
-  const participants = characters.flatMap((person, index) => {
-    const source = project.character_library.characters[index];
+  const participants = characters.flatMap(person => {
     return speakerIds.has(person.id) || visible.has(person.id)
-      ? [{ ...person, speaker_tag: speakerTags.get(person.id), nationality: source.nationality, height: source.height, facial_features: source.facial_features }] : [];
+      ? [{ ...person, speaker_tag: speakerTags.get(person.id) }] : [];
   });
   return { duration: shot.duration_seconds, characters: participants,
     storyboard: { on_screen_characters: structuredClone(shot.on_screen_characters), background_characters: shot.background_characters, shot_setup: { ...shotSceneSetup(shot), ...(scene ? { scene, scene_transition: shot.scene_transition } : {}) }, ...secondsEnding(shot.seconds_storyboard), storyboard: shot.seconds_storyboard.storyboard.map(beat => structuredClone(beat)) } };
@@ -55,7 +54,8 @@ export function sceneReferenceDescription(scene) {
 }
 export function shotReferenceBindings(project, episode, shot) {
   const participants = shotTextInputs(project, episode, shot, 'storyboard').characters;
-  const selected = new Set(videoImages(project, shot).map(row => row.id));
+  const images=videoImages(project, shot);
+  const selected = new Set(images.map(row => row.id));
   const bindings = shot.on_screen_characters.filter(row => selected.has(row.costume_id || row.character_id)).map(row => {
     const person = participants.find(person => person.id === row.character_id);
     const costume = person?.costumes.find(costume => costume.id === row.costume_id);
@@ -65,5 +65,7 @@ export function shotReferenceBindings(project, episode, shot) {
     const scene = project.scene_library.scenes.find(item => item.id === shot.scene_id);
     bindings.push({ kind: 'scene', name: scene.name, description: sceneReferenceDescription(scene), state: shot.scene_state });
   }
+  const continuity=images.find(row=>row.kind==='continuity');
+  if (continuity) bindings.push({kind:'continuity',name:continuity.shot.number});
   return bindings;
 }

@@ -1,7 +1,7 @@
-import { ruleNode, supportsRules } from './ai-node-rules.js';
+import { effectiveRules, supportsRules } from './ai-node-rules.js';
 import { adaptationContext, adaptedStory } from './adaptation-context.js';
 import { sceneCatalog, sceneText, sceneImageContext } from './scene-inputs.js';
-import { videoType, videoPack, previousShot, videoImages } from './video-inputs.js';
+import { videoType, videoPack, previousShot, continuousPreviousShot, videoImages, videoSpeechTiming } from './video-inputs.js';
 import { shotTextInputs } from './shot-text-inputs.js';
 import { primaryCostumeImage } from "./models/character_model.js";
 import { createHash } from "node:crypto";
@@ -22,7 +22,7 @@ const canonical = (value) =>
 
 const characterMaterial = character => ({
   name: character.name, gender: character.gender, era: character.era, position: character.position, age_range: character.age_range,
-  body_type: character.body_type, hairstyle: character.hairstyle,
+  body_type: character.body_type, hairstyle: character.hairstyle, nationality: character.nationality, height: character.height, facial_features: character.facial_features,
   signature_props: character.signature_props, immutable_traits: character.immutable_traits,
 });
 
@@ -102,6 +102,7 @@ function dependencyMaterial(snapshot, business, id) {
     const type = videoType(project, episode, shot), previous = previousShot(episode, shot);
     const pack = videoPack(type);
     return { type, duration: shot.duration_seconds, aspectRatio: project.aspect_ratio,
+      ...(business === 'video' && videoSpeechTiming(shot).length ? {speechTiming:videoSpeechTiming(shot)} : {}),
       prompt: body(shot.text_to_video_prompt), upstream: upstream('storyboard', id),
       ...(type === '多模态' ? { images: videoImages(project, shot).map(({ id, image }) => ({ id, address: image?.address || '', hash: image?.node_state.dependency_hash || '' })) } : {}),
       ...(type === '首尾帧' ? { previous: { id: previous.id, address: previous.last_frame.address, hash: upstream('tail', previous.id) } } : {}),
@@ -127,8 +128,13 @@ function dependencyMaterial(snapshot, business, id) {
 }
 
 export function dependencyHash(snapshot, business, id) {
+  // 历史角色图是首套定妆照的别名，内容和有效规则必须使用同一指纹。
+  if (business === 'character-image') {
+    const character=locateTarget(snapshot.project,business,id).character;
+    return dependencyHash(snapshot,'costume-image',character.costumes[0]?.id || character.id);
+  }
   const material = dependencyMaterial(snapshot, business, id);
-  const rules = supportsRules(business) ? ruleNode(snapshot.project, business, id).rules : null;
+  const rules = supportsRules(business) ? effectiveRules(snapshot.project, business, id) : null;
   return createHash("sha256")
     .update(canonical(rules ? { ...material, rules } : material))
     .digest("hex");
@@ -213,7 +219,7 @@ export function downstream(snapshot, business, id) {
     { ...one("shots", episode.id), context_only: true },
     ...episode.shot_list.shots.flatMap(shot => ['seconds', 'storyboard'].map(business => ({ ...one(business, shot.id), context_only: true }))),
   ]);
-  if (business === "script") return [one("project-summary", p.id), one("project-characters", p.id), ...p.episodes.map(episode => ({ ...one("outline", episode.id), context_only: true }))];
+  if (["script", "script-review"].includes(business)) return [one("project-summary", p.id), one("project-characters", p.id), ...p.episodes.map(episode => ({ ...one("outline", episode.id), context_only: true }))];
   // 本集规划不是节点，改动后按全集上下文检查各集改编的依赖。
   if (business === "episode-plot")
     return [one("episode-summary", id), ...p.episodes.map(episode => ({ ...one('outline', episode.id), context_only: true }))];
@@ -245,7 +251,10 @@ export function downstream(snapshot, business, id) {
   if (business === "tail") {
     const list = [...e.shot_list.shots].sort((a, b) => a.sequence - b.sequence),
       next = list[list.findIndex((x) => x.id === id) + 1];
-    return next && videoType(p,e, next) === '首尾帧' ? [one('first-last-frame', next.id), one('video', next.id)] : [];
+    if (!next || !continuousPreviousShot(e,next)) return [];
+    const type=videoType(p,e,next);
+    return type === '多模态' ? [one('multimodal',next.id),one('video',next.id)]
+      : [one('first-last-frame',next.id),one('video',next.id)];
   }
   if (business === "character-setting") return [...s.costume_images.map(image => one("costume-image", image.costume_id || id)), ...roleContext()];
   if (business === "costume-setting") return [one("costume-image", id), ...roleContext()];

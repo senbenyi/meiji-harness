@@ -3,25 +3,24 @@ import { sendChat, requestTimeoutMs, requestDispatcher } from '../chat-transport
 import { recordTransfer } from '../../gateway/gateway-trace.js';
 import { publicHeaders, redactJson } from '../../gateway/redact.js';
 import { gatewayBaseUrl } from '../../../models/model-config.js';
+import { taskHeaders, taskRequest, recoverableRequest } from './task-request.js';
 
 async function generateImage(options) {
   const { url, headers, body, apiKey } = imageParameters({ ...options, taskId: options.task?.id });
+  Object.assign(headers, taskHeaders(headers, options.step));
   const { signal, fetchImpl = fetch } = options;
   signal?.throwIfAborted();
   const started = Date.now();
-  const transfer = {
+  const transfer = options.step?.recovering && recoverableRequest(options.step) ? structuredClone(recoverableRequest(options.step)) : {
     fn: 'generateImage', method: 'POST', path: url.pathname,
-    request: { method: 'POST', path: url.pathname, headers: publicHeaders(headers, apiKey), body: redactJson(body, apiKey) },
+    request: { method: 'POST', path: headers.Prefer ? url.href : url.pathname, headers: publicHeaders(headers, apiKey), body: redactJson(body, apiKey) },
   };
   const settle = result => recordTransfer(Object.assign(transfer, { durationMs: Date.now() - started, ...result }));
   await recordTransfer(transfer);
   let response, data;
   try {
     const timeout = AbortSignal.timeout(requestTimeoutMs);
-    response = await fetchImpl(url, {
-      method: 'POST', headers, body: JSON.stringify(body), dispatcher: requestDispatcher,
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-    });
+    response = await taskRequest({ url, headers, body }, { ...options, fetchImpl, signal: signal ? AbortSignal.any([signal, timeout]) : timeout }, requestDispatcher);
     const text = await response.text();
     try { data = JSON.parse(text); } catch { data = text; }
   } catch (error) {
@@ -43,22 +42,20 @@ async function generateImage(options) {
 
 async function generateVideo(options) {
   const { url, headers, body, apiKey } = videoParameters({ ...options, taskId: options.task?.id });
+  Object.assign(headers, taskHeaders(headers, options.step));
   const { signal, fetchImpl = fetch } = options;
   signal?.throwIfAborted();
   const started = Date.now();
-  const transfer = {
+  const transfer = options.step?.recovering && recoverableRequest(options.step) ? structuredClone(recoverableRequest(options.step)) : {
     fn: 'generateVideo', method: 'POST', path: url.pathname,
-    request: { method: 'POST', path: url.pathname, headers: publicHeaders(headers, apiKey), body: redactJson(body, apiKey) },
+    request: { method: 'POST', path: headers.Prefer ? url.href : url.pathname, headers: publicHeaders(headers, apiKey), body: redactJson(body, apiKey) },
   };
   const settle = result => recordTransfer(Object.assign(transfer, { durationMs: Date.now() - started, ...result }));
   await recordTransfer(transfer);
   let response, data;
   try {
     const timeout = AbortSignal.timeout(requestTimeoutMs);
-    response = await fetchImpl(url, {
-      method: 'POST', headers, body: JSON.stringify(body), dispatcher: requestDispatcher,
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-    });
+    response = await taskRequest({ url, headers, body }, { ...options, fetchImpl, signal: signal ? AbortSignal.any([signal, timeout]) : timeout }, requestDispatcher);
     const text = await response.text();
     try { data = JSON.parse(text); } catch { data = text; }
   } catch (error) {

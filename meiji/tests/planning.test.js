@@ -157,11 +157,11 @@ describe("script-review", () => {
     for(const business of ['script-split','project-characters'])
       assert.throws(()=>precheck(snapshot,{business_type:business,target_id:p.id,action:'generate'}),/剧本为空/);
   });
-  test('剧本审核路由和执行命令已退役，查询历史仍可用',()=>{
-    assert.equal(nodeRoutes['script-review'],undefined);
+  test('剧本改编审核路由与执行命令恢复，查询历史仍可用',()=>{
+    assert.ok(nodeRoutes['script-review'].actions.review);assert.ok(nodeRoutes['script-review'].actions.regenerate);
     const base={project_id:'p_'+randomUUID(),target_id:'p_'+randomUUID(),request_id:'retired',business_type:'script-review'};
     for(const command of [{type:'submit',action:'generate'},{type:'submit',action:'revise',opinion:'修改'},{type:'override'},{type:'manual-edit',content:'新文本'}])
-      assert.throws(()=>validateCommand({...base,...command}),/剧本审核已移除/);
+      assert.doesNotThrow(()=>validateCommand({...base,...command}));
     assert.doesNotThrow(()=>validateCommand({type:'query',project_id:base.project_id,task_id:'t_'+randomUUID()}));
   });
   test('概览剧本仅展示原文入口，不提供审核、修改或放行',()=>{
@@ -209,8 +209,8 @@ describe("script-review", () => {
       }
       await repo.close();
       db = new DatabaseSync(join(root, "meiji.sqlite"));
-      assert.equal(db.prepare("PRAGMA user_version").get().user_version, 26);
-      assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]);
+      assert.equal(db.prepare("PRAGMA user_version").get().user_version, 27);
+      assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]);
       db.close();
     } finally { await rm(root, { recursive: true, force: true }); }
   });

@@ -23,6 +23,13 @@ function referenceEntries(bindings, description) {
   const shots = shotMentions(description).replaceAll(', ', '、');
   return bindings.map((row, index) => {
     const picture = `<Picture ${index + 1}>`, subject = `<Subject ${index + 1}>`;
+    if (row?.kind === 'continuity') {
+      if (typeof row.name !== 'string' || !row.name.trim()) invalid('输入.referenceBindings','衔接尾帧需标明来源镜头');
+      return {
+        definition: `${subject} 对应 ${picture}，是上一镜 ${row.name} 的尾帧，只提供本镜开场衔接的人物位置、朝向、姿态、持物与动作进度。人物身份和服装以对应人物图为准，固定场景布局以场景图为准，当前可见范围和机位以本镜已审核分镜为准。`,
+        retention: `${subject}（仅本镜开场衔接）：参考 ${picture} 的结束状态，随后按本镜分镜推进动作和摄影。`,
+      };
+    }
     if (row?.kind === 'scene') {
       if (typeof row.name !== 'string' || !row.name.trim() || typeof row.description !== 'string' || typeof row.state !== 'string') invalid('输入.referenceBindings', '场景参考需含名称、固定设定与镜头状态');
       const space = tidyClauses(row.description);
@@ -42,7 +49,7 @@ function referenceEntries(bindings, description) {
 }
 
 function labelize(text, bindings) {
-  const pairs = bindings.map((row, index) => ({ name: String(row?.name || '').trim(), label: `<Subject ${index + 1}>` }))
+  const pairs = bindings.map((row, index) => ({ name: row?.kind === 'continuity' ? '' : String(row?.name || '').trim(), label: `<Subject ${index + 1}>` }))
     .filter(pair => pair.name).sort((a, b) => b.name.length - a.name.length);
   return String(text).split(/(<d>[\s\S]*?<\/d>)/g).map(part => {
     if (part.startsWith('<d>')) return part;
@@ -54,10 +61,12 @@ function referencePrompt(bindings, parts) {
   const timeline = withShot(labelize(parts.integrated_multimodal_description.trim(), bindings));
   const entries = referenceEntries(bindings, timeline);
   const labels = entries.map((_, index) => `<Subject ${index + 1}>`);
+  const continuity=bindings.findIndex(row=>row?.kind==='continuity');
+  const opening=continuity<0 ? '参考图不是开场画面或结尾画面。' : `人物及场景图提供身份、服装与固定空间。本镜首帧衔接参考 <Picture ${continuity+1}>，随后按本镜分镜推进，不把尾帧中的机位锁定到全镜。`;
   const joined = labels.length === 1 ? labels[0] : `${labels.slice(0, -1).join('、')}和${labels.at(-1)}`;
   return [
     `subject_definitions:\n${entries.map(entry => entry.definition).join('\n')}`,
-    `summary:\n[reference generation] 目标视频以 ${joined} 作为参考。参考图不是开场画面或结尾画面。动作、时间线和对白以已审核镜头描述为准。`,
+    `summary:\n[reference generation] 目标视频以 ${joined} 作为参考。${opening}动作、时间线和对白以已审核镜头描述为准。`,
     `retention_analysis:\n${entries.map(entry => entry.retention).join('\n')}`,
     `detailed_description:\n${timeline}`,
     `overall_soundscape:\n${parts.overall_soundscape.trim()}`,
@@ -82,6 +91,20 @@ function approvedTextMatches(packed, parts, keys, bindings) {
   }
 }
 
+// 原始audio可能包含比画面拍更短的发声区间，按原文传递而不将拍长当作对白时长。
+function speechTimingText(rows) {
+  if (rows === undefined) return '';
+  if (!Array.isArray(rows)) invalid('输入.speechTiming','需为数组');
+  for (const row of rows) {
+    if (!row || typeof row.time_range !== 'string' || typeof row.audio !== 'string' ||
+        !Array.isArray(row.speakers) || row.speakers.some(name=>typeof name !== 'string'))
+      invalid('输入.speechTiming','需含画面节拍范围、声音安排与说话人列表');
+  }
+  if (!rows.length) return '';
+  return '对白时序依据：仅约束下文已有对白，不新增或重说台词。画面节拍范围不是整段发声时长；具体发声起止沿用声音安排，未明确的秒数不推算。\n' +
+    rows.map((row,index)=>`${index+1}. 画面节拍范围：${row.time_range}；发声者：${row.speakers.join('、')}；声音安排：${row.audio}`).join('\n');
+}
+
 // 程序编排：只使用已审核三段，不调用文本模型，不推断业务类型。
 export function videoRequest(input, action = 'generate') {
   const keys = storyboard.actions.generate.output.sections;
@@ -103,6 +126,8 @@ export function videoRequest(input, action = 'generate') {
       invalid('输入.referenceBindings', '需按多模态参考图顺序一图一项');
     if (input.packedPrompt === undefined) body = referencePrompt(input.referenceBindings, parts);
   }
+  const timing = speechTimingText(input.speechTiming);
+  if (timing) body = `${timing}\n\n${body}`;
   if (action === 'regenerate') {
     if (typeof input.opinion !== 'string' || !input.opinion.trim()) invalid('输入.opinion', '修订意见不能为空');
     body += `\n\nRevision instructions:\n${input.opinion}`;

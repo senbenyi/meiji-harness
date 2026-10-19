@@ -8,7 +8,8 @@ function copyButton(title, section) {
     event.stopPropagation();
     copy.disabled = true;
     try {
-      const text = [...section.querySelectorAll('h3, h4, pre.skill-text:not(.skill-contract), textarea[aria-label="基础规则"], textarea[aria-label="补充规则"]')].map(node => node.tagName === 'TEXTAREA' ? node.value : node.textContent).join('\n\n');
+      const text = [...section.querySelectorAll('pre.skill-text, textarea')]
+        .map(node => node.tagName === 'TEXTAREA' ? node.value : node.textContent).join('\n\n');
       await navigator.clipboard.writeText(text);
       copy.textContent = '已复制';
     } catch {
@@ -20,9 +21,9 @@ function copyButton(title, section) {
   return copy;
 }
 
-function ruleInput(label, value, onCommit) {
+function ruleInput(label, value, onCommit, showLabel = true) {
   const wrap = element('label', '', 'skill-rule-input');
-  wrap.append(element('span', label));
+  if (showLabel) wrap.append(element('span', label));
   const area = element('textarea');
   area.value = value;
   area.setAttribute('aria-label', label);
@@ -36,7 +37,15 @@ function ruleInput(label, value, onCommit) {
   return wrap;
 }
 
-export function renderSkillDetail({ label, rules: savedRules, opinion }, { load, back, onOpinion, onRule, onSync }) {
+function ruleCard(title, className) {
+  const card = element('section', '', `settings-group skill-rule-card ${className}`);
+  const head = element('div', '', 'skill-rule-head');
+  head.append(element('h3', title), copyButton(title, card));
+  card.append(head);
+  return card;
+}
+
+export function renderSkillDetail({ label, rules: savedRules, opinion }, { load, back, onOpinion, onRule }) {
   const page = element('section', '', 'settings-page skill-detail skill-detail-page');
   const button = (title, action) => {
     const b = element('button', title);
@@ -45,31 +54,31 @@ export function renderSkillDetail({ label, rules: savedRules, opinion }, { load,
   };
   const header = () => {
     const head = element('header', '', 'skill-page-head');
-    head.append(button('← 返回', back), element('h2', `${label} · 规则`), button('同步基础规则', onSync));
+    head.append(button('← 返回', back), element('h2', `${label} · 规则`));
     return head;
   };
   const loadPage = () => {
     page.replaceChildren(header(), element('p', '正在读取…', 'skill-status'));
     Promise.resolve().then(load).then(rules => {
       const sections = new Map();
-      for (const [key, title, content] of [
-        ['generate', '生成规则', rules.generate || '本节点没有生成规则。'],
-        ['revise', '修订规则', rules.revise || '本节点没有修订规则。'],
-        ['review', '审核规则', rules.review || '本节点没有 AI 审核。'],
+      for (const [key, content] of [
+        ['generate', rules.generate || '本节点没有生成规则。'],
+        ['revise', rules.revise || '本节点没有修订规则。'],
+        ['review', rules.review || '本节点没有 AI 审核。'],
       ]) {
-        const section = element('section', '', 'settings-group skill-base');
+        const section = element('section', '', 'skill-rule-tab');
         section.dataset.rules = key;
         section.hidden = key !== 'generate';
-        const head = element('div', '', 'skill-rule-head');
-        head.append(element('h3', title), copyButton(title, section));
-        section.append(head);
-        if (savedRules) {
-          section.append(ruleInput('基础规则', savedRules[key].base, (value, commit) => onRule?.(key, 'base', value, commit)),
-            ruleInput('补充规则', savedRules[key].supplement, (value, commit) => onRule?.(key, 'supplement', value, commit)));
-        }
-        section.append(element('pre', content, 'skill-text skill-contract'));
+        const supplement = ruleCard('补充规则', 'skill-supplement-card');
+        supplement.append(ruleInput('补充规则', savedRules?.[key]?.supplement || '',
+          (value, commit) => onRule?.(key, 'supplement', value, commit), false));
+        section.append(supplement);
+        const base = ruleCard('基础规则', 'skill-base');
+        const text = [savedRules?.[key]?.base, content].filter(Boolean).join('\n\n');
+        base.append(element('pre', text, 'skill-text'));
+        section.append(base);
         if (key === 'revise' && rules.revise) section.append(ruleInput('本次修改意见', opinion || '', (value, commit) => onOpinion?.(value, commit)));
-        section.append(element('p', '各动作的补充规则独立使用；冲突请人工修改。输出格式和程序校验由节点契约约束。', 'skill-rule-note'));
+        section.append(element('p', '基础规则由代码维护；各动作的补充规则独立使用，冲突请调整补充规则。', 'skill-rule-note'));
         sections.set(key, section);
       }
       const nav = tabs('规则', [['generate', '生成规则'], ['revise', '修订规则'], ['review', '审核规则']], 'generate', key => {
