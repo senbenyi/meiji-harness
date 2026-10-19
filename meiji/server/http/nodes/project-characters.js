@@ -1,4 +1,4 @@
-import promptModel from '../../prompts/models/project-characters.js';
+import promptModel from '../../../shared/prompt-models/project-characters.js';
 import { commonValues } from '../../prompts/inputs.js';
 
 const output0 = {

@@ -168,7 +168,7 @@ describe("ai-routes", () => {
     const ai = createAiRoutes({ readConfig: async () => { reads++; return config; }, gateway: { chat: async () => { requests++; return '结果'; } } });
     await assert.rejects(ai('script-split', 'unknown-action', input), /不存在/);
     await assert.rejects(ai('project-summary', 'generate', { ...input, prompt: '绕过' }), /未定义参数/);
-    await assert.rejects(ai('project-summary', 'generate', { ...input, rules: [{}] }), /未定义参数/);
+    await assert.rejects(ai('project-summary', 'generate', { ...input, rules: [{}] }), /输入.rules/);
     assert.equal(reads, 0); assert.equal(requests, 0);
   });
 

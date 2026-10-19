@@ -1,6 +1,6 @@
 import { invalid } from '../../../shared/task_contract.js';
 import { validateShape } from '../validate-shape.js';
-import promptModel from '../../prompts/models/seconds.js';
+import promptModel from '../../../shared/prompt-models/seconds.js';
 import { commonValues } from '../../prompts/inputs.js';
 
 const output0 = {

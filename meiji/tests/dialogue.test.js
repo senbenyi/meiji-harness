@@ -62,7 +62,7 @@ describe("seconds-continuity", () => {
     const { s, e, first, second } = chain();
     second.continuity_transition = '切到次日室外，不延续前镜室内动作';
     const task = taskFixture(s.project, 'seconds', second.id, { opinion: '保持本镜开场' });
-    const content = { ...second.seconds_storyboard }; delete content.node_state;
+    const content = { ...second.seconds_storyboard }; delete content.node_state; delete content.rules;
     for (const action of ['generate', 'review', 'regenerate']) {
       const input = taskNodeInput(s, task, content, action);
       const prompt = composeNodePrompt('seconds', action, input, 'qwen3.5:27b');
@@ -123,7 +123,7 @@ describe("seconds-continuity", () => {
     const { s, second } = chain(), task = taskFixture(s.project, 'seconds', second.id);
     const input = taskNodeInput(s, task, null, 'generate');
     assert.throws(() => composeNodePrompt('seconds', 'generate', { ...input, previous: {} }, 'qwen3.5:27b'), /输入.previous/);
-    const content = { ...second.seconds_storyboard }; delete content.node_state;
+    const content = { ...second.seconds_storyboard }; delete content.node_state; delete content.rules;
     assert.throws(() => validateNodeResult('seconds', 'generate', { ...content, end_state: '' }, input), /结束状态不能为空/);
     const dom = new JSDOM('<main></main>'), old = globalThis.document;
     globalThis.document = dom.window.document;
@@ -166,7 +166,7 @@ describe("seconds-continuity", () => {
       db = new DatabaseSync(path);
       assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(), steps);
       assert.deepEqual(db.prepare('SELECT id,task_status FROM tasks').all(), tasks);
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 25);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 26);
       assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
       db.close();
       store = new SQLiteStore(path);

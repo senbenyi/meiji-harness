@@ -24,7 +24,7 @@ describe("outline-inputs", () => {
     p.episodes = [e];
     if (mode === "剧本") p.script.body = e.plot = "林峥醒来，发现自己成为武松。";
     else { p.creative_direction = "方向哨兵，不得代替剧情"; e.plot = "少年在雨夜的未来都市找到兄长留下的红色纸条。"; }
-    if (action === "regenerate") e.story_outline = {
+    if (action === "regenerate") e.story_outline = { ...e.story_outline,
       node_state: { status: "generated", reason: "", dependency_hash: "" }, segments: [{ sequence: 1, duration_seconds: 10, body: "已有剧情", causal: "" }],
     };
     const task = { business_type: "outline", target_id: e.id, action,
@@ -71,11 +71,11 @@ describe("outline-inputs", () => {
     test(`${mode} 摘要的空/失败/过期/无效生成状态均不阻断剧情`, () => {
       const { p, task } = fixture(mode);
       for (const state of ["empty", "failed", "expired", "generated"]) {
-        p.project_summary = { node_state: { status: state, reason: state === "failed" || state === "expired" ? "旧原因" : "", dependency_hash: "" }, body: "", script_version: 1 };
+        p.project_summary = { ...p.project_summary, node_state: { status: state, reason: state === "failed" || state === "expired" ? "旧原因" : "", dependency_hash: "" }, body: "", script_version: 1 };
         assert.equal(precheck({ project: p }, task).passed, true);
       }
       p.episodes[0].plot = " \n ";
-      p.project_summary = { node_state: { status: "generated", reason: "", dependency_hash: "" }, body: "有效摘要不能替代必需输入", script_version: 1 };
+      p.project_summary = { ...p.project_summary, node_state: { status: "generated", reason: "", dependency_hash: "" }, body: "有效摘要不能替代必需输入", script_version: 1 };
       if (mode === "剧本") p.creative_direction = "不能替代剧本";
       else p.script.body = "不能替代创作方向";
       assert.throws(() => precheck({ project: p }, task), /本集剧情为空/);
@@ -135,7 +135,7 @@ describe("outline-inputs", () => {
         const { p, e } = fixture(mode);
         if (mode === "剧本") { p.episodes[0].plot = " "; p.creative_direction = "其他资料"; }
         else { e.plot = " "; p.creative_direction = "其他资料"; }
-        p.project_summary = { node_state: { status: "generated", reason: "", dependency_hash: "" }, body: "已有摘要", script_version: 1 };
+        p.project_summary = { ...p.project_summary, node_state: { status: "generated", reason: "", dependency_hash: "" }, body: "已有摘要", script_version: 1 };
         const repository = new ModelRepository(root), model = await repository.create(p);
         let calls = 0;
         const service = new TaskService({ repository, commitOutput: commitContent,

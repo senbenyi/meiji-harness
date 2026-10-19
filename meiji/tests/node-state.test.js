@@ -194,7 +194,7 @@ describe("node-data-state", () => {
       const migrated=(await repo.open(p.id)).read();
       assert.equal(migrated.project.episodes[0].summary.node_state.status,'generated');
       assert.equal(migrated.project.episodes[0].summary.body,before.project.episodes[0].summary.body);
-      assert.equal(migrated.runtime.revision,before.runtime.revision+2);
+      assert.equal(migrated.runtime.revision,before.runtime.revision+3);
       await repo.close();repo=new ModelRepository(root);
       assert.deepEqual((await repo.open(p.id)).read(),migrated);
     }finally{await repo.close();await rm(root,{recursive:true,force:true});}

@@ -195,13 +195,33 @@ describe("api-session", () => {
 
   test("面板可加载英文共享契约及嵌套Model模块，拒绝越界模块路径", () =>
     httpFixture(async ({ base }) => {
-      for (const path of ["task_contract.js", "project_contract.js", "models/costume_image_model.js", "models/node_state_model.js"]) {
+      for (const path of ["task_contract.js", "project_contract.js", "models/costume_image_model.js", "models/node_state_model.js", "prompt-models/outline.js"]) {
         const response = await fetch(`${base}/plugins/meiji/shared/${path}`);
         assert.equal(response.status, 200, path);
         assert.match(response.headers.get("content-type"), /javascript/);
       }
       const response = await fetch(`${base}/plugins/meiji/shared/models/%2e%2e%2fserver.js`);
       assert.equal(response.status, 404);
+    }));
+
+  test('真实HTTP可加载workbench完整模块图，所有浏览器依赖均可获取', () =>
+    httpFixture(async ({base}) => {
+      const visited = new Set();
+      async function visit(url) {
+        if (visited.has(url.pathname)) return;
+        visited.add(url.pathname);
+        assert.equal(url.origin,base,'浏览器依赖必须来自本服务');
+        const response = await fetch(url);
+        assert.equal(response.status,200,url.pathname);
+        assert.match(response.headers.get('content-type'),/javascript/,url.pathname);
+        const source = await response.text();
+        for (const [,path] of source.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*)['"]([^'"]+)['"]/g)) {
+          assert.ok(path.startsWith('.') || path.startsWith('/plugins/meiji/'),`非浏览器依赖 ${path}`);
+          await visit(new URL(path,url));
+        }
+      }
+      await visit(new URL('/plugins/meiji/client/workbench.js',base));
+      assert.ok(visited.has('/plugins/meiji/shared/prompt-models/storyboard.js'));
     }));
 
   test("面板快照只含未结束任务；已结束任务经项目关联ID按需读取摘要、详情与历史", () =>
@@ -503,7 +523,7 @@ describe("boundaries", () => {
       ]).characters;
       const c = p.character_library.characters[0];
       c.voice = "旧声音";
-      c.costume_images[0] = { costume_id: c.costumes[0].id, node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "original.png" };
+      c.costume_images[0] = { ...c.costume_images[0], costume_id: c.costumes[0].id, node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "original.png" };
       for (const image of c.costume_images)
         Object.assign(image, { node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "costume.png" });
       const model = await runtime.repository.create(p);

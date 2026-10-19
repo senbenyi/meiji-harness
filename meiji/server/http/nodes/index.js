@@ -28,6 +28,8 @@ const routes = {
 
 // 公共审核扩展只编排一次；渲染、HTTP校验和规则面板读取同一契约。
 export const nodeRoutes = Object.fromEntries(Object.entries(routes).map(([node, route]) => {
+  route = { ...route, actions: Object.fromEntries(Object.entries(route.actions).map(([action, contract]) =>
+    [action, { ...contract, input: { ...contract.input, rules: ['object', 'undefined'] } }])) };
   if (!route.actions.review) return [node, route];
   const resolved = reviewPolicy(node, 'review', route, route.actions.review);
   return [node, { ...resolved.route, actions: { ...route.actions, review: resolved.contract } }];

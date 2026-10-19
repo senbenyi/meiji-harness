@@ -17,10 +17,22 @@ import { precheck } from "../server/flow/tasks/precheck.js";
 import { validateCommand } from "../shared/task_contract.js";
 import { nodeRoutes } from "../server/http/nodes/index.js";
 import { renderTaskPanel } from "../client/task-panel.js";
-import { splitBudget } from "../server/prompts/duration-policy.js";
+import { splitBudget, declaredStoryDuration } from "../server/prompts/duration-policy.js";
 import { commitContent } from "../server/handlers/content.js";
 
 describe("script-split", () => {
+  test('明确全集预算核对各集合计，约略或剧情内时长不作硬预算', () => {
+    assert.equal(declaredStoryDuration('总时长：10分00秒（600秒）\n正文'), 600);
+    assert.equal(declaredStoryDuration('总时长：600秒'), 600);
+    assert.equal(declaredStoryDuration('总时长：约10分钟'), null);
+    assert.equal(declaredStoryDuration('总时长：10分钟左右'), null);
+    assert.equal(declaredStoryDuration('他问总时长：10分钟'), null);
+    assert.deepEqual(splitBudget(150, 600), { target_seconds: 150, min_seconds: 120, max_seconds: 180, tolerance_seconds: 30, total_seconds: 600, min_episodes: 4, max_episodes: 5, preferred_episodes: 4 });
+    const row = n => ({ 序号: n, 本集规划: `第${n}集的完整事件与结果`, 预估时长秒: 150 });
+    assert.throws(() => buildSplit('总时长：10分00秒（600秒）\n正文', { 剧集: [1,2,3,4,5].map(row) }, 150), /750秒.*600秒/);
+    assert.equal(buildSplit('总时长：10分00秒（600秒）\n正文', { 剧集: [1,2,3,4].map(row) }, 150).episodes.length, 4);
+    assert.equal(buildSplit('正文没有明确整部预算', { 剧集: [1,2,3,4,5].map(row) }, 150).episodes.length, 5);
+  });
   const script = '甲为寻找兄长进入旧城。乙藏起真相。甲找到线索，最终救出兄长。';
   const rows = [
     { 序号: 1, 本集规划: '甲进入旧城寻找兄长，与乙发生冲突；获得被隐瞒的线索，结尾决定追查。', 预估时长秒: 150 },
@@ -197,8 +209,8 @@ describe("script-review", () => {
       }
       await repo.close();
       db = new DatabaseSync(join(root, "meiji.sqlite"));
-      assert.equal(db.prepare("PRAGMA user_version").get().user_version, 25);
-      assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21, 22, 23, 24, 25]);
+      assert.equal(db.prepare("PRAGMA user_version").get().user_version, 26);
+      assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]);
       db.close();
     } finally { await rm(root, { recursive: true, force: true }); }
   });

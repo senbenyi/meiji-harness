@@ -377,7 +377,7 @@ describe("task-history", () => {
       assert.equal(dependencyHash(current, 'seconds', task.target_id), dependencyHash(before, 'seconds', task.target_id));
       assert.equal(upgraded.history(p.id).task(task.id).task_status, 'completed');
       db = new DatabaseSync(join(home, 'meiji.sqlite'));
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 25); db.close();
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 26); db.close();
       const again = new ModelRepository(home);
       try { assert.deepEqual((await again.open(p.id)).read(), current); } finally { await again.close(); }
     } finally { await upgraded.close(); }

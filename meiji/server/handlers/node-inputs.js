@@ -1,3 +1,4 @@
+import { nodeRequirements, ruleNode, ruleAction } from '../../shared/ai-node-rules.js';
 import { sceneCatalog } from '../../shared/scene-inputs.js';
 import { shotTextInputs, characterTextCatalog } from '../../shared/shot-text-inputs.js';
 import { nodeOf, locateTarget } from '../../shared/task_contract.js';
@@ -52,7 +53,7 @@ const inputs = {
   'episode-summary': ({ episode }) => ({ plot: adaptedStory(episode) || episode.plot }),
   outline: ({ project, episode }) => ({ plot: episode.plot, duration: episode.duration_seconds,
     ...adaptationContext(project, episode), sequence: episode.sequence,
-    requirements: [project.creative_direction, episode.episode_requirements].filter(Boolean).join('\n') }),
+    requirements: nodeRequirements(project, 'outline', episode.id) }),
   'episode-scenes': ({project,episode}) => ({segments:episode.story_outline.segments,scenes:sceneCatalog(project),script:scriptText(project.script.body) || project.episodes.map(e=>e.plot).join('\n\n')}),
   shots: ({ project, episode }) => ({ segments: episode.story_outline.segments, duration: episode.duration_seconds,
     characters: shotCharacterContext(project), scenes: sceneCatalog(project, episode) }),
@@ -79,7 +80,7 @@ function taskSteps(snapshot, taskId, options) {
 export function taskNodeInput(snapshot, task, draft, action, step = {}, language = "zh-CN") {
   const project = snapshot.project, business = task.business_type;
   const target = locateTarget(project, business, task.target_id);
-  const value = { language, requirements: project.creative_direction || '',
+  const value = { language, rules: structuredClone(ruleNode(project, business, task.target_id).rules[ruleAction(action)]), requirements: nodeRequirements(project, business, task.target_id),
     ...inputs[business]({ project, ...target }) };
   if (action === 'generate' && business === 'script-split') value.opinion = task.opinion || '';
   else if (action === 'generate' && task.opinion?.trim())

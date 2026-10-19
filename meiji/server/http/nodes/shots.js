@@ -1,6 +1,6 @@
 import { resolveShotPatch } from '../shot-patch.js';
 import { shotsBudget } from '../../prompts/duration-policy.js';
-import promptModel, { shotJsonRules } from '../../prompts/models/shots.js';
+import promptModel, { shotJsonRules } from '../../../shared/prompt-models/shots.js';
 import { invalid } from '../../../shared/task_contract.js';
 import { commonValues } from '../../prompts/inputs.js';
 

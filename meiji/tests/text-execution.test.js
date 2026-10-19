@@ -14,6 +14,32 @@ import { emptyCharacterModel } from "../shared/models/character_model.js";
 import { validateCommand } from "../shared/task_contract.js";
 
 describe("text-tasks", () => {
+  test('文本漏Shot标记保留原候选进入正常修订，修订后审核通过，不取消后续任务', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'meiji-marker-repair-'));
+    const repository = new ModelRepository(root), p = projectFixture();
+    const model = await repository.create(p), shot = p.episodes[0].shot_list.shots[0];
+    const valid = output(p, 'storyboard'), missing = valid.replace('[Shot 1] ', '');
+    const requests = [];
+    const text = createTextHandler({ chat: async ({ step, messages }) => {
+      requests.push({ kind: step.kind, messages });
+      if (step.kind === 'review') return { 是否通过: true, 类型: '', 原因: '' };
+      return step.kind === 'revise' ? valid : missing;
+    } });
+    const service = new TaskService({ repository, commitOutput: commitContent, execute: createHandlerRegistry({ text }) });
+    try {
+      const { task_id } = await service.command({ type: 'submit', project_id: p.id, business_type: 'storyboard', target_id: shot.id, action: 'regenerate', opinion: '', request_id: 'marker-repair' });
+      await service.idle(p.id);
+      const state = model.readAll(), task = state.tasks.find(t => t.id === task_id);
+      assert.equal(task.task_status, 'completed', task.end_reason);
+      const rejection = state.steps.find(s => s.task_id === task_id && s.step_status === 'rejected');
+      assert.equal(rejection.executor, 'program');
+      assert.match(rejection.error_reason, /Shot 1/);
+      const revision = requests.find(r => r.kind === 'revise');
+      assert.equal(revision.messages[2].content, missing);
+      assert.match(revision.messages.at(-1).content, /Shot 1/);
+      assert.match(state.project.episodes[0].shot_list.shots[0].text_to_video_prompt.integrated_multimodal_description, /\[Shot 1\]/);
+    } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
+  });
   const cases = [
     "project-summary",
     "project-characters",

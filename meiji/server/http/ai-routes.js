@@ -13,6 +13,8 @@ import { llmServerClient, videoContentAddress } from './llm-server/client.js';
 import { withGatewayTrace } from '../gateway/gateway-trace.js';
 import { stepPrompt } from '../data/step-records.js';
 import { generateGatewayImage, submitGatewayVideo } from '../gateway/model-gateway.js';
+import { defaultRules } from '../../shared/rule-defaults.js';
+import { ruleAction } from '../../shared/ai-node-rules.js';
 
 export { nodeRoutes };
 const clients = { codex: llmServerClient, elysium: elysiumClient, 'llm-server': llmServerClient };
@@ -37,9 +39,20 @@ export function composeNodePrompt(node, action, input, model) {
   const { route, contract } = nodeAction(node, action);
   validateInput(input, contract.input);
   route.validateInput?.(input, action);
-  if (route.render) return route.render(input, action, contract.output);
+  const rules = input.rules ?? defaultRules(node)[ruleAction(action)];
+  assertRecord(rules, '输入.rules');
+  if (Object.keys(rules).length !== 2 || typeof rules.base !== 'string' || typeof rules.supplement !== 'string') invalid('输入.rules', '需包含base、supplement两个文本字段');
+  if (route.render) {
+    const composed = route.render(input, action, contract.output);
+    const prefix = [rules.base, rules.supplement].filter(value => value.trim()).join('\n\n');
+    if (prefix) composed.request.prompt = `${prefix}\n\n${composed.request.prompt}`;
+    return { ...composed, user: composed.request.prompt, body: composed.request.prompt };
+  }
   const provider = ['图片', '视频'].includes(contract.output.type) ? 'elysium' : textProvider(model);
-  return renderPrompt(route.promptModel, action, route.compose(input), contract.output, provider);
+  const stage = route.promptModel[action];
+  const promptModel = { ...route.promptModel, [action]: { ...stage,
+    system: { ...stage.system, 规则: rules.base, 补充规则: '{{节点补充规则}}' } } };
+  return renderPrompt(promptModel, action, { ...route.compose(input), 节点补充规则: rules.supplement }, contract.output, provider);
 }
 
 export function validateNodeResult(node, action, value, input) {
@@ -92,7 +105,7 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
           result = validateNodeResult(node, action, result, input);
         }
         catch (error) {
-          if ((contract.output.type === 'JSON' || error.validationKind === 'dialogue-preservation') && action !== 'review' && error.code === 'INVALID_CONTRACT')
+          if ((contract.output.type === 'JSON' || ['dialogue-preservation', 'prompt-format'].includes(error.validationKind)) && action !== 'review' && error.code === 'INVALID_CONTRACT')
             Object.assign(error, { candidate: structuredClone(result), prompt, http });
           throw error;
         }

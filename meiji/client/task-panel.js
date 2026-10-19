@@ -1,3 +1,4 @@
+import { ruleNode } from '../shared/ai-node-rules.js';
 import { aspectRatioOfSize } from '../shared/media-parameters.js';
 import { sceneCatalog } from '../shared/scene-inputs.js';
 import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph, reviewTypeLabel, reasonHeading } from './node-task-status.js';
@@ -58,7 +59,7 @@ const names = {
 function payload(node) {
   const walk = (value) => Array.isArray(value) ? value.map(walk)
     : value && typeof value === "object" ? Object.fromEntries(Object.entries(value)
-      .filter(([key]) => !["id", "node_state", "script_version", "character_image", "costume_images", "reference_image"].includes(key))
+      .filter(([key]) => !["rules", "id", "node_state", "script_version", "character_image", "costume_images", "reference_image"].includes(key))
       .map(([key, child]) => [key, walk(child)])) : value;
   return walk(node);
 }
@@ -135,7 +136,7 @@ function hasContent(value) {
   if (Array.isArray(value)) return value.some(hasContent);
   if (!value || typeof value !== "object") return false;
   return Object.entries(value).some(([key, child]) =>
-    !["id", "node_state", "script_version", "number", "sequence", "duration_seconds", "actual_duration_seconds", "costume_id"].includes(key) && hasContent(child));
+    !["rules", "id", "node_state", "script_version", "number", "sequence", "duration_seconds", "actual_duration_seconds", "costume_id"].includes(key) && hasContent(child));
 }
 export function renderSettings(root, { busy = false, settings, saveSettings, back }) {
   const page = element("section", "", "settings-page"),
@@ -532,22 +533,18 @@ export function renderTaskPanel(root, snapshot, context) {
   else if (state.page === 'skill') {
     const business = state.rule_business;
     const opinionKey = `${business}:${state.rule_target}`;
-    const supplement = business === 'outline'
-      ? { label: '本集要求', value: p.episodes.find(e => e.id === state.rule_target)?.episode_requirements || '' }
-      : ['costume-image', 'video'].includes(business) ? null
-      : { label: '补充需求', value: p.creative_direction || '' };
+    const rules = ruleNode(p, business, state.rule_target).rules;
     root.append(renderSkillDetail({
       label: names[business] || business,
-      supplement,
+      rules,
       opinion: state.opinions?.[opinionKey] || '',
     }, {
       onOpinion: value => { state.opinions ??= {}; state.opinions[opinionKey] = value; },
-      onSupplement: (value, commit) => {
+      onRule: (action, field, value, commit) => {
         if (!commit) return;
-        return business === 'outline'
-          ? act({ type: 'edit-episode', episode_id: state.rule_target, fields: { episode_requirements: value } }, true)
-          : act({ type: 'edit', fields: { creative_direction: value } }, true);
+        return act({ type: 'edit-rule', business_type: business, target_id: state.rule_target, action, field, value }, true);
       },
+      onSync: () => act({ type: 'sync-base-rules', business_type: business, target_id: state.rule_target }, true),
       load: () => request('rules?' + new URLSearchParams({ session_id, project_id: p.id, business })),
       back: () => go(state.rule_return || 'overview'),
     }));

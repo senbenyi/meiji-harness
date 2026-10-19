@@ -1,3 +1,4 @@
+import { ruleNode, supportsRules } from './ai-node-rules.js';
 import { adaptationContext, adaptedStory } from './adaptation-context.js';
 import { sceneCatalog, sceneText, sceneImageContext } from './scene-inputs.js';
 import { videoType, videoPack, previousShot, videoImages } from './video-inputs.js';
@@ -45,6 +46,7 @@ function dependencyMaterial(snapshot, business, id) {
   const body = (node) => {
     const copy = { ...node };
     delete copy.node_state;
+    delete copy.rules;
     return copy;
   };
   if (["script-review", "project-summary", "project-characters"].includes(business))
@@ -125,8 +127,10 @@ function dependencyMaterial(snapshot, business, id) {
 }
 
 export function dependencyHash(snapshot, business, id) {
+  const material = dependencyMaterial(snapshot, business, id);
+  const rules = supportsRules(business) ? ruleNode(snapshot.project, business, id).rules : null;
   return createHash("sha256")
-    .update(canonical(dependencyMaterial(snapshot, business, id)))
+    .update(canonical(rules ? { ...material, rules } : material))
     .digest("hex");
 }
 

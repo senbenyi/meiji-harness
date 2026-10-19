@@ -1,3 +1,4 @@
+import { defaultRules } from '../shared/rule-defaults.js';
 import { elysiumClient } from "../server/http/elysium/client.js";
 import { parseJsonValue } from "../server/prompts/parse-json.js";
 import test, { describe } from "node:test";
@@ -243,10 +244,10 @@ describe("http-contracts", () => {
       assert.equal(payload.seconds, '5');
       assert.equal(payload.size, '1024x576');
       assert.ok(payload.prompt.includes(text));
-      if (input.type === '首尾帧') assert.equal(payload.prompt, "首帧为上一镜的尾帧，用作本镜0秒的开场画面。随后动作、运镜与声音按下文已审核分镜推进，本镜结尾画面落在分镜的最后一拍。\n\n" + text);
+      if (input.type === '首尾帧') assert.equal(payload.prompt, defaultRules('video').generate.base + '\n\n' + "首帧为上一镜的尾帧，用作本镜0秒的开场画面。随后动作、运镜与声音按下文已审核分镜推进，本镜结尾画面落在分镜的最后一拍。\n\n" + text);
       assert.doesNotMatch(payload.prompt, /# 角色|# 输出格式|视频制作执行器/);
       assert.deepEqual(Object.keys(payload).sort(), ['model', 'prompt', 'seconds', 'size', ...(input.type === '首尾帧' ? ['input_reference'] : input.type === '多模态' ? ['reference_images'] : [])].sort());
-      if (input.type !== '首尾帧') assert.equal(payload.prompt, text);
+      if (input.type !== '首尾帧') assert.equal(payload.prompt, defaultRules('video').generate.base + '\n\n' + text);
     }
   });
 
@@ -322,7 +323,7 @@ describe("http-contracts", () => {
   test('HTTP 输出拒绝空段落及互相矛盾的审核结果，规则拒绝未声明字段', () => {
     assert.throws(() => validateNodeResult('storyboard', 'generate', text.replace('Wind.', '')), /不能为空/);
     for (const review of [{ 是否通过: true, "类型": "", 原因: '但有问题' }, { 是否通过: false, "类型": "模型问题", 原因: ' ' }]) assert.throws(() => validateNodeResult('project-summary', 'review', review), /原因/);
-    assert.throws(() => composeNodePrompt('project-summary', 'generate', { ...common, script: '剧本', rules: [{ constraint: '必须', content: '保持剧情', output: {} }] }, 'elysium-chat'), /未定义/);
+    assert.throws(() => composeNodePrompt('project-summary', 'generate', { ...common, script: '剧本', rules: [{ constraint: '必须', content: '保持剧情', output: {} }] }, 'elysium-chat'), /输入.rules/);
   });
 
   test('定妆照拒绝多个或非字符串参考图，不进入模型请求', async () => {

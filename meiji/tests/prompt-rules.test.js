@@ -6,7 +6,7 @@ import { nodeRoutes } from "../server/http/nodes/index.js";
 
 describe("rule-source", () => {
   const root = new URL('..', import.meta.url).pathname;
-  const modelsDir = join(root, 'server/prompts/models');
+  const modelsDir = join(root, 'shared/prompt-models');
   const sources = [
     ...readdirSync(modelsDir).filter(f => f.endsWith('.js')).map(f => join(modelsDir, f)),
     join(root, 'server/http/nodes/video.js'),

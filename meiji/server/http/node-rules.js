@@ -19,13 +19,14 @@ export function nodeRules(business) {
     const resolved = route.actions[name] ? nodeAction(business, name) : null;
     const stage = resolved?.route.promptModel?.[name] || route.promptModel?.[name];
     const output = resolved?.contract.output;
-    return stage ? [text(stage.system), stage.user?.任务 ? `任务：\n${stage.user.任务}` : '', output ? `输出格式：\n${JSON.stringify(outputFormat(output), null, 2)}` : ''].filter(Boolean).join('\n\n') : '';
+    const system = stage && Object.fromEntries(Object.entries(stage.system).filter(([key]) => key !== '规则'));
+    return [text(system), stage?.user?.任务 ? `任务：\n${stage.user.任务}` : '', output ? `输出格式：\n${JSON.stringify(outputFormat(output), null, 2)}` : ''].filter(Boolean).join('\n\n');
   };
   const program = definition.programReview ? '本节点另有程序审核，按节点结构、时长或引用约束判定。' : '';
   return {
     business, label: definition.label,
-    generate: action('generate') || route.rules?.generate || '本节点没有生成规则。',
-    revise: action('regenerate') || route.rules?.revise || '',
+    generate: action('generate'),
+    revise: action('regenerate'),
     review: [definition.aiReview ? action('review') : '本节点没有 AI 审核。', program].filter(Boolean).join('\n\n'),
   };
 }

@@ -1,4 +1,4 @@
-import promptModel from '../../prompts/models/scene-image.js';
+import promptModel from '../../../shared/prompt-models/scene-image.js';
 import costume from './costume-image.js';
 import { commonValues } from '../../prompts/inputs.js';
 const input={language:'string',requirements:'string',scene:'object',context:['object','undefined'],aspectRatio:'string',references:'array'};

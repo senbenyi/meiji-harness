@@ -16,7 +16,7 @@ import { buildSplit } from "./script-split.js";
 export function aiProjection(value) {
   const walk = (item) => Array.isArray(item) ? item.map(walk) : item && typeof item === "object"
     ? Object.fromEntries(Object.entries(item).flatMap(([key, data]) => {
-        if (["id", "node_state", "address", "reference_image", "revision_history", "new_ids", "removed_ids"].includes(key)) return [];
+        if (["rules", "id", "node_state", "address", "reference_image", "revision_history", "new_ids", "removed_ids"].includes(key)) return [];
         if (key === "speaker_id") return [[key, data]];
         if (key.endsWith("_id")) return [];
 

@@ -31,7 +31,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 | `server/flow/tasks/task-manager.js`、`precheck.js` | 项目串行、组合顺序、按节点重试轮次修订、取消/中断/继续及执行时前置核验 |
 | `server/handlers/` | 文本、媒体、人工、删除业务；返回内容，不自行结算任务 |
 | `server/http/nodes/`、`server/http/ai-routes.js` | 唯一节点输入/输出契约、节点参数编排和统一 AI 执行入口 |
-| `server/prompts/models/`、`inputs.js`、`render.js` | 节点提示要求、公共输入映射和自然语言渲染 |
+| `shared/prompt-models/`、`inputs.js`、`render.js` | 节点提示要求、公共输入映射和自然语言渲染 |
 | `server/http/elysium/`、`llm-server/` | 两个文本来源的 HTTP 单例与独立参数组装 |
 | `server/gateway/` | HTTP 协议、下载/轮询、纯请求记录及脱敏；不操作项目状态 |
 | `server/media/` | 项目范围媒体路径、FFprobe/FFmpeg 校验、尾帧与合片 |
@@ -50,7 +50,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../AGEN
 
 唯一数据库为 `$DSH_HOME/storages/meiji/meiji.sqlite`，使用 Node 内置 `node:sqlite`（^22.19.0 或 >=24）。`schema.sql` 定义 projects、task_groups、tasks、task_steps、command_requests、notification_outbox、schema_migrations 七表；任务必须归组，步骤必须归任务，顺序唯一且同项目最多一个 running 任务。`sqlite-store.js` 使用 WAL/foreign_keys/FULL、短同步事务及 revision 条件校验，变化记录增量写入；不在持锁期间调用模型或等待异步工作。ProjectModel 的写接口只允许 repository 提供的事务闭包，项目内容/任务/步骤/幂等/通知一起提交，事件发生在持久化后。卸载时等待任务和通知结束，再关闭连接。
 
-`projects/<p_UUID>/` 作为宿主工作区目录，同时保存 `project.json` 项目镜像。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 固定字段及 `node_state.{status,reason,fail_message,dependency_hash}`。当前 schema v25。v25将项目画幅从像素尺寸迁移为H3六种固定比例，默认9:16，保留已有媒体和历史，并重算迁移前有效的视频链指纹。v22将步骤提示词精简为messages并拆出独立HTTP记录、补执行方式；v23回填项目顶层最近任务/组关联。v24为镜头视频增加 `server_address`，旧项目填空字符串，不改已有本地 `address`。工作快照只保留未结束整组，历史按ID查库，步骤记录直写且不增加项目revision；详见[任务与步骤](../meiji/dev_docs/step_model.md)。v21新增项目共用场景库、剧集场景选择节点和镜头场景绑定；缺绑定的旧镜头表及下游过期，正文、媒体与历史保留。v20将旧character_binding移入镜头on_screen_characters，增加background_characters，旧镜头表及下游生成态过期，保留媒体/历史；退役识别任务不能恢复执行。v19 移除正式角色和服装资料的 number，保留原ID、媒体及绑定；按ID输入投影重写已生成节点依赖指纹，历史任务提示词与结果不改。剧本本身是节点（`script.node_state`）：v16–v18 归一为该形态，早期 v16 的独立 `script_review` 并入剧本状态，v17 的 `script.review` 结论字段移除，保留状态、原因与依赖指纹；更早版本的迁移在校验前同样先归一。v14 移除项目暂停字段；v15 将节点执行状态显式迁移为四种数据状态，保留正文、任务历史及审核原因，无法确认有效性的数据标为 expired。v9 删除项目 rules，v10 删除项目 output_language；两步都按新指纹重写已生成的角色识别、每秒分镜和文生提示词及其排队快照，不改写正文。v11 把失败节点的 `reason` 移到 `fail_message`。v8 及更早明确拒绝，不在运行时自动删除或兼容。模型配置和独立素材库保留。
+`projects/<p_UUID>/` 作为宿主工作区目录，同时保存 `project.json` 项目镜像。项目 Model 存在 SQLite 的 `projects.data_json`，使用 `shared/models/*_model.js` 固定字段及 `node_state.{status,reason,fail_message,dependency_hash}`。当前 schema v26。v26为AI节点增加三组独立rules对象，迁移保留正文、媒体与历史，重算原有效链指纹；生成/审核/修订各用本动作补充，人工处理冲突。v25将项目画幅从像素尺寸迁移为H3六种固定比例，默认9:16，保留已有媒体和历史，并重算迁移前有效的视频链指纹。v22将步骤提示词精简为messages并拆出独立HTTP记录、补执行方式；v23回填项目顶层最近任务/组关联。v24为镜头视频增加 `server_address`，旧项目填空字符串，不改已有本地 `address`。工作快照只保留未结束整组，历史按ID查库，步骤记录直写且不增加项目revision；详见[任务与步骤](../meiji/dev_docs/step_model.md)。v21新增项目共用场景库、剧集场景选择节点和镜头场景绑定；缺绑定的旧镜头表及下游过期，正文、媒体与历史保留。v20将旧character_binding移入镜头on_screen_characters，增加background_characters，旧镜头表及下游生成态过期，保留媒体/历史；退役识别任务不能恢复执行。v19 移除正式角色和服装资料的 number，保留原ID、媒体及绑定；按ID输入投影重写已生成节点依赖指纹，历史任务提示词与结果不改。剧本本身是节点（`script.node_state`）：v16–v18 归一为该形态，早期 v16 的独立 `script_review` 并入剧本状态，v17 的 `script.review` 结论字段移除，保留状态、原因与依赖指纹；更早版本的迁移在校验前同样先归一。v14 移除项目暂停字段；v15 将节点执行状态显式迁移为四种数据状态，保留正文、任务历史及审核原因，无法确认有效性的数据标为 expired。v9 删除项目 rules，v10 删除项目 output_language；两步都按新指纹重写已生成的角色识别、每秒分镜和文生提示词及其排队快照，不改写正文。v11 把失败节点的 `reason` 移到 `fail_message`。v8 及更早明确拒绝，不在运行时自动删除或兼容。模型配置和独立素材库保留。
 
 项目、剧集、角色、服装、镜头、任务、组和步骤使用创建时生成的带前缀 UUID。角色和服装的AI输入输出、界面与正式引用统一使用创建时唯一ID，程序核对唯一性和归属；仅镜头保留S编号。重生成保留同一对象 ID，不按列表位置重建身份、不无声删除引用对象。独立素材继续使用原 `assets/<category>/<UUID>/metadata.json` 和 `original.<ext>` 文件格式；独立素材库的旧场景、道具及指导素材入口退出，但磁盘数据不会在启动时被删除。v21的项目场景库是制作资料，不恢复旧独立素材入口。
 
@@ -85,7 +85,7 @@ task/group/step 创建时保存 name，后续资料改名不改历史；已有�
 
 ### 网关与消息编排
 
-业务流程以制作工作流、step_model、project_detail 为开发依据；`server/http/nodes/` 按节点和动作定义业务输入与输出格式，提示词渲染、模型返回校验及人工编辑共用输出契约。`server/prompts/models/` 保存生成、审核、按意见重新生成要求，节点文件的 `compose` 编排该节点业务参数；视频使用 `http/video-request.js` 直接编排已审核三段，无 PromptModel，`render.js` 渲染正文。输出格式只在 system，user 的任务是 Model 固定正文。占位符缺失直接失败；注入资料不二次展开。配置变更不追溯改写历史。
+业务流程以制作工作流、step_model、project_detail 为开发依据；`server/http/nodes/` 按节点和动作定义业务输入与输出格式，提示词渲染、模型返回校验及人工编辑共用输出契约。`shared/prompt-models/` 保存生成、审核、按意见重新生成要求，节点文件的 `compose` 编排该节点业务参数；视频使用 `http/video-request.js` 直接编排已审核三段，无 PromptModel，`render.js` 渲染正文。输出格式只在 system，user 的任务是 Model 固定正文。占位符缺失直接失败；注入资料不二次展开。配置变更不追溯改写历史。
 
 文本按对应节点声明解析：项目/剧集摘要为纯文本，人物和切点等按 JSON 结构校验；分镜提示词保留其既定段落协议。可解析 JSON 缺少必填字段时由程序审核判 rejected 并按既有轮次修订，原始候选留任务历史；耗尽后保留旧正式内容和 hash，仅写节点未通过及原因。不属于缺字段的 JSON 结构/解析错误仍 failed 并保留旧内容；网络、接口异常仅记失败，不自动带入提示词；可用候选的业务审核未通过时按节点轮次修订，耗尽后将最后内容及 rejected 原因存正式节点，不刷新 hash、不传播、不派生。图片每次最多一张参考图，不附角色声线。视频最多九张角色/服装参考图；仅首尾帧类型使用前镜尾帧，节拍文本继承前镜交接资料。生成与下载阶段均保留HTTP详情。
 

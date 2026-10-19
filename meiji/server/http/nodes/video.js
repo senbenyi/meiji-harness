@@ -10,11 +10,6 @@ const output0 = {
 };
 
 export default {
-  // 视频不经文本模型，规则仅供面板“规则”视图展示；唯一定义处。
-  rules: {
-    generate: '使用已审核的分镜提示词三个段落原文生成本镜视频。文生直接提交；首尾帧以前镜尾帧为首帧；多模态使用本镜角色与服装参考图。按本镜时长与项目画幅提交，不再调用文本模型改写提示词。生成只取得服务端地址，随后由程序下载到本地。',
-    revise: '按本次修改意见修订视频请求，保留已审核三段原文及对应类型的参考素材。',
-  },
   render(input, action, output) {
     const request = videoRequest(input, action);
     return { system: '', user: request.prompt, body: request.prompt, output: structuredClone(output), request };

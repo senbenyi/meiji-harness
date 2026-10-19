@@ -65,10 +65,12 @@ export function assertOutput(project, business, targetId) {
 
 // 正式三段提示词的首段标记属于确定性格式，不交给AI猜测。
 export function assertPromptShotMarker(text) {
-  const first = text.match(/\[Shot\s+(\d+)\]/);
-  if (!first || first[1] !== '1') invalid('分镜提示词', '首段必须包含 [Shot 1]，不能省略或从其他编号开始');
-  if (/^\s*At\s+\d{2}:\d{2}\.\d{3}/.test(text.slice(first.index + first[0].length)))
-    invalid('分镜提示词', '[Shot 1] 从本镜0秒开始，不写At时间戳；后续镜内切镜才写对应时间');
+  try {
+    const first = text.match(/\[Shot\s+(\d+)\]/);
+    if (!first || first[1] !== '1') invalid('分镜提示词', '首段必须包含 [Shot 1]，不能省略或从其他编号开始');
+    if (/^\s*At\s+\d{2}:\d{2}\.\d{3}/.test(text.slice(first.index + first[0].length)))
+      invalid('分镜提示词', '[Shot 1] 从本镜0秒开始，不写At时间戳；后续镜内切镜才写对应时间');
+  } catch (error) { error.validationKind = 'prompt-format'; throw error; }
 }
 
 // 程序审核与人工放行的业务核验；人工编辑及可消费结构校验不重复执行本层。

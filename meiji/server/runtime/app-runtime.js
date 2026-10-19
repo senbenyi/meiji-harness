@@ -1,3 +1,5 @@
+import { defaultRules } from '../../shared/rule-defaults.js';
+import { ruleNode } from '../../shared/ai-node-rules.js';
 import { createVideoPromptHandler } from '../handlers/video-prompt-handler.js';
 import { LibraryStore } from "../data/library-store.js";
 import { locateTarget } from "../../shared/task_contract.js";
@@ -275,6 +277,28 @@ export async function createAppRuntime({
               target.id,
               "固定资料已修改",
             );
+          return {};
+        });
+      if (['edit-rule', 'sync-base-rules'].includes(command.type))
+        return model.update(command.request_id, command, s => {
+          if (source !== 'panel') invalid('source', '规则只允许面板维护');
+          if (s.tasks.some(t => ['queued', 'running'].includes(t.task_status))) invalid('状态', '有未结束任务时不能编辑规则');
+          const node = ruleNode(s.project, command.business_type, command.target_id);
+          const before = JSON.stringify(node.rules);
+          if (command.type === 'sync-base-rules') {
+            const defaults = defaultRules(command.business_type);
+            for (const action of ['generate', 'review', 'revise']) node.rules[action].base = defaults[action].base;
+          } else {
+            if (!['generate', 'review', 'revise'].includes(command.action) || !['base', 'supplement'].includes(command.field) || typeof command.value !== 'string') invalid('rules', '需指定动作、base或supplement及文本值');
+            node.rules[command.action][command.field] = command.value;
+          }
+          if (before === JSON.stringify(node.rules)) return {};
+          if (command.business_type === 'script-split') {
+            for (const episode of s.project.episodes) expireDownstream(s, 'episode-plot', episode.id, '全集规划规则已修改');
+          } else {
+            if (node.node_state.status !== 'empty') Object.assign(node.node_state, { status: 'expired', reason: '规则已修改', fail_message: '' });
+            expireDownstream(s, command.business_type, command.target_id, '规则已修改');
+          }
           return {};
         });
       if (command.type === "edit-episode")

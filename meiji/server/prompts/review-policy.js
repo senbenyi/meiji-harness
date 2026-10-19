@@ -18,7 +18,7 @@ export function reviewPolicy(node, action, route, contract) {
   };
   return {
     route: { ...route, promptModel: { ...route.promptModel, review: { ...stage,
-      system: { ...stage.system, 规则: { ...stage.system.规则, 审核分类: rule } },
+      system: { ...stage.system, 审核协议: rule },
     } } },
     contract: { ...contract, output },
   };

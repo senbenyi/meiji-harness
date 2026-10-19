@@ -1,7 +1,7 @@
 import { assertPromptShotMarker } from '../../../shared/node-state.js';
 import { parseSections } from '../../prompts/parse-sections.js';
 import { assertPromptDialogue } from '../../../shared/dialogue-integrity.js';
-import promptModel from '../../prompts/models/storyboard.js';
+import promptModel from '../../../shared/prompt-models/storyboard.js';
 import { commonValues } from '../../prompts/inputs.js';
 
 const output0 = {

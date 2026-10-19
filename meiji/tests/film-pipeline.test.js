@@ -230,7 +230,7 @@ describe("video-chain", () => {
     if(mode==='多模态') assert.equal(calls[0].referenceImages.length,1);
     if(mode!=='文生') {
       const packed = mode==='首尾帧' ? shot.first_last_frame_prompt : shot.multimodal_prompt;
-      assert.equal(calls[0].prompt, packed.prompt, '实际发送必须采用已保存编排正文');
+      assert.equal(calls[0].prompt, [shot.video.rules.generate.base, packed.prompt].filter(Boolean).join('\n\n'), '规则来自节点，已保存编排正文保持原文');
       if(mode==='多模态') assert.match(calls[0].prompt,/<Subject 1> 是 <Picture 1> 中的"甲"\(S1\)/);
     }
   }, { setup:({episode,person,stamp})=>{

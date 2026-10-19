@@ -8,7 +8,7 @@ function copyButton(title, section) {
     event.stopPropagation();
     copy.disabled = true;
     try {
-      const text = [...section.querySelectorAll('h3, h4, pre.skill-text')].map(node => node.textContent).join('\n\n');
+      const text = [...section.querySelectorAll('h3, h4, pre.skill-text:not(.skill-contract), textarea[aria-label="基础规则"], textarea[aria-label="补充规则"]')].map(node => node.tagName === 'TEXTAREA' ? node.value : node.textContent).join('\n\n');
       await navigator.clipboard.writeText(text);
       copy.textContent = '已复制';
     } catch {
@@ -36,7 +36,7 @@ function ruleInput(label, value, onCommit) {
   return wrap;
 }
 
-export function renderSkillDetail({ label, supplement, opinion }, { load, back, onOpinion, onSupplement }) {
+export function renderSkillDetail({ label, rules: savedRules, opinion }, { load, back, onOpinion, onRule, onSync }) {
   const page = element('section', '', 'settings-page skill-detail skill-detail-page');
   const button = (title, action) => {
     const b = element('button', title);
@@ -45,7 +45,7 @@ export function renderSkillDetail({ label, supplement, opinion }, { load, back, 
   };
   const header = () => {
     const head = element('header', '', 'skill-page-head');
-    head.append(button('← 返回', back), element('h2', `${label} · 规则`));
+    head.append(button('← 返回', back), element('h2', `${label} · 规则`), button('同步基础规则', onSync));
     return head;
   };
   const loadPage = () => {
@@ -62,11 +62,14 @@ export function renderSkillDetail({ label, supplement, opinion }, { load, back, 
         section.hidden = key !== 'generate';
         const head = element('div', '', 'skill-rule-head');
         head.append(element('h3', title), copyButton(title, section));
-        section.append(head, element('pre', content, 'skill-text'));
-        if (key === 'generate' && supplement) section.append(ruleInput(supplement.label, supplement.value, onSupplement));
-        if (key === 'generate' && !supplement) section.append(element('p', '本节点不使用补充需求。', 'skill-rule-note'));
+        section.append(head);
+        if (savedRules) {
+          section.append(ruleInput('基础规则', savedRules[key].base, (value, commit) => onRule?.(key, 'base', value, commit)),
+            ruleInput('补充规则', savedRules[key].supplement, (value, commit) => onRule?.(key, 'supplement', value, commit)));
+        }
+        section.append(element('pre', content, 'skill-text skill-contract'));
         if (key === 'revise' && rules.revise) section.append(ruleInput('本次修改意见', opinion || '', (value, commit) => onOpinion?.(value, commit)));
-        if (key === 'review') section.append(element('p', '审核沿用生成标签中的补充需求，不另收输入。', 'skill-rule-note'));
+        section.append(element('p', '各动作的补充规则独立使用；冲突请人工修改。输出格式和程序校验由节点契约约束。', 'skill-rule-note'));
         sections.set(key, section);
       }
       const nav = tabs('规则', [['generate', '生成规则'], ['revise', '修订规则'], ['review', '审核规则']], 'generate', key => {

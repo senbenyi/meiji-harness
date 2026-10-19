@@ -24,7 +24,7 @@ node --experimental-test-coverage --test meiji/tests/*.test.js
 | 队列、取消、任务组、重启与完整制作链 | `task-queue`、`task-groups`、`runtime`、`film-pipeline` |
 | 全集规划、分集改编、镜头角色服装绑定 | `planning`、`adaptation`、`shot-catalog` |
 | 人物提取、场景、逐镜文字上下文、对白 | `character-extraction`、`scenes`、`shot-context`、`dialogue` |
-| 文本执行、审核修订、提示词协议与规则源 | `text-execution`、`review-policy`、`prompt-contracts`、`prompt-rules` |
+| 文本执行、审核修订、提示词协议与规则源 | `text-execution`、`review-policy`、`prompt-contracts`、`prompt-rules`、`node-rules` |
 | HTTP、模型设置、GPU、图片与视频请求 | `gateway`、`model-settings`、`gpu`、`media-images`、`video-service` |
 | 会话鉴权、通知与隔离 | `api-session` |
 | 面板、导航、任务按钮、成片、历史、规则与刷新 | `ui-project`、`ui-navigation`、`ui-task-actions`、`ui-film`、`ui-history`、`ui-node-rules`、`ui-lifecycle` |

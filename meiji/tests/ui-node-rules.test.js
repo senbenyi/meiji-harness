@@ -1,3 +1,5 @@
+import { defaultRules } from '../shared/rule-defaults.js';
+import { ruleNode } from '../shared/ai-node-rules.js';
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
@@ -190,13 +192,13 @@ describe("node-rules", () => {
         assert.ok(value.generate.length > 10, business);
         assert.ok(value.review, business);
         const source = nodeRoutes[business].promptModel?.generate?.system?.规则?.基础规则;
-        if (source) assert.ok(value.generate.includes(source), business);
+        if (source) assert.ok(defaultRules(business).generate.base.includes(source), business);
       }
       for (const business of ['unknown', '__proto__', 'assembly', 'tail', 'multimodal']) assert.equal((await get(business)).status, 404);
       assert.match(nodeRules('costume-image').review, /没有 AI 审核/);
       assert.doesNotMatch(nodeRules('video').review, /程序审核/);
-      assert.match(nodeRules('outline').generate, /允许改写对白/);
-      const characters = nodeRules('project-characters');
+      assert.match(defaultRules('outline').generate.base, /允许改写对白/);
+      const characters = Object.fromEntries(Object.entries(defaultRules('project-characters')).map(([action, value]) => [action, value.base]));
       assert.match(characters.generate, /只被提及、只被引用方法或言论/);
       assert.match(characters.generate, /按剧情、时代和身份补成能拍定妆照的设定/);
       assert.match(characters.revise, /不要只返回意见点名的人/);
@@ -252,13 +254,13 @@ describe("node-rules", () => {
         assert.equal(root.querySelector('[data-rules=generate]').hidden, false);
         assert.deepEqual([...root.querySelectorAll('[role=tab]')].map(tab => tab.textContent), ['生成规则', '修订规则', '审核规则']);
         assert.deepEqual([...root.querySelectorAll('[data-rules] button')].map(button => button.getAttribute('aria-label')), ['复制生成规则', '复制修订规则', '复制审核规则']);
-        const generateInput = root.querySelector('[data-rules=generate] textarea');
-        const reviseInput = root.querySelector('[data-rules=revise] textarea');
-        assert.equal(root.querySelector('[data-rules=review] textarea'), null);
-        if (business === 'outline') { assert.equal(generateInput.getAttribute('aria-label'), '本集要求'); assert.equal(generateInput.value, '本集补充哨兵'); }
-        else if (['costume-image', 'video'].includes(business)) assert.equal(generateInput, null);
-        else { assert.equal(generateInput.getAttribute('aria-label'), '补充需求'); assert.equal(generateInput.value, snapshot.project.creative_direction); }
-        if (nodeRules(business).revise) assert.ok(reviseInput);
+        const saved = ruleNode(p, business, view.rule_target).rules;
+        for (const action of ['generate', 'review', 'revise']) {
+          const section = root.querySelector(`[data-rules=${action}]`);
+          assert.equal(section.querySelector('[aria-label="基础规则"]').value, saved[action].base);
+          assert.equal(section.querySelector('[aria-label="补充规则"]').value, saved[action].supplement);
+        }
+        const reviseInput = root.querySelector('[data-rules=revise] [aria-label="本次修改意见"]');
         if (input) assert.equal(reviseInput.value, '意见哨兵');
         [...root.querySelectorAll('[role=tab]')].find(b => b.textContent === '修订规则').click();
         assert.equal(root.querySelector('[data-rules=revise]').hidden, false);
@@ -297,12 +299,12 @@ describe("node-rules", () => {
       const snapshot = snapshotFixture(); snapshot.project.creative_direction = '';
       let attempts = 0;
       globalThis.fetch = async () => { if (++attempts === 1) throw Error('网络暂不可用'); return { ok: true, json: async () => nodeRules('project-summary') }; };
-      const root = document.querySelector('main'), context = { session_id: 's', view: { page: 'skill', rule_business: 'project-summary' }, paint: () => {}, onError: assert.fail };
+      const root = document.querySelector('main'), context = { session_id: 's', view: { page: 'skill', rule_business: 'project-summary', rule_target: snapshot.project.id }, paint: () => {}, onError: assert.fail };
       renderTaskPanel(root, snapshot, context); await settle();
       assert.match(root.textContent, /网络暂不可用/);
       [...root.querySelectorAll('button')].find(b => b.textContent === '重新加载').click(); await settle();
-      assert.equal(root.querySelector('[data-rules=generate] textarea').value, '');
-      assert.match(root.querySelector('[data-rules=review]').textContent, /不另收输入/);
+      assert.equal(root.querySelector('[data-rules=generate] [aria-label=补充规则]').value, '');
+      assert.match(root.querySelector('[data-rules=review]').textContent, /独立使用/);
       assert.equal(attempts, 2);
     } finally { globalThis.document = previous.document; globalThis.fetch = previous.fetch; dom.window.close(); }
   });

@@ -1,5 +1,5 @@
 import { outlineBudget } from '../../prompts/duration-policy.js';
-import promptModel from '../../prompts/models/outline.js';
+import promptModel from '../../../shared/prompt-models/outline.js';
 import { commonValues } from '../../prompts/inputs.js';
 
 const output0 = {

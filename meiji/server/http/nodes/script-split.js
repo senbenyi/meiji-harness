@@ -1,5 +1,5 @@
-import { splitBudget } from '../../prompts/duration-policy.js';
-import promptModel from '../../prompts/models/script-split.js';
+import { splitBudget, declaredStoryDuration } from '../../prompts/duration-policy.js';
+import promptModel from '../../../shared/prompt-models/script-split.js';
 import { commonValues } from '../../prompts/inputs.js';
 
 const output0 = {
@@ -13,7 +13,7 @@ export default {
   compose(input) {
     return {
       ...commonValues(input),
-      时长规划: splitBudget(input.duration),
+      时长规划: splitBudget(input.duration, declaredStoryDuration(input.script)),
       原始剧本: input.script,
       参考单集时长秒: input.duration,
     };

@@ -1,6 +1,6 @@
 import { invalid } from '../../../shared/task_contract.js';
 import { decodeImageData } from '../../media/decode-image-data.js';
-import promptModel from '../../prompts/models/costume-image.js';
+import promptModel from '../../../shared/prompt-models/costume-image.js';
 import { commonValues } from '../../prompts/inputs.js';
 
 const output0 = {

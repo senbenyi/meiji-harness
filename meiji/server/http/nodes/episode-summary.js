@@ -1,4 +1,4 @@
-import promptModel from '../../prompts/models/episode-summary.js';
+import promptModel from '../../../shared/prompt-models/episode-summary.js';
 import { commonValues } from '../../prompts/inputs.js';
 
 const output0 = {

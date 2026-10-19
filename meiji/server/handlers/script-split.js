@@ -1,4 +1,4 @@
-import { splitBudget } from '../prompts/duration-policy.js';
+import { splitBudget, declaredStoryDuration } from '../prompts/duration-policy.js';
 import { scriptText } from '../../shared/script-text.js';
 import { invalid, assertFields } from '../../shared/task_contract.js';
 
@@ -16,6 +16,10 @@ export function buildSplit(text, raw, referenceDuration) {
       invalid(`第${row.序号}集.预估时长秒`, `需为${budget.min_seconds}—${budget.max_seconds}秒内的整数；按剧情容量调整集数和事件安排，不只修改数字`);
     return { sequence: row.序号, duration_seconds: row.预估时长秒, plot: row.本集规划.trim() };
   });
+  const total = declaredStoryDuration(scriptText(text));
+  const sum = episodes.reduce((n, episode) => n + episode.duration_seconds, 0);
+  if (total !== null && sum !== total)
+    invalid('全集规划.总时长', `各集合计${sum}秒，剧本头部明确总时长为${total}秒；请调整集数和事件分配，使总预算一致，不只拉长动作或缩写剧情`);
   return { episodes };
 }
 
