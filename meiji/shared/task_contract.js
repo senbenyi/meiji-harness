@@ -4,6 +4,7 @@ import {
   BUSINESS_DEFINITIONS,
   NODE_TYPES,
   NODE_DEFINITIONS,
+  TEXT_RETRY_ROUNDS,
 } from "./node-definitions.js";
 
 // 新任务协议的纯模块；不读取旧 Run、任务历史或文件。
@@ -301,7 +302,7 @@ export function validateStep(s, t) {
   assertNumber(s.seq, "step.seq", 1);
   assertEnum(s.kind, STEP_KINDS, "step.kind");
   assertNumber(s.round, "step.round");
-  if (s.round > 2) invalid("step.round", "最多两轮");
+  if (s.round > TEXT_RETRY_ROUNDS) invalid("step.round", `最多${TEXT_RETRY_ROUNDS}次修订`);
   assertEnum(s.step_status, STEP_STATUS, "step.step_status");
   for (const key of ["has_prompt", "has_http"]) if (Object.hasOwn(s, key) && typeof s[key] !== "boolean") invalid(`step.${key}`, "需为布尔值");
   assertEnum(s.executor, ["ai", "program"], "step.executor");

@@ -389,7 +389,25 @@ export class SQLiteStore {
           this.#db.exec('PRAGMA user_version=27; COMMIT');version=27;
         } catch(error) {this.#db.exec('ROLLBACK');throw error;}
       }
-      if (version !== 27) throw new Error(`不支持的数据库版本：${version}`);
+      if (version === 27) {
+        this.#db.exec('BEGIN IMMEDIATE');
+        try {
+          // 从当前建表定义取步骤结构，约束扩至3；JSON记录不解析、不重写。
+          const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
+          const definition = schema.match(/CREATE TABLE task_steps \([\s\S]*?\n\) STRICT;/)?.[0];
+          if (!definition) throw new Error('缺少步骤表定义');
+          this.#db.exec(definition.replace('CREATE TABLE task_steps (', 'CREATE TABLE task_steps_v28 ('));
+          const fields = columns.task_steps.join(',');
+          this.#db.exec(`INSERT INTO task_steps_v28 (${fields}) SELECT ${fields} FROM task_steps;
+            DROP TABLE task_steps;
+            ALTER TABLE task_steps_v28 RENAME TO task_steps;
+            CREATE INDEX steps_project ON task_steps(project_id);`);
+          if (this.#db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('步骤迁移外键检查失败');
+          this.#db.prepare("INSERT OR IGNORE INTO schema_migrations VALUES (28,strftime('%Y-%m-%dT%H:%M:%fZ','now'))").run();
+          this.#db.exec('PRAGMA user_version=28; COMMIT'); version=28;
+        } catch(error) { this.#db.exec('ROLLBACK'); throw error; }
+      }
+      if (version !== 28) throw new Error(`不支持的数据库版本：${version}`);
       for (const [table, fields] of Object.entries(columns)) {
         // 已有行不改 position（保持写入顺序）；步骤的提示词与 HTTP 只经 writeStepRecord 写入。
         this.#upserts.set(table, this.#db.prepare(`INSERT INTO ${table} (${fields}) VALUES (${fields.map(() => "?")}) ON CONFLICT(id) DO UPDATE SET ${fields.filter(f => !["id", "position", "prompt_json", "http_json"].includes(f)).map(f => `${f}=excluded.${f}`).join(",")}`));

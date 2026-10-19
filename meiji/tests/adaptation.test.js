@@ -239,7 +239,7 @@ describe("outline-review", () => {
 
   for (const rejectAi of [false, true])
     test(`大纲${rejectAi ? "AI" : "程序"}审核耗尽保存最后候选及原因，不更新hash或下游`, async () => {
-      const result = await outlineScenario({ durations: rejectAi ? [137.5, 137.5, 137.5] : [119, 118, 117], rejectAi, retry: !rejectAi });
+      const result = await outlineScenario({ durations: rejectAi ? [137.5, 137.5, 137.5, 137.5] : [119, 118, 117, 116], rejectAi, retry: !rejectAi });
       const { before, after, first, second, prompts } = result;
       const task = before.tasks.find(item => item.id === first.task_id), episode = before.project.episodes[0];
       assert.equal(task.task_status, "rejected", task.end_reason);
@@ -247,16 +247,16 @@ describe("outline-review", () => {
       assert.equal(episode.story_outline.node_state.status, "rejected");
       assert.equal(episode.story_outline.node_state.reason, task.end_reason);
       assert.equal(episode.story_outline.node_state.dependency_hash, "a".repeat(64));
-      assert.equal(episode.story_outline.segments[0].body, `${story} 候选3`);
-      assert.equal(episode.story_outline.segments[0].duration_seconds, rejectAi ? 137.5 : 117);
+      assert.equal(episode.story_outline.segments[0].body, `${story} 候选4`);
+      assert.equal(episode.story_outline.segments[0].duration_seconds, rejectAi ? 137.5 : 116);
       assert.equal(episode.shot_list.node_state.status, "generated");
       if (second) {
         const retryTask = after.tasks.find(item => item.id === second.task_id);
         assert.equal(retryTask.task_status, "completed", retryTask.end_reason);
         assert.equal(retryTask.opinion, task.end_reason);
-        const retryPrompt = prompts.filter(item => item.kind !== "review")[3].prompt;
+        const retryPrompt = prompts.filter(item => item.kind !== "review")[4].prompt;
         assert.ok(retryPrompt.includes(task.end_reason));
-        assert.doesNotMatch(retryPrompt, /候选3/);
+        assert.doesNotMatch(retryPrompt, /候选4/);
         assert.deepEqual(after.tasks.find(item => item.id === task.id), task);
         assert.deepEqual(after.steps.filter(step => step.task_id === task.id), before.steps.filter(step => step.task_id === task.id));
       }

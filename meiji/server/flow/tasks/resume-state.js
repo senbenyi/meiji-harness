@@ -2,6 +2,7 @@ import { TEXT_BUSINESSES } from '../../../shared/node-state.js';
 import { prepareContent } from '../../handlers/content.js';
 import { validateNodeResult } from '../../http/ai-routes.js';
 import { taskNodeInput } from '../../handlers/node-inputs.js';
+import { shotResultForValidation } from '../../handlers/shot-candidate.js';
 
 export function resumeState(snapshot, task) {
   const completed = snapshot.steps.filter(step => step.task_id === task.id && step.step_status === 'done' &&
@@ -12,7 +13,8 @@ export function resumeState(snapshot, task) {
       try {
         const action = step.kind === 'revise' || task.action === 'revise' ? 'regenerate' : 'generate';
         const input = taskNodeInput(snapshot, task, draft, action, step);
-        const raw = validateNodeResult(task.business_type, action, structuredClone(step.result), input);
+        const result = task.business_type === 'shots' ? shotResultForValidation(step, snapshot.steps, action) : step.result;
+        const raw = validateNodeResult(task.business_type, action, structuredClone(result), input);
         draft = prepareContent(snapshot, task, raw);
         validationFailure = '';
       } catch (error) {

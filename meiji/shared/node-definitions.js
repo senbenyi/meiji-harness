@@ -9,9 +9,11 @@ const freezeDefinitions = (definitions) =>
     ),
   );
 
+export const TEXT_RETRY_ROUNDS = 3;
+
 export const NODE_DEFINITIONS = freezeDefinitions({
   // 可选的全文改编与审核，不作为全集规划和人物提取的前置。
-  "script-review": { targetKind: "project", field: "script", label: "剧本改编与审核", handler: "text", output: "text", programReview: false, aiReview: true, retryRounds: 2, precheck: "project-text" },
+  "script-review": { targetKind: "project", field: "script", label: "剧本改编与审核", handler: "text", output: "text", programReview: false, aiReview: true, retryRounds: TEXT_RETRY_ROUNDS, precheck: "project-text" },
   "project-summary": {
     targetKind: "project",
     field: "project_summary",
@@ -20,7 +22,7 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     output: "text",
     programReview: false,
     aiReview: true,
-    retryRounds: 2,
+    retryRounds: TEXT_RETRY_ROUNDS,
     precheck: "project-text",
   },
   "project-characters": {
@@ -31,7 +33,7 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     output: "text",
     programReview: false,
     aiReview: true,
-    retryRounds: 2,
+    retryRounds: TEXT_RETRY_ROUNDS,
     precheck: "project-text",
   },
   // 仅供历史任务识别与默认图只读定位；新命令不接受此业务。
@@ -66,7 +68,7 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     output: "text",
     programReview: false,
     aiReview: true,
-    retryRounds: 2,
+    retryRounds: TEXT_RETRY_ROUNDS,
     precheck: "episode-summary",
   },
   outline: {
@@ -77,10 +79,10 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     output: "text",
     programReview: true,
     aiReview: true,
-    retryRounds: 2,
+    retryRounds: TEXT_RETRY_ROUNDS,
     precheck: "outline",
   },
-  'episode-scenes': { targetKind: 'episode', field: 'scene_catalog', label: '提取场景', handler: 'text', output: 'text', programReview: false, aiReview: true, retryRounds: 2, precheck: 'episode-scenes' },
+  'episode-scenes': { targetKind: 'episode', field: 'scene_catalog', label: '提取场景', handler: 'text', output: 'text', programReview: false, aiReview: true, retryRounds: TEXT_RETRY_ROUNDS, precheck: 'episode-scenes' },
   'scene-image': { targetKind: 'scene', field: 'reference_image', label: '场景参考图', handler: 'media', output: 'image', programReview: false, aiReview: false, retryRounds: 0, precheck: 'scene-image' },
   shots: {
     targetKind: "episode",
@@ -90,7 +92,7 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     output: "text",
     programReview: true,
     aiReview: true,
-    retryRounds: 2,
+    retryRounds: TEXT_RETRY_ROUNDS,
     precheck: "shots",
   },
   seconds: {
@@ -101,7 +103,7 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     output: "text",
     programReview: true,
     aiReview: true,
-    retryRounds: 2,
+    retryRounds: TEXT_RETRY_ROUNDS,
     precheck: "seconds",
   },
   storyboard: {
@@ -112,7 +114,7 @@ export const NODE_DEFINITIONS = freezeDefinitions({
     output: "text",
     programReview: false,
     aiReview: true,
-    retryRounds: 2,
+    retryRounds: TEXT_RETRY_ROUNDS,
     precheck: "storyboard",
   },
   'first-last-frame': { targetKind: 'shot', field: 'first_last_frame_prompt', label: '首尾帧参数编排', handler: 'program', output: 'request', programReview: false, aiReview: false, retryRounds: 0, precheck: 'video-pack' },
@@ -162,7 +164,7 @@ export const OPERATION_DEFINITIONS = freezeDefinitions({
     output: "episodes",
     programReview: true,
     aiReview: true,
-    retryRounds: 2,
+    retryRounds: TEXT_RETRY_ROUNDS,
   },
   "character-delete": {
     targetKind: "character",

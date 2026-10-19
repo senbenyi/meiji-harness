@@ -167,7 +167,7 @@ describe("task-actions", () => {
       assert.equal(commands.at(-1).action, "regenerate");
       assert.equal(commands.at(-1).opinion, undefined);
 
-      await click("修复（再给 2 轮）");
+      await click("修复（再给 3 轮）");
       assert.equal(root.querySelector("dialog"), null);
       assert.equal(commands.at(-1).action, "revise");
       assert.equal(commands.at(-1).opinion, "需要修订");
@@ -210,7 +210,7 @@ describe("task-actions", () => {
     try {
       const snapshot = snapshotFixture(), episode = snapshot.project.episodes[0], root = document.querySelector('main');
       const context = { session_id: 'session-test', view: { page: 'episode', episode_id: episode.id, tab: 'script' }, refresh: async () => {}, paint: () => {}, onError: error => { throw error; } };
-      for (const [label, action] of [['AI生成', 'generate'], ['重新生成', 'regenerate'], ['修复（再给 2 轮）', 'revise']]) {
+      for (const [label, action] of [['AI生成', 'generate'], ['重新生成', 'regenerate'], ['修复（再给 3 轮）', 'revise']]) {
         episode.summary.body = action === 'generate' ? '' : '上次摘要';
         episode.summary.node_state.status = action === 'generate' ? 'empty' : 'rejected';
         episode.summary.node_state.reason = action === 'generate' ? '' : '未通过原因';
@@ -297,7 +297,7 @@ describe("split-feedback", () => {
       assert.equal(notice.textContent, `未通过原因（模型问题）：${reason}`);
       const repair = notice.nextElementSibling;
       assert.equal(repair.className, 'node-ui-buttons node-ui-repair-row');
-      assert.equal(repair.querySelector('button').textContent, '修复（再给 2 轮）');
+      assert.equal(repair.querySelector('button').textContent, '修复（再给 3 轮）');
       ui.querySelector('.workflow-generation-row button').nextElementSibling.click();
       await new Promise((resolve) => setImmediate(resolve));
       assert.equal(commands.at(-1).type, 'override');

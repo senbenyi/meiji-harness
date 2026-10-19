@@ -52,7 +52,7 @@ CREATE TABLE task_steps (
   seq INTEGER NOT NULL CHECK(seq >= 1),
   name TEXT,
   kind TEXT NOT NULL CHECK(kind IN ('precheck','generate','review','revise','manual_edit','override','impact','download','apply')),
-  round INTEGER NOT NULL CHECK(round BETWEEN 0 AND 2),
+  round INTEGER NOT NULL CHECK(round BETWEEN 0 AND 3),
   step_status TEXT NOT NULL CHECK(step_status IN ('ready','running','done','rejected','failed','skipped','cancelled','superseded')),
   executor TEXT NOT NULL CHECK(executor IN ('ai','program')),
   prompt_json TEXT NOT NULL CHECK(json_valid(prompt_json)),
@@ -96,4 +96,5 @@ INSERT INTO schema_migrations VALUES (23,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (24,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (25,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 INSERT INTO schema_migrations VALUES (27,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
-PRAGMA user_version=27;
+INSERT INTO schema_migrations VALUES (28,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+PRAGMA user_version=28;

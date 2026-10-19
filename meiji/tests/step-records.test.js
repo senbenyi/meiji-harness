@@ -53,7 +53,7 @@ describe("step-records", () => {
       assert.equal(c.prompt, null); assert.deepEqual(c.http, []);
       await repo.close();
       db = new DatabaseSync(join(home, 'meiji.sqlite'));
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 27); db.close();
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 28); db.close();
     } finally { await rm(home, { recursive: true, force: true }); }
   });
 
@@ -129,7 +129,7 @@ describe("step-records", () => {
       db.close();
       repo=new ModelRepository(home);await repo.open(p.id);await repo.close();repo=null;
       const migrated=new DatabaseSync(join(home,'meiji.sqlite'));
-      assert.equal(migrated.prepare('PRAGMA user_version').get().user_version,27);
+      assert.equal(migrated.prepare('PRAGMA user_version').get().user_version,28);
       const after=migrated.prepare('SELECT * FROM task_steps ORDER BY position').all();
       assert.deepEqual(after,before);
       migrated.close();

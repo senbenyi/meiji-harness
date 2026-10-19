@@ -45,7 +45,7 @@ describe("node-failure", () => {
         opinion.dispatchEvent(new dom.window.Event('input'));
         const repair = ui.querySelector('.node-ui-repair-row');
         assert.equal(opinion.nextElementSibling.nextElementSibling, repair);
-        assert.equal(repair.querySelector('button').textContent, '修复（再给 2 轮）');
+        assert.equal(repair.querySelector('button').textContent, '修复（再给 3 轮）');
         assert.ok(![...ui.querySelector('.workflow-generation-row').querySelectorAll('button')].some(button => button.textContent === '修复'));
         repair.querySelector('button').click();
         assert.equal(root.querySelector('dialog'), null);
@@ -203,13 +203,13 @@ describe("node-rules", () => {
       assert.match(characters.generate, /按剧情、时代和身份补成能拍定妆照的设定/);
       assert.match(characters.revise, /不要只返回意见点名的人/);
       assert.match(characters.review, /具体姓名/);
-      assert.match(characters.review, /无姓名、职业、序号、群体人数不是遗漏/);
-      assert.match(characters.review, /修改意见只用来核对上次的问题是否已解决/);
+      assert.match(characters.review, /无姓名的人不建卡/);
+      assert.match(characters.review, /已解决项和错误旧意见不再报/);
       assert.doesNotMatch(characters.generate, /句末标“背景补”|必须含“背景补”|原样保留/);
-      assert.match(characters.revise, /先核对套数/);
+      assert.match(characters.revise, /只有剧本写明这个人换成另一套/);
       assert.doesNotMatch(characters.revise, /自由补充|只调整修改意见明确涉及的内容/);
       assert.doesNotMatch(characters.review, /句末标“背景补”|必须含“背景补”|原样保留|自由补充/);
-      assert.match(characters.review, /合理补全可以通过/);
+      assert.match(characters.review, /合理补全、允许的空值和配件不能判缺失/);
     } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
   });
 

@@ -390,10 +390,10 @@ describe("node-definitions", () => {
     }
   });
 
-  test("剧集摘要仅AI审核，大纲和镜头表依次程序及AI审核，共用两次修订", () => {
+  test("剧集摘要仅AI审核，大纲和镜头表依次程序及AI审核，共用三次修订", () => {
     for (const business of ["episode-summary", "outline", "shots"]) {
       assert.deepEqual(reviewTypes({ business_type: business }), business === "episode-summary" ? ["ai"] : ["program", "ai"]);
-      assert.equal(NODE_DEFINITIONS[business].retryRounds, 2);
+      assert.equal(NODE_DEFINITIONS[business].retryRounds, 3);
     }
   });
 });

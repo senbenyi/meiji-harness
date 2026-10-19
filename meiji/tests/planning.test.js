@@ -209,8 +209,8 @@ describe("script-review", () => {
       }
       await repo.close();
       db = new DatabaseSync(join(root, "meiji.sqlite"));
-      assert.equal(db.prepare("PRAGMA user_version").get().user_version, 27);
-      assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]);
+      assert.equal(db.prepare("PRAGMA user_version").get().user_version, 28);
+      assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]);
       db.close();
     } finally { await rm(root, { recursive: true, force: true }); }
   });

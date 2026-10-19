@@ -215,12 +215,12 @@ describe("task-queue", () => {
       await service.command(submit(p, "project-summary", p.id, "reject"));
       await service.idle(p.id);
       const before = model.readAll();
-      assert.equal(calls, 3);
+      assert.equal(calls, 4);
       assert.equal(before.tasks[0].task_status, "rejected");
-      assert.equal(before.project.project_summary.body, "候选3");
+      assert.equal(before.project.project_summary.body, "候选4");
       assert.equal(before.project.project_summary.node_state.reason, "剧情来源不符");
       assert.equal(before.project.project_summary.node_state.dependency_hash, "a".repeat(64));
-      assert.deepEqual(before.steps.filter(s => s.kind === "review").map(s => [s.round, s.step_status, s.error_reason]), [[0,"rejected","剧情来源不符"],[1,"rejected","剧情来源不符"],[2,"rejected","剧情来源不符"]]);
+      assert.deepEqual(before.steps.filter(s => s.kind === "review").map(s => [s.round, s.step_status, s.error_reason]), [[0,"rejected","剧情来源不符"],[1,"rejected","剧情来源不符"],[2,"rejected","剧情来源不符"],[3,"rejected","剧情来源不符"]]);
       reject = false;
       await service.command({ ...submit(p, "project-summary", p.id, "retry-rejected"), opinion: "保留结局" });
       await service.idle(p.id);

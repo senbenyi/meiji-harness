@@ -47,3 +47,5 @@ node --experimental-test-coverage --test meiji/tests/*.test.js
 `rule-cards.test.js`：规则三标签页卡片顺序、基础全文只读及无内部滚动、补充保存与完整复制、媒体代码基础规则来源。
 
 - `multimodal-continuity.test.js`：连续多模态尾帧的图片顺序、程序引用和实际请求参数、换场与无效素材边界、依赖过期及九张图预算。
+
+- `retry-rule-consistency.test.js`：文本三轮预算、逐轮最近候选和意见、第三轮完整基稿、人物三动作实际请求语义一致、v27→v28原始历史保存和异常回滚。

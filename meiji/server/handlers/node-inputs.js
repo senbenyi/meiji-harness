@@ -8,6 +8,7 @@ import { scriptText } from '../../shared/script-text.js';
 import { adaptationContext, adaptedStory } from '../../shared/adaptation-context.js';
 import { nodeAction } from '../http/ai-routes.js';
 import { reviewType } from '../../shared/task-plan.js';
+import { shotProgramReview, shotResultForValidation } from './shot-candidate.js';
 
 function shotTable(value) {
   const fields = ['title', 'id', 'scene_id', 'scene_state', 'scene_transition', 'duration_seconds', 'shot_scale', 'hook', 'body', 'continuity_transition', 'reference_anchor', 'audio_arrangement', 'on_screen_characters', 'background_characters'];
@@ -20,9 +21,20 @@ function reviewOpinion(review) {
   return reason;
 }
 
-function shotRepairBase(step) {
-  const rows = [step.result?.mode === 'patch' ? null : step.result, step.prompt?.input?.content];
-  return rows.find(value => Array.isArray(value?.shots) && value.shots.length) || null;
+function shotRepairBase(step, steps) {
+  const input = step.prompt?.input || {};
+  let result = step.result?.mode === 'patch' ? null : step.result;
+  // 成功的replace已归一为无mode全表；程序通过记录证明它可以作为基稿。
+  const checked = shotProgramReview(step, steps);
+  if (result && checked?.step_status === 'rejected') {
+    try {
+      result = nodeAction('shots', 'regenerate').route.normalizeResult(structuredClone(shotResultForValidation(step, steps, 'regenerate')), input, 'regenerate');
+    } catch (error) {
+      if (error.code !== 'INVALID_CONTRACT') throw error;
+      result = null;
+    }
+  }
+  return [result, input.content].find(value => Array.isArray(value?.shots) && value.shots.length) || null;
 }
 
 function candidate(business, value) {
@@ -79,15 +91,31 @@ function taskSteps(snapshot, taskId, options) {
   }
   return live.length ? live : snapshot.history?.stepsOf(taskId, options) || [];
 }
+// 存储保留原始拼接意见；模型输入区分旧诊断与本次要求，旧意见不变成新事实。
+function taskOpinions(snapshot, task) {
+  const text = task.opinion?.trim() || '';
+  const previous = task.business_type === 'script-split' ? previousTask(snapshot, task.business_type, task.target_id, task.id) : null;
+  const reason = (task.previous_node_state?.status === 'rejected' ? task.previous_node_state.reason
+    : previous?.task_status === 'rejected' ? previous.end_reason : '')?.trim() || '';
+  const historical = reason && (text === reason || text.startsWith(reason + '\n')) ? reason : '';
+  const current = historical ? text.slice(historical.length).trim() : text;
+  const initial = historical ? [
+    `历史审核诊断（只核查当前仍成立的问题，不是新的剧情事实或本次要求）：\n${historical}`,
+    current && `本次执行意见：\n${current}`,
+  ].filter(Boolean).join('\n') : current;
+  return { initial, current };
+}
+
 export function taskNodeInput(snapshot, task, draft, action, step = {}, language = "zh-CN") {
   const project = snapshot.project, business = task.business_type;
+  const opinions = taskOpinions(snapshot, task);
   const target = locateTarget(project, business, task.target_id);
   const value = { language, rules: structuredClone(effectiveRules(project, business, task.target_id)[ruleAction(action)]), requirements: nodeRequirements(project, business, task.target_id),
     ...inputs[business]({ project, ...target }) };
   if (business === 'episode-scenes') value.updateExisting = task.action === 'revise';
-  if (action === 'generate' && business === 'script-split') value.opinion = task.opinion || '';
-  else if (action === 'generate' && task.opinion?.trim())
-    value.requirements = [value.requirements, task.opinion.trim()].filter(Boolean).join('\n');
+  if (action === 'generate' && business === 'script-split') value.opinion = opinions.initial;
+  else if (action === 'generate' && opinions.initial)
+    value.requirements = [value.requirements, opinions.initial].filter(Boolean).join('\n');
   if (action !== 'generate') {
     const steps = snapshot.steps || [];
     const rejectedReviews = steps.filter(row => row.task_id === task.id && row.kind === 'review' && row.step_status === 'rejected' && row.seq < (step.seq ?? Infinity)).sort((a, b) => b.seq - a.seq);
@@ -96,9 +124,9 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
     const priorAiReview = step.kind === 'revise' && lastReview?.name && reviewType(lastReview) === 'program'
       ? rejectedReviews.find(row => row.name && reviewType(row) === 'ai') : null;
     const priorOpinion = priorAiReview && `此前AI审核意见（对照最新候选核查，已解决项不重复修改；同时满足本轮程序审核）：\n${reviewOpinion(priorAiReview)}`;
-    value.opinion = [...new Set([step.kind === 'revise' ? reviewOpinion(lastReview) : '', priorOpinion, step.kind === 'revise' ? lastReview?.result?.修订进展?.提示 : '', task.opinion].filter(Boolean).flatMap(value => value.split('\n')).map(value => value.trim()).filter(Boolean))].join('\n');
+    value.opinion = [...new Set([step.kind === 'revise' && lastReview ? `本轮审核诊断（先核对最新候选与规则，仅修改仍成立的问题）：\n${reviewOpinion(lastReview)}` : '', priorOpinion, step.kind === 'revise' ? lastReview?.result?.修订进展?.提示 : '', (step.round || 0) > 0 ? opinions.current : opinions.initial].filter(Boolean).flatMap(value => value.split('\n')).map(value => value.trim()).filter(Boolean))].join('\n');
     if (business === 'episode-scenes' && action === 'review' && rejectedReviews.length)
-      value.opinion = [value.opinion, '本任务此前审核要求（按先后顺序，对照最新候选核查；已解决项不重复提出，改变拆并结论须给出新的具体事实）：',
+      value.opinion = [value.opinion, '本任务此前审核记录（按先后顺序，只供核查；已解决或错误项剔除，不是新增事实或要求，改变拆并结论须给出新的具体事实）：',
         ...[...rejectedReviews].reverse().map(row => `${row.seq}. ${row.result?.原因 || row.error_reason}`)].filter(Boolean).join('\n');
     const source = action === 'review' ? (draft ?? (business === 'script-review' ? project.script : draft)) : draft || (business === 'episode-scenes' ? {scenes:sceneCatalog(project,target.episode)} : nodeOf(project, business, task.target_id));
     value.content = candidate(business, source);
@@ -107,9 +135,10 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
       && nodeOf(project, business, task.target_id).node_state.status === 'rejected') {
       const previous = previousTask(snapshot, business, task.target_id, task.id);
       // 候选可能在步骤记录（prompt.input.content）中，读取上一任务步骤时连同记录。
-      const base = previous?.task_status === 'rejected' && taskSteps(snapshot, previous.id, { records: true }).filter(row =>
+      const records = previous ? taskSteps(snapshot, previous.id, { records: true }) : [];
+      const base = previous?.task_status === 'rejected' && records.filter(row =>
         ['generate','revise'].includes(row.kind) && row.step_status === 'done').sort((a,b) => b.seq - a.seq)
-        .map(shotRepairBase).find(Boolean);
+        .map(row => shotRepairBase(row, records)).find(Boolean);
       if (base) value.content = structuredClone(base);
     }
     if (business === 'script-split') {
@@ -122,7 +151,7 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
     const previous = (snapshot.steps || []).filter(row => row.task_id === task.id
       && ['generate', 'revise'].includes(row.kind) && row.step_status === 'done'
       && row.seq < step.seq).sort((a, b) => b.seq - a.seq)[0];
-    if (previous) value.content = structuredClone(business === 'shots' ? shotRepairBase(previous) || previous.result : previous.result);
+    if (previous) value.content = structuredClone(business === 'shots' ? shotRepairBase(previous, snapshot.steps || []) || previous.result : previous.result);
   }
   const { contract } = nodeAction(business, action);
   return Object.fromEntries(Object.keys(contract.input).map(key => [key, value[key]]));

@@ -45,7 +45,8 @@ describe("shot-inputs", () => {
     const task = taskFixture(snapshot.project, 'shots', episode.id, { opinion: '镜头总时长需等于小段合计' });
     snapshot.steps = [{ task_id: task.id, kind: 'review', seq: 2, step_status: 'rejected', result: { 原因: task.opinion } }];
     const input = taskNodeInput(snapshot, task, null, 'regenerate', { kind:'revise', seq:3 });
-    assert.equal(input.opinion, task.opinion);
+    assert.match(input.opinion, /本轮审核诊断/);
+    assert.equal(input.opinion.split(task.opinion).length, 2);
   });
 
   test('修订意见只读取原因，保留其中的位置依据和建议', () => {
@@ -143,17 +144,17 @@ describe("shots-duration-repair", () => {
     assert.equal(snapshot.project.episodes[0].shot_list.shots.reduce((sum, shot) => sum + shot.duration_seconds, 0), scenario.total);
   });
 
-  for (const durations of [[[16, 4], [17, 4], [18, 4]], [[10, 10], [11, 10], [12, 10]]])
+  for (const durations of [[[16, 4], [17, 4], [18, 4], [19, 4]], [[10, 10], [11, 10], [12, 10], [13, 10]]])
     test(`程序审核耗尽保存最终未通过内容和原因，hash保留 ${durations[0]}`, async () => {
       const { snapshot, taskId, generationCount, oldHash } = await runScenario({ episodeDuration: 60, repairDurations: durations });
       const task = snapshot.tasks.find(item => item.id === taskId), node = snapshot.project.episodes[0].shot_list;
       assert.equal(task.task_status, "rejected", task.end_reason);
-      assert.equal(generationCount, 3);
+      assert.equal(generationCount, 4);
       assert.equal(node.node_state.status, "rejected");
       assert.equal(node.node_state.reason, task.end_reason);
       assert.equal(node.node_state.dependency_hash, oldHash);
-      assert.deepEqual(node.shots.map(shot => shot.duration_seconds), durations[2]);
-      assert.equal(snapshot.steps.filter(step => step.task_id === taskId && step.step_status === "rejected").length, 3);
+      assert.deepEqual(node.shots.map(shot => shot.duration_seconds), durations[3]);
+      assert.equal(snapshot.steps.filter(step => step.task_id === taskId && step.step_status === "rejected").length, 4);
     });
 
   test("响应结构错误重复不变提前停止修订", async () => {
@@ -255,7 +256,7 @@ describe("shot-cast", () => {
       assert.ok(restored.tasks.every(t=>t.task_status==='cancelled'));
       assert.ok(restored.steps.every(s=>s.step_status==='cancelled'));
       await repo.close();db=new DatabaseSync(path);
-      assert.equal(db.prepare('pragma user_version').get().user_version,27);
+      assert.equal(db.prepare('pragma user_version').get().user_version,28);
       assert.equal(db.prepare('pragma integrity_check').get().integrity_check,'ok');
       const before=db.prepare('select data_json,revision from projects').all();db.close();
       repo=new ModelRepository(root);await repo.close();db=new DatabaseSync(path);

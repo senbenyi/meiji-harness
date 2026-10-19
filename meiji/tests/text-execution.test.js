@@ -132,13 +132,13 @@ describe("text-tasks", () => {
           const snapshot = model.readAll(),
             task = snapshot.tasks.find((t) => t.id === result.task_id);
           assert.equal(task.task_status, ending, task.end_reason);
-          assert.equal(generated, ending === "rejected" ? 3 : 1);
+          assert.equal(generated, ending === "rejected" ? 4 : 1);
           if (ending === "rejected")
             assert.deepEqual(
               snapshot.steps
                 .filter((s) => s.task_id === task.id && s.kind === "review" && s.step_status === "rejected")
                 .map((s) => s.round),
-              [0, 1, 2],
+              [0, 1, 2, 3],
             );
 
         } finally {
@@ -184,7 +184,7 @@ describe("text-tasks", () => {
       await service.idle(project.id);
       const snapshot = model.readAll(), task = snapshot.tasks.find(item => item.id === result.task_id);
       assert.equal(task.task_status, "rejected");
-      assert.equal(snapshot.project.project_summary.body, "本轮摘要3");
+      assert.equal(snapshot.project.project_summary.body, "本轮摘要4");
       assert.equal(snapshot.project.project_summary.node_state.reason, "遗漏明确结局");
       assert.equal(snapshot.project.project_summary.node_state.dependency_hash, oldHash);
       assert.match(prompts[1], /本轮摘要1/);

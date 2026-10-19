@@ -192,7 +192,7 @@ describe("project-aspects", () => {
       }
       await repo.close();repo=null;
       db=new DatabaseSync(join(home,'meiji.sqlite'));
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version,27);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version,28);
       assert.deepEqual(db.prepare('SELECT * FROM tasks').all(),oldTasks);
       assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(),oldSteps);db.close();
       assert.throws(()=>validateProject({...migrated,aspect_ratio:'768x1344'}),/aspect_ratio/);
