@@ -1,5 +1,5 @@
 {
-  "$comment": "本文件为新版项目结构说明。$defs和$ref仅用于复用字段定义，不属于实际项目业务数据。展开后仍是原有8个业务一级字段；每个AI节点、每个动作各有独立规则值和状态，不共享可变数据，也不改变现有基础规则动态读取方式。 生成各节点的请求指令在任务详情/执行记录中查看，图片节点不保存prompt字段；text_prompt的三段正文仍为正式业务结果。prompt_pack.prompt是完整的本地POST /v1/videos/generations请求体，可直接用于调用；其中prompt字段为最终提示词字符串，媒体和生成参数也放在该请求体内。node_state与请求体prompt平级，不发送给接口。人物costume_images[i]与costumes[i]按位置一一对应，costume_id等于该服装ID；服装增删重排时同步调整两个数组。没有服装目录时costumes为空，保留一张costume_id为空的定妆照，不编造服装。 人物不设默认服装或默认定妆照。后续节点选用人物定妆照时，必须显式使用character_id与costume_id定位该人物的costume_images对应项，不按默认值或数组首项自动选图；视频编排按明确选择保存参考素材。无服装目录时，显式指定character_id并令costume_id为空，定位该人物唯一的未绑定服装定妆照。可见人物仍允许不绑定并按文字推断；已明确选择的图片不可被其他服装图片自动替代。 视频生成节点的地址、实际时长和keyframes均平铺保存，不设result包装。关键帧为按视频时间升序排列的图片地址数组，必须包含实际最后一帧；需要尾帧时取最后一项，不再保存重复的tail_frame_address，也不建立独立尾帧提取节点。 prompt_pack.prompt示例采用多模态请求：images、videos、audios为按引用顺序排列的素材字符串数组，正文prompt按多模态六段编排。首尾帧请求结构见$defs.h3_first_last_frame_request，正文为对齐指令和三个命名段；ratio为adaptive，无目标尾帧时省略last_frame，不传空字符串。prompt.images是图片Base64字符串数组，每项包含完整图片数据并带MIME前缀，例如data:image/png;base64,...，不保存图片地址或业务对象，可直接传给当前接口。图片节点的裸Base64参考图用于此处时需补齐对应MIME前缀。videos、audios仍按接口支持的HTTPS地址、mm_file://地址或对应媒体的Base64 data URL填写。人物、服装等业务ID不进入接口请求体；模型由本地服务配置，不在此重复保存。仅在连续接拍且场景、状态有效时，选用前片keyframes最后一项作为首帧；目标尾帧与生成后实际尾帧分别保存。",
+  "$comment": "本文件为新版项目结构说明。$defs和$ref仅用于复用字段定义，不属于实际项目业务数据。展开后仍是原有8个业务一级字段；每个AI节点、每个动作各有独立规则值和状态，不共享可变数据，也不改变现有基础规则动态读取方式。 生成各节点的请求指令在任务详情/执行记录中查看，图片节点不保存prompt字段；text_prompt的三段正文仍为正式业务结果。video_prompt是视频提示词节点，其prompt_pack保存模式、结构化提示词、媒体及生成参数；node_state与prompt_pack平级，不发送给接口。prompt_pack.prompt保存JSON对象，多模态使用六个命名段；调用本地POST /v1/videos/generations前，按规定顺序将该对象序列化为提示词字符串，其他接口字段原样取用。人物costume_images[i]与costumes[i]按位置一一对应，costume_id等于该服装ID；服装增删重排时同步调整两个数组。没有服装目录时costumes为空，保留一张costume_id为空的定妆照，不编造服装。 人物不设默认服装或默认定妆照。后续节点选用人物定妆照时，必须显式使用character_id与costume_id定位该人物的costume_images对应项，不按默认值或数组首项自动选图；视频编排按明确选择保存参考素材。无服装目录时，显式指定character_id并令costume_id为空，定位该人物唯一的未绑定服装定妆照。可见人物仍允许不绑定并按文字推断；已明确选择的图片不可被其他服装图片自动替代。 视频生成节点的地址、实际时长和keyframes均平铺保存，不设result包装。关键帧为按视频时间升序排列的图片地址数组，必须包含实际最后一帧；需要尾帧时取最后一项，不再保存重复的tail_frame_address，也不建立独立尾帧提取节点。 video_prompt.prompt_pack示例采用多模态结构：images、videos、audios为按引用顺序排列的素材字符串数组，prompt对象依次保存subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music六个字符串字段，调用时按“字段名:\\n内容”拼接，各段之间空一行。首尾帧请求结构见$defs.h3_first_last_frame_request，其prompt对象包含instruction、integrated_multimodal_description、overall_soundscape、non_diegetic_music；调用时instruction内容置于首行，其余三段按命名段顺序拼接；ratio为adaptive，无目标尾帧时省略last_frame，不传空字符串。prompt_pack.images是图片Base64字符串数组，每项包含完整图片数据并带MIME前缀，例如data:image/png;base64,...，不保存图片地址或业务对象，可直接传给当前接口。图片节点的裸Base64参考图用于此处时需补齐对应MIME前缀。videos、audios仍按接口支持的HTTPS地址、mm_file://地址或对应媒体的Base64 data URL填写。人物、服装等业务ID不进入接口请求体；模型由本地服务配置，不在此重复保存。仅在连续接拍且场景、状态有效时，选用前片keyframes最后一项作为首帧；目标尾帧与生成后实际尾帧分别保存。 video_prompt.prompt_pack在主结构中同时列出两种模式可用字段：prompt.instruction、prompt.integrated_multimodal_description以及first_frame、last_frame用于首尾帧模式。当前多模态示例的first_frame、last_frame为空，调用多模态接口时省略它们，正文仅编排多模态六段；首尾帧模式正文仅编排instruction和三个对应命名段，first_frame必须填有效图片，last_frame有目标尾帧时填写，没有则省略，并省略images、videos、audios。这些是按mode选择的字段，不将两套提示词混合发送。",
   "$defs": {
     "rule_action": {
       "base": "（本动作基础规则快照；执行、展示及依赖计算统一读取当前代码基础规则，不执行旧快照。未启用的动作不因此新增执行步骤。）",
@@ -24,7 +24,12 @@
     },
     "h3_first_last_frame_request": {
       "mode": "首尾帧",
-      "prompt": "How the reference pictures align with the video: Picture 1 corresponds to 0 seconds; Picture 2 corresponds to the end of the video.\n\nintegrated_multimodal_description:\n（按首帧状态、动作发展与目标尾帧编排完整画面、摄影、对白及同步声音。）\n\noverall_soundscape:\n（环境声、动作声和非语言人声。）\n\nnon_diegetic_music:\nN/A",
+      "prompt": {
+        "instruction": "How the reference pictures align with the video: Picture 1 corresponds to 0 seconds; Picture 2 corresponds to the end of the video.",
+        "integrated_multimodal_description": "（按首帧状态、动作发展与目标尾帧编排完整画面、摄影、对白及同步声音。）",
+        "overall_soundscape": "（环境声、动作声和非语言人声。）",
+        "non_diegetic_music": "N/A"
+      },
       "duration": 7,
       "resolution": "768P",
       "ratio": "adaptive",
@@ -358,7 +363,16 @@
       "video_prompt": {
         "prompt_pack": {
           "mode": "多模态",
-          "prompt": "subject_definitions:\n（多模态最终提示词第1段：用<Subject N>、<Picture N>等H3标签定义参考内容、特征和来源；不写项目人物ID或服装ID。）\n\nsummary:\n（第2段：任务类型、目标视频和主要参考关系。）\n\nretention_analysis:\n（第3段：各参考内容的保留、迁移或复用方式。）\n\ndetailed_description:\n（第4段：按[Shot N]顺序写画面、动作、摄影、对白及同步声音，保留实际切镜和发声时序。）\n\noverall_soundscape:\n（第5段：环境声、动作声和非语言人声，不重复对白。）\n\nnon_diegetic_music:\n（第6段：观众可听、角色听不到的配乐；没有则N/A。）",
+          "prompt": {
+            "subject_definitions": "（多模态最终提示词第1段：用<Subject N>、<Picture N>等H3标签定义参考内容、特征和来源；不写项目人物ID或服装ID。）",
+            "summary": "（第2段：任务类型、目标视频和主要参考关系。）",
+            "retention_analysis": "（第3段：各参考内容的保留、迁移或复用方式。）",
+            "detailed_description": "（第4段：按[Shot N]顺序写画面、动作、摄影、对白及同步声音，保留实际切镜和发声时序。）",
+            "overall_soundscape": "（第5段：环境声、动作声和非语言人声，不重复对白。）",
+            "non_diegetic_music": "（第6段：观众可听、角色听不到的配乐；没有则N/A。）",
+            "instruction": "How the reference pictures align with the video: Picture 1 corresponds to 0 seconds; Picture 2 corresponds to the end of the video.",
+            "integrated_multimodal_description": "（按首帧状态、动作发展与目标尾帧编排完整画面、摄影、对白及同步声音。）"
+          },
           "duration": 7,
           "resolution": "768P",
           "ratio": "9:16",
@@ -366,7 +380,9 @@
             "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="
           ],
           "videos": [],
-          "audios": []
+          "audios": [],
+          "first_frame": "",
+          "last_frame": ""
         },
         "node_state": {
           "$ref": "#/$defs/node_state"
@@ -379,9 +395,6 @@
         "keyframes": [
           "（关键帧图片地址；按视频时间升序排列，提取结果必须包含视频实际最后一帧，因此最后一项即尾帧。未提取时为空数组。）"
         ],
-        "rules": {
-          "$ref": "#/$defs/rules"
-        },
         "node_state": {
           "$ref": "#/$defs/node_state"
         }
