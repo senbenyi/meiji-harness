@@ -1,5 +1,5 @@
 {
-  "$comment": "本文件为目标项目结构说明，非运行时项目实例。$defs和$ref仅复用字段定义，实际AI节点各自保存独立规则与状态。镜头与生成分片拆开：项目顶层shot_design、clip_arrangement、text_prompt依次为镜头设计、分片编排、提示词生成三个独立节点，替代旧clips内clip_design、storyboard、text_prompt流程。shot_design与text_prompt为AI节点，clip_arrangement为程序节点，无AI规则。镜头shots按sequence排列，一个shot为连续摄影，不限制4–15秒。beats至少一项，每项包含duration_seconds、action、camera、scene_changes、effects、audio六个字段。action保存人物及背景群体的行动、表情、反应、入离场、移动、朝向与目光变化、动作速度和互动密度；camera保存景别、构图、焦点及连续运镜的发展；scene_changes保存本阶段需独立追踪的环境变化及持久状态，继承scene开场基准及此前节拍累积状态，普通动作的直接结果随action表达；effects保存特效触发动作、可见过程、强度与消散或持续状态，持久环境变化由scene_changes说明；audio保存对白旁白原文、说话人、发声方式、环境声、动作音效及配乐的开始、持续、变化与结束，逐字保留原话和标点。动作作为时间主线，摄影、场景变化、特效与声音以具体动作或阶段关联，明确先后与同步关系；各字段继承此前有效状态，本阶段没有新增内容时填空字符串。节拍按行动、反应或视听阶段划分，不按说话人机械拆分；快速接话、打断或同时发声可在同一节拍描述，人物切换和摄影连续转向可换节拍但不代表切镜。简单镜头一个节拍，复杂镜头多个。镜头时长由节拍相加，不重复保存。clip_arrangement.clips按sources顺序引用shot_id及镜头内[start_seconds,end_seconds)时间范围；分片时长为各范围之和，必须为4–15整数秒。所有镜头时间范围按叙事顺序完整覆盖，不能遗漏、重叠、倒序或靠改变播放速度适配。短镜头可合并、长镜头可跨分片，合并还需考虑场景、参考素材和复杂度，无法合规编排时报告原因。优先在自然阶段边界拆分，阶段内部拆分需有可核对的中间状态、动作及发声边界依据，不仅凭自然语言推算一句话的精确秒数；依据不足时调整节拍或报告无法合规编排，避开无法接续的关键动作或发声。换说话人本身不代表适合切分视频。示例16秒镜头拆成两个8秒分片；同一shot跨分片保持摄影连续，长镜头无缝效果仍需生成后检查。text_prompt.items与分片以clip_id一一关联，规则和状态归属生成节点；videos按clip_id关联分片，episodes按clip_ids合片。人物costume_images[i]与costumes[i]按位置一一对应，costume_id等于该服装ID；服装增删重排时同步调整两个数组。没有服装目录时costumes为空，保留一张costume_id为空的定妆照，不编造服装。 人物不设默认服装或默认定妆照。后续节点选用人物定妆照时，必须显式使用character_id与costume_id定位该人物的costume_images对应项，不按默认值或数组首项自动选图；视频编排按明确选择保存参考素材。无服装目录时，显式指定character_id并令costume_id为空，定位该人物唯一的未绑定服装定妆照。可见人物仍允许不绑定并按文字推断；已明确选择的图片不可被其他服装图片自动替代。 视频生成节点的地址、实际时长和keyframes均平铺保存，不设result包装。关键帧为按视频时间升序排列的图片地址数组，必须包含实际最后一帧；需要尾帧时取最后一项，不再保存重复的tail_frame_address，也不建立独立尾帧提取节点。 video_prompt.prompt_pack示例采用多模态结构：images、videos、audios为按引用顺序排列的素材字符串数组，prompt对象依次保存subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music六个字符串字段，调用时按“字段名:\\n内容”拼接，各段之间空一行。首尾帧模式的prompt对象包含instruction、integrated_multimodal_description、overall_soundscape、non_diegetic_music；调用时instruction内容置于首行，其余三段按命名段顺序拼接；ratio为adaptive，无目标尾帧时省略last_frame，不传空字符串。prompt_pack.images是图片Base64字符串数组，每项包含完整图片数据并带MIME前缀，例如data:image/png;base64,...，不保存图片地址或业务对象，可直接传给当前接口。图片节点的裸Base64参考图用于此处时需补齐对应MIME前缀。videos、audios仍按接口支持的HTTPS地址、mm_file://地址或对应媒体的Base64 data URL填写。人物、服装等业务ID不进入接口请求体；模型由本地服务配置，不在此重复保存。仅在连续接拍且场景、状态有效时，选用前片keyframes最后一项作为首帧；目标尾帧与生成后实际尾帧分别保存。 video_prompt.prompt_pack在主结构中同时列出两种模式可用字段：prompt.instruction、prompt.integrated_multimodal_description以及first_frame、last_frame用于首尾帧模式。当前多模态示例的first_frame、last_frame为空，调用多模态接口时省略它们，正文仅编排多模态六段；首尾帧模式正文仅编排instruction和三个对应命名段，first_frame必须填有效图片，last_frame有目标尾帧时填写，没有则省略，并省略images、videos、audios。这些是按mode选择的字段，不将两套提示词混合发送。 镜头scene平铺保存三个字符串字段：scene_id绑定场景资产，state保存开场环境状态与光照，spatial_setup保存本镜使用的地标、通道及互动轴线；镜头顶层transition保存与前镜的关系。characters保存人物开场在场、站位、朝向和目光状态；首节拍camera建立初始景别、主体、前中后景与视觉焦点，后续camera描述摄影变化；所有节拍继承项目风格，narrative_purpose保存本镜叙事作用及整体情绪与节奏目标；剧情依据通过story_segment_id和key_anchor_ids关联上游故事段，具体过程统一由beats展开。动态发展按职责写入beats对应字段，人物开场状态和场景基准作为起点。首节拍与后续节拍按发生顺序明确承接前镜及本镜已有状态；需要结尾交接摘要时，从开场状态和全部节拍累积结果提取并核对。镜头characters统一保存主要人物、后景关系人物和背景群体，允许人物与服装ID为空；有服装目录且绑定人物时明确选择该人物服装。对白及旁白原文在镜头设计内仅保存于对应beats.audio。环境声、动作音效和配乐从开始出现的节拍写入audio，明确持续范围、变化与结束；贯穿全镜的声音在首节拍建立，后续节拍继承有效声音状态并记录变化。原话按发声进程展开，已说完的原话保持在原节拍。最终提示词按来源范围展开原话、发声方式与声音时序，保留完整性；需要对白清单时从节拍提取，不另维护副本。",
+  "$comment": "本文件为目标项目结构说明，非运行时项目实例。枚举字段的示例值在括号内列出完整取值及含义，实际保存和请求仅使用选中的枚举值；模型相关参数以项目约定和所选模型支持能力为准。$defs和$ref仅复用字段定义，实际AI节点各自保存独立规则与状态。镜头与生成分片拆开：项目顶层shot_design、clip_arrangement、video_prompt依次为镜头设计、分片编排、视频提示词生成三个独立节点，替代旧分片内的镜头设计、分镜和文本提示词流程。shot_design与video_prompt为AI节点，clip_arrangement为程序节点，无AI规则。镜头shots按sequence排列，一个shot为单一背景区域内的连续摄影，不限制4–15秒；同一场景资产中的大厅、门口等独立背景区域分别建立shot，可共用scene_id。本区域内的走动、景别或构图变化可保留在同一shot。previous_shot_connection仅取opening、continuous、cut：opening用于整段内容首镜，独立建立起始视听状态；continuous用于延续前镜时间、动作或空间移动，首节拍承接前镜实际结束状态；cut用于直接进入另一事件、地点或时刻，首节拍建立新的起始状态并交代声音接续。continuous表示叙事与动作连续，两个shot之间仍按切镜设计。beats至少一项，每项包含duration_seconds、action、camera、scene_changes、effects、audio六个字段。action保存人物及背景群体的行动、表情、反应、入离场、移动、朝向与目光变化、动作速度和互动密度；camera保存景别、构图、焦点及连续运镜的发展；scene_changes保存本阶段需独立追踪的环境变化及持久状态，继承scene开场基准及此前节拍累积状态，普通动作的直接结果随action表达；effects保存特效触发动作、可见过程、强度与消散或持续状态，持久环境变化由scene_changes说明；audio保存对白旁白原文、说话人、发声方式、环境声、动作音效及配乐的开始、持续、变化与结束，逐字保留原话和标点。动作作为时间主线，摄影、场景变化、特效与声音以具体动作或阶段关联，明确先后与同步关系；各字段继承此前有效状态，本阶段没有新增内容时填空字符串。节拍按行动、反应或视听阶段划分，不按说话人机械拆分；快速接话、打断或同时发声可在同一节拍描述，人物切换和摄影连续转向可换节拍但不代表切镜。简单镜头一个节拍，复杂镜头多个。镜头时长由节拍相加，不重复保存。clip_arrangement.clips按sources顺序引用shot_id及镜头内start_beat、end_beat节拍序号；序号从1开始，起止均包含，每个source引用连续完整节拍，分片duration_seconds由sources所选全部节拍的duration_seconds相加计算并保存，必须为4–15整数秒。所有镜头节拍按叙事顺序完整覆盖一次，保留正常播放速度。短镜头可合并、长镜头可跨分片，合并还需考虑场景、参考素材和复杂度，无法合规编排时报告原因。切分点必须落在节拍结束处，并检查后续余量，使每片均为4–15秒；现有节拍无法合规编排时，调整节拍设计或报告原因。示例16秒镜头拆成两个8秒分片；同一shot跨分片保持摄影连续，长镜头无缝效果仍需生成后检查。分片clips保存id、duration_seconds、mode、sources，以数组顺序排序，衔接依据来自镜头首节拍和此前节拍累积状态；生成video_prompt时读取来源镜头公共资料、关联资产、所选节拍及起始前的有效状态。video_prompt.items与分片以clip_id一一关联，规则和状态归属生成节点；videos按clip_id关联分片，episodes按clip_ids合片。人物costume_images[i]与costumes[i]按位置一一对应，costume_id等于该服装ID；服装增删重排时同步调整两个数组。没有服装目录时costumes为空，保留一张costume_id为空的定妆照，不编造服装。 人物不设默认服装或默认定妆照。后续节点选用人物定妆照时，必须显式使用character_id与costume_id定位该人物的costume_images对应项，不按默认值或数组首项自动选图；视频编排按明确选择保存参考素材。无服装目录时，显式指定character_id并令costume_id为空，定位该人物唯一的未绑定服装定妆照。可见人物仍允许不绑定并按文字推断；已明确选择的图片不可被其他服装图片自动替代。 视频生成节点的地址、实际时长和keyframes均平铺保存，不设result包装。关键帧为按视频时间升序排列的图片地址数组，必须包含实际最后一帧；需要尾帧时取最后一项，不再保存重复的tail_frame_address，也不建立独立尾帧提取节点。 分片编排时确定mode，完整枚举为文生、首尾帧、多模态；按明确选用的素材与开场接续方式选择。视频提示词统一保存于顶层video_prompt节点，与videos生成结果分开。video_prompt.items每项保存clip_id，并按分片类型仅保存对应的一个字段：文生使用text_to_video引用#/$defs/text_to_video，多模态使用multimodal引用#/$defs/multimodal，首尾帧使用first_last_frame引用#/$defs/first_last_frame；示例中的不同字段表示类型选择，实际每项仅使用所选类型的字段。mode仅保存于clip_arrangement.clips中，三个引用结构依据关联分片的mode选择；发送接口请求时从分片读取mode并组装请求体。三个引用定义为独立结构，不混合不同模式的字段。多模态prompt按subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music六段顺序拼接；文生prompt按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接；首尾帧prompt将instruction置于首行，再按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接。各命名段按字段名、换行及内容组织，段间空一行。图片以带MIME前缀的完整Base64字符串保存，图片节点提供裸Base64时补齐MIME前缀；视频与音频参考使用接口支持的HTTPS地址、mm_file://地址或对应媒体Base64 data URL。首尾帧结构中first_frame必填，last_frame仅在有明确目标尾帧时保存；实际生成后视频尾帧仍由keyframes最后一项提供。分片类型为首尾帧且已选择前片尾帧时，video_prompt在前片有效实际尾帧可用后填入first_frame，保留本片既定类型及节拍开场设计。文生结构使用纯文字，多模态结构保存images、videos、audios参考，首尾帧结构保存first_frame与可选last_frame。业务人物、服装等ID用于资料关联，接口正文使用对应外观与素材标签；模型由本地服务配置。 镜头scene平铺保存三个字符串字段：scene_id绑定场景资产，state保存开场环境状态与光照，spatial_setup保存本镜使用的地标、通道及互动轴线。characters保存人物开场在场、站位、朝向和目光状态；首节拍camera建立初始景别、主体、前中后景与视觉焦点，后续camera描述摄影变化；所有节拍继承项目风格，信息、情绪和节奏落实到节拍的动作、摄影及声音中；剧情依据通过story_segment_id和key_anchor_ids关联上游故事段，具体过程统一由beats展开。动态发展按职责写入beats对应字段，镜头外层提供各节拍共用的身份、排序、剧情关联、与前镜的衔接类型、场景和人物初始资料；beats保存实际拍摄的动作、摄影、环境变化、特效与声音。初始资料作为节拍起点，后续节拍承接已发生变化后的最新状态。首节拍与后续节拍按发生顺序明确承接前镜及本镜已有状态；需要结尾交接摘要时，从开场状态和全部节拍累积结果提取并核对。镜头characters统一保存主要人物、后景关系人物和背景群体，允许人物与服装ID为空；有服装目录且绑定人物时明确选择该人物服装。对白及旁白原文在镜头设计内仅保存于对应beats.audio。环境声、动作音效和配乐从开始出现的节拍写入audio，明确持续范围、变化与结束；贯穿全镜的声音在首节拍建立，后续节拍继承有效声音状态并记录变化。原话按发声进程展开，已说完的原话保持在原节拍。最终提示词按来源范围展开原话、发声方式与声音时序，保留完整性；需要对白清单时从节拍提取，不另维护副本。",
   "$defs": {
     "rules": {
       "generate": {
@@ -16,17 +16,62 @@
       }
     },
     "node_state": {
-      "status": "empty（枚举：empty、generated、rejected、expired；任务排队与运行状态由任务系统管理。）",
+      "status": "empty（枚举：empty为空、generated为已生成、rejected为未通过、expired为已过期；任务排队与运行状态由任务系统管理。）",
       "reason": "（业务未通过或过期原因；业务问题进入未通过，不作为HTTP/网络失败。）",
       "fail_message": "（HTTP、网络等执行失败说明，不作为AI改写意见。）",
       "dependency_hash": "（生成时的有效输入和规则依赖指纹；上游变化后用于判断结果是否过期。）"
+    },
+    "multimodal": {
+      "prompt": {
+        "subject_definitions": "（多模态最终提示词第1段：用<Subject N>、<Picture N>等H3标签定义参考内容、特征和来源；不写项目人物ID或服装ID。）",
+        "summary": "（第2段：任务类型、目标视频和主要参考关系。）",
+        "retention_analysis": "（第3段：各参考内容的保留、迁移或复用方式。）",
+        "detailed_description": "（根据分片sources引用的完整节拍及镜头公共资料，结合人物、服装、场景资产与此前累积的有效状态，独立建立本片开场，再按节拍顺序展开动作、表情、摄影、环境变化、特效、对白及旁白原文与同步声音。同一shot跨片接续摄影，不同shot按片内累计时间标注真实切镜；已说完的原话仅作上下文，本片展开所选节拍内应发声的原话。落实<Subject N>、<Picture N>等素材标签。）",
+        "overall_soundscape": "（环境声、动作声和非语言人声，按来源节拍及此前有效状态保留出现、变化、持续与停止时序；对白与旁白原文在视听正文展开。）",
+        "non_diegetic_music": "（观众可听、角色听不到的配乐，继承来源节拍audio中仍有效的配乐状态，保留变化及停止时序；没有则N/A。）"
+      },
+      "duration": "8（整数秒；与关联clip的duration_seconds一致，取值4—15。）",
+      "resolution": "768P（当前项目视频请求固定值：768P。）",
+      "ratio": "9:16（枚举：21:9、16:9、4:3、1:1、3:4、9:16、adaptive；使用项目固定比例或按参考素材自适应。）",
+      "images": [
+        "（按引用顺序排列的完整图片Base64字符串，带MIME前缀，例如data:image/png;base64,...；承接已明确选择的人物、服装、场景及接续图片。）"
+      ],
+      "videos": [
+        "（按引用顺序排列的视频素材字符串；支持接口认可的HTTPS地址、mm_file://地址或视频Base64 data URL；无视频参考时为空数组。）"
+      ],
+      "audios": [
+        "（按引用顺序排列的音频素材字符串；支持接口认可的HTTPS地址、mm_file://地址或音频Base64 data URL；无音频参考时为空数组。）"
+      ]
+    },
+    "text_to_video": {
+      "prompt": {
+        "integrated_multimodal_description": "（根据分片sources引用的完整节拍及镜头公共资料，结合人物、服装、场景资产与此前累积的有效状态，独立建立本片开场，再按节拍顺序展开动作、表情、摄影、环境变化、特效、对白及旁白原文与同步声音。同一shot跨片接续摄影，不同shot按片内累计时间标注真实切镜；已说完的原话仅作上下文，本片展开所选节拍内应发声的原话。）",
+        "overall_soundscape": "（环境声、动作声和非语言人声，按来源节拍及此前有效状态保留出现、变化、持续与停止时序；对白与旁白原文在视听正文展开。）",
+        "non_diegetic_music": "（观众可听、角色听不到的配乐，继承来源节拍audio中仍有效的配乐状态，保留变化及停止时序；没有则N/A。）"
+      },
+      "duration": "8（整数秒；与关联clip的duration_seconds一致，取值4—15。）",
+      "resolution": "768P（当前项目视频请求固定值：768P。）",
+      "ratio": "9:16（枚举：21:9、16:9、4:3、1:1、3:4、9:16；继承项目固定比例。）"
+    },
+    "first_last_frame": {
+      "prompt": {
+        "instruction": "（首帧与可选目标尾帧的对应说明，调用时置于提示词首行；只提供首帧时说明首帧对应0秒，同时提供尾帧时说明尾帧对应本片结束。）",
+        "integrated_multimodal_description": "（根据分片sources引用的完整节拍及镜头公共资料，结合人物、服装、场景资产与此前累积的有效状态，独立建立本片开场，再按节拍顺序展开动作、表情、摄影、环境变化、特效、对白及旁白原文与同步声音。同一shot跨片接续摄影，不同shot按片内累计时间标注真实切镜；已说完的原话仅作上下文，本片展开所选节拍内应发声的原话。以明确首帧为起点，有目标尾帧时按剧情与表演自然到达该状态。）",
+        "overall_soundscape": "（环境声、动作声和非语言人声，按来源节拍及此前有效状态保留出现、变化、持续与停止时序；对白与旁白原文在视听正文展开。）",
+        "non_diegetic_music": "（观众可听、角色听不到的配乐，继承来源节拍audio中仍有效的配乐状态，保留变化及停止时序；没有则N/A。）"
+      },
+      "duration": "8（整数秒；与关联clip的duration_seconds一致，取值4—15。）",
+      "resolution": "768P（当前项目视频请求固定值：768P。）",
+      "ratio": "adaptive（本结构固定值：adaptive，按参考图自适应。）",
+      "first_frame": "（必填有效首帧图片，带MIME前缀的完整Base64字符串；可使用明确选择且与本片开场匹配的前片实际尾帧或其他已确认首帧。）",
+      "last_frame": "（可选目标尾帧图片，带MIME前缀的完整Base64字符串；有明确目标时填写，无目标尾帧时实际数据与请求中省略此字段。）"
     }
   },
   "basic_info": {
     "id": "project_001",
     "name": "（项目名称；本文件为新版项目目标结构及字段说明。）",
-    "creation_mode": "剧本（创作模式；保留现有剧本导入与自由创作能力。）",
-    "aspect_ratio": "9:16（项目画幅；可选21:9、16:9、4:3、1:1、3:4、9:16。）",
+    "creation_mode": "剧本（枚举：剧本、自由创作；剧本为导入剧本创作，自由创作为按创作要求生成内容。）",
+    "aspect_ratio": "9:16（项目画幅；枚举：21:9、16:9、4:3、1:1、3:4、9:16。）",
     "creative_requirements": "（全项目创作要求。）",
     "episode_reference_seconds": 180,
     "original_script": "（原始剧本独立保存；故事解析可同时核对原稿与当前优化稿。）"
@@ -109,7 +154,7 @@
           {
             "costume_id": "costume_001",
             "reference_image": "（单张明确参考图片的Base64字符串；无参考图时为空字符串。不使用数组，不包含address、role或其他字段。）",
-            "aspect_ratio": "9:16（示例；继承项目画幅，其他参数按所选图片模型实际支持能力编排。）",
+            "aspect_ratio": "9:16（继承项目画幅；项目比例枚举：21:9、16:9、4:3、1:1、3:4、9:16；实际请求按所选图片模型支持能力编排。）",
             "address": "（生成或导入并确认有效的结果图地址；支持预览及点击放大。）",
             "rules": {
               "$ref": "#/$defs/rules"
@@ -150,7 +195,7 @@
           {
             "costume_id": "",
             "reference_image": "（单张明确参考图片的Base64字符串；无参考图时为空字符串。不使用数组，不包含address、role或其他字段。）",
-            "aspect_ratio": "9:16（示例；继承项目画幅，其他参数按所选图片模型实际支持能力编排。）",
+            "aspect_ratio": "9:16（继承项目画幅；项目比例枚举：21:9、16:9、4:3、1:1、3:4、9:16；实际请求按所选图片模型支持能力编排。）",
             "address": "（生成或导入并确认有效的结果图地址；支持预览及点击放大。）",
             "rules": {
               "$ref": "#/$defs/rules"
@@ -182,7 +227,7 @@
         "fixed_landmarks": "（跨镜复用的固定参照及其名称。）",
         "image_generation": {
           "reference_image": "（单张明确参考图片的Base64字符串；无参考图时为空字符串。不使用数组，不包含address、role或其他字段。）",
-          "aspect_ratio": "9:16（示例；继承项目画幅，其他参数按所选图片模型实际支持能力编排。）",
+          "aspect_ratio": "9:16（继承项目画幅；项目比例枚举：21:9、16:9、4:3、1:1、3:4、9:16；实际请求按所选图片模型支持能力编排。）",
           "address": "（生成或导入并确认有效的结果图地址；支持预览及点击放大。）",
           "rules": {
             "$ref": "#/$defs/rules"
@@ -205,16 +250,16 @@
       {
         "id": "shot_001",
         "sequence": 1,
+        "previous_shot_connection": "opening（枚举：opening为整段内容首镜，独立建立起始视听状态；continuous为延续前镜时间、动作或空间移动，首节拍承接前镜实际结束状态，镜头之间仍按切镜设计；cut为直接进入另一事件、地点或时刻，首节拍建立新状态并交代声音接续。）",
         "story_segment_id": "segment_001",
-        "title": "（镜头标题；shot表示连续摄影，可为2秒、20秒或更长，不按接口时长拆镜。）",
+        "title": "（镜头标题；每个shot在单一背景区域内连续摄影，跨背景区域另建shot；时长依据表演需要，不按接口时长拆镜。）",
         "key_anchor_ids": [
           "anchor_001"
         ],
-        "narrative_purpose": "（本镜推动的具体变化、观看期待或信息揭示，以及整体情绪走向与节奏目标；首镜明确吸引人的可见事件或悬念。具体动作、表演及停顿在beats中落实。）",
         "scene": {
           "scene_id": "scene_001",
           "state": "（本镜开场的昼夜、天气、损坏状态，以及具体光源、照射方向和明暗关系，继承场景资产的环境与基础光照；后续需独立追踪的环境及光照变化写入beats.scene_changes。）",
-          "spatial_setup": "（本镜使用的固定地标及空间关系、入口出口、行动通道及通达关系，以及开场人物互动轴线；以人物和地标明确轴线方向，完整建筑布局引用场景资产。人物具体站位由characters.position说明，摄影观察侧由beats.camera说明，人物沿通道移动的过程写入beats.action。）"
+          "spatial_setup": "（本镜唯一背景区域使用的地标、空间关系、入口出口、通道与开场人物互动轴线，完整布局引用场景资产；同一场景资产中的大厅、门口等独立背景区域分别建立shot，可共用scene_id。人物具体站位由characters.position说明，摄影观察侧由beats.camera说明，本区域内人物移动写入beats.action。）"
         },
         "characters": [
           {
@@ -227,15 +272,14 @@
             "gaze_target": "（开场目光对象，与身体朝向分别交代；后续目光变化写入beats.action。）"
           }
         ],
-        "transition": "opening（与前一镜头关系：opening、continuous、viewpoint_change、scene_change、time_jump；首镜opening。）",
         "beats": [
           {
             "duration_seconds": 4,
-            "action": "（人物及背景群体从开场状态开始的行动、表情、反应、移动、入离场、朝向与目光变化、速度和互动密度，以及普通动作的直接结果，明确先后及同步关系。示例：A将牌放到桌面，B随后摸牌并看向手牌。）",
-            "camera": "（首节拍建立初始景别、主体、前中后景与视觉焦点，并描述本阶段连续运镜；后续节拍承接有效摄影状态并描述变化。示例：双人中景，A与B位于桌子两侧，桌面在前景、窗户在后景，焦点随B摸牌移向B。）",
-            "scene_changes": "（本阶段需要独立追踪的天气、光照、建筑及物件环境状态变化，承接scene开场基准和此前节拍累积状态；普通动作的直接结果由action表达。特效造成的持久环境变化在此说明，如墙体留下破口、灯具熄灭；无新增环境变化时填空字符串。）",
-            "effects": "（本阶段特效的触发动作、可见过程、表现强度及消散或持续状态；造成的持久环境变化由scene_changes说明，无特效时填空字符串。）",
-            "audio": "（本阶段对白与旁白原文、说话人、发声方式，以及环境声、动作音效和配乐的开始、持续、变化与结束，关联具体动作；首节拍建立开场声音，后续节拍继承有效状态。示例：窗外雨声贯穿本镜；A落牌后画内说：‘到你了。’落牌声与牌接触桌面同步并在本阶段结束。）"
+            "action": "（首节拍按previous_shot_connection设计：opening建立起始姿态、持物与行动；continuous承接前镜实际结束的姿态、持物及动作进度；cut按本镜剧情建立新的起始状态。人物及背景群体从开场状态开始的行动、表情、反应、移动、入离场、朝向与目光变化、速度和互动密度，以及普通动作的直接结果，明确先后及同步关系。示例：A将牌放到桌面，B随后摸牌并看向手牌。）",
+            "camera": "（首节拍建立初始景别、主体、前中后景与视觉焦点，continuous时明确人物入画方向、空间方位及与前镜的视觉接续；opening或cut时建立本镜构图，并描述本阶段连续运镜；后续节拍承接有效摄影状态并描述变化。示例：双人中景，A与B位于桌子两侧，桌面在前景、窗户在后景，焦点随B摸牌移向B。）",
+            "scene_changes": "（首节拍以本镜scene为环境基准，有跨镜延续的环境变化时写明对应状态。本阶段需要独立追踪的天气、光照、建筑及物件环境状态变化，承接scene开场基准和此前节拍累积状态；普通动作的直接结果由action表达。特效造成的持久环境变化在此说明，如墙体留下破口、灯具熄灭；无新增环境变化时填空字符串。）",
+            "effects": "（首节拍有前镜延续的特效时，承接其实际进度与强度。本阶段特效的触发动作、可见过程、表现强度及消散或持续状态；造成的持久环境变化由scene_changes说明，无特效时填空字符串。）",
+            "audio": "（本阶段对白与旁白原文、说话人、发声方式，以及环境声、动作音效和配乐的开始、持续、变化与结束，关联具体动作；首节拍按衔接关系建立开场声音：continuous承接前镜仍有效的声音与发声进度，opening或cut明确本镜声音及有剧情依据的跨镜延续，后续节拍继承有效状态。示例：窗外雨声贯穿本镜；A落牌后画内说：‘到你了。’落牌声与牌接触桌面同步并在本阶段结束。）"
           },
           {
             "duration_seconds": 4,
@@ -266,47 +310,47 @@
   "clip_arrangement": {
     "clips": [
       {
-        "id": "clip_001",
-        "sequence": 1,
+        "id": "clip_001（分片唯一ID；video_prompt、videos和episodes通过此ID关联，分片按clips数组顺序排列。）",
+        "duration_seconds": "8（整数秒；等于sources按起止节拍范围引用的全部节拍duration_seconds之和，取值4—15。）",
+        "mode": "多模态（枚举：文生为文字生成视频；多模态为使用参考图片、视频或音频；首尾帧为使用明确首帧及可选目标尾帧。在分片编排时按明确选用的素材与开场接续方式确定，后续video_prompt使用对应结构。）",
         "sources": [
           {
-            "shot_id": "shot_001",
-            "start_seconds": 0,
-            "end_seconds": 8
+            "shot_id": "shot_001（来源镜头ID，引用shot_design.shots中的id；sources按本片播放顺序排列。）",
+            "start_beat": "1（来源镜头内的起始节拍序号；整数，从1开始，包含该节拍。）",
+            "end_beat": "2（来源镜头内的结束节拍序号；整数，包含该节拍，与start_beat共同指定连续完整节拍范围。）"
           }
-        ],
-        "continuity": "（以B思考中的面部特写结束，记录切分点构图、人物、行动和声音状态；同一shot跨分片延续摄影，不新增切镜。）"
+        ]
       },
       {
-        "id": "clip_002",
-        "sequence": 2,
+        "id": "clip_002（分片唯一ID；video_prompt、videos和episodes通过此ID关联，分片按clips数组顺序排列。）",
+        "duration_seconds": "8（整数秒；等于sources按起止节拍范围引用的全部节拍duration_seconds之和，取值4—15。）",
+        "mode": "首尾帧（枚举：文生为文字生成视频；多模态为使用参考图片、视频或音频；首尾帧为使用明确首帧及可选目标尾帧。在分片编排时按明确选用的素材与开场接续方式确定，后续video_prompt使用对应结构；本例选用前片有效实际尾帧作为本片首帧。）",
         "sources": [
           {
-            "shot_id": "shot_001",
-            "start_seconds": 8,
-            "end_seconds": 16
+            "shot_id": "shot_001（来源镜头ID，引用shot_design.shots中的id；sources按本片播放顺序排列。）",
+            "start_beat": "3（来源镜头内的起始节拍序号；整数，从1开始，包含该节拍。）",
+            "end_beat": "3（来源镜头内的结束节拍序号；整数，包含该节拍，与start_beat共同指定连续完整节拍范围。）"
           }
-        ],
-        "continuity": "（承接前片的构图、人物朝向和思考进度，随后连续下移展示出牌；有有效前片尾帧时供成片编排选择。）"
+        ]
       }
     ],
     "node_state": {
       "$ref": "#/$defs/node_state"
     }
   },
-  "text_prompt": {
+  "video_prompt": {
     "items": [
       {
-        "clip_id": "clip_001",
-        "integrated_multimodal_description": "（直接根据sources对应镜头与节拍范围生成完整视听正文，按beats.action、camera、scene_changes、effects整合画面与动态变化，从beats.audio展开对白及旁白原文、说话人、发声方式与声音时序，结合来源范围之前节拍已建立且仍有效的声音状态，按实际持续范围展开环境声、音效和配乐；带入人物外观服装、空间朝向、动作、表情、运镜、背景、特效、原对白与同步声音；每次请求独立建立起始状态。同一shot的节拍和跨分片接续不新增切镜，多个shot合并时按分片内累计时间标注真实切镜。成片编排时，多模态正文使用detailed_description并落实素材标签，文生与首尾帧使用integrated_multimodal_description。）",
-        "overall_soundscape": "（按来源节拍保留本片环境声、动作声和非语言人声的出现、变化与停止，不将局部声音描述为整片持续；不重复对白。）",
-        "non_diegetic_music": "（从来源节拍audio提取配乐，并承接此前已开始且仍有效的配乐状态，保留出现、变化与停止时序；没有则N/A。）"
+        "clip_id": "clip_001（关联clip_arrangement.clips中的id；按分片数组顺序排列。）",
+        "multimodal": {
+          "$ref": "#/$defs/multimodal"
+        }
       },
       {
-        "clip_id": "clip_002",
-        "integrated_multimodal_description": "（直接根据sources对应镜头与节拍范围生成完整视听正文，按beats.action、camera、scene_changes、effects整合画面与动态变化，从beats.audio展开对白及旁白原文、说话人、发声方式与声音时序，结合来源范围之前节拍已建立且仍有效的声音状态，按实际持续范围展开环境声、音效和配乐；带入人物外观服装、空间朝向、动作、表情、运镜、背景、特效、原对白与同步声音；每次请求独立建立起始状态。同一shot的节拍和跨分片接续不新增切镜，多个shot合并时按分片内累计时间标注真实切镜。成片编排时，多模态正文使用detailed_description并落实素材标签，文生与首尾帧使用integrated_multimodal_description。）",
-        "overall_soundscape": "（按来源节拍保留本片环境声、动作声和非语言人声的出现、变化与停止，不将局部声音描述为整片持续；不重复对白。）",
-        "non_diegetic_music": "（从来源节拍audio提取配乐，并承接此前已开始且仍有效的配乐状态，保留出现、变化与停止时序；没有则N/A。）"
+        "clip_id": "clip_002（关联clip_arrangement.clips中的id；按分片数组顺序排列。）",
+        "first_last_frame": {
+          "$ref": "#/$defs/first_last_frame"
+        }
       }
     ],
     "rules": {
@@ -319,34 +363,6 @@
   "videos": [
     {
       "clip_id": "clip_001",
-      "video_prompt": {
-        "prompt_pack": {
-          "mode": "多模态",
-          "prompt": {
-            "subject_definitions": "（多模态最终提示词第1段：用<Subject N>、<Picture N>等H3标签定义参考内容、特征和来源；不写项目人物ID或服装ID。）",
-            "summary": "（第2段：任务类型、目标视频和主要参考关系。）",
-            "retention_analysis": "（第3段：各参考内容的保留、迁移或复用方式。）",
-            "detailed_description": "（第4段：按[Shot N]顺序写画面、动作、摄影、对白及同步声音，保留实际切镜和发声时序。）",
-            "overall_soundscape": "（第5段：环境声、动作声和非语言人声，不重复对白。）",
-            "non_diegetic_music": "（第6段：观众可听、角色听不到的配乐；没有则N/A。）",
-            "instruction": "How the reference pictures align with the video: Picture 1 corresponds to 0 seconds; Picture 2 corresponds to the end of the video.",
-            "integrated_multimodal_description": "（按首帧状态、动作发展与目标尾帧编排完整画面、摄影、对白及同步声音。）"
-          },
-          "duration": 8,
-          "resolution": "768P",
-          "ratio": "9:16",
-          "images": [
-            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="
-          ],
-          "videos": [],
-          "audios": [],
-          "first_frame": "",
-          "last_frame": ""
-        },
-        "node_state": {
-          "$ref": "#/$defs/node_state"
-        }
-      },
       "video_generation": {
         "address": "（下载并验证后的本地视频地址。）",
         "server_address": "（服务端返回的视频地址，保留远端结果与下载恢复关联。）",
@@ -361,34 +377,6 @@
     },
     {
       "clip_id": "clip_002",
-      "video_prompt": {
-        "prompt_pack": {
-          "mode": "多模态",
-          "prompt": {
-            "subject_definitions": "（多模态最终提示词第1段：用<Subject N>、<Picture N>等H3标签定义参考内容、特征和来源；不写项目人物ID或服装ID。）",
-            "summary": "（第2段：任务类型、目标视频和主要参考关系。）",
-            "retention_analysis": "（第3段：各参考内容的保留、迁移或复用方式。）",
-            "detailed_description": "（第4段：按[Shot N]顺序写画面、动作、摄影、对白及同步声音，保留实际切镜和发声时序。）",
-            "overall_soundscape": "（第5段：环境声、动作声和非语言人声，不重复对白。）",
-            "non_diegetic_music": "（第6段：观众可听、角色听不到的配乐；没有则N/A。）",
-            "instruction": "How the reference pictures align with the video: Picture 1 corresponds to 0 seconds; Picture 2 corresponds to the end of the video.",
-            "integrated_multimodal_description": "（按首帧状态、动作发展与目标尾帧编排完整画面、摄影、对白及同步声音。）"
-          },
-          "duration": 8,
-          "resolution": "768P",
-          "ratio": "9:16",
-          "images": [
-            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="
-          ],
-          "videos": [],
-          "audios": [],
-          "first_frame": "",
-          "last_frame": ""
-        },
-        "node_state": {
-          "$ref": "#/$defs/node_state"
-        }
-      },
       "video_generation": {
         "address": "（下载并验证后的本地视频地址。）",
         "server_address": "（服务端返回的视频地址，保留远端结果与下载恢复关联。）",
