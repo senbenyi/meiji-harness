@@ -1,6 +1,4 @@
-import { readFile } from 'node:fs/promises'
-
-const defaultFile = new URL('../../docs/project_detail.json', import.meta.url)
+import { nodeDefinitions } from './node_definitions.js'
 const actions = ['generate', 'review', 'revise']
 
 function invalid(path, message) {
@@ -20,7 +18,7 @@ function pointerValue(reference, definition) {
 }
 
 /** 读取声明的结构及字段解释，展开本地$ref；不按实际项目数据推断类型。 */
-export function resolveOutputDefinition(reference, definition) {
+export function resolveOutputDefinition(reference, definition = nodeDefinitions) {
   function expand(value, references, ancestors) {
     if (!value || typeof value !== 'object') return value
     if (ancestors.has(value)) invalid(reference, '定义包含循环')
@@ -40,20 +38,24 @@ export function resolveOutputDefinition(reference, definition) {
   return follow(reference, new Set(), new Set())
 }
 
-/** 展开项目内保存的规则；每次调用读取最新定义，供后续提示词编排使用。 */
-export async function renderNodeRules(model, action, { definition, definitionFile = defaultFile } = {}) {
+export function outputInstructions(contract) {
+  if (contract.type === 'image') return contract.description
+  return `只返回符合以下JSON Schema的完整JSON，不附解释或Markdown围栏。字段description解释内容含义；必填、类型、枚举和互斥结构由程序约束，业务规则不能改写输出结构。\n${JSON.stringify(contract, null, 2)}`
+}
+
+/** 展开已保存规则中的运行时定义引用，不读取开发文档。 */
+export function renderNodeRules(model, action, { definition = nodeDefinitions } = {}) {
   if (!actions.includes(action)) invalid('action', '需为generate、review或revise')
   const data = typeof model?.toJSON === 'function' ? model.toJSON() : model
   if (typeof data?.supports_supplement !== 'boolean') invalid('supports_supplement', '需为布尔值')
   const rule = data.rules?.[action]
   if (typeof rule?.base !== 'string' || typeof rule?.supplement !== 'string') invalid(action, '需提供base和supplement文本')
-  const source = definition ?? JSON.parse(await readFile(definitionFile, 'utf8'))
+  const source = definition
   function render(text) {
     const result = text.replace(/\{\{output:([^{}]*?)\}\}/gu, (_, reference) => {
       const resolved = resolveOutputDefinition(reference, source)
       if (typeof resolved === 'string') return resolved
-      if (typeof source?.$defs?.output_instructions !== 'string') invalid('$defs.output_instructions', '缺少输出说明')
-      return `${source.$defs.output_instructions}\n${JSON.stringify(resolved, null, 2)}`
+      return outputInstructions(resolved)
     })
     if (result.includes('{{output:')) invalid(action, '输出引用未完整展开')
     return result

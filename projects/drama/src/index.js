@@ -1,3 +1,6 @@
 export { ProjectManager } from './project/project_manager.js'
 export { ProjectModel } from './project/project_model.js'
 export { resolveOutputDefinition, renderNodeRules } from './project/output_definition.js'
+export { nodeDefinitions } from './project/node_definitions.js'
+export { createNode, nodeContract, validateNodeOutput, parseNodeOutput } from './project/node_output.js'
+export { composeNodePrompt } from './prompts/compose_node.js'
