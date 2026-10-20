@@ -8,6 +8,7 @@ import { normalizeModels } from "../../models/model-config.js";
 import { redactJson } from "../gateway/redact.js";
 import { lightStep, groupSummary, groupDetailRecords, historyPage, historyContext } from "../data/task-store.js";
 const clientRoot = fileURLToPath(new URL("../../client/", import.meta.url));
+const dramaClientRoot = fileURLToPath(new URL("../../../drama/src/client/", import.meta.url));
 const sharedRoot = fileURLToPath(new URL("../../shared/", import.meta.url));
 // 面板刷新只需要步骤状态：复制前去掉提示词与 HTTP，不深拷贝历史记录。
 export function panelSnapshot(model, records = new Map()) {
@@ -48,23 +49,25 @@ export function createTaskHttpHandler(
       if (
         path === "/plugins/meiji/panel.js" ||
         path.startsWith("/plugins/meiji/client/") ||
+        path.startsWith("/plugins/drama/src/client/") ||
         path.startsWith("/plugins/meiji/shared/")
       ) {
         if (req.method !== "GET")
           return json(res, 405, { message: "不支持的请求" });
-        const shared = path.startsWith("/plugins/meiji/shared/"),
+        const drama = path.startsWith("/plugins/drama/src/client/"),
+          shared = path.startsWith("/plugins/meiji/shared/"),
           name =
             path === "/plugins/meiji/panel.js"
               ? "panel.js"
               : path.slice(
                   shared
                     ? "/plugins/meiji/shared/".length
-                    : "/plugins/meiji/client/".length,
+                    : drama ? "/plugins/drama/src/client/".length : "/plugins/meiji/client/".length,
                 );
         if (!(shared ? /^(?:(?:models|prompt-models)\/)?[a-z0-9_-]+\.js$/ : /^[a-z0-9-]+\.(js|css)$/).test(name))
           return json(res, 404, { message: "文件不存在" });
         const bytes = await readFile(
-          join(shared ? sharedRoot : clientRoot, name),
+          join(shared ? sharedRoot : drama ? dramaClientRoot : clientRoot, name),
         );
         res.writeHead(200, {
           "Content-Type": name.endsWith(".css")
@@ -273,6 +276,10 @@ export function registerTaskPanel(ctx, runtime) {
         handler,
       }),
     "meiji: panel assets",
+  );
+  ctx.effect(
+    () => ctx.webServer.register({ kind: "prefix", path: "/plugins/drama/src/client", handler }),
+    "meiji: drama UI assets",
   );
   ctx.effect(
     () =>

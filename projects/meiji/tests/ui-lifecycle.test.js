@@ -299,6 +299,7 @@ describe("lifecycle", () => {
 describe("cleanup", () => {
   test("双端可达模块与全部源码无旧控制依赖；R1–R13 文件退出", async () => {
     const root = fileURLToPath(new URL("../", import.meta.url)),
+      dramaClientRoot = fileURLToPath(new URL("../../drama/src/client/", import.meta.url)),
       queue = ["index.js", "session.js", "client/workbench.js"],
       seen = new Set();
     while (queue.length) {
@@ -312,8 +313,8 @@ describe("cleanup", () => {
       ].map((m) => m[1]))
         if (spec.startsWith(".")) {
           const target = fileURLToPath(new URL(spec, url));
-          assert.ok(target.startsWith(root));
-          queue.push(target.slice(root.length));
+          assert.ok(target.startsWith(root) || target.startsWith(dramaClientRoot), target);
+          queue.push(target);
         }
     }
     for (const path of seen)

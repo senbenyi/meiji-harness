@@ -1,17 +1,17 @@
+import { renderSettings, renderModelSettings } from "../../drama/src/client/settings-ui.js";
 import { loadLatestRecords } from './task-records.js';
 import { modelOptions } from '../shared/models/settings_model.js';
-import { projectDialog } from "./project-forms.js";
+import { projectDialog } from "../../drama/src/client/project-forms.js";
 import { renderLibrary as libraryView } from "./library-ui.js";
 import { createShell } from "./panel-shell.js";
 import { mountGpuStatus } from "./gpu-status.js";
-import { element } from "./panel-dom.js";
 import {
   PanelContext,
   request,
   sendCommand,
   currentSessionId,
 } from "./task-client.js";
-import { renderTaskPanel, renderSettings, editor } from "./task-panel.js";
+import { renderTaskPanel, editor } from "./task-panel.js";
 export function mount() {
   const shell = createShell(),
     stopGpuStatus = mountGpuStatus(shell.root),
@@ -56,15 +56,33 @@ export function mount() {
         settings: selection,
         saveSettings,
         back: () => {
-          view.page = "library";
-          catalog().catch(report);
+          view.page = "home";
+          paint();
         },
       });
       void renderModels(page, false);
       showLanguage();
       return;
     }
-    if (!snapshot) return catalog();
+    if (!snapshot) {
+      shell.root.querySelector(".brand").textContent = emptyBrand;
+      showLanguage();
+      if (view.page === "library") return catalog();
+      view.page = "home";
+      shell.content.replaceChildren();
+      const empty = document.createElement("div");
+      empty.className = "home-empty";
+      const plus = document.createElement("button");
+      plus.className = "create-large";
+      plus.setAttribute("aria-label", "创建项目");
+      const mark = document.createElement("span");
+      mark.textContent = "＋";
+      plus.append(mark);
+      plus.onclick = create;
+      empty.append(plus);
+      shell.content.append(empty);
+      return;
+    }
     shell.root.querySelector(".brand").textContent = snapshot.project.basic_info.name;
     showLanguage();
     const key = JSON.stringify([
@@ -141,7 +159,7 @@ export function mount() {
     context.select(session, null);
     delete view.taskRecords; delete view.recordVersions;
     Object.assign(view, {
-      page: "library", library_tab: "projects", task_id: null,
+      page: "home", library_tab: "projects", task_id: null,
       target_id: null, episode_id: null, shot_id: null,
       character_id: null, costume_id: null,
     });
@@ -168,8 +186,10 @@ export function mount() {
       if (disposed || token.epoch !== context.token().epoch || session !== currentSessionId()) return;
     }
     if (!result.snapshot) {
+      const page = view.page;
       clearProject();
-      return catalog();
+      if (page === "library" || page === "settings") view.page = page;
+      return paint();
     }
     if (result.project_id !== context.token().project_id) {
       context.select(session, result.project_id);
@@ -238,9 +258,11 @@ export function mount() {
       );
       if (disposed || token.epoch !== context.token().epoch ||
         token.session_id !== currentSessionId()) return;
+      const listing = view.page === "library";
       if (p.id === token.project_id) clearProject();
-      view.page = "library";
-      await catalog();
+      if (listing) view.page = "library";
+      if (view.page === "library") await catalog();
+      else paint();
     } catch (e) {
       report(e);
     }
@@ -277,6 +299,13 @@ export function mount() {
       context.select(session, result.project_id);
       delete view.taskRecords; delete view.recordVersions;
       await refresh();
+    }, {
+      listScripts: async () => (await request("library")).assets,
+      readScript: async (id) => {
+        const response = await fetch("/api/meiji/library/" + encodeURIComponent(id));
+        if (!response.ok) throw Error("剧本读取失败");
+        return response.text();
+      },
     });
   const renderModels = async (root, busy) => {
     const token = context.token(),
@@ -298,42 +327,7 @@ export function mount() {
         language.dataset.saved = selection.output_language;
         language.disabled = busy;
       }
-      const group = element("section", "", "settings-group");
-      group.append(element("h3", "模型"));
-      const message = element("p", "", "error settings-error");
-      message.setAttribute("role", "status");
-      const selects = [];
-      for (const [kind, title] of [["session", "会话模型"], ["text", "文本模型"], ["image", "图片模型"], ["video", "视频模型"]]) {
-        const label = element("label", title, "settings-option"), select = element("select");
-        select.name = kind;
-        select.setAttribute("aria-label", title);
-        for (const option of modelOptions[kind]) {
-          const item = element("option", option.label);
-          item.value = option.value;
-          select.append(item);
-        }
-        select.value = settings[kind].model;
-        select.disabled = busy;
-        selects.push(select);
-        select.onchange = async () => {
-          const previous = settings[kind].model;
-          selects.forEach(item => item.disabled = true);
-          message.textContent = "";
-          try {
-            await saveSettings({ [kind]: { model: select.value } });
-            settings[kind] = { model: select.value };
-          } catch (error) {
-            select.value = previous;
-            message.textContent = error.message;
-          } finally {
-            selects.forEach(item => item.disabled = busy);
-          }
-        };
-        label.append(select);
-        group.append(label);
-      }
-      group.append(message);
-      root.append(group);
+      renderModelSettings(root, { settings, modelOptions, busy, saveSettings });
     } catch (error) {
       report(error);
     }
@@ -365,12 +359,12 @@ export function mount() {
   };
   shell.root.querySelector(".plus").onclick = create;
   shell.root.querySelector(".brand").onclick = () => {
-    view.page = "overview";
+    view.page = context.read() ? "overview" : "home";
     paint();
   };
   shell.root.querySelector(".library").onclick = () => {
     view.page = "library";
-    context.read() ? paint() : catalog().catch(report);
+    paint();
   };
   shell.root.querySelector(".settings").onclick = () => {
     view.page = "settings";

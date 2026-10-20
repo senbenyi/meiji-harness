@@ -1,7 +1,6 @@
-import { PROJECT_ASPECT_RATIOS } from '../shared/media-parameters.js';
+const PROJECT_ASPECT_RATIOS = ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'];
 import { element, showPanelDialog } from "./panel-dom.js";
-import { request } from "./task-client.js";
-export function projectDialog(root, save) {
+export function projectDialog(root, save, { listScripts, readScript } = {}) {
   const dialog = element("dialog");
   dialog.id = "create-project";
   dialog.setAttribute("aria-labelledby", "create-title");
@@ -46,6 +45,7 @@ export function projectDialog(root, save) {
   picker.setAttribute("aria-label", "选择剧本");
   picker.hidden = clear.hidden = true;
   for (const b of [imp, choose, clear]) b.type = "button";
+  choose.hidden = !listScripts || !readScript;
   row.append(imp, choose, clear);
   scriptGroup.append(element("label", "剧本"), row, file, picker, selected);
   form.append(scriptGroup);
@@ -129,7 +129,7 @@ export function projectDialog(root, save) {
   choose.onclick = async () => {
     const n = ++ticket;
     try {
-      const { assets } = await request("library");
+      const assets = await listScripts();
       if (!active() || n !== ticket) return;
       picker.replaceChildren(element("option", "请选择剧本"));
       picker.firstChild.value = "";
@@ -147,11 +147,7 @@ export function projectDialog(root, save) {
     const n = ++ticket;
     try {
       if (!picker.value) return;
-      const response = await fetch(
-        "/api/meiji/library/" + encodeURIComponent(picker.value),
-      );
-      if (!response.ok) throw Error("剧本读取失败");
-      const body = await response.text();
+      const body = await readScript(picker.value);
       if (active() && n === ticket)
         set(picker.selectedOptions[0].textContent, body);
     } catch (e) {

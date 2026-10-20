@@ -1,3 +1,4 @@
+import { renderSettings } from "../../drama/src/client/settings-ui.js";
 import { currentScript } from '../shared/script-text.js';
 import { effectiveRules } from '../shared/ai-node-rules.js';
 import { aspectRatioOfSize } from '../shared/media-parameters.js';
@@ -139,44 +140,6 @@ function hasContent(value) {
   if (!value || typeof value !== "object") return false;
   return Object.entries(value).some(([key, child]) =>
     !["adaptation_rules", "rules", "id", "node_state", "script_version", "number", "sequence", "duration_seconds", "actual_duration_seconds", "costume_id"].includes(key) && hasContent(child));
-}
-export function renderSettings(root, { busy = false, settings, saveSettings, back }) {
-  const page = element("section", "", "settings-page"),
-    backButton = element("button", "← 返回"),
-    group = element("section", "", "settings-group"),
-    language = element("select"),
-    label = element("label", "生成语言", "settings-option"),
-    message = element("p", "", "error settings-error");
-  backButton.type = "button";
-  backButton.onclick = back;
-  message.setAttribute("role", "status");
-  language.name = "output_language";
-  language.setAttribute("aria-label", "生成语言");
-  for (const [value, text] of [["zh-CN", "简体中文"], ["en", "English（英文）"]]) {
-    const option = element("option", text);
-    option.value = value;
-    language.append(option);
-  }
-  language.value = settings?.output_language || "zh-CN";
-  language.dataset.saved = language.value;
-  language.disabled = busy || !settings;
-  language.onchange = async () => {
-    const previous = language.dataset.saved;
-    language.disabled = true;
-    message.textContent = "";
-    try {
-      await saveSettings?.({ output_language: language.value });
-      language.dataset.saved = language.value;
-    } catch (error) {
-      language.value = previous;
-      message.textContent = error.message;
-    } finally { language.disabled = busy; }
-  };
-  label.append(language);
-  group.append(element("h3", "语言"), label, message);
-  page.append(backButton, element("h2", "设置"), group);
-  root.append(page);
-  return page;
 }
 export function renderTaskPanel(root, snapshot, context) {
   const p = snapshot.project,

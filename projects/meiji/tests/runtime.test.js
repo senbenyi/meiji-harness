@@ -274,7 +274,7 @@ describe("restart", () => {
           "#!/usr/bin/env bash\n/bin/sleep 0.05\n",
           { mode: 0o700 },
         );
-        const child = spawn("bash", [join(repo, "restart-harness.sh")], {
+        const child = spawn("bash", [join(repo, "restart-harness.sh"), "meiji"], {
             env: {
               ...process.env,
               PATH: bin + ":" + process.env.PATH,

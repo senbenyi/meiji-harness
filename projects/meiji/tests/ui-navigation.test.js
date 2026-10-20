@@ -1,7 +1,7 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { projectDialog, detailsDialog } from "../client/project-forms.js";
+import { projectDialog, detailsDialog } from "../../drama/src/client/project-forms.js";
 import { editor, fieldsForm } from "../client/content-forms.js";
 import { renderTaskPanel } from "../client/task-panel.js";
 import { mergeCharacters } from "../shared/collection-identity.js";
@@ -152,6 +152,9 @@ describe("ui-restore", () => {
       const d = projectDialog(root, (v) => {
         calls++;
         value = v;
+      }, {
+        listScripts: async () => (await (await fetch("/api/meiji/library")).json()).assets,
+        readScript: async id => (await fetch("/api/meiji/library/" + id)).text(),
       });
       d.querySelector("#title").value = "素材";
       submit(d.querySelector("form"), dom);

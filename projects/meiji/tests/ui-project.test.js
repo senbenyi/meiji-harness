@@ -433,12 +433,19 @@ describe("project-delete", () => {
    assert.equal(app.context.read(),null);assert.equal(app.context.token().project_id,null);assert.ok(streams.every(s=>s.closed));
    assert.equal(app.shell.root.querySelector('.brand').textContent,'极乐世界');
    release();await late;assert.equal(app.context.read(),null);
-   click('极乐世界');await until(()=>app.shell.content.textContent.includes('保留乙'));assert.doesNotMatch(app.shell.content.textContent,/待删除甲/);
+   assert.match(app.shell.content.textContent,/保留乙/);assert.doesNotMatch(app.shell.content.textContent,/待删除甲/);
   }));
 
-  test('概要删除后空context自动回片库并关闭旧订阅',()=>fixture(async({app,streams,click})=>{
-   click('删除项目');await until(()=>app.context.read()===null&&app.shell.content.textContent.includes('保留乙'));
-   assert.equal(app.view.page,'library');assert.equal(app.shell.root.querySelector('.brand').textContent,'极乐世界');assert.ok(streams.every(s=>s.closed));
+  test('概要删除后回到空白面板，顶部片库和设置仍可进入',()=>fixture(async({app,streams,click})=>{
+   click('删除项目');await until(()=>app.context.read()===null&&app.shell.content.querySelector('.home-empty button'));
+   assert.equal(app.view.page,'home');
+   assert.equal(app.shell.root.querySelector('.library').textContent,'片库');
+   assert.equal(app.shell.root.querySelector('.settings').textContent,'设置');
+   assert.equal(app.shell.root.querySelector('.brand').textContent,'极乐世界');
+   assert.ok(streams.every(s=>s.closed));
+   click('设置');await until(()=>app.shell.content.querySelector('.settings-page h2')?.textContent==='设置');
+   click('← 返回');await until(()=>app.view.page==='home'&&app.shell.content.querySelector('.home-empty'));
+   click('片库');await until(()=>app.shell.content.textContent.includes('保留乙'));
   }));
 
   for (const page of ['overview', 'library'])

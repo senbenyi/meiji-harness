@@ -1,8 +1,9 @@
+import { renderProjectDetails } from "../../drama/src/client/project-detail.js";
 import { BUSINESS_DEFINITIONS } from '../shared/node-definitions.js';
 import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph, reviewTypeLabel, reasonHeading } from './node-task-status.js';
 import { primaryCostumeImage } from "../shared/models/character_model.js";
 import { nodeOf } from "../shared/task_contract.js";
-import { detailsDialog } from "./project-forms.js";
+import { detailsDialog } from "../../drama/src/client/project-forms.js";
 import { element, tabs, showImagePreview, showVideoPreview } from "./panel-dom.js";
 import { editor, readable } from "./content-forms.js";
 import { historyGroups, groupStatus } from "../shared/task-labels.js";
@@ -287,22 +288,7 @@ export function renderOverview(root, env) {
       view.append(c);
       return { c, h, actions };
     };
-  const { c: basic, actions: basicActions } = card('基本信息');
-  basic.dataset.section = 'basic_info';
-  basicActions.remove();
-  for (const [label, value] of [
-    ['项目ID', p.basic_info.id], ['项目名称', p.basic_info.name],
-    ['创作模式', p.basic_info.creation_mode], ['画幅', p.basic_info.aspect_ratio],
-    ['创作要求', p.basic_info.creative_requirements || '未填写'],
-    ['参考单集时长', `${p.basic_info.reference_episode_duration_seconds} 秒`],
-  ]) {
-    const line = element('p', '', 'project-info-line');
-    line.append(element('strong', `${label}：`), document.createTextNode(String(value)));
-    basic.append(line);
-  }
-  const original = element('details', '', 'original-script');
-  original.append(element('summary', '原始剧本'), element('p', p.basic_info.original_script || '尚未导入原始剧本', 'prompt full'));
-  basic.append(original);
+  renderProjectDetails(view, p.basic_info);
   const script = nodeCard('script-review', p.basic_info.id, p.script_revision);
   script.classList.add('overview-card');
   script.dataset.section = 'script_revision';
