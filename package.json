@@ -1,0 +1,19 @@
+{
+  "name": "agent-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*", "projects/*"],
+  "scripts": {
+    "test": "npm run test:workspaces && npm run test:infrastructure",
+    "test:workspaces": "npm test --workspaces --if-present",
+    "test:packages": "npm test --workspace @agent-modules/http-client --workspace @agent-modules/prompt-composer",
+    "test:infrastructure": "node --test scripts/tests/*.test.js",
+    "example": "node examples/minimal-agent.js",
+    "verify:install": "node scripts/verify-install.js",
+    "verify:copy": "node scripts/verify-copy.js",
+    "configure": "bash configure-harness.sh",
+    "restart": "bash restart-harness.sh"
+  },
+  "engines": { "node": "^22.19.0 || >=24.0.0" }
+}

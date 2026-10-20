@@ -2,6 +2,8 @@
 
 本文是适用于各类项目的通用开发规范，供 Codex、Cursor、Claude 等 AI 工具使用。只维护请求分类、计划、实施、验证和工具使用流程。
 
+当前工作区入口见 [Agent Harness 开发指引](.agents/agent-harness-dev.md)；业务规格由各 `projects/<项目>/AGENTS.md` 维护。
+
 项目名称、源码范围、业务规则、测试命令、运行环境和图谱配置由项目开发指引维护。按请求需要，从项目 README 或工具入口定位指引；未声明时，在 `.agents/` 中查找与当前目标对应的 `*-dev.md`。没有指引时依据源码和配置调研，不假设其他项目的约定适用。
 
 ## 请求分类
@@ -132,7 +134,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **meiji-harness** (6282 symbols, 19832 relationships, 360 execution flows).
+This project is indexed by GitNexus as **agent-harness**.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze --index-only` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
 
@@ -156,10 +158,10 @@ This project is indexed by GitNexus as **meiji-harness** (6282 symbols, 19832 re
 
 | Resource | Use for |
 | --- | --- |
-| `gitnexus://repo/meiji-harness/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/meiji-harness/clusters` | All functional areas |
-| `gitnexus://repo/meiji-harness/processes` | All execution flows |
-| `gitnexus://repo/meiji-harness/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/agent-harness/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/agent-harness/clusters` | All functional areas |
+| `gitnexus://repo/agent-harness/processes` | All execution flows |
+| `gitnexus://repo/agent-harness/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

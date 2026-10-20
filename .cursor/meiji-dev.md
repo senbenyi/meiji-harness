@@ -1,1 +1,0 @@
-../.agents/meiji-dev.md

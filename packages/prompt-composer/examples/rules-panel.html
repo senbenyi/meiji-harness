@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>公共规则面板示例</title>
+<style>
+  body { margin:0; padding:24px; background:#101115; color:#e6e7eb; font:14px/1.6 system-ui,sans-serif; }
+  main { max-width:900px; margin:auto; }
+  h1 { font-size:24px; margin:0 0 6px; }
+  p { color:#a4a6b2; }
+  label { display:block; margin:18px 0; }
+  @media(max-width:480px) { body { padding:12px; } }
+</style>
+<main>
+  <h1>公共规则面板</h1>
+  <p>独立示例 · 数据来自 RulesModel</p>
+  <label><input id="supplements" type="checkbox" checked> 支持补充规则</label>
+  <div id="panel"></div>
+  <p id="navigation" role="status"></p>
+</main>
+<script type="module">
+  import { RulesModel } from '../src/index.js';
+  import { renderRulesPanel } from '../src/ui/rules-panel.js';
+  const rules = {
+    generate: { base: '历史生成规则，仅作为保存的快照。', supplement: '保持段落简洁，优先使用提供的资料。' },
+    revise: { base: '历史修订规则，仅作为保存的快照。', supplement: '只调整意见指出的部分，其余内容保持一致。' },
+    review: { base: '历史审核规则，仅作为保存的快照。', supplement: '逐项说明发现的问题，给出对应依据。' },
+  };
+  const currentBases = {
+    generate: '依据输入资料完成任务。\n\n输出应完整、清晰，遵守调用方提供的格式要求。\n资料不足时明确说明缺口，不补造事实。',
+    revise: '依据本轮意见修订已有结果。\n\n保持上下文一致，返回完整的修订结果。',
+    review: '核对结果是否符合输入要求。\n\n检查事实、完整性与输出格式；结论须有依据。',
+  };
+  const render = () => {
+    const model = new RulesModel({ supports_supplement: document.querySelector('#supplements').checked, rules });
+    document.querySelector('#panel').replaceChildren(renderRulesPanel(model, {
+      title: '任务 · 规则', currentBases,
+      onBack: () => { document.querySelector('#navigation').textContent = '返回事件由接入项目处理。'; },
+    }));
+  };
+  document.querySelector('#supplements').addEventListener('change', render);
+  render();
+</script>
+</html>

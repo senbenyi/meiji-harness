@@ -1,0 +1,31 @@
+{
+  "name": "@meiji/harness-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "set -- tests/*.test.js; if [ ! -f \"$1\" ]; then echo \"未找到正式测试，未验证\" >&2; exit 1; fi; node --test \"$@\""
+  },
+  "exports": {
+    ".": "./index.js",
+    "./session": "./session.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.2",
+    "playwright": "^1.64.0"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dependencies": {
+    "@agent-modules/http-client": "0.1.0",
+    "@agent-modules/prompt-composer": "0.1.0",
+    "undici": "7.30.0"
+  }
+}

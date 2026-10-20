@@ -11,10 +11,11 @@ let input = {}
 try { input = JSON.parse(readFileSync(0, 'utf8') || '{}') } catch {}
 
 const mtime = file => { try { return statSync(file).mtimeMs } catch { return 0 } }
-const guarded = rel => rel.startsWith('meiji/')
-  && !rel.startsWith('meiji/docs/')
-  && !rel.startsWith('meiji/reports/')
-  && !rel.startsWith('meiji/dev_docs/')
+const guarded = rel => {
+  if (!/^(?:packages|projects|scripts)\//.test(rel)) return ['package.json', 'package-lock.json', '.claude/guard.mjs'].includes(rel)
+  if (/(?:^|\/)(?:docs|reports|dev_docs|references)\//.test(rel)) return false
+  return !rel.endsWith('.md') || /(?:^|\/)skills\//.test(rel)
+}
 
 function latestPlan() {
   const dir = join(root, 'docs', 'plans')
@@ -24,13 +25,13 @@ function latestPlan() {
 
 if (mode === 'prompt') {
   process.stdout.write([
-    '【仓库强制流程】若本次需求涉及修改 meiji/ 下代码、配置、skill 或测试：',
-    '1) 先读 AGENTS.md、.agents/meiji-dev.md；',
+    '【仓库强制流程】若本次需求涉及修改 packages/、projects/ 或工程脚本中的代码、配置、skill 或测试：',
+    '1) 先读 AGENTS.md、.agents/agent-harness-dev.md；业务改动再读对应 projects/<项目>/AGENTS.md；',
     '2) 回复开头写明「档位：完整流程 / 小改动」及理由（定义见 AGENTS.md 第 0 节）；',
     '3) 两步流程：调研与计划 → 实施与验证（AGENTS.md 第 1–2 节）；调研合入计划，小改动写简短计划；',
     '4) 改代码前必须已有 docs/plans/MMDD-计划-*.md（钩子会拦截）；',
-    '5) 完成后 cd meiji && npm test，不得新增失败。',
-    '普通咨询、只读调研和纯文档修改不执行开发流程。meiji/dev_docs/ 下的文档修改不检查开发计划。',
+    '5) 完成后在仓库根运行 npm test，不得新增失败。',
+    '普通咨询、只读调研和纯文档修改不执行开发流程。docs、reports、dev_docs、references 中的文档修改不检查开发计划。',
   ].join('\n') + '\n')
   process.exit(0)
 }

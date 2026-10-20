@@ -49,5 +49,5 @@ __pycache__/
 # Meiji local runtime and generated artifacts
 /.dsh/
 /harness/
-/meiji/reports/
-/meiji/config/models.local.json
+/projects/*/reports/
+/projects/*/config/models.local.json

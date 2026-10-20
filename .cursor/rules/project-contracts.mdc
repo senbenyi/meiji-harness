@@ -1,0 +1,11 @@
+---
+description: 修改业务项目先读对应项目规范
+globs: projects/**
+alwaysApply: false
+---
+
+# 业务项目开发入口
+
+修改 projects/<项目>/ 下代码、配置、skill 或测试前，先读根 AGENTS.md、.agents/agent-harness-dev.md，以及该项目 AGENTS.md 指向的业务规格。当前 meiji 的入口为 projects/meiji/AGENTS.md。
+
+普通咨询、只读调研和纯文档修改按根规范分类。业务规则只在对应项目维护，不放入公共 packages。

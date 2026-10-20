@@ -4,6 +4,9 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd -P)"
+source "$REPO/scripts/project-path.sh"
+PROJECT="$(select_project "$REPO" "${1:-${AGENT_PROJECT:-}}")"
+PLUGIN="$REPO/projects/$PROJECT"
 HARNESS="${HARNESS_DIR:-$(dirname "$REPO")/deepseek-harness}"
 export DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 
@@ -18,7 +21,7 @@ HARNESS="$(cd "$HARNESS" && pwd -P)"
 cd "$HARNESS"
 
 # 所有预检先于停止服务；不改 profile、不重新注册插件。
-node --input-type=module - "$REPO/meiji" "$DSH_HOME" <<'NODE'
+node --input-type=module - "$PLUGIN" "$DSH_HOME" <<'NODE'
 import { readFileSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 const [major, minor] = process.versions.node.split('.').map(Number)
@@ -26,11 +29,13 @@ try {
   if (!((major === 22 && minor >= 19) || major >= 24)) throw Error('需要 Node.js ^22.19.0 或 >=24')
   import.meta.resolve('tsx/esm')
   const [plugin, home] = process.argv.slice(2)
+  const { name } = JSON.parse(readFileSync(resolve(plugin, 'package.json'), 'utf8'))
+  if (typeof name !== 'string' || !name || name.startsWith('.') || name.startsWith('/') || name.includes('..')) throw Error('项目包名无效')
   const profileDir = resolve(home, 'profiles/web')
   const profile = JSON.parse(readFileSync(resolve(profileDir, 'package.json'), 'utf8'))
-  if (!profile.dsh?.profile?.bundles?.includes('@meiji/harness-plugin')) throw Error('web profile 尚未启用 meiji')
-  if (realpathSync(resolve(profileDir, 'node_modules/@meiji/harness-plugin')) !== realpathSync(plugin)) {
-    throw Error('web profile 的 meiji 未链接到当前仓库')
+  if (!profile.dsh?.profile?.bundles?.includes(name)) throw Error(`web profile 尚未启用 ${name}`)
+  if (realpathSync(resolve(profileDir, 'node_modules', name)) !== realpathSync(plugin)) {
+    throw Error(`web profile 的 ${name} 未链接到当前仓库`)
   }
 } catch (error) {
   console.error(`重启预检失败：${error.message}。本脚本仅用于已配置好的环境，不执行安装。`)
@@ -63,6 +68,6 @@ done
 [[ -z "$(listeners)" ]] || fail "3080 仍被占用，未启动新实例。"
 
 export PATH="$HARNESS/node_modules/.bin:$PATH"
-echo "使用当前 meiji 代码与 YAML 启动 Harness：http://127.0.0.1:3080"
+echo "使用当前 $PROJECT 代码与 YAML 启动 Harness：http://127.0.0.1:3080"
 echo "前台运行，按 Ctrl+C 停止；页面打开后刷新以加载新前端。"
 exec node --import tsx/esm apps/cli/src/bin.ts web

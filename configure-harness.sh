@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Link the meiji plugin into a sibling DeepSeek Harness checkout and start the web UI.
+# 将选定的 projects/<项目> 链接到并列 DeepSeek Harness，并启动 Web。
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN="$REPO/meiji"
+source "$REPO/scripts/project-path.sh"
+PROJECT="$(select_project "$REPO" "${1:-${AGENT_PROJECT:-}}")"
+PLUGIN="$REPO/projects/$PROJECT"
 ROOT="$(cd "$REPO/.." && pwd)"
 HARNESS="${HARNESS_DIR:-$ROOT/deepseek-harness}"
 HARNESS_URL="https://github.com/deepseek-ai/deepseek-harness.git"
@@ -22,12 +24,17 @@ if (!ok) {
 '
 
 if [[ ! -f "$PLUGIN/package.json" ]]; then
-  echo "找不到 meiji 插件: $PLUGIN" >&2
+  echo "找不到项目插件: $PLUGIN" >&2
   exit 1
 fi
 
 # bundle 和预设补丁由插件源码维护，配置脚本只链接，不覆盖它们。
-[[ -f "$PLUGIN/cordis.patch.yml" && -f "$PLUGIN/session.js" ]] || { echo "缺少 meiji 预设入口" >&2; exit 1; }
+[[ -f "$PLUGIN/cordis.patch.yml" && -f "$PLUGIN/session.js" ]] || { echo "缺少项目预设入口" >&2; exit 1; }
+
+if [[ ! -f "$REPO/node_modules/.package-lock.json" ]]; then
+  echo "安装 Agent Harness 工作区依赖"
+  npm ci --prefix "$REPO"
+fi
 
 if [[ ! -d "$HARNESS/.git" ]]; then
   echo "克隆 DeepSeek Harness 到 $HARNESS"
@@ -45,7 +52,7 @@ if [[ ! -d apps/web/dist ]]; then
 fi
 
 export PATH="$HARNESS/node_modules/.bin:$PATH"
-echo "链接 meiji 插件"
+echo "链接项目插件：$PROJECT"
 node --import tsx/esm apps/cli/src/bin.ts plugin --profile web add "$PLUGIN"
 
 if node -e 'const n=require("net").connect(3080,"127.0.0.1",()=>{n.end();process.exit(0)});n.on("error",()=>process.exit(1))'; then

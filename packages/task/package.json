@@ -1,0 +1,16 @@
+{
+  "name": "@agent-modules/task",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./models": "./models/index.js",
+    "./store": "./store/index.js",
+    "./sqlite": "./store/sqlite.js",
+    "./ui": "./ui/index.js"
+  },
+  "files": ["index.js", "models", "manager", "store", "ui", "examples", "README.md"],
+  "scripts": { "test": "node --test tests/*.test.js", "example": "node examples/agent.js" },
+  "engines": { "node": "^22.19.0 || >=24.0.0" },
+  "devDependencies": { "jsdom": "^30.1.2" }
+}

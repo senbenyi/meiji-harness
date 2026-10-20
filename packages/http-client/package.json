@@ -1,0 +1,23 @@
+{
+  "name": "@agent-modules/http-client",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./remote-task": "./src/remote-task.js",
+    "./model-parameters": "./src/llm-server/params.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dependencies": {
+    "undici": "7.30.0"
+  }
+}

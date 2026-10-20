@@ -3,7 +3,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **meiji-harness** (6282 symbols, 19832 relationships, 360 execution flows).
+This project is indexed by GitNexus as **agent-harness**.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze --index-only` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
 
@@ -27,10 +27,10 @@ This project is indexed by GitNexus as **meiji-harness** (6282 symbols, 19832 re
 
 | Resource | Use for |
 | --- | --- |
-| `gitnexus://repo/meiji-harness/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/meiji-harness/clusters` | All functional areas |
-| `gitnexus://repo/meiji-harness/processes` | All execution flows |
-| `gitnexus://repo/meiji-harness/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/agent-harness/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/agent-harness/clusters` | All functional areas |
+| `gitnexus://repo/agent-harness/processes` | All execution flows |
+| `gitnexus://repo/agent-harness/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 
