@@ -2,24 +2,27 @@
   "$comment": "本文件为目标项目结构说明，非运行时项目实例。所有有序集合均以数组顺序表示排列及播放顺序。枚举字段的示例值在括号内列出完整取值及含义，实际保存和请求仅使用选中的枚举值；模型相关参数以项目约定和所选模型支持能力为准。$defs和$ref仅复用字段定义，实际AI节点各自保存独立规则与状态。story_segments为一次性生成全部故事分段的AI节点，仅包含segments、rules、node_state三个字段；segments保存完整故事分段数组，生成、审核与修订均以完整分段集合为单位，单个故事段保存内容，规则和状态统一归属story_segments节点。镜头与生成分片拆开：项目顶层shot_design、clip_arrangement、video_prompt依次为镜头设计、分片编排、视频提示词生成三个独立节点，替代旧分片内的镜头设计、分镜和文本提示词流程。shot_design与video_prompt为AI节点，clip_arrangement为程序节点，无AI规则。镜头shots按数组顺序排列，一个shot为单一背景区域内的连续摄影，不限制4–15秒；同一场景资产中的大厅、门口等独立背景区域分别建立shot，可共用scene_id。本区域内的走动、景别或构图变化可保留在同一shot。previous_shot_connection仅取opening、continuous、cut：opening用于整段内容首镜，独立建立起始视听状态；continuous用于延续前镜时间、动作或空间移动，首节拍承接前镜实际结束状态；cut用于直接进入另一事件、地点或时刻，首节拍建立新的起始状态并交代声音接续。continuous表示叙事与动作连续，两个shot之间仍按切镜设计。beats至少一项，每项包含duration_seconds、action、camera、scene_changes、effects、audio六个字段。action保存人物及背景群体的行动、表情、反应、入离场、移动、朝向与目光变化、动作速度和互动密度；camera保存景别、构图、焦点及连续运镜的发展；scene_changes保存本阶段需独立追踪的环境变化及持久状态，继承scene开场基准及此前节拍累积状态，普通动作的直接结果随action表达；effects保存特效触发动作、可见过程、强度与消散或持续状态，持久环境变化由scene_changes说明；audio保存对白旁白原文、说话人、发声方式、环境声、动作音效及配乐的开始、持续、变化与结束，逐字保留原话和标点。动作作为时间主线，摄影、场景变化、特效与声音以具体动作或阶段关联，明确先后与同步关系；各字段继承此前有效状态，本阶段没有新增内容时填空字符串。节拍按行动、反应或视听阶段划分，不按说话人机械拆分；快速接话、打断或同时发声可在同一节拍描述，人物切换和摄影连续转向可换节拍但不代表切镜。简单镜头一个节拍，复杂镜头多个。镜头时长由节拍相加，不重复保存。clip_arrangement.clips按sources顺序引用shot_id及镜头内start_beat、end_beat节拍序号；序号从1开始，起止均包含，每个source引用连续完整节拍，分片duration_seconds由sources所选全部节拍的duration_seconds相加计算并保存，必须为4–15整数秒。所有镜头节拍按叙事顺序完整覆盖一次，保留正常播放速度。短镜头可合并、长镜头可跨分片，合并还需考虑场景、参考素材和复杂度，无法合规编排时报告原因。切分点必须落在节拍结束处，并检查后续余量，使每片均为4–15秒；现有节拍无法合规编排时，调整节拍设计或报告原因。示例16秒镜头拆成两个8秒分片；同一shot跨分片保持摄影连续，长镜头无缝效果仍需生成后检查。分片clips保存id、duration_seconds、mode、sources，以数组顺序排序，衔接依据来自镜头首节拍和此前节拍累积状态；生成video_prompt时读取来源镜头公共资料、关联资产、所选节拍及起始前的有效状态。video_prompt.items与分片以clip_id一一关联，规则和状态归属生成节点；videos按clip_id关联分片，episodes按clip_ids合片。人物costume_images[i]与costumes[i]按位置一一对应，costume_id等于该服装ID；服装增删重排时同步调整两个数组。没有服装目录时costumes为空，保留一张costume_id为空的定妆照，不编造服装。 人物不设默认服装或默认定妆照。后续节点选用人物定妆照时，必须显式使用character_id与costume_id定位该人物的costume_images对应项，不按默认值或数组首项自动选图；视频编排按明确选择保存参考素材。无服装目录时，显式指定character_id并令costume_id为空，定位该人物唯一的未绑定服装定妆照。可见人物仍允许不绑定并按文字推断；已明确选择的图片不可被其他服装图片自动替代。 视频生成节点的地址、实际时长和keyframes均平铺保存，不设result包装。关键帧为按视频时间升序排列的图片地址数组，必须包含实际最后一帧；需要尾帧时取最后一项，不再保存重复的tail_frame_address，也不建立独立尾帧提取节点。 分片编排时确定mode，完整枚举为文生、首尾帧、多模态；按明确选用的素材与开场接续方式选择。视频提示词统一保存于顶层video_prompt节点，与videos生成结果分开。video_prompt.items每项保存clip_id，并按分片类型仅保存对应的一个字段：文生使用text_to_video引用#/$defs/text_to_video，多模态使用multimodal引用#/$defs/multimodal，首尾帧使用first_last_frame引用#/$defs/first_last_frame；示例中的不同字段表示类型选择，实际每项仅使用所选类型的字段。mode仅保存于clip_arrangement.clips中，三个引用结构依据关联分片的mode选择；发送接口请求时从分片读取mode并组装请求体。三个引用定义为独立结构，不混合不同模式的字段。多模态prompt按subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music六段顺序拼接；文生prompt按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接；首尾帧prompt将instruction置于首行，再按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接。各命名段按字段名、换行及内容组织，段间空一行。图片以带MIME前缀的完整Base64字符串保存，图片节点提供裸Base64时补齐MIME前缀；视频与音频参考使用接口支持的HTTPS地址、mm_file://地址或对应媒体Base64 data URL。首尾帧结构中first_frame必填，last_frame仅在有明确目标尾帧时保存；实际生成后视频尾帧仍由keyframes最后一项提供。分片类型为首尾帧且已选择前片尾帧时，video_prompt在前片有效实际尾帧可用后填入first_frame，保留本片既定类型及节拍开场设计。文生结构使用纯文字，多模态结构保存images、videos、audios参考，首尾帧结构保存first_frame与可选last_frame。业务人物、服装等ID用于资料关联，接口正文使用对应外观与素材标签；模型由本地服务配置。 镜头scene平铺保存三个字符串字段：scene_id绑定场景资产，state保存开场环境状态与光照，spatial_setup保存本镜使用的地标、通道及互动轴线。characters保存人物开场在场、站位、朝向和目光状态；首节拍camera建立初始景别、主体、前中后景与视觉焦点，后续camera描述摄影变化；所有节拍继承项目风格，信息、情绪和节奏落实到节拍的动作、摄影及声音中；剧情依据通过story_segment_id和key_anchor_ids关联story_segments.segments中的上游故事段及其锚点，具体过程统一由beats展开。动态发展按职责写入beats对应字段，镜头外层提供各节拍共用的身份、剧情关联、与前镜的衔接类型、场景和人物初始资料；beats保存实际拍摄的动作、摄影、环境变化、特效与声音。初始资料作为节拍起点，后续节拍承接已发生变化后的最新状态。首节拍与后续节拍按发生顺序明确承接前镜及本镜已有状态；需要结尾交接摘要时，从开场状态和全部节拍累积结果提取并核对。镜头characters统一保存主要人物、后景关系人物和背景群体，允许人物与服装ID为空；有服装目录且绑定人物时明确选择该人物服装。对白及旁白原文在镜头设计内仅保存于对应beats.audio。环境声、动作音效和配乐从开始出现的节拍写入audio，明确持续范围、变化与结束；贯穿全镜的声音在首节拍建立，后续节拍继承有效声音状态并记录变化。原话按发声进程展开，已说完的原话保持在原节拍。最终提示词按来源范围展开原话、发声方式与声音时序，保留完整性；需要对白清单时从节拍提取，不另维护副本。",
   "$defs": {
     "rules": {
-      "generate": {
-        "base": "（本动作基础规则快照；执行、展示及依赖计算统一读取当前代码基础规则，不执行旧快照。未启用的动作不因此新增执行步骤。）",
-        "supplement": "（本动作独立补充规则；三个动作互不引用，冲突由人工修改；与UI同步保存。）"
-      },
-      "review": {
-        "base": "（本动作基础规则快照；执行、展示及依赖计算统一读取当前代码基础规则，不执行旧快照。未启用的动作不因此新增执行步骤。）",
-        "supplement": "（本动作独立补充规则；三个动作互不引用，冲突由人工修改；与UI同步保存。）"
-      },
-      "revise": {
-        "base": "（本动作基础规则快照；执行、展示及依赖计算统一读取当前代码基础规则，不执行旧快照。未启用的动作不因此新增执行步骤。）",
-        "supplement": "（本动作独立补充规则；三个动作互不引用，冲突由人工修改；与UI同步保存。）"
+      "supports_supplement": "true（布尔值，实际保存为 boolean。结构与公共 RulesModel 一致。为 true 时，该动作的 supplement 参与执行、展示和依赖指纹；为 false 时保留 supplement 文本但不参与。）",
+      "rules": {
+        "generate": {
+          "base": "（本动作基础规则，实际保存为 string。盒子第一次建立时用代码默认写入项目；之后执行、展示和依赖指纹都读项目内这份文本，调用 RulesModel.resolve 时把已保存的 base 作为 currentBase，代码更新不覆盖项目。生成、审核、修订三份互不引用。未启用的动作不因此新增执行步骤。）",
+          "supplement": "（本动作补充规则，实际保存为 string。是否参与执行由 supports_supplement 决定。三份互不引用。修改须经人工授权后写入项目。）"
+        },
+        "review": {
+          "base": "（本动作基础规则，实际保存为 string。盒子第一次建立时用代码默认写入项目；之后执行、展示和依赖指纹都读项目内这份文本，调用 RulesModel.resolve 时把已保存的 base 作为 currentBase，代码更新不覆盖项目。生成、审核、修订三份互不引用。未启用的动作不因此新增执行步骤。）",
+          "supplement": "（本动作补充规则，实际保存为 string。是否参与执行由 supports_supplement 决定。三份互不引用。修改须经人工授权后写入项目。）"
+        },
+        "revise": {
+          "base": "（本动作基础规则，实际保存为 string。盒子第一次建立时用代码默认写入项目；之后执行、展示和依赖指纹都读项目内这份文本，调用 RulesModel.resolve 时把已保存的 base 作为 currentBase，代码更新不覆盖项目。生成、审核、修订三份互不引用。未启用的动作不因此新增执行步骤。）",
+          "supplement": "（本动作补充规则，实际保存为 string。是否参与执行由 supports_supplement 决定。三份互不引用。修改须经人工授权后写入项目。）"
+        }
       }
     },
     "node_state": {
       "status": "empty（枚举：empty为空、generated为已生成、rejected为未通过、expired为已过期；任务排队与运行状态由任务系统管理。）",
       "reason": "（业务未通过或过期原因；业务问题进入未通过，不作为HTTP/网络失败。）",
       "fail_message": "（HTTP、网络等执行失败说明，不作为AI改写意见。）",
-      "dependency_hash": "（生成时的有效输入和规则依赖指纹；上游变化后用于判断结果是否过期。）"
+      "dependency_hash": "（生成时的有效输入，以及项目内参与执行的 base 与 supplement 的依赖指纹；上游或这些规则变化后用于判断结果是否过期。）"
     },
     "multimodal": {
       "prompt": {
