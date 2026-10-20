@@ -25,8 +25,8 @@ for(const finish of [true,false])test(`第三轮修订${finish?'通过':'耗尽'
    return`完整候选-${step.round}`;
   }}});
   const model=await runtime.repository.create(p);
-  const result=await runtime.tasks.command({type:'submit',project_id:p.id,target_id:p.id,business_type:'project-summary',action:'regenerate',opinion:'本次要求哨兵',request_id:crypto.randomUUID()});
-  await runtime.tasks.idle(p.id);
+  const result=await runtime.tasks.command({type:'submit',project_id:p.basic_info.id,target_id:p.basic_info.id,business_type:'project-summary',action:'regenerate',opinion:'本次要求哨兵',request_id:crypto.randomUUID()});
+  await runtime.tasks.idle(p.basic_info.id);
   const snapshot=model.readAll(),task=snapshot.tasks.find(t=>t.id===result.task_id);
   assert.equal(task.task_status,finish?'completed':'rejected',task.end_reason);
   assert.equal(snapshot.project.project_summary.body,'完整候选-3');
@@ -40,14 +40,14 @@ for(const finish of [true,false])test(`第三轮修订${finish?'通过':'耗尽'
    assert.equal(call.trace.input.content,`完整候选-${round-1}`);
    if(round>1)assert.ok(!call.trace.input.opinion.includes(`本轮问题-${round-2}`));
   }
-  const stored=runtime.repository.history(p.id).stepsOf(task.id,{records:true});
+  const stored=runtime.repository.history(p.basic_info.id).stepsOf(task.id,{records:true});
   assert.equal(stored.filter(s=>s.round===3&&s.kind==='revise')[0].prompt.messages.filter(m=>m.role==='assistant').length,1);
  }finally{await runtime?.dispose();await rm(home,{recursive:true,force:true});}
 });
 
 test('文本统一3次预算，步骤3合法、步骤4拒绝，非文本仍无自动内容修订',()=>{
  for(const d of Object.values(NODE_DEFINITIONS))if(!d.retired)assert.equal(d.retryRounds,d.handler==='text'?3:0);
- const p=projectFixture(),task=taskFixture(p,'project-summary',p.id),step=newStep(task,1,'revise',3);
+ const p=projectFixture(),task=taskFixture(p,'project-summary',p.basic_info.id),step=newStep(task,1,'revise',3);
  assert.doesNotThrow(()=>validateStep(step,task));assert.throws(()=>validateStep({...step,round:4},task),/step.round/);
 });
 
@@ -138,25 +138,25 @@ for(const corrupt of [false,true])test(`v27→v28步骤约束迁移${corrupt?'�
   db=new DatabaseSync(path);const schema=(await readFile(new URL('../server/data/schema.sql',import.meta.url),'utf8')).replace('CHECK(round BETWEEN 0 AND 3)','CHECK(round BETWEEN 0 AND 2)').replace(/INSERT INTO schema_migrations VALUES \(28,[^\n]+\n/,'').replace('PRAGMA user_version=28','PRAGMA user_version=27');db.exec(schema);if(corrupt)db.exec('PRAGMA foreign_keys=OFF');
   const p=projectFixture(),now='2026-10-19T00:00:00.000Z';
   const insert=(table,row)=>db.prepare(`INSERT INTO ${table} (${Object.keys(row)}) VALUES (${Object.keys(row).map(()=>'?')})`).run(...Object.values(row));
-  insert('projects',{id:p.id,data_json:JSON.stringify(p),revision:7});
-  insert('task_groups',{id:'tg_legacy',project_id:p.id,episode_id:null,name:'历史组',group_type:'single',action:'regenerate',source:'panel',shot_ids_json:'[]',created_at:now,position:0});
-  insert('tasks',{id:'t_legacy',project_id:p.id,group_id:'tg_legacy',group_seq:1,name:'历史任务',business_type:'project-summary',target_id:p.id,episode_id:null,action:'regenerate',source:'panel',task_status:'completed',queue_order:1,opinion:'旧意见',previous_node_state_json:'null',end_reason:'',created_at:now,started_at:now,ended_at:now,position:0});
-  insert('task_steps',{id:'st_legacy',project_id:p.id,task_id:corrupt?'t_missing':'t_legacy',seq:1,name:'第二轮历史',kind:'revise',round:2,step_status:'done',executor:'ai',prompt_json:'{"messages":[{"role":"assistant","content":"原始\\n正文"}]}',http_json:'[{"body":"原样记录"}]',result_json:'"旧候选"',error_reason:'历史原因',started_at:now,ended_at:now,position:0});
+  insert('projects',{id:p.basic_info.id,data_json:JSON.stringify(p),revision:7});
+  insert('task_groups',{id:'tg_legacy',project_id:p.basic_info.id,episode_id:null,name:'历史组',group_type:'single',action:'regenerate',source:'panel',shot_ids_json:'[]',created_at:now,position:0});
+  insert('tasks',{id:'t_legacy',project_id:p.basic_info.id,group_id:'tg_legacy',group_seq:1,name:'历史任务',business_type:'project-summary',target_id:p.basic_info.id,episode_id:null,action:'regenerate',source:'panel',task_status:'completed',queue_order:1,opinion:'旧意见',previous_node_state_json:'null',end_reason:'',created_at:now,started_at:now,ended_at:now,position:0});
+  insert('task_steps',{id:'st_legacy',project_id:p.basic_info.id,task_id:corrupt?'t_missing':'t_legacy',seq:1,name:'第二轮历史',kind:'revise',round:2,step_status:'done',executor:'ai',prompt_json:'{"messages":[{"role":"assistant","content":"原始\\n正文"}]}',http_json:'[{"body":"原样记录"}]',result_json:'"旧候选"',error_reason:'历史原因',started_at:now,ended_at:now,position:0});
   const before=db.prepare('SELECT * FROM task_steps').get(),projectBefore=db.prepare('SELECT * FROM projects').get();db.close();db=null;
   if(corrupt){assert.throws(()=>new SQLiteStore(path),/外键/);db=new DatabaseSync(path);assert.equal(db.prepare('PRAGMA user_version').get().user_version,27);assert.deepEqual(db.prepare('SELECT * FROM task_steps').get(),before);assert.equal(db.prepare("SELECT count(*) n FROM sqlite_master WHERE name='task_steps_v28'").get().n,0);}
   else{
    store=new SQLiteStore(path);db=new DatabaseSync(path);
-   assert.equal(db.prepare('PRAGMA user_version').get().user_version,28);assert.deepEqual(db.prepare('SELECT * FROM task_steps').get(),before);assert.deepEqual(db.prepare('SELECT * FROM projects').get(),projectBefore);
+   assert.equal(db.prepare('PRAGMA user_version').get().user_version,29);assert.deepEqual(db.prepare('SELECT * FROM task_steps').get(),before);assert.deepEqual(db.prepare('SELECT * FROM projects').get(),projectBefore);
    assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);assert.ok(db.prepare("PRAGMA index_list('task_steps')").all().some(r=>r.name==='steps_project'));
    assert.doesNotThrow(()=>db.prepare('UPDATE task_steps SET round=3').run());assert.throws(()=>db.prepare('UPDATE task_steps SET round=4').run(),/CHECK/);
-   store.close();store=null;store=new SQLiteStore(path);assert.equal(store.stepsOf(p.id,'t_legacy',{records:true})[0].round,3);
+   store.close();store=null;store=new SQLiteStore(path);assert.equal(store.stepsOf(p.basic_info.id,'t_legacy',{records:true})[0].round,3);
   }
  }finally{store?.close();db?.close();await rm(home,{recursive:true,force:true});}
 });
 
 test('旧拒绝诊断与本次意见分开传递，后续轮次不重复执行原任务旧诊断',()=>{
  const snapshot=snapshotFixture(),p=snapshot.project,reason='已被证伪的旧诊断',text=reason+'\n本次要求保留正确内容';
- const task=taskFixture(p,'project-summary',p.id,{action:'revise',opinion:text,previous_node_state:{status:'rejected',reason}});
+ const task=taskFixture(p,'project-summary',p.basic_info.id,{action:'revise',opinion:text,previous_node_state:{status:'rejected',reason}});
  const initial=taskNodeInput(snapshot,task,null,'regenerate',newStep(task,2,'generate',0));
  assert.match(initial.opinion,/历史审核诊断/);assert.match(initial.opinion,/不是新的剧情事实或本次要求/);assert.match(initial.opinion,/本次执行意见/);
  const firstGenerate=taskNodeInput(snapshot,task,null,'generate',newStep(task,2,'generate',0));assert.match(firstGenerate.requirements,/历史审核诊断/);

@@ -65,7 +65,7 @@ export function mount() {
       return;
     }
     if (!snapshot) return catalog();
-    shell.root.querySelector(".brand").textContent = snapshot.project.name;
+    shell.root.querySelector(".brand").textContent = snapshot.project.basic_info.name;
     showLanguage();
     const key = JSON.stringify([
       context.token(),

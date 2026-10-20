@@ -4,8 +4,8 @@ import { defaultRules } from '../../shared/rule-defaults.js';
 
 function ruleRows(p) {
   const rows = [], add = (business, id, node) => { if (node) rows.push({business,id,node}); };
-  add('script-split',p.id,p.script);
-  add('project-summary',p.id,p.project_summary); add('project-characters',p.id,p.character_library);
+  add('script-split',p.basic_info.id,p.story_segments);
+  add('project-summary',p.basic_info.id,p.project_summary); add('project-characters',p.basic_info.id,p.character_library);
   for (const c of p.character_library.characters) for (const image of c.costume_images || []) add('costume-image',image.costume_id || c.id,image);
   for (const scene of p.scene_library?.scenes || []) add('scene-image',scene.id,scene.reference_image);
   for (const e of p.episodes) {
@@ -24,8 +24,8 @@ export function migrateSupplementRules(p) {
 
   const rows = [], add = (business, id, node) => rows.push({business,id,node});
 
-  add('project-summary', p.id, p.project_summary);
-  add('project-characters', p.id, p.character_library);
+  add('project-summary', p.basic_info.id, p.project_summary);
+  add('project-characters', p.basic_info.id, p.character_library);
   for (const c of p.character_library.characters) for (const image of c.costume_images)
     add('costume-image', image.costume_id || c.id, image);
   for (const scene of p.scene_library.scenes) add('scene-image', scene.id, scene.reference_image);

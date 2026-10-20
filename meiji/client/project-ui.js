@@ -244,13 +244,13 @@ export function renderOverview(root, env) {
       detailsDialog(
         root,
         "编辑项目",
-        { name: p.name, aspect_ratio: p.aspect_ratio },
-        (fields) => act({ type: "edit", fields }, true),
+        { name: p.basic_info.name, aspect_ratio: p.basic_info.aspect_ratio, creative_requirements: p.basic_info.creative_requirements, reference_episode_duration_seconds: p.basic_info.reference_episode_duration_seconds },
+        (fields) => act({ type: "edit", fields: { basic_info: fields } }, true),
       ),
     );
   edit.className = "icon-edit";
   edit.innerHTML = editIcon;
-  edit.setAttribute("aria-label", "编辑标题和画幅");
+  edit.setAttribute("aria-label", "编辑基本信息");
   const actions = element("div", "", "title-actions");
   const history = button(
       "查看任务历史 →",
@@ -268,11 +268,11 @@ export function renderOverview(root, env) {
   remove.setAttribute("aria-label", "删除整个项目");
   remove.title = "删除项目";
   actions.append(history, remove);
-  heading.append(element("h2", p.name), edit, actions);
+  heading.append(element("h2", p.basic_info.name), edit, actions);
   view.append(
-    element("p", p.creation_mode === "剧本" ? "剧本模式" : "自由模式", "meta"),
+    element("p", p.basic_info.creation_mode === "剧本" ? "剧本模式" : "自由模式", "meta"),
     heading,
-    element("p", `${p.aspect_ratio} · ${p.episodes.length} 集`, "meta"),
+    element("p", `${p.basic_info.aspect_ratio} · ${p.episodes.length} 集`, "meta"),
   );
   const card = (title, statusText) => {
       const c = element("section", "", "overview-card"),
@@ -287,42 +287,33 @@ export function renderOverview(root, env) {
       view.append(c);
       return { c, h, actions };
     };
-  if (p.creation_mode === "自由创作") {
-    const { c, actions } = card("AI 创作方向");
-    const b = button("✎", () =>
-      editor(
-        root,
-        "AI 创作方向",
-        p.creative_direction,
-        (creative_direction) => act({ type: "edit", fields: { creative_direction } }, true),
-        { json: false },
-      ),
-    );
-    b.className = "icon-edit";
-    b.innerHTML = editIcon;
-    b.setAttribute("aria-label", "编辑创作方向");
-    actions.append(b);
-    c.append(element("p", p.creative_direction, "summary summary-preview"));
+  const { c: basic, actions: basicActions } = card('基本信息');
+  basic.dataset.section = 'basic_info';
+  basicActions.remove();
+  for (const [label, value] of [
+    ['项目ID', p.basic_info.id], ['项目名称', p.basic_info.name],
+    ['创作模式', p.basic_info.creation_mode], ['画幅', p.basic_info.aspect_ratio],
+    ['创作要求', p.basic_info.creative_requirements || '未填写'],
+    ['参考单集时长', `${p.basic_info.reference_episode_duration_seconds} 秒`],
+  ]) {
+    const line = element('p', '', 'project-info-line');
+    line.append(element('strong', `${label}：`), document.createTextNode(String(value)));
+    basic.append(line);
   }
-  const summary = nodeCard("project-summary", p.id, p.project_summary);
-  summary.className = "overview-card";
-  summary.querySelector("h3").textContent = "项目摘要";
-  summary.querySelector(".prompt")?.classList.add("summary", "summary-preview");
-  summary.querySelector(".section-head").className = "overview-card-title";
-  summary.querySelector(".json-copy-row")?.remove();
-  view.append(summary);
-  const { c: script, actions: scriptActions } = card("剧本"),
-    scriptRow = element("div", "", "script-title-row"),
-    open = button(p.name, () => go("script"), false);
-  open.className = "script-file-name";
-  const arrow = button("→", () => go("script"), false);
-  arrow.className = "script-title-arrow";
-  arrow.setAttribute("aria-label", "打开剧本详情");
-  scriptRow.append(open, arrow);
-  script.append(scriptRow);
-  scriptActions.append(button("改编剧本", () => go("script"), false));
-  const splitting = p.creation_mode === "剧本",
-    latestSplitTask = splitting ? latestNodeTask(env.snapshot?.tasks || [], "script-split", p.id) : null,
+  const original = element('details', '', 'original-script');
+  original.append(element('summary', '原始剧本'), element('p', p.basic_info.original_script || '尚未导入原始剧本', 'prompt full'));
+  basic.append(original);
+  const script = nodeCard('script-review', p.basic_info.id, p.script_revision);
+  script.classList.add('overview-card');
+  script.dataset.section = 'script_revision';
+  script.querySelector('h3').textContent = '剧本优化';
+  const arrow = button('→', () => go('script'), false);
+  arrow.className = 'script-title-arrow';
+  arrow.setAttribute('aria-label', '打开剧本详情');
+  script.querySelector('.section-head').append(arrow);
+  view.append(script);
+  const splitting = p.basic_info.creation_mode === "剧本",
+    latestSplitTask = splitting ? latestNodeTask(env.snapshot?.tasks || [], "script-split", p.basic_info.id) : null,
     { c: episodes, actions: episodeActions } = card("剧集");
   episodeActions.remove();
   const episodeUi = element("div", "", "node-ui"),
@@ -342,20 +333,20 @@ export function renderOverview(root, env) {
         const dialog = detailsDialog(
           root,
           addLabel,
-          { reference_episode_duration_seconds: p.reference_episode_duration_seconds },
+          { reference_episode_duration_seconds: p.basic_info.reference_episode_duration_seconds },
           async (fields) => {
             dialog.close();
-            const key = `script-split:${p.id}`;
+            const key = `script-split:${p.basic_info.id}`;
             const text = (state.opinions?.[key] || "").trim();
             if (text) {
               state.opinionPending ??= {};
               state.opinionPending[key] = true;
             }
-            await act({ type: "edit", fields }, true);
+            await act({ type: "edit", fields: { basic_info: fields } }, true);
             await act({
               type: "submit",
               business_type: "script-split",
-              target_id: p.id,
+              target_id: p.basic_info.id,
               action: p.episodes.length ? "regenerate" : "generate",
               ...(text ? { opinion: text } : {}),
             });
@@ -383,7 +374,7 @@ export function renderOverview(root, env) {
   }
   if (splitting && !splitBusy && latestSplitTask?.task_status === "rejected") {
     episodeButtons.append(button("人工放行", () => act({
-      type: "override", business_type: "script-split", target_id: p.id,
+      type: "override", business_type: "script-split", target_id: p.basic_info.id,
     })));
   }
   if (splitting) {
@@ -394,18 +385,18 @@ export function renderOverview(root, env) {
     ));
     if (splitBusy) episodeButtons.append(button("取消", () => act({ type: "cancel", task_id: latestSplitTask.id }), false));
   }
-  if (splitting) episodeButtons.append(button('查看规则', () => env.openRules('script-split', p.id), false));
+  if (splitting) episodeButtons.append(button('查看规则', () => env.openRules('script-split', p.basic_info.id), false));
   episodeRow.append(episodeButtons);
   if (splitTaskRow) episodeRow.append(splitTaskRow);
   episodeUi.append(episodeRow);
   if (splitting) {
-    const opinionKey = `script-split:${p.id}`;
+    const opinionKey = `script-split:${p.basic_info.id}`;
     if (
       state.opinionPending?.[opinionKey] &&
       latestSplitTask?.task_status === "completed" &&
       !(env.snapshot?.tasks || []).some((task) =>
         task.business_type === "script-split" &&
-        task.target_id === p.id &&
+        task.target_id === p.basic_info.id &&
         ["queued", "running"].includes(task.task_status),
       )
     ) {
@@ -437,7 +428,7 @@ export function renderOverview(root, env) {
           return act({
             type: "submit",
             business_type: "script-split",
-            target_id: p.id,
+            target_id: p.basic_info.id,
             action: "revise",
             opinion: [latestSplitTask.end_reason.trim(), typed].filter(Boolean).join("\n"),
           });
@@ -496,7 +487,7 @@ export function renderOverview(root, env) {
     if (add) empty.append(button(addLabel, () => add.click()));
     list.append(empty);
   }
-  const people = nodeCard("project-characters", p.id, p.character_library);
+  const people = nodeCard("project-characters", p.basic_info.id, p.character_library);
   people.querySelector("h3").textContent = "提取人物";
   const strip = element("div", "", "characters-strip library-card-strip library-card-strip-characters");
   for (const c of p.character_library.characters) {
@@ -568,7 +559,7 @@ export function renderEpisode(root, env, entries) {
   const shot = e.shot_list.shots.find((s) => s.id === state.shot_id);
   backHeader(
     root,
-    shot ? `${shot.number} ${shot.title}` : `${p.name} 第 ${e.sequence} 集`,
+    shot ? `${shot.number} ${shot.title}` : `${p.basic_info.name} 第 ${e.sequence} 集`,
     shot ? "返回镜头" : "返回项目概要",
     () => (shot ? go("episode", { shot_id: null }) : go("overview")),
   );
@@ -630,7 +621,7 @@ export function renderEpisode(root, env, entries) {
       // 本集场景横向排列，一屏两张，可左右滑动。
       const list = element("div", "", "scene-card-list");
       // 参考图缩略图采用项目视频画幅；原图比例不同时按画幅框裁切，点击放大看原图。
-      const [frameW, frameH] = p.aspect_ratio.split(":").map(Number);
+      const [frameW, frameH] = p.basic_info.aspect_ratio.split(":").map(Number);
       list.style.setProperty("--scene-aspect", `${frameW} / ${frameH}`);
       list.dataset.orientation = frameH > frameW ? "portrait" : "landscape";
       dragScroll(list);

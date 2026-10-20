@@ -44,10 +44,10 @@ describe("script-split", () => {
     let runtime;
     try {
       runtime = await createAppRuntime({ home, gateway: { chat } });
-      const project = emptyProject({ creation_mode: '剧本' });
-      project.script.body = script; approveScriptReview(project);
+      const project = emptyProject({ basic_info: { creation_mode: '剧本' } });
+      project.basic_info.original_script = script; project.script_revision.body = script; approveScriptReview(project);
       const model = await runtime.repository.create(project);
-      const submit = (action = 'generate') => runtime.tasks.command({ type:'submit', project_id:project.id, target_id:project.id, business_type:'script-split', action, request_id:randomUUID() });
+      const submit = (action = 'generate') => runtime.tasks.command({ type:'submit', project_id:project.basic_info.id, target_id:project.basic_info.id, business_type:'script-split', action, request_id:randomUUID() });
       await run({ home, runtime, project, model, submit });
     } finally { await runtime?.dispose(); await rm(home,{recursive:true,force:true}); }
   }
@@ -82,19 +82,19 @@ describe("script-split", () => {
     assert.doesNotMatch(prompt.system,/程序按归入段落拼接|不能改写剧本/);
   });
   test('全集规划真实任务只创建计划，JSON镜像与数据库一致',()=>scenario(async({step})=>step.kind==='review'?{是否通过:true,类型:'',原因:''}:plan(),async({runtime,project,model,submit,home})=>{
-    const result=await submit();await runtime.tasks.idle(project.id);
+    const result=await submit();await runtime.tasks.idle(project.basic_info.id);
     const snapshot=model.readAll();assert.equal(snapshot.tasks.find(t=>t.id===result.task_id).task_status,'completed');
     assert.deepEqual(snapshot.project.episodes.map(e=>e.plot),rows.map(r=>r.本集规划));
     assert.ok(snapshot.project.episodes.every(e=>e.story_outline.segments.length===0));
-    assert.equal(snapshot.project.script.body,script);
-    const mirror=JSON.parse(await readFile(join(home,'storages','meiji','projects',project.id,'project.json'),'utf8'));
+    assert.equal(snapshot.project.basic_info.original_script,script);assert.equal(snapshot.project.script_revision.body,script);
+    const mirror=JSON.parse(await readFile(join(home,'storages','meiji','projects',project.basic_info.id,'project.json'),'utf8'));
     assert.deepEqual(mirror,snapshot.project);
   }));
   test('全集规划网络失败后新任务成功，旧失败记录不改写',async()=>{
     let calls=0;
     await scenario(async({step})=>{if(step.kind==='review')return{是否通过:true,类型:'',原因:''};if(++calls===1)throw Error('HTTP 503');return plan();},async({runtime,project,model,submit})=>{
-      const first=await submit();await runtime.tasks.idle(project.id);
-      const second=await submit();await runtime.tasks.idle(project.id);
+      const first=await submit();await runtime.tasks.idle(project.basic_info.id);
+      const second=await submit();await runtime.tasks.idle(project.basic_info.id);
       assert.equal(model.readAll().tasks.find(t=>t.id===first.task_id).task_status,'failed');
       assert.equal(model.readAll().tasks.find(t=>t.id===second.task_id).task_status,'completed');
     });
@@ -107,22 +107,22 @@ describe("script-split", () => {
       else assert.match(messages.at(-1).content,/第2集/);
       return value;
     },async({runtime,project,model,submit})=>{
-      const result=await submit();await runtime.tasks.idle(project.id);
+      const result=await submit();await runtime.tasks.idle(project.basic_info.id);
       assert.equal(model.readAll().tasks.find(t=>t.id===result.task_id).task_status,'completed');assert.equal(calls,2);
     });
   });
   test('AI审核拒绝规划后可人工放行，未通过时不替换旧剧集',()=>scenario(async({step})=>step.kind==='review'?{是否通过:false,类型:'模型问题',原因:'第1集的转折与后集交接需改善'}:plan(),async({runtime,project,model,submit})=>{
-    const result=await submit();await runtime.tasks.idle(project.id);
+    const result=await submit();await runtime.tasks.idle(project.basic_info.id);
     assert.equal(model.readAll().tasks.find(t=>t.id===result.task_id).task_status,'rejected');
     assert.equal(model.read().project.episodes.length,0);
-    const override=await runtime.tasks.command({type:'override',project_id:project.id,target_id:project.id,business_type:'script-split',request_id:randomUUID()});
-    await runtime.tasks.idle(project.id);assert.equal(model.readAll().tasks.find(t=>t.id===override.task_id).task_status,'completed');
+    const override=await runtime.tasks.command({type:'override',project_id:project.basic_info.id,target_id:project.basic_info.id,business_type:'script-split',request_id:randomUUID()});
+    await runtime.tasks.idle(project.basic_info.id);assert.equal(model.readAll().tasks.find(t=>t.id===override.task_id).task_status,'completed');
     assert.equal(model.read().project.episodes.length,2);
   }));
   test('现有规划修订基稿直接取各集规划，不反推原文段落',()=>{
-    const project=emptyProject({creation_mode:'剧本'});project.script.body=script;
+    const project=emptyProject({ basic_info: { creation_mode:'剧本' } });project.script_revision.body=script;
     project.episodes=rows.map(row=>emptyEpisode({sequence:row.序号,plot:row.本集规划,duration_seconds:row.预估时长秒}));
-    const task=taskFixture(project,'script-split',project.id,{action:'revise',opinion:'调整结尾钩子'});
+    const task=taskFixture(project,'script-split',project.basic_info.id,{action:'revise',opinion:'调整结尾钩子'});
     const input=taskNodeInput({project,tasks:[],steps:[]},task,null,'regenerate');
     assert.deepEqual(input.content,plan());
   });
@@ -141,21 +141,21 @@ describe("script-review", () => {
     } finally {await runtime?.dispose();await rm(home,{recursive:true,force:true});}
   }
   test('导入剧本只创建项目，不创建审核任务且不调用模型',()=>withRuntime(async(runtime,calls)=>{
-    const result=await runtime.projectCommand({type:'create',fields:{name:'原始剧本',creation_mode:'剧本',script:{body:script}}},null);
+    const result=await runtime.projectCommand({type:'create',fields:{ basic_info: { name: '原始剧本', creation_mode: '剧本', original_script: script } }},null);
     await runtime.tasks.idle(result.project_id);
     const snapshot=(await runtime.repository.open(result.project_id)).readAll();
     assert.equal(snapshot.tasks.length,0);assert.equal(snapshot.groups.length,0);assert.equal(calls.length,0);
-    assert.equal(snapshot.project.script.body,script);
+    assert.equal(snapshot.project.basic_info.original_script,script);assert.equal(snapshot.project.script_revision.body,'');
     assert.equal(result.script_review_task_id,undefined);
   }));
   for(const status of ['empty','rejected','expired','generated'])test(`原剧本状态${status}不拦截全集规划与提取人物`,()=>{
     const snapshot=snapshotFixture(),p=snapshot.project;
-    Object.assign(p.script.node_state,{status,reason:status==='rejected'||status==='expired'?reason:''});
+    Object.assign(p.script_revision.node_state,{status,reason:status==='rejected'||status==='expired'?reason:''});
     for(const business of ['script-split','project-characters'])
-      assert.equal(precheck(snapshot,{business_type:business,target_id:p.id,action:'generate'}).passed,true);
-    p.script.body='';
+      assert.equal(precheck(snapshot,{business_type:business,target_id:p.basic_info.id,action:'generate'}).passed,true);
+    p.script_revision.body='';p.basic_info.original_script='';
     for(const business of ['script-split','project-characters'])
-      assert.throws(()=>precheck(snapshot,{business_type:business,target_id:p.id,action:'generate'}),/剧本为空/);
+      assert.throws(()=>precheck(snapshot,{business_type:business,target_id:p.basic_info.id,action:'generate'}),/剧本为空/);
   });
   test('剧本改编审核路由与执行命令恢复，查询历史仍可用',()=>{
     assert.ok(nodeRoutes['script-review'].actions.review);assert.ok(nodeRoutes['script-review'].actions.regenerate);
@@ -164,14 +164,14 @@ describe("script-review", () => {
       assert.doesNotThrow(()=>validateCommand({...base,...command}));
     assert.doesNotThrow(()=>validateCommand({type:'query',project_id:base.project_id,task_id:'t_'+randomUUID()}));
   });
-  test('概览剧本仅展示原文入口，不提供审核、修改或放行',()=>{
+  test('项目详情同时展示原稿与优化节点及操作',()=>{
     const dom=new JSDOM('<main></main>'),saved=globalThis.document;globalThis.document=dom.window.document;
     try{
-      const snapshot=snapshotFixture(),root=document.querySelector('main');snapshot.project.creation_mode='剧本';
-      Object.assign(snapshot.project.script.node_state,{status:'rejected',reason});
+      const snapshot=snapshotFixture(),root=document.querySelector('main');snapshot.project.basic_info.creation_mode='剧本';
+      Object.assign(snapshot.project.script_revision.node_state,{status:'rejected',reason});
       renderTaskPanel(root,snapshot,{session_id:'s',view:{page:'overview'},refresh:async()=>{},onError:assert.fail});
-      assert.ok(root.querySelector('.script-title-row'));assert.equal(root.querySelector('[data-business="script-review"]'),null);
-      assert.doesNotMatch(root.textContent,/AI审核|重新审核|旧剧本审核未通过/);
+      assert.ok(root.querySelector('.original-script'));assert.ok(root.querySelector('[data-business="script-review"]'));
+      assert.ok(root.textContent.includes(reason));assert.ok(root.textContent.includes('审核剧本'));
     }finally{globalThis.document=saved;dom.window.close();}
   });
 
@@ -179,38 +179,38 @@ describe("script-review", () => {
     const root = await mkdtemp(join(tmpdir(), "meiji-v18-"));
     try {
       let repo = new ModelRepository(root);
-      const projects = ["v15", "v16", "v17"].map(name => { const p = emptyProject({ name, creation_mode: "剧本" }); p.script.body = script; return approveScriptReview(p); });
-      for (const p of projects.slice(1)) Object.assign(p.script.node_state, { status: "rejected", reason });
+      const projects = ["v15", "v16", "v17"].map(name => { const p = emptyProject({ basic_info: { creation_mode: "剧本", name } }); p.script_revision.body = script; return approveScriptReview(p); });
+      for (const p of projects.slice(1)) Object.assign(p.script_revision.node_state, { status: "rejected", reason });
       for (const p of projects) await repo.create(p);
       await repo.close();
       let db = new DatabaseSync(join(root, "meiji.sqlite"));
       const update = db.prepare("UPDATE projects SET data_json=? WHERE id=?");
       for (const row of db.prepare("SELECT id,data_json FROM projects").all()) {
-        const project = JSON.parse(row.data_json), state = project.script.node_state, name = project.name;
-        delete project.script.node_state;
+        const project = JSON.parse(row.data_json), state = project.script_revision.node_state, name = project.basic_info.name;
+        delete project.script_revision.node_state;
         if (name === "v16") project.script_review = { node_state: state, has_result: true, suggestions: reason };
-        if (name === "v17") project.script = { ...project.script, node_state: state, review: { has_result: true, suggestions: reason } };
+        if (name === "v17") project.script_revision = { ...project.script_revision, node_state: state, review: { has_result: true, suggestions: reason } };
         update.run(JSON.stringify(project), row.id);
       }
       db.exec("DELETE FROM schema_migrations WHERE version>=16; PRAGMA user_version=15");
       db.close();
       repo = new ModelRepository(root);
-      const [v15, v16, v17] = await Promise.all(projects.map(async p => (await repo.open(p.id)).read().project));
-      assert.equal(v15.script.node_state.status, "empty");
+      const [v15, v16, v17] = await Promise.all(projects.map(async p => (await repo.open(p.basic_info.id)).read().project));
+      assert.equal(v15.script_revision.node_state.status, "empty");
       for (const p of [v16, v17]) {
-        assert.equal(p.script.node_state.status, "rejected");
-        assert.equal(p.script.node_state.reason, reason);
-        assert.match(p.script.node_state.dependency_hash, /^[a-f0-9]{64}$/);
+        assert.equal(p.script_revision.node_state.status, "rejected");
+        assert.equal(p.script_revision.node_state.reason, reason);
+        assert.match(p.script_revision.node_state.dependency_hash, /^[a-f0-9]{64}$/);
       }
       for (const p of [v15, v16, v17]) {
         assert.equal("script_review" in p, false);
-        assert.equal("review" in p.script, false);
-        assert.equal(p.script.body, script);
+        assert.equal("review" in p.script_revision, false);
+        assert.equal(p.script_revision.body, script);
       }
       await repo.close();
       db = new DatabaseSync(join(root, "meiji.sqlite"));
-      assert.equal(db.prepare("PRAGMA user_version").get().user_version, 28);
-      assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]);
+      assert.equal(db.prepare("PRAGMA user_version").get().user_version, 29);
+      assert.deepEqual(db.prepare("SELECT version FROM schema_migrations WHERE version>=16 ORDER BY version").all().map(r => r.version), [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]);
       db.close();
     } finally { await rm(root, { recursive: true, force: true }); }
   });
@@ -261,12 +261,12 @@ describe("split-hard-duration", () => {
         }
         return calls === 1 ? first : fixed;
       } } });
-      const project = emptyProject({ name: '同情景跨集', creation_mode: '剧本' });
-      project.script.body = script; approveScriptReview(project);
+      const project = emptyProject({ basic_info: { name: '同情景跨集', creation_mode: '剧本' } });
+      project.basic_info.original_script = script; project.script_revision.body = script; approveScriptReview(project);
       project.episodes = [emptyEpisode({ plot: '旧剧集' })];
       const model = await runtime.repository.create(project);
-      const result = await runtime.tasks.command({ type: 'submit', project_id: project.id, target_id: project.id, business_type: 'script-split', action: 'regenerate', request_id: randomUUID() });
-      await runtime.tasks.idle(project.id);
+      const result = await runtime.tasks.command({ type: 'submit', project_id: project.basic_info.id, target_id: project.basic_info.id, business_type: 'script-split', action: 'regenerate', request_id: randomUUID() });
+      await runtime.tasks.idle(project.basic_info.id);
       const snapshot = model.readAll(), task = snapshot.tasks.find(t => t.id === result.task_id);
       assert.equal(task.task_status, 'completed', task.end_reason);
       assert.equal(calls, 2);
@@ -281,22 +281,22 @@ describe("split-hard-duration", () => {
     let runtime, seconds = 65;
     try {
       runtime = await createAppRuntime({ home, gateway: { chat: async ({ step }) => step.kind === 'review' ? { 是否通过: false, "类型": "模型问题", 原因: '测试语义意见' } : candidate(row(1, seconds)) } });
-      const project = emptyProject({ name: '硬条件放行', creation_mode: '剧本' });
-      project.script.body = script; approveScriptReview(project);
+      const project = emptyProject({ basic_info: { name: '硬条件放行', creation_mode: '剧本' } });
+      project.basic_info.original_script = script; project.script_revision.body = script; approveScriptReview(project);
       project.episodes = [emptyEpisode({ plot: '旧正式剧情' })];
       const old = structuredClone(project.episodes);
       const short = candidate(row(1, 65));
       for (const action of ['override', 'regenerate']) {
-        assert.throws(() => commitContent({ project }, { business_type: 'script-split', target_id: project.id, action }, short), /120—180秒/);
+        assert.throws(() => commitContent({ project }, { business_type: 'script-split', target_id: project.basic_info.id, action }, short), /120—180秒/);
         assert.deepEqual(project.episodes, old);
       }
       const model = await runtime.repository.create(project);
-      const command = action => runtime.tasks.command({ type: action === 'override' ? 'override' : 'submit', project_id: project.id, target_id: project.id, business_type: 'script-split', ...(action === 'override' ? {} : { action }), request_id: randomUUID() });
+      const command = action => runtime.tasks.command({ type: action === 'override' ? 'override' : 'submit', project_id: project.basic_info.id, target_id: project.basic_info.id, business_type: 'script-split', ...(action === 'override' ? {} : { action }), request_id: randomUUID() });
       for (const current of [65, 150]) {
         seconds = current;
-        const generated = await command('regenerate'); await runtime.tasks.idle(project.id);
+        const generated = await command('regenerate'); await runtime.tasks.idle(project.basic_info.id);
         assert.equal(model.readAll().tasks.find(t => t.id === generated.task_id).task_status, 'rejected');
-        const accepted = await command('override'); await runtime.tasks.idle(project.id);
+        const accepted = await command('override'); await runtime.tasks.idle(project.basic_info.id);
         const snapshot = model.readAll(), task = snapshot.tasks.find(t => t.id === accepted.task_id);
         assert.equal(task.task_status, current === 65 ? 'rejected' : 'completed', task.end_reason);
         if (current === 65) {

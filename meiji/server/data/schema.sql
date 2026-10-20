@@ -6,7 +6,7 @@ CREATE TABLE projects (
   id TEXT PRIMARY KEY NOT NULL,
   data_json TEXT NOT NULL CHECK(json_valid(data_json)),
   revision INTEGER NOT NULL CHECK(revision >= 1),
-  CHECK(json_extract(data_json, '$.id') = id)
+  CHECK(json_extract(data_json, '$.basic_info.id') = id)
 ) STRICT;
 CREATE TABLE task_groups (
   id TEXT PRIMARY KEY NOT NULL,

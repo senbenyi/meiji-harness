@@ -117,19 +117,19 @@ describe("node-data-state", () => {
       const ready=new Promise(resolve=>{started=resolve;});
       const wait=new Promise(resolve=>{release=resolve;});
       service=new TaskService({repository:repo,execute:async()=>{started();await wait;throw new Error('连接已断开');}});
-      const submitted=await service.command({type:'submit',project_id:p.id,request_id:'retry',business_type:'episode-summary',target_id:e.id,action:'regenerate'});
+      const submitted=await service.command({type:'submit',project_id:p.basic_info.id,request_id:'retry',business_type:'episode-summary',target_id:e.id,action:'regenerate'});
       await ready;
       assert.deepEqual(model.readAll().project.episodes[0].summary,before,'运行中仍保留数据状态');
-      if(outcome==='cancelled')await service.command({type:'cancel',project_id:p.id,request_id:'cancel',task_id:submitted.task_id});
-      release();await service.idle(p.id);
+      if(outcome==='cancelled')await service.command({type:'cancel',project_id:p.basic_info.id,request_id:'cancel',task_id:submitted.task_id});
+      release();await service.idle(p.basic_info.id);
       const saved=model.readAll();
       assert.equal(saved.tasks[0].task_status,outcome);
       if(outcome==='failed')assert.match(saved.tasks[0].end_reason,/连接已断开/);
       assert.deepEqual(saved.project.episodes[0].summary,before);
-      const json=JSON.parse(await readFile(join(root,p.id,'project.json'),'utf8'));
+      const json=JSON.parse(await readFile(join(root,p.basic_info.id,'project.json'),'utf8'));
       assert.deepEqual(json.episodes[0].summary,before);
       const reopened=new ModelRepository(root);
-      try{assert.deepEqual((await reopened.open(p.id)).read().project.episodes[0].summary,before);}finally{await reopened.close();}
+      try{assert.deepEqual((await reopened.open(p.basic_info.id)).read().project.episodes[0].summary,before);}finally{await reopened.close();}
     }finally{release?.();await service?.dispose();await repo.close();await rm(root,{recursive:true,force:true});}
   });
 
@@ -188,15 +188,15 @@ describe("node-data-state", () => {
       const p=projectFixture(),model=await repo.create(p),before=model.readAll();await repo.close();
       const legacy=structuredClone(before.project);legacy.episodes[0].summary.node_state.status='failed';legacy.episodes[0].summary.node_state.fail_message='旧连接失败';
       const db=new DatabaseSync(join(root,'meiji.sqlite'));
-      db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy),p.id);
+      db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy),p.basic_info.id);
       db.exec('DELETE FROM schema_migrations WHERE version>=15; PRAGMA user_version=14');db.close();
       repo=new ModelRepository(root);
-      const migrated=(await repo.open(p.id)).read();
+      const migrated=(await repo.open(p.basic_info.id)).read();
       assert.equal(migrated.project.episodes[0].summary.node_state.status,'generated');
       assert.equal(migrated.project.episodes[0].summary.body,before.project.episodes[0].summary.body);
       assert.equal(migrated.runtime.revision,before.runtime.revision+3);
       await repo.close();repo=new ModelRepository(root);
-      assert.deepEqual((await repo.open(p.id)).read(),migrated);
+      assert.deepEqual((await repo.open(p.basic_info.id)).read(),migrated);
     }finally{await repo.close();await rm(root,{recursive:true,force:true});}
   });
 });

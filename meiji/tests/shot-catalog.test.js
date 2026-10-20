@@ -120,8 +120,8 @@ describe("shots-duration-repair", () => {
     } });
     const service = new TaskService({ repository, execute: createHandlerRegistry({ text: handler, media: () => { throw Error("unexpected media"); } }), commitOutput: commitContent });
     try {
-      const submitted = await service.command({ type: "submit", project_id: project.id, request_id: "duration-repair", business_type: "shots", target_id: episode.id, action: "regenerate" });
-      await service.idle(project.id);
+      const submitted = await service.command({ type: "submit", project_id: project.basic_info.id, request_id: "duration-repair", business_type: "shots", target_id: episode.id, action: "regenerate" });
+      await service.idle(project.basic_info.id);
       return { snapshot: model.readAll(), taskId: submitted.task_id, prompts, generationCount, oldHash };
     } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
   }
@@ -212,7 +212,7 @@ describe("shot-cast", () => {
     const {project,episode,shot,a} = fixture(), snapshot={project,tasks:[],steps:[]};
     assert.equal(NODE_TYPES.includes('shot-characters'),false);
     assert.equal(nodeRoutes['shot-characters'],undefined);
-    assert.throws(()=>validateCommand({type:'submit',project_id:project.id,request_id:'retired',business_type:'shot-characters',target_id:shot.id,action:'generate'}),/并入镜头表/);
+    assert.throws(()=>validateCommand({type:'submit',project_id:project.basic_info.id,request_id:'retired',business_type:'shot-characters',target_id:shot.id,action:'generate'}),/并入镜头表/);
     assert.deepEqual(shotTextInputs(project,episode,shot,'seconds').shot.on_screen_characters,shot.on_screen_characters);
     assert.equal(videoType(project,episode,shot),'文生');
     assert.deepEqual(videoImages(project,shot),[]);
@@ -245,7 +245,7 @@ describe("shot-cast", () => {
       db.prepare('update projects set data_json=?').run(JSON.stringify(legacy));
       db.exec("update tasks set business_type='shot-characters'; DELETE FROM schema_migrations WHERE version>=20; PRAGMA user_version=19");
       const media=legacy.episodes[0].shot_list.shots.map(s=>[s.video.address,s.last_frame.address]);
-      db.close();repo=new ModelRepository(root);const restored=(await repo.open(project.id)).read();
+      db.close();repo=new ModelRepository(root);const restored=(await repo.open(project.basic_info.id)).read();
       const saved=restored.project.episodes[0].shot_list.shots[0];
       assert.equal(Object.hasOwn(saved,'character_binding'),false);
       assert.deepEqual(saved.on_screen_characters,original);
@@ -256,7 +256,7 @@ describe("shot-cast", () => {
       assert.ok(restored.tasks.every(t=>t.task_status==='cancelled'));
       assert.ok(restored.steps.every(s=>s.step_status==='cancelled'));
       await repo.close();db=new DatabaseSync(path);
-      assert.equal(db.prepare('pragma user_version').get().user_version,28);
+      assert.equal(db.prepare('pragma user_version').get().user_version,29);
       assert.equal(db.prepare('pragma integrity_check').get().integrity_check,'ok');
       const before=db.prepare('select data_json,revision from projects').all();db.close();
       repo=new ModelRepository(root);await repo.close();db=new DatabaseSync(path);

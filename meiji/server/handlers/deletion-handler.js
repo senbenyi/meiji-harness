@@ -37,5 +37,5 @@ export function applyDelete(snapshot, task) {
     character.costumes = character.costumes.filter((co) => co.id !== object.id);
     character.costume_images = character.costume_images.filter(image => image.costume_id !== object.id);
   }
-  expireDownstream(snapshot, "project-characters", p.id, "角色或服装资料已删除");
+  expireDownstream(snapshot, "project-characters", p.basic_info.id, "角色或服装资料已删除");
 }

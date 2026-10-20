@@ -28,7 +28,7 @@ describe("history", () => {
       const {prompt,http:_h,...rest}=step;
       return {executor:step.executor||stepExecutor(task,step.kind,reviewer),...rest,has_prompt:legacy.prompt!=null,has_http:http.length>0};
      });
-     state.taskRecords={project:s.project.id,details:Object.fromEntries(s.groups.map(group=>[group.id,{...historyGroups(s).find(row=>row.group.id===group.id),steps:steps.filter(st=>s.tasks.some(t=>t.group_id===group.id&&t.id===st.task_id)).map(st=>({...st,...records[group.id]?.steps[st.id]})),version:`${s.runtime?.revision||0}:0`,live:false}])),pages:{},pending:{},errors:{}};
+     state.taskRecords={project:s.project.basic_info.id,details:Object.fromEntries(s.groups.map(group=>[group.id,{...historyGroups(s).find(row=>row.group.id===group.id),steps:steps.filter(st=>s.tasks.some(t=>t.group_id===group.id&&t.id===st.task_id)).map(st=>({...st,...records[group.id]?.steps[st.id]})),version:`${s.runtime?.revision||0}:0`,live:false}])),pages:{},pending:{},errors:{}};
      renderHistory(root,env,{...s,steps});
     };
     work({dom,s,root,state,commands,paint});

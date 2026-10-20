@@ -1,3 +1,4 @@
+import { currentScript } from '../../shared/script-text.js';
 import { TEXT_BUSINESSES, assertProgramReview, assertOverride } from "../../shared/node-state.js";
 import { locateTarget } from "../../shared/task_contract.js";
 import { validateNodeResult } from "../http/ai-routes.js";
@@ -11,7 +12,7 @@ export function createHandlerRegistry({ text, media, videoPrompt }) {
     const project = snapshot.project, business = task.business_type;
     if (step.kind === "review" && reviewType === "program" && TEXT_BUSINESSES.includes(business)) {
       try {
-        if (business === "script-split") buildSplit(project.script.body, draft, project.reference_episode_duration_seconds);
+        if (business === "script-split") buildSplit(currentScript(project), draft, project.basic_info.reference_episode_duration_seconds);
         else {
           const probe = structuredClone(snapshot);
           commitContent(probe, task, draft, { passed: false });
@@ -33,7 +34,7 @@ export function createHandlerRegistry({ text, media, videoPrompt }) {
     }
     if (task.action === "override" && business === "script-split") {
       const candidate = rejectedSplitCandidate(snapshot, task);
-      buildSplit(project.script.body, candidate, project.reference_episode_duration_seconds);
+      buildSplit(currentScript(project), candidate, project.basic_info.reference_episode_duration_seconds);
       return { content: candidate, result: { override: true } };
     }
     if (task.action === "override") {

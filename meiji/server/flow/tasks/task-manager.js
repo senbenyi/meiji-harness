@@ -64,7 +64,7 @@ export class TaskService {
   #latestTask(s, business, id, excludeId = "") {
     const live = s.tasks.filter(t => t.business_type === business && t.target_id === id && t.id !== excludeId)
       .sort((a, b) => b.queue_order - a.queue_order)[0];
-    const stored = this.#history(s.project.id).latestTask(business, id, excludeId);
+    const stored = this.#history(s.project.basic_info.id).latestTask(business, id, excludeId);
     if (!live) return stored;
     return !stored || live.queue_order >= stored.queue_order ? live : stored;
   }
@@ -72,7 +72,7 @@ export class TaskService {
   #groupRecord(s, groupId) {
     const group = s.groups.find(g => g.id === groupId);
     if (group) return { group, tasks: s.tasks.filter(t => t.group_id === groupId).sort((a, b) => a.group_seq - b.group_seq) };
-    return this.#history(s.project.id).group(groupId);
+    return this.#history(s.project.basic_info.id).group(groupId);
   }
   // 项目 JSON 记录节点最近任务，以及界面需展示的最近任务组。
   #markLatest(s, task) {
@@ -169,7 +169,7 @@ export class TaskService {
         const collisions = s.tasks.filter(t => unfinished(t) && t.business_type === "costume-image" && ids.includes(t.target_id));
         if (collisions.length) conflict(collisions);
         if (!planned.length) return { group_id: null, task_ids: [], message: "定妆照已生成" };
-        const group = createTaskGroupModel({ project_id: s.project.id, group_type: "workflow",
+        const group = createTaskGroupModel({ project_id: s.project.basic_info.id, group_type: "workflow",
           name: characters.length === 1 ? `${characters[0].name} · 定妆照` : "定妆照", action: command.action, source: origin.source });
         s.groups.push(group);
         const tasks = planned.map((id, index) => add("costume-image", id,
@@ -261,7 +261,7 @@ export class TaskService {
         if (conflicts.length) conflict(conflicts);
         const group = createTaskGroupModel({
           name: "",
-          project_id: s.project.id,
+          project_id: s.project.basic_info.id,
           episode_id: episodeId,
           group_type: type,
           source: origin.source,
@@ -284,7 +284,7 @@ export class TaskService {
         if (assemblyOnly) tasks.push(this.#appendAssembly(s, group, origin));
         return { group_id: group.id, task_ids: tasks.map((t) => t.id) };
       }
-      const task = s.tasks.find((t) => t.id === command.task_id) || this.#history(s.project.id).task(command.task_id);
+      const task = s.tasks.find((t) => t.id === command.task_id) || this.#history(s.project.basic_info.id).task(command.task_id);
       if (!task) invalid("task_id", "任务不存在");
       if (command.type === "cancel") {
         if (!unfinished(task)) return { task_id: task.id, already_terminal: true };
@@ -307,7 +307,7 @@ export class TaskService {
     s.runtime.outbox.push({
       id: `notice_${globalThis.crypto.randomUUID()}`,
       session_id: sessionId,
-      project_id: s.project.id,
+      project_id: s.project.basic_info.id,
       task_id: task.id,
       group_id: task.group_id,
       event,
@@ -353,7 +353,7 @@ export class TaskService {
       opinion = [rejectedReason, opinion].filter(Boolean).join("\n");
     const task = createTaskModel({
         name: "",
-        project_id: s.project.id,
+        project_id: s.project.basic_info.id,
         episode_id: target.episode?.id || null,
         business_type: business,
         target_id: id,
@@ -363,7 +363,7 @@ export class TaskService {
         task_status: "queued",
         source: origin.source,
         // 队列序号接在全部历史之后（已结束任务不在工作快照）。
-        queue_order: Math.max(0, this.#history(s.project.id).maxQueueOrder(), ...s.tasks.map((t) => t.queue_order)) + 1,
+        queue_order: Math.max(0, this.#history(s.project.basic_info.id).maxQueueOrder(), ...s.tasks.map((t) => t.queue_order)) + 1,
         end_reason: "",
         created_at: now(),
         started_at: null,
@@ -375,7 +375,7 @@ export class TaskService {
     if (!task.group_id) {
       const group = createTaskGroupModel({
         name: "",
-        project_id: s.project.id,
+        project_id: s.project.basic_info.id,
         episode_id: task.episode_id,
         group_type: ["project-characters", "script-split"].includes(business) ? "workflow" : "single",
         source: origin.source, shot_ids: [], created_at: task.created_at,
@@ -541,7 +541,7 @@ export class TaskService {
     if (current.business_type === "script-split") {
       const previous = this.#latestTask(initial, current.business_type, current.target_id, id);
       if (previous?.task_status === "rejected" && !initial.steps.some(st => st.task_id === id && ['generate', 'revise'].includes(st.kind) && st.step_status === 'done'))
-        draft = this.#history(initial.project.id).stepsOf(previous.id).filter(st => ["generate", "revise"].includes(st.kind) && st.step_status === "done")
+        draft = this.#history(initial.project.basic_info.id).stepsOf(previous.id).filter(st => ["generate", "revise"].includes(st.kind) && st.step_status === "done")
           .sort((a,b)=>b.seq-a.seq)[0]?.result ?? null;
     }
     while (!signal.aborted) {

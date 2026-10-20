@@ -27,8 +27,8 @@ describe("text-tasks", () => {
     } });
     const service = new TaskService({ repository, commitOutput: commitContent, execute: createHandlerRegistry({ text }) });
     try {
-      const { task_id } = await service.command({ type: 'submit', project_id: p.id, business_type: 'storyboard', target_id: shot.id, action: 'regenerate', opinion: '', request_id: 'marker-repair' });
-      await service.idle(p.id);
+      const { task_id } = await service.command({ type: 'submit', project_id: p.basic_info.id, business_type: 'storyboard', target_id: shot.id, action: 'regenerate', opinion: '', request_id: 'marker-repair' });
+      await service.idle(p.basic_info.id);
       const state = model.readAll(), task = state.tasks.find(t => t.id === task_id);
       assert.equal(task.task_status, 'completed', task.end_reason);
       const rejection = state.steps.find(s => s.task_id === task_id && s.step_status === 'rejected');
@@ -51,7 +51,7 @@ describe("text-tasks", () => {
   ];
   test("角色生成与修订执行器要求性别，拒绝遗漏或空白并保存合法输出", async () => {
     const snapshot = snapshotFixture();
-    const task = taskFixture(snapshot.project, "project-characters", snapshot.project.id);
+    const task = taskFixture(snapshot.project, "project-characters", snapshot.project.basic_info.id);
     const row = { name: "新角色", gender: "女", era: "宋代", position: "主角", age_range: "", body_type: "", hairstyle: "", facial_features: "", height: "", nationality: "", voice: "", signature_props: [], immutable_traits: [], costumes: [] };
     for (const kind of ["generate", "revise"]) {
       for (const gender of [undefined, "  ", "女", "未明确"]) {
@@ -96,7 +96,7 @@ describe("text-tasks", () => {
             target = ["project-summary", "project-characters"].includes(
               business,
             )
-              ? p.id
+              ? p.basic_info.id
               : ["seconds", "storyboard"].includes(business)
                 ? p.episodes[0].shot_list.shots[0].id
                 : p.episodes[0].id;
@@ -122,13 +122,13 @@ describe("text-tasks", () => {
             business === "project-characters" ? "generate" : "regenerate";
           const result = await service.command({
             type: "submit",
-            project_id: p.id,
+            project_id: p.basic_info.id,
             request_id: "text",
             business_type: business,
             target_id: target,
             action,
           });
-          await service.idle(p.id);
+          await service.idle(p.basic_info.id);
           const snapshot = model.readAll(),
             task = snapshot.tasks.find((t) => t.id === result.task_id);
           assert.equal(task.task_status, ending, task.end_reason);
@@ -152,15 +152,15 @@ describe("text-tasks", () => {
       const target = ["project-summary", "project-characters"].includes(
           business,
         )
-          ? p.id
+          ? p.basic_info.id
           : ["seconds", "storyboard"].includes(business)
             ? p.episodes[0].shot_list.shots[0].id
             : p.episodes[0].id,
         t = taskFixture(p, business, target);
       for (const suffix of ["generate", "regenerate", "review"]) {
         const prompt = renderTaskPrompt(snapshot, t, null, suffix);
-        assert.ok(!prompt.system.includes(p.id));
-        assert.ok(!prompt.user.includes(p.id));
+        assert.ok(!prompt.system.includes(p.basic_info.id));
+        assert.ok(!prompt.user.includes(p.basic_info.id));
       }
     }
   });
@@ -180,8 +180,8 @@ describe("text-tasks", () => {
     } });
     const service = new TaskService({ repository, execute: createHandlerRegistry({ text }), commitOutput: commitContent });
     try {
-      const result = await service.command({ type: "submit", project_id: project.id, request_id: "summary-reject", business_type: "project-summary", target_id: project.id, action: "regenerate" });
-      await service.idle(project.id);
+      const result = await service.command({ type: "submit", project_id: project.basic_info.id, request_id: "summary-reject", business_type: "project-summary", target_id: project.basic_info.id, action: "regenerate" });
+      await service.idle(project.basic_info.id);
       const snapshot = model.readAll(), task = snapshot.tasks.find(item => item.id === result.task_id);
       assert.equal(task.task_status, "rejected");
       assert.equal(snapshot.project.project_summary.body, "本轮摘要4");
@@ -207,8 +207,8 @@ describe("text-tasks", () => {
     } });
     const service = new TaskService({ repository, execute: createHandlerRegistry({ text }), commitOutput: commitContent });
     try {
-      const result = await service.command({ type: "submit", project_id: project.id, request_id: "characters-reject", business_type: "project-characters", target_id: project.id, action: "generate" });
-      await service.idle(project.id);
+      const result = await service.command({ type: "submit", project_id: project.basic_info.id, request_id: "characters-reject", business_type: "project-characters", target_id: project.basic_info.id, action: "generate" });
+      await service.idle(project.basic_info.id);
       const snapshot = model.readAll(), node = snapshot.project.character_library;
       assert.equal(snapshot.tasks.find(item => item.id === result.task_id).task_status, "rejected");
       assert.equal(node.node_state.dependency_hash, oldHash);
@@ -241,7 +241,7 @@ describe("text-tasks", () => {
     for (const action of ["regenerate", "override"])
       test(`${action} 通过后按生成时依赖使 ${change} 图片过期`, () => {
         const snapshot = snapshotFixture(), project = snapshot.project;
-        const task = taskFixture(project, "project-characters", project.id, { action: "generate" });
+        const task = taskFixture(project, "project-characters", project.basic_info.id, { action: "generate" });
         const row = name => ({ name, gender: "男", era: "宋代", position: "主角", age_range: "三十岁", body_type: "高大", hairstyle: "束发", facial_features: "", height: "", nationality: "", voice: "", signature_props: [], immutable_traits: [], costumes: [{ name: "长袍", color: "蓝色", material: "布", props: [] }] });
         commitContent(snapshot, task, prepareContent(snapshot, task, { characters: [row("甲"), row("乙")] }));
         for (const character of project.character_library.characters) {
@@ -283,7 +283,7 @@ describe("text-tasks", () => {
     const project = projectFixture();
     const character = emptyCharacterModel({ name: "库内独有姓名甲", gender: "男", era: "宋代" });
     project.character_library.characters = [character];
-    project.script.body = "剧本只写了另一人。";
+    project.script_revision.body = "剧本只写了另一人。";
     const snapshot = { project, tasks: [], steps: [] };
     const seen = [];
     const handler = createTextHandler({ chat: async ({ messages, step }) => {
@@ -292,7 +292,7 @@ describe("text-tasks", () => {
       return { characters: [] };
     } });
     const run = (action, kind) => handler({
-      snapshot, task: taskFixture(project, "project-characters", project.id, { action, opinion: "" }),
+      snapshot, task: taskFixture(project, "project-characters", project.basic_info.id, { action, opinion: "" }),
       step: { kind, seq: 1 }, draft: null, signal: new AbortController().signal, record: async () => {},
     });
     await run("generate", "generate");
@@ -328,16 +328,16 @@ describe("text-tasks", () => {
     try {
       let originalIds;
       for (const action of ["generate", "regenerate"]) {
-        const result = await service.command({ type: "submit", project_id: project.id, request_id: `characters-${action}`, business_type: "project-characters", target_id: project.id, action });
-        await service.idle(project.id);
+        const result = await service.command({ type: "submit", project_id: project.basic_info.id, request_id: `characters-${action}`, business_type: "project-characters", target_id: project.basic_info.id, action });
+        await service.idle(project.basic_info.id);
         const snapshot = model.readAll(), [first, second] = snapshot.project.character_library.characters;
         const groupId = snapshot.tasks.find(task => task.id === result.task_id).group_id;
         assert.equal(snapshot.tasks.filter(task => task.group_id === groupId).length, 1);
         const expected = [["costume-image", first.costumes[0].id], ["costume-image", first.costumes[1].id], ["costume-image", second.id]];
         const ids = expected.map(([, id]) => id);
         for (const character of [first, second]) {
-          const pictures = await service.command({ type: "submit-costumes", project_id: project.id, request_id: `${character.id}-${action}`, target_id: character.id, action });
-          await service.idle(project.id);
+          const pictures = await service.command({ type: "submit-costumes", project_id: project.basic_info.id, request_id: `${character.id}-${action}`, target_id: character.id, action });
+          await service.idle(project.basic_info.id);
           const tasks = model.readAll().tasks.filter(task => task.group_id === pictures.group_id);
           assert.ok(tasks.every(task => task.task_status === "completed"), tasks.map(t => t.end_reason).join("\n"));
           assert.deepEqual(tasks.map(task => task.target_id), character.costumes.length ? character.costumes.map(costume => costume.id) : [character.id]);
@@ -400,8 +400,8 @@ describe("missing-field-review", () => {
     } });
     const service = new TaskService({ repository, execute: createHandlerRegistry({ text }), commitOutput: commitContent });
     try {
-      const submitted = await service.command({ type: 'submit', project_id: project.id, request_id: 'missing-field', business_type: business, target_id: business === 'shots' ? episode.id : project.id, action: empty || business === 'project-characters' ? 'generate' : 'regenerate' });
-      await service.idle(project.id);
+      const submitted = await service.command({ type: 'submit', project_id: project.basic_info.id, request_id: 'missing-field', business_type: business, target_id: business === 'shots' ? episode.id : project.basic_info.id, action: empty || business === 'project-characters' ? 'generate' : 'regenerate' });
+      await service.idle(project.basic_info.id);
       return { snapshot: model.readAll(), taskId: submitted.task_id, calls, count, before };
     } finally { await service.dispose(); await repository.close(); await rm(home, { recursive: true, force: true }); }
   }
@@ -519,9 +519,9 @@ describe("regenerate-mode", () => {
       } });
       const service = new TaskService({ repository, commitOutput: commitContent, execute: createHandlerRegistry({ text }) });
       try {
-        const command = { type: 'submit', project_id: project.id, business_type: 'project-summary', target_id: project.id, action, opinion: '本次用户要求', request_id: action };
+        const command = { type: 'submit', project_id: project.basic_info.id, business_type: 'project-summary', target_id: project.basic_info.id, action, opinion: '本次用户要求', request_id: action };
         const { task_id } = await service.command(command);
-        await service.idle(project.id);
+        await service.idle(project.basic_info.id);
         const snapshot = model.readAll();
         assert.equal(snapshot.tasks.find(task => task.id === task_id).task_status, 'completed');
         const first = requests[0].messages;
@@ -566,10 +566,10 @@ describe("regenerate-mode", () => {
 
   test('原结果修订只允许文本及非空意见，成片组不接受 revise', () => {
     const p = projectFixture(), e = p.episodes[0];
-    const command = { type: 'submit', project_id: p.id, business_type: 'outline', target_id: e.id, action: 'revise', opinion: '补足动作', request_id: 'revise' };
+    const command = { type: 'submit', project_id: p.basic_info.id, business_type: 'outline', target_id: e.id, action: 'revise', opinion: '补足动作', request_id: 'revise' };
     assert.doesNotThrow(() => validateCommand(command));
     assert.throws(() => validateCommand({ ...command, opinion: ' ' }), /修改意见/);
     assert.throws(() => validateCommand({ ...command, business_type: 'video', target_id: e.shot_list.shots[0].id }), /仅支持文本/);
-    assert.throws(() => validateCommand({ type: 'submit-group', project_id: p.id, episode_id: e.id, group_type: 'episode-film', action: 'revise', opinion: '修改', request_id: 'group' }), /command.action/);
+    assert.throws(() => validateCommand({ type: 'submit-group', project_id: p.basic_info.id, episode_id: e.id, group_type: 'episode-film', action: 'revise', opinion: '修改', request_id: 'group' }), /command.action/);
   });
 });

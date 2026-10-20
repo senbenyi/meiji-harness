@@ -91,7 +91,7 @@ export function historyContext(model) {
   return model.select(({ project: p, runtime }) => ({
     revision: runtime.revision,
     project: {
-      id: p.id, name: p.name,
+      id: p.basic_info.id, name: p.basic_info.name,
       scene_library: { scenes: p.scene_library.scenes.map(({ id, name }) => ({ id, name })) },
       character_library: { characters: p.character_library.characters.map(({ id, name, costumes }) => ({ id, name, costumes: costumes.map(({ id, name }) => ({ id, name })) })) },
       episodes: p.episodes.map(({ id, sequence, shot_list }) => ({ id, sequence, shot_list: { shots: shot_list.shots.map(({ id, number }) => ({ id, number })) } })),

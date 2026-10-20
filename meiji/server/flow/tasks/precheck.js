@@ -1,3 +1,4 @@
+import { currentScript } from '../../../shared/script-text.js';
 import { assertPendingDialogue } from '../../../shared/dialogue-integrity.js';
 import { videoType, videoPack, previousShot, videoImages } from '../../../shared/video-inputs.js';
 import { primaryCostumeImage } from "../../../shared/models/character_model.js";
@@ -68,8 +69,8 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     invalid("precheck", "未生成节点请使用生成");
   const business = task.business_type;
   if (business === "script-split") {
-    if (!p.script.body.trim()) invalid("precheck", "剧本为空");
-    if (!Number.isInteger(p.reference_episode_duration_seconds) || p.reference_episode_duration_seconds < 1)
+    if (!currentScript(p).trim()) invalid("precheck", "剧本为空");
+    if (!Number.isInteger(p.basic_info.reference_episode_duration_seconds) || p.basic_info.reference_episode_duration_seconds < 1)
       invalid("precheck", "缺少参考单集时长");
     // 拆分会整体替换剧集；剧集上仍有未结束任务时无法替换。
     if (
@@ -84,7 +85,7 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
   }
   const runNodePrecheck = {
     "project-text": () => {
-      if (!p.script.body.trim())
+      if (!currentScript(p).trim())
         invalid("precheck", "完整剧本为空");
     },
     "episode-summary": () => {
@@ -96,13 +97,13 @@ export function precheck(snapshot, task, { libraryReferences = [] } = {}) {
     },
     'episode-scenes': () => { requireNode('outline', episode.id); },
     'scene-image': () => { if (![object.name, object.description, object.layout].some(value => value.trim())) invalid('precheck','场景资料为空'); },
-    shots: () => { requireNode("outline", episode.id); requireNode('episode-scenes', episode.id, '提取场景'); requireNode("project-characters", p.id); },
+    shots: () => { requireNode("outline", episode.id); requireNode('episode-scenes', episode.id, '提取场景'); requireNode("project-characters", p.basic_info.id); },
     seconds: () => {
       requireNode("shots", episode.id);
-      requireNode("project-characters", p.id);
+      requireNode("project-characters", p.basic_info.id);
     },
     storyboard: () => {
-      requireNode("project-characters", p.id);
+      requireNode("project-characters", p.basic_info.id);
       requireNode("shots", episode.id);
       requireNode("seconds", object.id);
     },

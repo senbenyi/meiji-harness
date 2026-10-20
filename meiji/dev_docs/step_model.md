@@ -105,7 +105,7 @@
 | `created_at` | | 创建时间 |
 | `started_at` | | 开始时间 |
 | `ended_at` | | 结束时间 |
-| `opinion` | | 修改意见。只记在任务上，任务组不记 |
+| `opinion` | | 修改意见。任务组不记；剧本优化节点另保留当前意见script_revision.opinion |
 | `previous_node_state` | `{ status, reason, fail_message }` | 入队前的节点状态、原因和失败说明 |
 
 动作：
@@ -120,7 +120,7 @@
 | `override` | 人工放行 | 新建 `precheck` → `override`。结构和程序审核通过后节点写成 `generated`、原因清空。只跳过 AI 审核，旧任务保持原终态 |
 | `delete` | 删除资料 | 新建删除任务 |
 
-每个任务的第一步是程序 `precheck`：目标是否属于该项目、原状态是否允许、必需输入是否已生成、实际使用的素材和参数。人工放行在这里检查未通过的稿。人工编辑的 `precheck` 直接通过，结构在后面的 `manual_edit` 步校验；不合法则该步和任务 `rejected`，旧稿保留。删除在 `precheck` 检查引用。前置业务检查未通过时任务记为 `rejected`，不调用模型，后面的步骤作废。生成之后先做程序审核，再做 AI 审核，各记一步，用步骤名称区分。时长在程序审核中判定，允许差值取该节点的误差时长。节点文档中的“重试轮次 N”是首次生成之后最多修订 N 次，生成与修订最多共 N+1 轮；程序审核和 AI 审核共用此计数。审核未通过且仍有修订次数时，把原因以及问题数组中的位置、依据和建议作为修改意见进入修订，再从程序审核做起。修订次数用尽仍未通过，才把最后一轮内容保存为未通过，原因分别写入 `node_state.reason` 和任务 `end_reason`，不更新下游依赖 hash。再次提交该节点时，必须将该原因作为修改意见带入任务和模型输入。误差时长和重试轮次写在各节点文档开头。`script-review` 为可选全文改编与审核：generate/regenerate仅precheck与AI审核，审核未通过停止且不改写；revise先按意见改编再审核，模型问题最多三次自动修订。改编结果作用于script.body及既有版本/修改记录，独立规则保存在script.adaptation_rules，不作为其他业务前置。`script-split` 是项目级 AI 任务：AI 生成全部分集安排，程序审核并写入各集plot规划文本。它不对应持久化项目节点，因此未通过原因和最后一轮候选记录在任务历史，不写项目 `node_state`，也不替换项目现有剧集。
+每个任务的第一步是程序 `precheck`：目标是否属于该项目、原状态是否允许、必需输入是否已生成、实际使用的素材和参数。人工放行在这里检查未通过的稿。人工编辑的 `precheck` 直接通过，结构在后面的 `manual_edit` 步校验；不合法则该步和任务 `rejected`，旧稿保留。删除在 `precheck` 检查引用。前置业务检查未通过时任务记为 `rejected`，不调用模型，后面的步骤作废。生成之后先做程序审核，再做 AI 审核，各记一步，用步骤名称区分。时长在程序审核中判定，允许差值取该节点的误差时长。节点文档中的“重试轮次 N”是首次生成之后最多修订 N 次，生成与修订最多共 N+1 轮；程序审核和 AI 审核共用此计数。审核未通过且仍有修订次数时，把原因以及问题数组中的位置、依据和建议作为修改意见进入修订，再从程序审核做起。修订次数用尽仍未通过，才把最后一轮内容保存为未通过，原因分别写入 `node_state.reason` 和任务 `end_reason`，不更新下游依赖 hash。再次提交该节点时，必须将该原因作为修改意见带入任务和模型输入。误差时长和重试轮次写在各节点文档开头。`script-review` 为可选全文改编与审核：generate/regenerate仅precheck与AI审核，审核未通过停止且不改写；revise先按意见改编再审核，模型问题最多三次自动修订。改编结果写入script_revision.body，意见保存在script_revision.opinion，原稿basic_info.original_script独立保留；独立规则保存在script_revision.rules，不作为其他业务前置。`script-split` 是项目级 AI 任务：AI 生成全部分集安排，程序审核并写入各集plot规划文本。本阶段规则迁入story_segments.rules，规划结果仍写入各剧集；它没有持久化结果节点，因此未通过原因和最后一轮候选记录在任务历史，不写项目 `node_state`，也不替换项目现有剧集。
 
 ## 步骤字段
 
@@ -190,7 +190,7 @@
 
 | 项目 JSON 位置 | 节点 |
 |---|---|
-| `script.node_state` | 剧本节点状态；审核与按审核意见修改都是剧本节点的任务。节点内容为 `body` 等剧本字段 |
+| `script_revision.node_state` | 剧本优化节点状态；审核与按意见优化使用该节点。节点内容为 `opinion`、`body`、`rules` |
 | `project_summary.node_state` | 项目摘要状态。节点内容另有 `body`、`script_version` |
 | `character_library.node_state` | 角色库状态。节点内容另有 `characters[]` |
 | `character_library.characters[].costume_images[].node_state` | 定妆照状态。节点内容另有 `costume_id`、`address` |

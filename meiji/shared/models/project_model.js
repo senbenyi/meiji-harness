@@ -1,7 +1,16 @@
-// 项目根对象及其全部一级结构模型。
-import { createId } from "../task_contract.js";
-import { emptyProjectSummaryModel } from "./project_summary_model.js";
-import { emptyScriptModel } from "./script_model.js";
-import { emptyCharacterLibraryModel } from "./character_library_model.js";
-export const emptyProjectModel = (fields = {}) => ({ id: createId("project"), name: "", creation_mode: "剧本", aspect_ratio: "9:16", creative_direction: "", reference_episode_duration_seconds: 150, project_summary: emptyProjectSummaryModel(), script: emptyScriptModel(), character_library: emptyCharacterLibraryModel(), scene_library: { scenes: [] }, episodes: [], latest_tasks: {}, latest_groups: {}, ...fields });
-export { emptyProjectSummaryModel, emptyScriptModel, emptyCharacterLibraryModel };
+import { emptyBasicInfoModel } from './basic_info_model.js';
+import { emptyScriptRevisionModel } from './script_revision_model.js';
+import { emptyProjectSummaryModel } from './project_summary_model.js';
+import { emptyCharacterLibraryModel } from './character_library_model.js';
+import { defaultRules } from '../rule-defaults.js';
+import { emptyNodeStateModel } from './node_state_model.js';
+
+export const emptyProjectModel = (fields = {}) => ({
+  script_revision: emptyScriptRevisionModel(),
+  story_segments: { segments: [], rules: defaultRules('script-split'), node_state: emptyNodeStateModel() },
+  project_summary: emptyProjectSummaryModel(), character_library: emptyCharacterLibraryModel(),
+  scene_library: { scenes: [] }, episodes: [], latest_tasks: {}, latest_groups: {},
+  ...fields,
+  basic_info: emptyBasicInfoModel(fields.basic_info),
+});
+export { emptyProjectSummaryModel, emptyScriptRevisionModel, emptyCharacterLibraryModel };

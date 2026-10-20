@@ -6,9 +6,9 @@ import { emptyNodeStateModel } from '../../shared/models/node_state_model.js';
 export function normalizeScriptNode(project) {
   const legacy = project.script_review;
   delete project.script_review;
-  delete project.script.review;
-  if (!project.script.node_state) project.script.node_state = legacy?.node_state ? { ...emptyNodeStateModel(), ...legacy.node_state } : emptyNodeStateModel();
+  delete project.script_revision.review;
+  if (!project.script_revision.node_state) project.script_revision.node_state = legacy?.node_state ? { ...emptyNodeStateModel(), ...legacy.node_state } : emptyNodeStateModel();
   return project;
 }
 export const isScriptNodeNormalized = project =>
-  !Object.hasOwn(project, 'script_review') && Boolean(project.script.node_state) && !Object.hasOwn(project.script, 'review');
+  !Object.hasOwn(project, 'script_review') && Boolean(project.script_revision.node_state) && !Object.hasOwn(project.script_revision, 'review');

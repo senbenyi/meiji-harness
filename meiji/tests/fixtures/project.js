@@ -4,8 +4,9 @@ import { emptyStorySegmentModel } from "../../shared/models/story_segment_model.
 import { emptyStoryboardBeatModel } from "../../shared/models/storyboard_beat_model.js";
 import { stampDependencyHash } from "../../shared/node-dependencies.js";
 export function projectFixture() {
-  const p = emptyProject({ name: "新契约测试", creative_direction: "方向" });
-  p.script.body = "完整剧本";
+  const p = emptyProject({ basic_info: { name: "新契约测试", creative_requirements: "方向" } });
+  p.basic_info.original_script = "完整剧本";
+  p.script_revision.body = "完整剧本";
   p.character_library.node_state.status = "generated";
   p.project_summary.body = "摘要";
   p.project_summary.node_state.status = "generated";
@@ -39,8 +40,8 @@ export function projectFixture() {
     e.shot_list.shots.push(s);
   }
   const snapshot = { project: p, tasks: [], steps: [] };
-  stampDependencyHash(snapshot, "project-summary", p.id);
-  stampDependencyHash(snapshot, "project-characters", p.id);
+  stampDependencyHash(snapshot, "project-summary", p.basic_info.id);
+  stampDependencyHash(snapshot, "project-characters", p.basic_info.id);
   for (const business of ["episode-summary", "outline", "episode-scenes", "shots"])
     stampDependencyHash(snapshot, business, e.id);
   for (const shot of e.shot_list.shots)
@@ -52,13 +53,13 @@ export function projectFixture() {
 }
 // 提取剧集/人物以剧本节点审核通过为前提；按当前剧本正文标记剧本节点已通过。剧本改动后需重新调用。
 export function approveScriptReview(p) {
-  Object.assign(p.script.node_state, { status: "generated", reason: "", fail_message: "" });
-  stampDependencyHash({ project: p, tasks: [], steps: [] }, "script-review", p.id);
+  Object.assign(p.script_revision.node_state, { status: "generated", reason: "", fail_message: "" });
+  stampDependencyHash({ project: p, tasks: [], steps: [] }, "script-review", p.basic_info.id);
   return p;
 }
 export function taskFixture(p, business = "seconds", target = p.episodes[0].shot_list.shots[0].id, fields = {}) {
   return {
-    id: createId("task"), project_id: p.id, episode_id: p.episodes[0].id,
+    id: createId("task"), project_id: p.basic_info.id, episode_id: p.episodes[0].id,
     business_type: business, target_id: target, action: "regenerate", group_id: null, group_seq: null,
     task_status: "queued", source: "panel", queue_order: 1, end_reason: "",
     created_at: new Date().toISOString(), started_at: null, ended_at: null, opinion: "",

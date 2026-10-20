@@ -95,8 +95,8 @@ describe("scenes", () => {
         return step.kind==='review'?{是否通过:true,类型:'',原因:''}:{scenes:[revised]};
       }}});
       const model=await runtime.repository.create(p);
-      const submitted=await runtime.tasks.command({type:'submit',project_id:p.id,business_type:'episode-scenes',target_id:e.id,action:'revise',opinion:'按原文修正设施埋设及装填方向',request_id:crypto.randomUUID()});
-      await runtime.tasks.idle(p.id);
+      const submitted=await runtime.tasks.command({type:'submit',project_id:p.basic_info.id,business_type:'episode-scenes',target_id:e.id,action:'revise',opinion:'按原文修正设施埋设及装填方向',request_id:crypto.randomUUID()});
+      await runtime.tasks.idle(p.basic_info.id);
       const saved=model.readAll(),result=saved.tasks.find(task=>task.id===submitted.task_id);
       assert.equal(result.task_status,'completed',result.end_reason);assert.ok(calls>=2);
       const current=saved.project.scene_library.scenes.find(row=>row.id===scene.id);
@@ -149,7 +149,7 @@ describe("scenes", () => {
       let rows=[],reject=false;
       runtime=await createAppRuntime({home,gateway:{chat:async({step})=>step.kind==='review'?{是否通过:!reject, "类型": (!reject) ? "" : "模型问题",原因:reject?'重复地点需合并':''}:{scenes:rows}}});
       const model=await runtime.repository.create(p);
-      const submit=async fields=>{const result=await runtime.tasks.command({project_id:p.id,request_id:crypto.randomUUID(),...fields});await runtime.tasks.idle(p.id);return model.readAll().tasks.find(t=>t.id===result.task_id);};
+      const submit=async fields=>{const result=await runtime.tasks.command({project_id:p.basic_info.id,request_id:crypto.randomUUID(),...fields});await runtime.tasks.idle(p.basic_info.id);return model.readAll().tasks.find(t=>t.id===result.task_id);};
       assert.equal((await submit({type:'submit',business_type:'episode-scenes',target_id:e.id,action:'generate'})).task_status,'completed');
       let current=model.readAll();assert.equal(current.project.episodes[0].scene_catalog.has_result,true);assert.deepEqual(current.project.episodes[0].scene_catalog.scene_ids,[]);
       assert.equal(isNodeCurrent(current,'episode-scenes',e.id),true);
@@ -283,7 +283,7 @@ describe("scenes", () => {
     assert.doesNotMatch(cleaned.content.prompt,/。；|。。|夜间/);
     assert.throws(()=>videoPayload({model:'MiniMax-H3',mode:'reference',duration:5,prompt:'x',referenceImages:Array(10).fill(png)}),/1 到 9/);
     assert.throws(()=>videoPayload({model:'MiniMax-H3',mode:'reference',duration:5,prompt:'x',referenceImages:[png],inputReference:png}),/不能带首尾帧/);
-    assert.equal(videoRequest({type:'多模态',textPrompt:Object.fromEntries(['integrated_multimodal_description','overall_soundscape','non_diegetic_music'].map(key=>[key,shot.text_to_video_prompt[key]])),duration:5,aspectRatio:p.aspect_ratio,referenceImages:[png],packedPrompt:result.content.prompt}).mode,'reference');
+    assert.equal(videoRequest({type:'多模态',textPrompt:Object.fromEntries(['integrated_multimodal_description','overall_soundscape','non_diegetic_music'].map(key=>[key,shot.text_to_video_prompt[key]])),duration:5,aspectRatio:p.basic_info.aspect_ratio,referenceImages:[png],packedPrompt:result.content.prompt}).mode,'reference');
   });
   test('场景参考图可人工导入，文字与图片操作共用项目任务和媒体存储',async()=>{
     const home=await mkdtemp(join(tmpdir(),'meiji-scene-image-'));let runtime;
@@ -292,14 +292,14 @@ describe("scenes", () => {
       runtime=await createAppRuntime({home});const model=await runtime.repository.create(p);
       // 真实一像素PNG，只验证导入，不调用外部图片服务。
       const data='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aI5sAAAAASUVORK5CYII=';
-      const result=await runtime.tasks.command({type:'manual-edit',project_id:p.id,business_type:'scene-image',target_id:scene.id,content:{data},request_id:crypto.randomUUID()});
-      await runtime.tasks.idle(p.id);const snapshot=model.readAll(),task=snapshot.tasks.find(item=>item.id===result.task_id);
+      const result=await runtime.tasks.command({type:'manual-edit',project_id:p.basic_info.id,business_type:'scene-image',target_id:scene.id,content:{data},request_id:crypto.randomUUID()});
+      await runtime.tasks.idle(p.basic_info.id);const snapshot=model.readAll(),task=snapshot.tasks.find(item=>item.id===result.task_id);
       assert.equal(task.task_status,'completed',task.end_reason);assert.equal(isNodeCurrent(snapshot,'scene-image',scene.id),true);
     }finally{await runtime?.dispose();await rm(home,{recursive:true,force:true});}
   });
   test('场景图片真实编排区分原文、规划与改编，输入与指纹同源且不混入无关集',async()=>{
     const {p,e,scene,snapshot}=withScene();
-    p.script.body='原文依据：旅行弹丸从上方垂入炮底。';
+    p.script_revision.body='原文依据：旅行弹丸从上方垂入炮底。';
     e.plot='规划依据：本集准备进入发射设施。';
     e.story_outline.segments[0].body='改编依据：平原观礼空地旁有竖直装填口。';
     const other=emptyEpisode({plot:'不相关的海底城市'});other.story_outline.segments=[{body:'不相关的水下通道'}];p.episodes.push(other);
@@ -307,12 +307,12 @@ describe("scenes", () => {
     other.plot='不相关的沙漠';assert.equal(dependencyHash(snapshot,'scene-image',scene.id),hash);
     e.plot+='周边是平坦观礼空地。';assert.notEqual(dependencyHash(snapshot,'scene-image',scene.id),hash);
     const afterPlan=dependencyHash(snapshot,'scene-image',scene.id);
-    p.script.body+='炮底有入口。';assert.notEqual(dependencyHash(snapshot,'scene-image',scene.id),afterPlan);
+    p.script_revision.body+='炮底有入口。';assert.notEqual(dependencyHash(snapshot,'scene-image',scene.id),afterPlan);
     const afterScript=dependencyHash(snapshot,'scene-image',scene.id);
     e.story_outline.segments[0].body+='入口接通地面通道。';assert.notEqual(dependencyHash(snapshot,'scene-image',scene.id),afterScript);
     const afterStory=dependencyHash(snapshot,'scene-image',scene.id);
     other.story_outline.segments=[];assert.equal(dependencyHash(snapshot,'scene-image',scene.id),afterStory);
-    assert.deepEqual(sceneImageContext(p,scene.id),{script:p.script.body,plots:[{episode:e.sequence,plot:e.plot,story:e.story_outline.segments.map(segment=>segment.body).join('\n\n')}]});
+    assert.deepEqual(sceneImageContext(p,scene.id),{script:p.script_revision.body,plots:[{episode:e.sequence,plot:e.plot,story:e.story_outline.segments.map(segment=>segment.body).join('\n\n')}]});
     scene.reference_image.address='';
     let sent='';
     const ai=createAiRoutes({readConfig:async()=>config,gateway:{image:async({prompt})=>{sent=prompt;return Buffer.from('image');}}});
@@ -335,7 +335,7 @@ describe("scenes", () => {
     assert.match(result.content.prompt,/<Subject 1> 是 <Picture 1> 中的"父亲"/);
     assert.match(result.content.prompt,/<Subject 2> 是 <Picture 2> 中的场景"老宅客厅"/);
     const refs=read.map(address=>`data:image/png;base64,${Buffer.from(address).toString('base64')}`);
-    const request=videoRequest({type:'多模态',textPrompt:Object.fromEntries(['integrated_multimodal_description','overall_soundscape','non_diegetic_music'].map(key=>[key,shot.text_to_video_prompt[key]])),duration:5,aspectRatio:p.aspect_ratio,referenceImages:refs,packedPrompt:result.content.prompt});
+    const request=videoRequest({type:'多模态',textPrompt:Object.fromEntries(['integrated_multimodal_description','overall_soundscape','non_diegetic_music'].map(key=>[key,shot.text_to_video_prompt[key]])),duration:5,aspectRatio:p.basic_info.aspect_ratio,referenceImages:refs,packedPrompt:result.content.prompt});
     const body=videoPayload({model:'MiniMax-H3',...request});
     assert.deepEqual(body.images,refs);assert.equal(body.first_frame,undefined);
     assert.match(body.prompt,/木门与窗户相对/);assert.equal(scene.reference_image.address,'room.png');
@@ -346,13 +346,13 @@ describe("scenes", () => {
       repo=new ModelRepository(home);const p=projectFixture();await repo.create(p);await repo.close();
       const legacy=structuredClone(p);delete legacy.scene_library;
       for(const e of legacy.episodes){delete e.scene_catalog;for(const shot of e.shot_list.shots){delete shot.scene_id;delete shot.scene_state;delete shot.scene_transition;}}
-      const db=new DatabaseSync(join(home,'meiji.sqlite'));db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy),p.id);db.exec('DELETE FROM schema_migrations WHERE version=21; PRAGMA user_version=20');db.close();
-      repo=new ModelRepository(home);const snap=(await repo.open(p.id)).read(),shot=snap.project.episodes[0].shot_list.shots[0];
+      const db=new DatabaseSync(join(home,'meiji.sqlite'));db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy),p.basic_info.id);db.exec('DELETE FROM schema_migrations WHERE version=21; PRAGMA user_version=20');db.close();
+      repo=new ModelRepository(home);const snap=(await repo.open(p.basic_info.id)).read(),shot=snap.project.episodes[0].shot_list.shots[0];
       assert.equal(shot.id,p.episodes[0].shot_list.shots[0].id);assert.equal(shot.body,'剧情');assert.equal(shot.video.address,'1.mp4');
       assert.equal(shot.video.node_state.status,'expired');assert.equal(snap.project.episodes[0].shot_list.node_state.status,'expired');
       assert.equal(snap.project.episodes[0].scene_catalog.has_result,false);
       assert.deepEqual(migrateScenes(structuredClone(snap.project)),snap.project);
-      await repo.close();repo=new ModelRepository(home);assert.deepEqual((await repo.open(p.id)).read(),snap);
+      await repo.close();repo=new ModelRepository(home);assert.deepEqual((await repo.open(p.basic_info.id)).read(),snap);
     }finally{await repo?.close();await rm(home,{recursive:true,force:true});}
   });
   test('面板在大纲后展示场景选择，已有场景展示共用资料及单张参考图操作',()=>{
@@ -372,11 +372,11 @@ describe("scenes", () => {
       const image=root.querySelector('[data-business=scene-image]');assert.ok(image.querySelector('img'));
       assert.ok([...image.querySelectorAll('button')].some(button=>button.textContent==='人工编辑'));
       const thumb=image.querySelector('img.scene-thumb');assert.ok(thumb,'场景参考图使用缩略图样式');
-      assert.equal(list.style.getPropertyValue('--scene-aspect'),p.aspect_ratio.replace(':',' / '));
-      assert.equal(list.dataset.orientation,p.aspect_ratio==='9:16'?'portrait':'landscape');
+      assert.equal(list.style.getPropertyValue('--scene-aspect'),p.basic_info.aspect_ratio.replace(':',' / '));
+      assert.equal(list.dataset.orientation,p.basic_info.aspect_ratio==='9:16'?'portrait':'landscape');
       thumb.click();assert.equal(root.querySelector('dialog.still-preview img').src,thumb.src,'点击放大查看原图');
       root.querySelector('dialog.still-preview [aria-label="关闭图片预览"]').click();
-      p.aspect_ratio='16:9';root.replaceChildren();
+      p.basic_info.aspect_ratio='16:9';root.replaceChildren();
       renderTaskPanel(root,{...snapshotFixture(),project:p},{session_id:'s',view:{page:'episode',episode_id:p.episodes[0].id,tab:'script'},refresh:async()=>{},paint:()=>{},onError:()=>{}});
       const wide=root.querySelector('.scene-card-list');assert.equal(wide.style.getPropertyValue('--scene-aspect'),'16 / 9');assert.equal(wide.dataset.orientation,'landscape');
       p.episodes[0].scene_catalog.scene_ids=[];root.replaceChildren();

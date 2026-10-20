@@ -27,7 +27,7 @@ describe("storage", () => {
   const full = model => ({ read: () => model.readAll() });
 
   function fixture() {
-    const p = emptyProject({ name: "存储测试" }),
+    const p = emptyProject({ basic_info: { name: "存储测试" } }),
       e = emptyEpisode();
     e.shot_list.shots = [emptyShot()];
     p.episodes = [e];
@@ -36,7 +36,7 @@ describe("storage", () => {
   function task(p, fields = {}) {
     return {
       id: createId("task"),
-      project_id: p.id,
+      project_id: p.basic_info.id,
       episode_id: p.episodes[0].id,
       business_type: "seconds",
       target_id: p.episodes[0].shot_list.shots[0].id,
@@ -85,11 +85,11 @@ describe("storage", () => {
     withStore(async (root, repo) => {
       const p = fixture(),
         model = await repo.create(p);
-      assert.equal(await repo.open(p.id), model);
+      assert.equal(await repo.open(p.basic_info.id), model);
       assert.equal(model.publish, undefined);
       const g = {
         id: createId("group"),
-        project_id: p.id,
+        project_id: p.basic_info.id,
         episode_id: p.episodes[0].id,
         group_type: "episode-seconds",
         source: "panel",
@@ -115,17 +115,17 @@ describe("storage", () => {
         [1, 2],
       );
       assert.equal(groupDetail(full(model), g.id).status, "queued");
-      const restored = await new ModelRepository(root).open(p.id);
+      const restored = await new ModelRepository(root).open(p.basic_info.id);
       assert.deepEqual(restored.readAll(), model.readAll());
       assert.ok(!("steps" in restored.readAll().tasks[0]));
       assert.ok(!("status" in restored.readAll().groups[0]));
       const db = new DatabaseSync(join(root, "meiji.sqlite"));
-      assert.equal(db.prepare("SELECT revision FROM projects WHERE id=?").get(p.id).revision, 2);
+      assert.equal(db.prepare("SELECT revision FROM projects WHERE id=?").get(p.basic_info.id).revision, 2);
       assert.equal(db.prepare("SELECT count(*) AS n FROM task_groups").get().n, 1);
       db.close();
       const view = restored.readAll();
-      view.project.name = "外部修改";
-      assert.equal(restored.readAll().project.name, "存储测试");
+      view.project.basic_info.name = "外部修改";
+      assert.equal(restored.readAll().project.basic_info.name, "存储测试");
     }));
 
   test("并发、幂等和不同项目隔离，无覆盖丢失；同键不同输入拒绝", () =>
@@ -138,8 +138,8 @@ describe("storage", () => {
       const same = () =>
         model.update("same", { n: 1 }, (s) => {
           calls++;
-          s.project.script.version++;
-          return { value: s.project.script.version };
+          s.project.basic_info.reference_episode_duration_seconds++;
+          return { value: s.project.basic_info.reference_episode_duration_seconds };
         });
       const [a, b] = await Promise.all([same(), same()]);
       assert.deepEqual(a, b);
@@ -151,21 +151,21 @@ describe("storage", () => {
       await Promise.all(
         Array.from({ length: 8 }, (_, n) =>
           model.update(`add-${n}`, { n }, (s) => {
-            s.project.script.version++;
+            s.project.basic_info.reference_episode_duration_seconds++;
             return {};
           }),
         ).concat(
           other.update("other", {}, (s) => {
-            s.project.name = "独立项目";
+            s.project.basic_info.name = "独立项目";
             return {};
           }),
         ),
       );
-      assert.equal(model.readAll().project.script.version, 10);
-      assert.equal(other.readAll().project.script.version, 1);
-      assert.equal(other.readAll().project.name, "独立项目");
-      const fresh = await new ModelRepository(root).open(p.id);
-      assert.equal(fresh.readAll().project.script.version, 10);
+      assert.equal(model.readAll().project.basic_info.reference_episode_duration_seconds, 159);
+      assert.equal(other.readAll().project.basic_info.reference_episode_duration_seconds, 150);
+      assert.equal(other.readAll().project.basic_info.name, "独立项目");
+      const fresh = await new ModelRepository(root).open(p.basic_info.id);
+      assert.equal(fresh.readAll().project.basic_info.reference_episode_duration_seconds, 159);
     }));
 
   test("非法路径、符号链接、跨项目步骤及旧格式拒绝，不改合法数据", () =>
@@ -186,7 +186,7 @@ describe("storage", () => {
       await mkdir(join(root, legacy));
       await assert.rejects(repo.open(legacy), { code: "UNSUPPORTED_PROJECT" });
       const linked = createId("project");
-      await symlink(join(root, p.id), join(root, linked));
+      await symlink(join(root, p.basic_info.id), join(root, linked));
       await assert.rejects(repo.open(linked), { code: "INVALID_STORAGE" });
     }));
 
@@ -201,12 +201,12 @@ describe("storage", () => {
         events.push({ event, project: model.readAll().project }),
       );
       const result = await model.update("edit", {}, (s) => {
-        s.project.name = "已保存";
+        s.project.basic_info.name = "已保存";
         return {};
       });
       assert.equal(result.accepted, true);
       assert.equal(events.length, 1);
-      assert.equal(events[0].project.name, "已保存");
+      assert.equal(events[0].project.basic_info.name, "已保存");
       assert.equal(events[0].event.revision, result.revision);
       assert.deepEqual(
         (await new ModelRepository(root).open(model.id)).readAll(),
@@ -229,7 +229,7 @@ describe("storage", () => {
       await model.update("history", {}, (s) => {
         t.group_id = createId("group"); t.group_seq = 1;
         Object.assign(queued, { group_id: t.group_id, group_seq: 2 });
-        s.groups = [{ id: t.group_id, project_id: p.id, episode_id: t.episode_id, group_type: "single", source: t.source, shot_ids: [], action: t.action, created_at: t.created_at }];
+        s.groups = [{ id: t.group_id, project_id: p.basic_info.id, episode_id: t.episode_id, group_type: "single", source: t.source, shot_ids: [], action: t.action, created_at: t.created_at }];
         s.tasks = [t, queued];
         s.steps = [st];
         return {};
@@ -278,14 +278,14 @@ describe("task-history", () => {
     try { await work({ home, repository, p, model }); }
     finally { await repository.close(); await rm(home, { recursive: true, force: true }); }
   }
-  const command = (p, fields = {}) => ({ type: 'submit', project_id: p.id, request_id: crypto.randomUUID(), business_type: 'project-summary', target_id: p.id, action: 'regenerate', ...fields });
+  const command = (p, fields = {}) => ({ type: 'submit', project_id: p.basic_info.id, request_id: crypto.randomUUID(), business_type: 'project-summary', target_id: p.basic_info.id, action: 'regenerate', ...fields });
 
   // The completed first member stays available until the entire group ends, then only SQLite owns it.
   test('未结束组保留完整序号，整组结束移出工作快照，重启与按ID查询保留全部历史', () => fixture(async ({ home, repository, p, model }) => {
     let group, first, second;
     await model.update('seed', {}, s => {
-      group = createTaskGroupModel({ project_id: p.id, group_type: 'workflow', source: 'panel' });
-      first = taskFixture(p, 'project-summary', p.id, { episode_id: null, group_id: group.id, group_seq: 1 });
+      group = createTaskGroupModel({ project_id: p.basic_info.id, group_type: 'workflow', source: 'panel' });
+      first = taskFixture(p, 'project-summary', p.basic_info.id, { episode_id: null, group_id: group.id, group_seq: 1 });
       second = taskFixture(p, 'episode-summary', p.episodes[0].id, { group_id: group.id, group_seq: 2, queue_order: 2 });
       s.groups.push(group); s.tasks.push(first, second); s.steps.push(newStep(first, 1, 'generate'), newStep(second, 1, 'generate'));
     });
@@ -295,7 +295,7 @@ describe("task-history", () => {
     });
     assert.equal(model.read().tasks.length, 2);
     const partial = new ModelRepository(home);
-    try { assert.deepEqual((await partial.open(p.id)).read().tasks.map(t => t.task_status), ['completed', 'queued']); }
+    try { assert.deepEqual((await partial.open(p.basic_info.id)).read().tasks.map(t => t.task_status), ['completed', 'queued']); }
     finally { await partial.close(); }
     await model.update('all-end', {}, s => {
       Object.assign(s.tasks[1], { task_status: 'completed', ended_at: new Date().toISOString() });
@@ -304,14 +304,14 @@ describe("task-history", () => {
     for (const key of ['tasks', 'groups', 'steps']) assert.deepEqual(model.read()[key], []);
     assert.deepEqual(Object.keys(panelSnapshot(model).runtime), ['revision']);
     assert.doesNotMatch(JSON.stringify(panelSnapshot(model)), new RegExp(first.id), '面板不从幂等结果间接携带历史');
-    assert.equal(repository.history(p.id).group(group.id).tasks.length, 2);
-    assert.deepEqual(repository.history(p.id).group(group.id).steps.map(s => s.task_id), [first.id, second.id]);
+    assert.equal(repository.history(p.basic_info.id).group(group.id).tasks.length, 2);
+    assert.deepEqual(repository.history(p.basic_info.id).group(group.id).steps.map(s => s.task_id), [first.id, second.id]);
     await assert.rejects(model.update('overwrite', {}, s => { s.groups.push(group); s.tasks.push({ ...first, task_status: 'queued' }); }), /历史记录不可改写/);
     const restored = new ModelRepository(home);
     try {
-      const reloaded = await restored.open(p.id);
+      const reloaded = await restored.open(p.basic_info.id);
       assert.deepEqual(reloaded.read().tasks, []);
-      assert.equal(restored.history(p.id).task(first.id).task_status, 'completed');
+      assert.equal(restored.history(p.basic_info.id).task(first.id).task_status, 'completed');
     } finally { await restored.close(); }
   }));
 
@@ -328,36 +328,36 @@ describe("task-history", () => {
       return { content: { body: '摘要完成' } };
     } });
     try {
-      const hash = dependencyHash(model.read(), 'project-summary', p.id);
+      const hash = dependencyHash(model.read(), 'project-summary', p.basic_info.id);
       const submitted = await service.command(command(p)); await entered.promise;
-      assert.equal(dependencyHash(model.read(), 'project-summary', p.id), hash, '最近任务ID不进入节点依赖');
-      assert.equal(model.read().project.latest_tasks[`project-summary:${p.id}`], submitted.task_id);
-      const query = await service.command({ type: 'query', project_id: p.id, task_id: submitted.task_id });
+      assert.equal(dependencyHash(model.read(), 'project-summary', p.basic_info.id), hash, '最近任务ID不进入节点依赖');
+      assert.equal(model.read().project.latest_tasks[`project-summary:${p.basic_info.id}`], submitted.task_id);
+      const query = await service.command({ type: 'query', project_id: p.basic_info.id, task_id: submitted.task_id });
       assert.equal(query.steps.find(s => s.id === activeStep.id).prompt.messages[0].content, '运行提示');
-      const panel = panelSnapshot(model, service.liveRecords(p.id));
+      const panel = panelSnapshot(model, service.liveRecords(p.basic_info.id));
       assert.deepEqual(Object.keys(panel.runtime), ['revision']);
       assert.ok(model.read().runtime.requests.length > 0, '幂等记录仍在服务端');
       assert.equal(panel.steps.find(s => s.id === activeStep.id).has_http, true);
       assert.ok(panel.steps.every(s => !('prompt' in s) && !('http' in s)));
       assert.equal(events.find(e => e.record)?.record.has_http, true);
-      gate.resolve(); await service.idle(p.id);
-      assert.equal(service.liveRecords(p.id).size, 0);
+      gate.resolve(); await service.idle(p.basic_info.id);
+      assert.equal(service.liveRecords(p.basic_info.id).size, 0);
       assert.deepEqual(model.read().tasks, []);
-      const history = repository.history(p.id), task = history.task(submitted.task_id);
+      const history = repository.history(p.basic_info.id), task = history.task(submitted.task_id);
       const before = history.group(task.group_id, { records: true });
-      assert.equal(await repository.writeStepRecord(p.id, { step_id: activeStep.id, task_id: task.id, group_id: task.group_id }, { http: [{ body: '迟到' }] }), false);
+      assert.equal(await repository.writeStepRecord(p.basic_info.id, { step_id: activeStep.id, task_id: task.id, group_id: task.group_id }, { http: [{ body: '迟到' }] }), false);
       assert.deepEqual(history.group(task.group_id, { records: true }), before);
-      const finished = await service.command({ type: 'query', project_id: p.id, group_id: task.group_id });
+      const finished = await service.command({ type: 'query', project_id: p.basic_info.id, group_id: task.group_id });
       assert.equal(finished.steps.find(s => s.id === activeStep.id).http[0].request.body, '正在请求');
-      assert.equal((await service.command({type:'cancel',project_id:p.id,request_id:crypto.randomUUID(),task_id:task.id})).already_terminal, true);
-      const mirror = JSON.parse(await readFile(join(home, p.id, 'project.json'), 'utf8'));
-      assert.equal(mirror.latest_tasks[`project-summary:${p.id}`], task.id);
+      assert.equal((await service.command({type:'cancel',project_id:p.basic_info.id,request_id:crypto.randomUUID(),task_id:task.id})).already_terminal, true);
+      const mirror = JSON.parse(await readFile(join(home, p.basic_info.id, 'project.json'), 'utf8'));
+      assert.equal(mirror.latest_tasks[`project-summary:${p.basic_info.id}`], task.id);
       assert.equal('tasks' in mirror, false);
     } finally { gate.resolve(); await service.dispose(); }
   }));
 
   test('v22升v23按队列回填最近任务与成片组，保留节点指纹、原步骤记录且迁移只执行一次', () => fixture(async ({ home, p, model }) => {
-    const group = createTaskGroupModel({ project_id: p.id, episode_id: p.episodes[0].id, group_type: 'episode-film', shot_ids: [p.episodes[0].shot_list.shots[0].id], source: 'panel' });
+    const group = createTaskGroupModel({ project_id: p.basic_info.id, episode_id: p.episodes[0].id, group_type: 'episode-film', shot_ids: [p.episodes[0].shot_list.shots[0].id], source: 'panel' });
     const task = taskFixture(p, 'seconds', group.shot_ids[0], { group_id: group.id, group_seq: 1, task_status: 'completed', ended_at: new Date().toISOString() });
     await model.update('old-history', {}, s => {
       s.groups.push(group); s.tasks.push(task); s.steps.push({ ...newStep(task, 1, 'generate'), step_status: 'done' });
@@ -365,21 +365,21 @@ describe("task-history", () => {
     const before = model.read();
     let db = new DatabaseSync(join(home, 'meiji.sqlite'));
     const old = structuredClone(before.project); delete old.latest_tasks; delete old.latest_groups;
-    db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(old), p.id);
+    db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(old), p.basic_info.id);
     db.exec('DELETE FROM schema_migrations WHERE version=23; PRAGMA user_version=22'); db.close();
     const upgraded = new ModelRepository(home);
     try {
-      const current = (await upgraded.open(p.id)).read();
+      const current = (await upgraded.open(p.basic_info.id)).read();
       assert.deepEqual(current.tasks, []);
       assert.equal(current.project.latest_tasks[`seconds:${task.target_id}`], task.id);
       assert.equal(current.project.latest_groups[`episode-film:${group.episode_id}`], group.id);
       assert.equal(current.project.latest_groups[`shot-film:${task.target_id}`], group.id);
       assert.equal(dependencyHash(current, 'seconds', task.target_id), dependencyHash(before, 'seconds', task.target_id));
-      assert.equal(upgraded.history(p.id).task(task.id).task_status, 'completed');
+      assert.equal(upgraded.history(p.basic_info.id).task(task.id).task_status, 'completed');
       db = new DatabaseSync(join(home, 'meiji.sqlite'));
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 28); db.close();
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 29); db.close();
       const again = new ModelRepository(home);
-      try { assert.deepEqual((await again.open(p.id)).read(), current); } finally { await again.close(); }
+      try { assert.deepEqual((await again.open(p.basic_info.id)).read(), current); } finally { await again.close(); }
     } finally { await upgraded.close(); }
   }));
 
@@ -388,11 +388,11 @@ describe("task-history", () => {
     const other = projectFixture(); await repository.create(other);
     let server;
     try {
-      const first = await service.command(command(p)); await service.idle(p.id);
-      await service.command(command(p, { business_type: 'episode-summary', target_id: p.episodes[0].id })); await service.idle(p.id);
-      const hidden = await service.command(command(other)); await service.idle(other.id);
-      const hiddenGroup = repository.history(other.id).task(hidden.task_id).group_id;
-      const runtime = { repository, tasks: service, bindings: { projectForSession: async sid => sid === 'allowed' ? p.id : other.id } };
+      const first = await service.command(command(p)); await service.idle(p.basic_info.id);
+      await service.command(command(p, { business_type: 'episode-summary', target_id: p.episodes[0].id })); await service.idle(p.basic_info.id);
+      const hidden = await service.command(command(other)); await service.idle(other.basic_info.id);
+      const hiddenGroup = repository.history(other.basic_info.id).task(hidden.task_id).group_id;
+      const runtime = { repository, tasks: service, bindings: { projectForSession: async sid => sid === 'allowed' ? p.basic_info.id : other.basic_info.id } };
       server = createServer(createTaskHttpHandler(runtime, { authorize: req => req.headers['x-test'] === '1' ? null : 401 }));
       await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
       const get = async path => { const response = await fetch(`http://127.0.0.1:${server.address().port}/api/meiji/${path}`, { headers: { 'x-test': '1' } }); return { status: response.status, value: await response.json() }; };
@@ -411,10 +411,10 @@ describe("task-history", () => {
 
   function panelFixture() {
     const context = new PanelContext(), p = projectFixture();
-    context.select('session', p.id);
-    const group = { id: 'group', group_type: 'single', project_id: p.id };
-    const task = { id: 'task', group_id: group.id, group_seq: 1, business_type: 'project-summary', target_id: p.id, task_status: 'completed', queue_order: 1 };
-    p.latest_tasks[`project-summary:${p.id}`] = task.id;
+    context.select('session', p.basic_info.id);
+    const group = { id: 'group', group_type: 'single', project_id: p.basic_info.id };
+    const task = { id: 'task', group_id: group.id, group_seq: 1, business_type: 'project-summary', target_id: p.basic_info.id, task_status: 'completed', queue_order: 1 };
+    p.latest_tasks[`project-summary:${p.basic_info.id}`] = task.id;
     context.accept(context.token(), { project: p, tasks: [], groups: [], steps: [], runtime: { revision: 5 } });
     return { context, p, group, task };
   }
@@ -428,9 +428,9 @@ describe("task-history", () => {
     assert.equal(context.read().runtime.revision, 5);
     assert.deepEqual(context.neededRecords().task_ids, []);
     const next = { ...task, id: 'next', task_status: 'running' }, nextGroup = { ...group, id: 'next-group' }; next.group_id = nextGroup.id;
-    const links = { latest_tasks: { [`project-summary:${p.id}`]: next.id } };
+    const links = { latest_tasks: { [`project-summary:${p.basic_info.id}`]: next.id } };
     context.mergeGroups([{ group: nextGroup, tasks: [next], steps: [] }], 6, links);
-    assert.equal(context.read().project.latest_tasks[`project-summary:${p.id}`], 'next');
+    assert.equal(context.read().project.latest_tasks[`project-summary:${p.basic_info.id}`], 'next');
     context.mergeGroups([{ group: nextGroup, tasks: [{ ...next, task_status: 'failed', end_reason: '断线' }], steps: [] }], 7);
     assert.equal(context.read().tasks.find(t => t.id === next.id).end_reason, '断线');
     context.accept(context.token(), { project: context.read().project, tasks: [], groups: [], steps: [], runtime: { revision: 7 } });
@@ -460,7 +460,7 @@ describe("task-history", () => {
     const snapshot = { project: p, tasks: [], steps: [], groups: [], runtime: { revision: 5 } };
     let httpVersion = 1, groupGate = null;
     const task = { id: 't', group_id: 'g', group_seq: 1, business_type: 'outline', episode_id: p.episodes[0].id, target_id: p.episodes[0].id, task_status: 'running', queue_order: 1 };
-    const group = { id: 'g', project_id: p.id, group_type: 'single', source: 'panel' };
+    const group = { id: 'g', project_id: p.basic_info.id, group_type: 'single', source: 'panel' };
     const row = { group, tasks: [task], status: 'running', name: '大纲任务' };
     globalThis.fetch = async url => {
       requests.push(String(url));
@@ -500,16 +500,16 @@ describe("task-history", () => {
     Object.assign(globalThis, { document: dom.window.document, window: dom.window, localStorage: dom.window.localStorage });
     localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId: 'session-' + crypto.randomUUID() }));
     const p = projectFixture(), streams = [], urls = [];
-    const group = { id: 'g', project_id: p.id, group_type: 'single', source: 'panel' };
-    let task = { id: 't', group_id: 'g', group_seq: 1, business_type: 'project-summary', target_id: p.id, task_status: 'completed', queue_order: 1 };
+    const group = { id: 'g', project_id: p.basic_info.id, group_type: 'single', source: 'panel' };
+    let task = { id: 't', group_id: 'g', group_seq: 1, business_type: 'project-summary', target_id: p.basic_info.id, task_status: 'completed', queue_order: 1 };
     let revision = 5, httpBody = '请求初始';
-    p.latest_tasks[`project-summary:${p.id}`] = task.id;
+    p.latest_tasks[`project-summary:${p.basic_info.id}`] = task.id;
     const steps = () => [{ id: 's', task_id: 't', seq: 1, kind: 'generate', executor: 'ai', step_status: task.task_status === 'running' ? 'running' : 'done', has_prompt: true, has_http: true }];
     const detail = () => ({ group, tasks: [task], steps: steps(), revision, status: task.task_status, name: '摘要任务' });
     globalThis.EventSource = class { constructor() { streams.push(this); } close() {} };
     globalThis.fetch = async url => {
       urls.push(String(url)); let data;
-      if (url.includes('context?')) data = { project_id: p.id, snapshot: { project: p, tasks: [], groups: [], steps: [], runtime: { revision } } };
+      if (url.includes('context?')) data = { project_id: p.basic_info.id, snapshot: { project: p, tasks: [], groups: [], steps: [], runtime: { revision } } };
       else if (url.includes('records?')) data = { revision, groups: [detail()] };
       else if (url.includes('group?')) data = { ...detail(), steps: steps().map(step => ({ ...step, prompt: { messages: [{ role: 'user', content: '提示' }] }, http: [{ request: { body: httpBody } }] })) };
       else if (url.endsWith('models')) data = { settings: { output_language: 'zh-CN' } };
@@ -521,26 +521,26 @@ describe("task-history", () => {
     try {
       app = mount(); await app.refresh(); await tick();
       task = { ...task, task_status: 'running' }; revision = 6;
-      streams[0].onmessage({ data: JSON.stringify({ project_id: p.id, revision, groups: [detail()], content: false }) });
+      streams[0].onmessage({ data: JSON.stringify({ project_id: p.basic_info.id, revision, groups: [detail()], content: false }) });
       Object.assign(app.view, { page: 'history', group_id: 'g', task_id: 't', step_id: 's', step_view: 'http' });
       await app.refresh(); await tick(); await tick();
       const contexts = urls.filter(url => url.includes('context?')).length;
       const groupCalls = urls.filter(url => url.includes('group?')).length;
       httpBody = '请求已返回';
-      streams[0].onmessage({ data: JSON.stringify({ project_id: p.id, revision, record: { group_id: 'g', task_id: 't', step_id: 's', has_http: true } }) });
+      streams[0].onmessage({ data: JSON.stringify({ project_id: p.basic_info.id, revision, record: { group_id: 'g', task_id: 't', step_id: 's', has_http: true } }) });
       await tick(); await tick();
       assert.match(app.shell.content.textContent, /请求已返回/);
       assert.equal(urls.filter(url => url.includes('group?')).length, groupCalls + 1);
       assert.equal(urls.filter(url => url.includes('context?')).length, contexts);
       task = { ...task, task_status: 'completed' }; revision = 7;
-      streams[0].onmessage({ data: JSON.stringify({ project_id: p.id, revision, groups: [detail()], content: false }) });
+      streams[0].onmessage({ data: JSON.stringify({ project_id: p.basic_info.id, revision, groups: [detail()], content: false }) });
       assert.equal(app.context.read().tasks.find(t => t.id === 't').task_status, 'completed');
       assert.equal(urls.filter(url => url.includes('context?')).length, contexts);
     } finally { app?.dispose(); Object.assign(globalThis, saved); dom.window.close(); }
   });
 
   test('同组前一终态镜头任务只保留状态时，修复仍按ID读到prompt中的完整失败基稿', () => fixture(async ({ repository, p, model }) => {
-    const group = createTaskGroupModel({ project_id: p.id, group_type: 'workflow', source: 'panel' });
+    const group = createTaskGroupModel({ project_id: p.basic_info.id, group_type: 'workflow', source: 'panel' });
     const previous = taskFixture(p, 'shots', p.episodes[0].id, { group_id: group.id, group_seq: 1, task_status: 'rejected', end_reason: '镜头候选未通过', ended_at: new Date().toISOString() });
     const pending = taskFixture(p, 'episode-summary', p.episodes[0].id, { group_id: group.id, group_seq: 2, queue_order: 2 });
     const base = { shots: structuredClone(p.episodes[0].shot_list.shots) }; base.shots[0].body = '失败候选正文，不是正式旧表';
@@ -550,7 +550,7 @@ describe("task-history", () => {
       s.steps.push({ ...newStep(previous, 1, 'generate'), step_status: 'done', result: { shots: [] }, prompt: { input: { content: base } } }, newStep(pending, 1, 'precheck'));
     });
     const snapshot = model.read(); assert.ok(snapshot.steps.every(s => !('prompt' in s)));
-    Object.defineProperty(snapshot, 'history', { value: repository.history(p.id) });
+    Object.defineProperty(snapshot, 'history', { value: repository.history(p.basic_info.id) });
     const current = taskFixture(p, 'shots', p.episodes[0].id, { action: 'revise', opinion: '修复', queue_order: 3 });
     assert.equal(taskNodeInput(snapshot, current, null, 'regenerate').content.shots[0].body, base.shots[0].body);
   }));

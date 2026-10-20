@@ -158,11 +158,11 @@ describe("character-id", () => {
       character.costume_images[0].address = 'kept.png';
       shot.on_screen_characters = [{ character_id: character.id, costume_id: costume.id }];
       const model = await repo.create(project);
-      await seedQueuedTasks(model, [['project-summary', project.id]]);
+      await seedQueuedTasks(model, [['project-summary', project.basic_info.id]]);
       await repo.close();
       const path = join(root, 'meiji.sqlite');
       let db = new DatabaseSync(path);
-      const row = db.prepare('SELECT data_json FROM projects WHERE id=?').get(project.id);
+      const row = db.prepare('SELECT data_json FROM projects WHERE id=?').get(project.basic_info.id);
       const legacy = JSON.parse(row.data_json);
       legacy.character_library.characters.forEach((c, i) => {
         c.number = `C${i + 1}`;
@@ -173,7 +173,7 @@ describe("character-id", () => {
       legacy.episodes[0].shot_list.node_state.status = 'generated';
       // 模拟旧输入投影对应的历史指纹；迁移应按同一业务资料的新ID投影重写。
       legacy.episodes[0].shot_list.node_state.dependency_hash = 'a'.repeat(64);
-      db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy), project.id);
+      db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy), project.basic_info.id);
       // 历史提示词/结果保留旧协议，不拿新目录重写历史。
       const legacyRecord = JSON.stringify({ character_number: 'C1', costume_number: 'C1-1' });
       db.prepare('UPDATE task_steps SET prompt_json=?,result_json=?').run(legacyRecord, legacyRecord);
@@ -182,7 +182,7 @@ describe("character-id", () => {
       db.exec('DELETE FROM schema_migrations WHERE version>=19; PRAGMA user_version=18');
       db.close();
       repo = new ModelRepository(root);
-      const restored = (await repo.open(project.id)).read();
+      const restored = (await repo.open(project.basic_info.id)).read();
       const saved = restored.project.character_library.characters[0];
       assert.equal(saved.id, character.id);
       assert.equal(saved.costumes[0].id, costume.id);
@@ -191,10 +191,10 @@ describe("character-id", () => {
       assert.equal(Object.hasOwn(saved.costumes[0], 'number'), false);
       assert.deepEqual(restored.project.episodes[0].shot_list.shots[0].on_screen_characters, shot.on_screen_characters);
       assert.equal(isNodeCurrent(restored, 'shots', episode.id), true);
-      assert.deepEqual(JSON.parse(await readFile(join(root, project.id, 'project.json'), 'utf8')), restored.project);
+      assert.deepEqual(JSON.parse(await readFile(join(root, project.basic_info.id, 'project.json'), 'utf8')), restored.project);
       await repo.close();
       db = new DatabaseSync(path);
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 28);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 29);
       assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(), history);
       assert.deepEqual(db.prepare('SELECT * FROM tasks').all(), taskHistory);
       assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check, 'ok');

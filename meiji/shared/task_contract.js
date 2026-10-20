@@ -142,7 +142,7 @@ export function validateNode(state, path, checkHash = true) {
 export function locateTarget(project, business, targetId) {
   const kind = BUSINESS_TARGET[business];
   if (!kind) invalid("business_type", "未知任务业务");
-  if (kind === "project" && project.id === targetId)
+  if (kind === "project" && project.basic_info.id === targetId)
     return { kind, object: project, episode: null };
   if (kind === "character" || kind === "costume") {
     for (const character of project.character_library.characters) {
@@ -248,7 +248,7 @@ export function validateTask(t, p) {
   )
     invalid("task.end_reason", "当前状态原因为空");
   if (p) {
-    if (p.id !== t.project_id) invalid("task.project_id", "跨项目");
+    if (p.basic_info.id !== t.project_id) invalid("task.project_id", "跨项目");
     if (TERMINAL_TASKS.includes(t.task_status)) return t;
     const target = locateTarget(p, t.business_type, t.target_id);
     if ((target.episode?.id ?? null) !== t.episode_id)

@@ -1,3 +1,4 @@
+import { currentScript } from '../../shared/script-text.js';
 import { mergeScenes, sceneCatalog, sceneText } from '../../shared/scene-inputs.js';
 import storyboardRoute from '../http/nodes/storyboard.js';
 import { parseSections } from '../prompts/parse-sections.js';
@@ -85,7 +86,7 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   let changedScenes = [];
   if (task.action === "delete") { applyDelete(snapshot, task); return []; }
   if (business === "script-split" && task.action === "override") {
-    project.episodes = buildSplit(project.script.body, content, project.reference_episode_duration_seconds).episodes.map(row => emptyEpisode(row));
+    project.episodes = buildSplit(currentScript(project), content, project.basic_info.reference_episode_duration_seconds).episodes.map(row => emptyEpisode(row));
     assertOutput(project, business, task.target_id);
     return [];
   }
@@ -97,19 +98,15 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   }
   if (business === "script-split") {
     if (!passed) return [];
-    project.episodes = buildSplit(project.script.body, content, project.reference_episode_duration_seconds).episodes.map(row => emptyEpisode(row));
+    project.episodes = buildSplit(currentScript(project), content, project.basic_info.reference_episode_duration_seconds).episodes.map(row => emptyEpisode(row));
     assertOutput(project, business, task.target_id);
     return [];
   }
   const node = nodeOf(project, business, task.target_id);
   if (business === 'script-review') {
     if (typeof content?.body !== 'string' || !content.body.trim()) invalid('剧本','正文为空');
-    if (content.body !== node.body) {
-      node.body=content.body;
-      node.version++;
-      node.updated_at=new Date().toISOString();
-      node.revision_history.push({timestamp:node.updated_at,task_id:task.id,revision_notes:task.opinion || '人工编辑剧本'});
-    }
+    node.body = content.body;
+    node.opinion = task.opinion || node.opinion;
   } else if (business === 'episode-scenes') {
     if (!passed) return [];
     const previousText = new Map(project.scene_library.scenes.map(scene => [scene.id, JSON.stringify(sceneText(scene))]));
@@ -136,7 +133,7 @@ export function commitContent(snapshot, task, content, { passed = true } = {}) {
   } else if (business === "shots") node.shots = structuredClone(content.shots);
   else Object.assign(node, structuredClone(content));
   if (['first-last-frame','multimodal'].includes(business)) locateTarget(project, business, task.target_id).object.video_generation_type = business === 'multimodal' ? '多模态' : '首尾帧';
-  if (business === "project-summary") node.script_version = project.script.version;
+  if (business === "project-summary") node.script_version = 0;
   if (["video", "shots"].includes(business))
     updateEpisodeActualDuration(locateTarget(project, business, task.target_id).episode);
   validateProject(project);

@@ -48,7 +48,7 @@ describe("task-queue", () => {
     key = "submit",
   ) => ({
     type: "submit",
-    project_id: p.id,
+    project_id: p.basic_info.id,
     request_id: key,
     business_type: business,
     target_id: id,
@@ -69,13 +69,13 @@ describe("task-queue", () => {
           submit(p, "episode-summary", p.episodes[0].id, "same-target"),
         );
         assert.equal(a.task_id, duplicate.task_id);
-        await service.command(submit(p, "project-summary", p.id, "second"));
+        await service.command(submit(p, "project-summary", p.basic_info.id, "second"));
         assert.equal(
           model.readAll().tasks.filter((t) => t.task_status === "running").length,
           1,
         );
         gate.resolve();
-        await service.idle(p.id);
+        await service.idle(p.basic_info.id);
         assert.equal(maximum, 1);
         assert.equal(count, 2);
         assert.ok(model.readAll().tasks.every((t) => t.task_status === "completed"));
@@ -96,13 +96,13 @@ describe("task-queue", () => {
     const entered = deferred(), gate = deferred(); let reject = true;
     await withService(async ({p,model,service}) => {
       await service.command(submit(p)); await entered.promise;
-      await service.command(submit(p,"project-summary",p.id,"next"));
-      gate.resolve(); await service.idle(p.id);
+      await service.command(submit(p,"project-summary",p.basic_info.id,"next"));
+      gate.resolve(); await service.idle(p.basic_info.id);
       const old = model.readAll().tasks;
       assert.deepEqual(old.map(t=>t.task_status),["rejected","cancelled"]);
       reject=false;
-      await service.command(submit(p,"project-summary",p.id,"fresh"));
-      await service.idle(p.id);
+      await service.command(submit(p,"project-summary",p.basic_info.id,"fresh"));
+      await service.idle(p.basic_info.id);
       assert.deepEqual(model.readAll().tasks.slice(0,2),old);
       assert.equal(model.readAll().tasks[2].task_status,"completed");
     },async ({step}) => {
@@ -115,7 +115,7 @@ describe("task-queue", () => {
     await withService(
       async ({ p, model, service }) => {
         const failed = await service.command(submit(p));
-        await service.idle(p.id);
+        await service.idle(p.basic_info.id);
         assert.equal(model.readAll().tasks[0].task_status, "failed");
         assert.equal(model.readAll().project.episodes[0].summary.node_state.status, "generated");
 
@@ -125,7 +125,7 @@ describe("task-queue", () => {
         const retried = await service.command(retry);
         assert.notEqual(retried.task_id, failed.task_id);
 
-        await service.idle(p.id);
+        await service.idle(p.basic_info.id);
 
         assert.equal(model.readAll().tasks[0].task_status, "failed");
         assert.equal(model.readAll().tasks[1].task_status, "completed");
@@ -135,7 +135,7 @@ describe("task-queue", () => {
         const later = submit(p, "episode-summary", p.episodes[0].id, "ordinary-after-retry");
         later.action = "generate";
         const ordinary = await service.command(later);
-        await service.idle(p.id);
+        await service.idle(p.basic_info.id);
         assert.equal(model.readAll().tasks.find((task) => task.id === ordinary.task_id).action, "generate");
 
       },
@@ -154,10 +154,10 @@ describe("task-queue", () => {
   test("失败后会话跨节点提交自动执行，无需面板恢复", async () => {
     let fail = true;
     await withService(async ({p,model,service}) => {
-      await service.command(submit(p)); await service.idle(p.id);
+      await service.command(submit(p)); await service.idle(p.basic_info.id);
       assert.equal(model.readAll().tasks[0].task_status,"failed"); fail=false;
-      await service.command(submit(p,"project-summary",p.id,"session-next"),{source:"session",session_id:"session-test"});
-      await service.idle(p.id);
+      await service.command(submit(p,"project-summary",p.basic_info.id,"session-next"),{source:"session",session_id:"session-test"});
+      await service.idle(p.basic_info.id);
       assert.equal(model.readAll().tasks[1].task_status,"completed");
     },async ({step}) => {
       if(fail)throw Error("模拟HTTP断连");
@@ -171,15 +171,15 @@ describe("task-queue", () => {
       async ({ p, model, service }) => {
         const task = await service.command(submit(p));
         await entered.promise;
-        await service.command(submit(p, "project-summary", p.id, "next"));
+        await service.command(submit(p, "project-summary", p.basic_info.id, "next"));
         await service.command({
           type: "cancel",
-          project_id: p.id,
+          project_id: p.basic_info.id,
           request_id: "cancel",
           task_id: task.task_id,
         });
         gate.resolve();
-        await service.idle(p.id);
+        await service.idle(p.basic_info.id);
         assert.equal(model.readAll().tasks[0].task_status, "cancelled");
         assert.equal(model.readAll().project.episodes[0].summary.body, "展示摘要");
         assert.equal(model.readAll().tasks[1].task_status, "cancelled");
@@ -199,7 +199,7 @@ describe("task-queue", () => {
           return {};
         });
         await service.command(submit(p));
-        await service.idle(p.id);
+        await service.idle(p.basic_info.id);
         assert.equal(model.readAll().tasks[0].task_status, "rejected");
         assert.equal(model.readAll().project.episodes[0].summary.body, "展示摘要");
       },
@@ -212,8 +212,8 @@ describe("task-queue", () => {
     let calls = 0, reject = true;
     await withService(async ({ p, model, service }) => {
       await model.update("hash", {}, s => { s.project.project_summary.node_state.dependency_hash = "a".repeat(64); });
-      await service.command(submit(p, "project-summary", p.id, "reject"));
-      await service.idle(p.id);
+      await service.command(submit(p, "project-summary", p.basic_info.id, "reject"));
+      await service.idle(p.basic_info.id);
       const before = model.readAll();
       assert.equal(calls, 4);
       assert.equal(before.tasks[0].task_status, "rejected");
@@ -222,8 +222,8 @@ describe("task-queue", () => {
       assert.equal(before.project.project_summary.node_state.dependency_hash, "a".repeat(64));
       assert.deepEqual(before.steps.filter(s => s.kind === "review").map(s => [s.round, s.step_status, s.error_reason]), [[0,"rejected","剧情来源不符"],[1,"rejected","剧情来源不符"],[2,"rejected","剧情来源不符"],[3,"rejected","剧情来源不符"]]);
       reject = false;
-      await service.command({ ...submit(p, "project-summary", p.id, "retry-rejected"), opinion: "保留结局" });
-      await service.idle(p.id);
+      await service.command({ ...submit(p, "project-summary", p.basic_info.id, "retry-rejected"), opinion: "保留结局" });
+      await service.idle(p.basic_info.id);
       const after = model.readAll();
       assert.equal(after.tasks[1].opinion, "剧情来源不符\n保留结局");
       assert.deepEqual(after.tasks[0], before.tasks[0]);
@@ -237,7 +237,7 @@ describe("task-queue", () => {
     const reviews = [];
     await withService(async ({ p, model, service }) => {
       await service.command(submit(p, "shots", p.episodes[0].id, "dual-review"));
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       const snapshot = model.readAll();
       assert.equal(snapshot.tasks[0].task_status, "completed", snapshot.tasks[0].end_reason);
       assert.deepEqual(reviews, [[0,"program"],[1,"program"],[1,"ai"],[2,"program"],[2,"ai"]]);
@@ -260,13 +260,13 @@ describe("task-queue", () => {
         s.project.project_summary.body = "";
         s.project.project_summary.node_state = { status: "empty", reason: "", dependency_hash: "" };
       });
-      const command = { ...submit(p, "project-summary", p.id, "empty-first"), action: "generate" };
+      const command = { ...submit(p, "project-summary", p.basic_info.id, "empty-first"), action: "generate" };
       await service.command(command);
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       assert.equal(model.readAll().tasks[0].task_status, "failed");
       fail = false;
       await service.command({ ...command, request_id: "empty-retry" });
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       const tasks = model.readAll().tasks;
       assert.equal(tasks[1].action, "generate");
       assert.equal(tasks[1].task_status, "completed", tasks[1].end_reason);
@@ -280,31 +280,31 @@ describe("task-queue", () => {
     const entered=deferred(), gate=deferred(), otherEntered=deferred(), otherGate=deferred();
     let otherId, oldSignal, calls=0;
     await withService(async ({p,model,service,repository}) => {
-      const other=projectFixture(), otherModel=await repository.create(other); otherId=other.id;
+      const other=projectFixture(), otherModel=await repository.create(other); otherId=other.basic_info.id;
       assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
       await service.command(submit(p));
       await entered.promise;
       await service.command(submit(other)); await otherEntered.promise;
-      const queued=await service.command(submit(p,'project-summary',p.id,'next'));
+      const queued=await service.command(submit(p,'project-summary',p.basic_info.id,'next'));
       assert.equal(service.current(model).status,'running');
-      const cancel={type:'cancel',project_id:p.id,request_id:'cancel-project',task_id:queued.task_id};
+      const cancel={type:'cancel',project_id:p.basic_info.id,request_id:'cancel-project',task_id:queued.task_id};
       await service.command(cancel);
       assert.equal(oldSignal.aborted,true);
       assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
       assert.equal(otherModel.readAll().tasks[0].task_status,'running');
       const cancelled=model.readAll().tasks;
       assert.ok(cancelled.every(t=>t.task_status==='cancelled' && t.ended_at));
-      const fresh=await service.command(submit(p,'project-summary',p.id,'fresh'));
+      const fresh=await service.command(submit(p,'project-summary',p.basic_info.id,'fresh'));
       assert.equal(service.current(model).status,'queued');
       assert.equal(calls,1,'旧请求清理结束前不得发起新请求');
       await service.command(cancel); // 幂等重放不得影响新任务。
-      gate.resolve(); await service.idle(p.id);
+      gate.resolve(); await service.idle(p.basic_info.id);
       assert.equal(model.readAll().tasks.find(t=>t.id===fresh.task_id).task_status,'completed');
       assert.deepEqual(model.readAll().tasks.slice(0,2),cancelled);
       assert.equal(model.readAll().project.episodes[0].summary.body,p.episodes[0].summary.body);
       assert.equal(model.readAll().project.project_summary.body,'新任务结果');
       assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
-      otherGate.resolve(); await service.idle(other.id);
+      otherGate.resolve(); await service.idle(other.basic_info.id);
       assert.equal(otherModel.readAll().tasks[0].task_status,'completed');
     },async ({task,step,signal}) => {
       if(step.kind==='review')return {result:{是否通过:true, "类型": "",原因:''}};
@@ -319,8 +319,8 @@ describe("task-queue", () => {
     const entered=deferred(), gate=deferred();
     await withService(async ({p,model,service}) => {
       await service.command(submit(p));await entered.promise;
-      await service.command(submit(p,'project-summary',p.id,'other-group'));
-      gate.resolve();await service.idle(p.id);
+      await service.command(submit(p,'project-summary',p.basic_info.id,'other-group'));
+      gate.resolve();await service.idle(p.basic_info.id);
       assert.deepEqual(model.readAll().tasks.map(t=>t.task_status),['failed','cancelled']);
       assert.equal(model.readAll().tasks[0].end_reason,'HTTP连接已断开');
       assert.deepEqual(service.current(model),{status:'idle',tasks:[]});
@@ -335,7 +335,7 @@ describe("workflow-states", () => {
   async function scenario(work) {
    const root=await mkdtemp(join(tmpdir(),'meiji-state-matrix-'));
    let repo=new ModelRepository(root), service;
-   const project=projectFixture(); project.reference_episode_duration_seconds=30; project.creation_mode='剧本'; project.script.body='宋代，甲穿蓝色常服入门。\n甲换上礼服离开。'; approveScriptReview(project);
+   const project=projectFixture(); project.basic_info.reference_episode_duration_seconds=30; project.basic_info.creation_mode='剧本'; project.script_revision.body='宋代，甲穿蓝色常服入门。\n甲换上礼服离开。'; approveScriptReview(project);
    project.character_library.characters=mergeCharacters(project,[person]).characters;
    let model=await repo.create(project), mode='ok', gate, entered, calls=0, failAt=Infinity;
    const execute=createHandlerRegistry({text:createTextHandler({chat:async ctx=>{
@@ -349,16 +349,16 @@ describe("workflow-states", () => {
     if(gate) { entered.resolve(); if(mode==='abort') await new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true})); else await gate.promise; }
    }
    const start=()=>service=new TaskService({repository:repo,execute,commitOutput:commitContent});start();
-   const command=(kind,extra={})=>({type:kind==='costume-image'?'submit-costumes':'submit',project_id:project.id,request_id:crypto.randomUUID(),target_id:kind==='costume-image'?project.character_library.characters[0].id:project.id,...(kind==='costume-image'?{}:{business_type:kind}),action:kind==='costume-image'?'generate':'regenerate',...extra});
-   const api={project,command,get model(){return model;},get service(){return service;},get calls(){return calls;},setMode(value){mode=value;},failOn(value){failAt=value;},block(value='late'){mode=value;gate=deferred();entered=deferred();return entered.promise;},release(){gate?.resolve();gate=null;},async reopen(){await repo.close();repo=new ModelRepository(root);model=await repo.open(project.id);start();await service.recover(model);}};
+   const command=(kind,extra={})=>({type:kind==='costume-image'?'submit-costumes':'submit',project_id:project.basic_info.id,request_id:crypto.randomUUID(),target_id:kind==='costume-image'?project.character_library.characters[0].id:project.basic_info.id,...(kind==='costume-image'?{}:{business_type:kind}),action:kind==='costume-image'?'generate':'regenerate',...extra});
+   const api={project,command,get model(){return model;},get service(){return service;},get calls(){return calls;},setMode(value){mode=value;},failOn(value){failAt=value;},block(value='late'){mode=value;gate=deferred();entered=deferred();return entered.promise;},release(){gate?.resolve();gate=null;},async reopen(){await repo.close();repo=new ModelRepository(root);model=await repo.open(project.basic_info.id);start();await service.recover(model);}};
    try {await work(api);} finally {api.release();await service.dispose();await repo.close();await rm(root,{recursive:true,force:true});}
   }
 
   for(const kind of ['script-split','project-characters','costume-image']) {
    test(`${kind} 失败后继续，旧终态不变且无额外派生`,()=>scenario(async x=>{
-    x.setMode('fail');await x.service.command(x.command(kind));await x.service.idle(x.project.id);
+    x.setMode('fail');await x.service.command(x.command(kind));await x.service.idle(x.project.basic_info.id);
     const before=x.model.readAll();assert.equal(before.tasks[0].task_status,'failed');
-    x.setMode('ok');const next=await x.service.command({type:'continue-group',project_id:x.project.id,request_id:'continue',group_id:before.groups[0].id});await x.service.idle(x.project.id);
+    x.setMode('ok');const next=await x.service.command({type:'continue-group',project_id:x.project.basic_info.id,request_id:'continue',group_id:before.groups[0].id});await x.service.idle(x.project.basic_info.id);
     const after=x.model.readAll();assert.deepEqual(after.tasks.slice(0,before.tasks.length),before.tasks);
     const current=after.tasks.filter(t=>t.group_id===next.group_id);assert.ok(current.every(t=>t.task_status==='completed'),current.map(t=>t.end_reason).join(','));assert.equal(current.length,kind==='costume-image'?2:1);
     if(kind==='script-split')assert.equal(after.project.episodes[0].plot,split.剧集[0].本集规划);
@@ -366,10 +366,10 @@ describe("workflow-states", () => {
    test(`${kind} 取消运行任务，晚到结果不覆盖，继续可执行`,()=>scenario(async x=>{
     const entered=x.block();await x.service.command(x.command(kind));await entered;
     const current=x.model.readAll(),task=current.tasks.find(t=>t.task_status==='running');
-    await x.service.command({type:'cancel',project_id:x.project.id,request_id:'cancel',task_id:task.id});
-    const cancelled=x.model.readAll();assert.equal(cancelled.tasks[0].task_status,'cancelled');x.release();await x.service.idle(x.project.id);
+    await x.service.command({type:'cancel',project_id:x.project.basic_info.id,request_id:'cancel',task_id:task.id});
+    const cancelled=x.model.readAll();assert.equal(cancelled.tasks[0].task_status,'cancelled');x.release();await x.service.idle(x.project.basic_info.id);
     assert.deepEqual(x.model.readAll().tasks,cancelled.tasks);assert.deepEqual(x.model.readAll().project,cancelled.project);
-    x.setMode('ok');const next=await x.service.command({type:'continue-group',project_id:x.project.id,request_id:'resume',group_id:task.group_id});await x.service.idle(x.project.id);
+    x.setMode('ok');const next=await x.service.command({type:'continue-group',project_id:x.project.basic_info.id,request_id:'resume',group_id:task.group_id});await x.service.idle(x.project.basic_info.id);
     assert.ok(x.model.readAll().tasks.filter(t=>t.group_id===next.group_id).every(t=>t.task_status==='completed'));
    }));
    for(const shutdown of ['late','abort']) test(`${kind} 运行中重启（${shutdown}），作废旧组且恢复后不重放`,()=>scenario(async x=>{
@@ -384,20 +384,20 @@ describe("workflow-states", () => {
     }
 
     const calls=x.calls;x.release();x.setMode('ok');await x.reopen();assert.equal(x.calls,calls);assert.deepEqual(x.model.readAll().tasks,old.tasks);
-    const next=await x.service.command({type:'continue-group',project_id:x.project.id,request_id:'restart-resume',group_id:old.groups[0].id});await x.service.idle(x.project.id);
+    const next=await x.service.command({type:'continue-group',project_id:x.project.basic_info.id,request_id:'restart-resume',group_id:old.groups[0].id});await x.service.idle(x.project.basic_info.id);
     assert.ok(x.model.readAll().tasks.filter(t=>t.group_id===next.group_id).every(t=>t.task_status==='completed'));
    }));
    test(`${kind} 尚未调度时重启，恢复原节点并允许新提交`,()=>scenario(async x=>{
     const before=x.model.readAll().project;
-    await seedQueuedTasks(x.model, [[kind,kind==='costume-image'?x.project.character_library.characters[0].costumes[0].id:x.project.id]]);
+    await seedQueuedTasks(x.model, [[kind,kind==='costume-image'?x.project.character_library.characters[0].costumes[0].id:x.project.basic_info.id]]);
     assert.ok(x.model.readAll().tasks.every(t=>t.task_status==='queued'));assert.equal(x.calls,0);
     await x.service.dispose();await x.reopen();assert.ok(x.model.readAll().tasks.every(t=>t.task_status==='cancelled'&&t.end_reason==='服务重启，未完成任务已取消'));assert.deepEqual(x.model.readAll().project,before);
-    await x.service.command(x.command(kind));await x.service.idle(x.project.id);assert.equal(x.model.readAll().tasks.at(-1).task_status,'completed');
+    await x.service.command(x.command(kind));await x.service.idle(x.project.basic_info.id);assert.equal(x.model.readAll().tasks.at(-1).task_status,'completed');
    }));
   }
   for(const kind of ['script-split','project-characters']) test(`${kind} 审核不通过耗尽修订，继续保留原因`,()=>scenario(async x=>{
-   x.setMode('reject');await x.service.command(x.command(kind));await x.service.idle(x.project.id);const old=x.model.readAll();assert.equal(old.tasks[0].task_status,'rejected');
-   x.setMode('ok');const result=await x.service.command({type:'continue-group',project_id:x.project.id,request_id:'resume-rejected',group_id:old.groups[0].id});await x.service.idle(x.project.id);
+   x.setMode('reject');await x.service.command(x.command(kind));await x.service.idle(x.project.basic_info.id);const old=x.model.readAll();assert.equal(old.tasks[0].task_status,'rejected');
+   x.setMode('ok');const result=await x.service.command({type:'continue-group',project_id:x.project.basic_info.id,request_id:'resume-rejected',group_id:old.groups[0].id});await x.service.idle(x.project.basic_info.id);
    const next=x.model.readAll().tasks.find(t=>t.group_id===result.group_id);assert.equal(next.task_status,'completed',next.end_reason);assert.ok(next.opinion);
   }));
 
@@ -405,12 +405,12 @@ describe("workflow-states", () => {
    const {fork}=await import('node:child_process');const {once}=await import('node:events');
    const root=await mkdtemp(join(tmpdir(),'meiji-kill-state-'));let repo=new ModelRepository(root),child,service;
    try {
-    const project=projectFixture();project.creation_mode='剧本';project.character_library.characters=mergeCharacters(project,[person]).characters;
+    const project=projectFixture();project.basic_info.creation_mode='剧本';project.character_library.characters=mergeCharacters(project,[person]).characters;
     await repo.create(project);await repo.close();
-    child=fork(new URL('./fixtures/workflow-crash.js',import.meta.url),[root,project.id,kind],{stdio:['ignore','ignore','ignore','ipc']});
+    child=fork(new URL('./fixtures/workflow-crash.js',import.meta.url),[root,project.basic_info.id,kind],{stdio:['ignore','ignore','ignore','ipc']});
     const [message]=await once(child,'message',{signal:AbortSignal.timeout(10000)});assert.equal(message.event,'running');
     const exited=once(child,'exit');child.kill('SIGKILL');await exited;
-    repo=new ModelRepository(root);const model=await repo.open(project.id),before=model.readAll();assert.equal(before.tasks[0].task_status,'running');
+    repo=new ModelRepository(root);const model=await repo.open(project.basic_info.id),before=model.readAll();assert.equal(before.tasks[0].task_status,'running');
     service=new TaskService({repository:repo,execute:async()=>{assert.fail('旧任务不能重放');},commitOutput:commitContent});await service.recover(model);
     const after=model.readAll();
     for (const item of before.tasks) {
@@ -427,23 +427,23 @@ describe("workflow-states", () => {
 
 
   test('首套成功后次套失败，重启后继续只做未完成服装',()=>scenario(async x=>{
-   x.failOn(2);await x.service.command(x.command('costume-image'));await x.service.idle(x.project.id);
+   x.failOn(2);await x.service.command(x.command('costume-image'));await x.service.idle(x.project.basic_info.id);
    const before=x.model.readAll(),saved=before.project.character_library.characters[0].costume_images[0];
    assert.deepEqual(before.tasks.map(t=>t.task_status),['completed','failed']);
    await x.service.dispose();await x.reopen();
-   const next=await x.service.command({type:'continue-group',project_id:x.project.id,request_id:'resume-second',group_id:before.groups[0].id});await x.service.idle(x.project.id);
+   const next=await x.service.command({type:'continue-group',project_id:x.project.basic_info.id,request_id:'resume-second',group_id:before.groups[0].id});await x.service.idle(x.project.basic_info.id);
    assert.equal(next.task_ids.length,1);assert.equal(x.model.readAll().tasks.at(-1).task_status,'completed');assert.deepEqual(x.model.readAll().project.character_library.characters[0].costume_images[0],saved);
   }));
 
   test('定妆照全量完成后补齐不重复请求，首套过期则连同后续一起重做',()=>scenario(async x=>{
-   await x.service.command(x.command('costume-image'));await x.service.idle(x.project.id);assert.equal(x.calls,2);
+   await x.service.command(x.command('costume-image'));await x.service.idle(x.project.basic_info.id);assert.equal(x.calls,2);
    const skip=await x.service.command(x.command('costume-image'));assert.deepEqual(skip.task_ids,[]);assert.equal(x.calls,2);
    await x.model.update('expire-first',{},s=>{const first=primaryCostumeImage(s.project.character_library.characters[0]);first.node_state.status='expired';first.node_state.reason='用户资料变化';});
-   const next=await x.service.command(x.command('costume-image'));assert.equal(next.task_ids.length,2);await x.service.idle(x.project.id);assert.equal(x.calls,4);
+   const next=await x.service.command(x.command('costume-image'));assert.equal(next.task_ids.length,2);await x.service.idle(x.project.basic_info.id);assert.equal(x.calls,4);
   }));
 
   for(const kind of ['script-split','project-characters','costume-image']) test(`${kind} 前置资料空缺失败，不调用模型`,()=>scenario(async x=>{
-   await x.model.update('empty-input',{},s=>{if(kind==='costume-image'){const c=s.project.character_library.characters[0];for(const key of ['name','gender','era','position','age_range','body_type','hairstyle'])c[key]='';}else s.project.script.body='';});
-   await x.service.command(x.command(kind));await x.service.idle(x.project.id);assert.equal(x.calls,0);assert.equal(x.model.readAll().tasks[0].task_status,'rejected');assert.equal(x.model.readAll().steps[0].kind,'precheck');assert.equal(x.model.readAll().steps[0].step_status,'rejected');
+   await x.model.update('empty-input',{},s=>{if(kind==='costume-image'){const c=s.project.character_library.characters[0];for(const key of ['name','gender','era','position','age_range','body_type','hairstyle'])c[key]='';}else {s.project.script_revision.body='';s.project.basic_info.original_script='';}});
+   await x.service.command(x.command(kind));await x.service.idle(x.project.basic_info.id);assert.equal(x.calls,0);assert.equal(x.model.readAll().tasks[0].task_status,'rejected');assert.equal(x.model.readAll().steps[0].kind,'precheck');assert.equal(x.model.readAll().steps[0].step_status,'rejected');
   }));
 });

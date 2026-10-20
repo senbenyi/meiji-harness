@@ -11,7 +11,7 @@ describe("character-types", () => {
   for (const kind of ['generate', 'revise']) {
     test(`角色 ${kind} 接受道具及特征数组，拒绝字符串与非文本成员`, async () => {
       const snapshot = snapshotFixture();
-      const task = taskFixture(snapshot.project, 'project-characters', snapshot.project.id);
+      const task = taskFixture(snapshot.project, 'project-characters', snapshot.project.basic_info.id);
       const person = { name: '甲', gender: '男', era: '宋代', position: '', age_range: '', body_type: '', hairstyle: '', facial_features: '', height: '', nationality: '', voice: '',
         signature_props: ['哨棒', '竹篮'], immutable_traits: ['眉骨分明', '右手虎口旧疤'],
         costumes: [{ name: '短衣', color: '', material: '', props: [] }] };
@@ -55,12 +55,12 @@ describe("character-completion", () => {
         chat: async options => { calls.push(options); return respond(options, calls); },
         image: async () => { throw new Error('人物提取不能派生图片'); },
       } });
-      const p = projectFixture(); p.script.body = script; approveScriptReview(p);
+      const p = projectFixture(); p.script_revision.body = script; approveScriptReview(p);
       const model = await runtime.repository.create(p);
       const submit = async (fields = {}) => {
-        const result = await runtime.tasks.command({ type: 'submit', project_id: p.id, target_id: p.id, business_type: 'project-characters', action: 'generate', request_id: crypto.randomUUID(), ...fields });
-        await runtime.tasks.idle(p.id);
-        return runtime.repository.history(p.id).task(result.task_id);
+        const result = await runtime.tasks.command({ type: 'submit', project_id: p.basic_info.id, target_id: p.basic_info.id, business_type: 'project-characters', action: 'generate', request_id: crypto.randomUUID(), ...fields });
+        await runtime.tasks.idle(p.basic_info.id);
+        return runtime.repository.history(p.basic_info.id).task(result.task_id);
       };
       await work({ runtime, p, model, calls, submit });
     } finally { await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
@@ -71,7 +71,7 @@ describe("character-completion", () => {
     const a = model.read().project.character_library.characters[0];
     assert.equal(a.position, '反对月界旅行的社员'); assert.equal(a.costumes[0].material, '羊毛呢');
     assert.equal(calls.length, 2, '只生成和审核一次，不因设定非原文而自动修订');
-    assert.deepEqual(runtime.repository.history(p.id).stepsOf(first.id).map(s => s.kind), ['precheck', 'generate', 'review']);
+    assert.deepEqual(runtime.repository.history(p.basic_info.id).stepsOf(first.id).map(s => s.kind), ['precheck', 'generate', 'review']);
     const second = await submit({ action: 'revise', opinion: '把面部描述写得更清楚，其他保持' });
     assert.equal(second.task_status, 'completed', second.end_reason);
     const b = model.read().project.character_library.characters[0];
@@ -97,7 +97,7 @@ describe("character-completion", () => {
     assert.equal(revision.messages.filter(m => m.role === 'assistant').length, 1);
     assert.equal(JSON.parse(revision.messages.find(m => m.role === 'assistant').content).characters[0].voice, '');
     assert.match(revision.messages.at(-1).content, /voice缺少可执行声线/);
-    const steps = runtime.repository.history(p.id).stepsOf(task.id);
+    const steps = runtime.repository.history(p.basic_info.id).stepsOf(task.id);
     assert.equal(steps.filter(s => s.kind === 'revise').length, 1);
     assert.equal(steps.find(s => s.kind === 'review').step_status, 'rejected');
   }, ({ step, trace }) => {

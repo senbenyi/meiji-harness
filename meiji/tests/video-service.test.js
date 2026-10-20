@@ -137,7 +137,7 @@ describe("video-service", () => {
 
 describe("project-aspects", () => {
   for(const ratio of PROJECT_ASPECT_RATIOS) test(`项目${ratio}贯通图片、视频和输出尺寸`,()=>{
-    const p=projectFixture();p.aspect_ratio=ratio;assert.doesNotThrow(()=>validateProject(p));
+    const p=projectFixture();p.basic_info.aspect_ratio=ratio;assert.doesNotThrow(()=>validateProject(p));
     const [w,h]=projectFrameSize(ratio),[a,b]=ratio.split(':').map(Number);
     assert.equal(w*b,h*a);assert.ok(w%2===0&&h%2===0&&Math.min(w,h)>=768);
     assert.equal(aspectRatioOfSize(videoSizeOf(ratio)),ratio);
@@ -160,7 +160,7 @@ describe("project-aspects", () => {
       const root=document.querySelector('main');
       const dialog=projectDialog(root,()=>{}),select=dialog.querySelector('select[name=aspect]');
       assert.deepEqual([...select.options].map(o=>o.value),PROJECT_ASPECT_RATIOS);
-      assert.equal(select.value,'9:16');assert.equal(emptyProject().aspect_ratio,'9:16');
+      assert.equal(select.value,'9:16');assert.equal(emptyProject().basic_info.aspect_ratio,'9:16');
       const edit=detailsDialog(root,'编辑',{aspect_ratio:'21:9'},()=>{});
       assert.deepEqual([...edit.querySelector('select').options].map(o=>o.value),PROJECT_ASPECT_RATIOS);
       assert.equal(edit.querySelector('select').value,'21:9');
@@ -171,19 +171,19 @@ describe("project-aspects", () => {
     const home=await mkdtemp(join(tmpdir(),'meiji-aspects-'));let repo;
     try {
       repo=new ModelRepository(home);const original=projectFixture();const model=await repo.create(original);
-      await seedQueuedTasks(model,[['project-summary',original.id]]);await repo.close();repo=null;
+      await seedQueuedTasks(model,[['project-summary',original.basic_info.id]]);await repo.close();repo=null;
       let db=new DatabaseSync(join(home,'meiji.sqlite'));
-      const p=JSON.parse(db.prepare('SELECT data_json FROM projects WHERE id=?').get(original.id).data_json);
-      p.aspect_ratio='768x1344';const snapshot={project:p,tasks:[],steps:[]};
+      const p=JSON.parse(db.prepare('SELECT data_json FROM projects WHERE id=?').get(original.basic_info.id).data_json);
+      p.basic_info.aspect_ratio='768x1344';const snapshot={project:p,tasks:[],steps:[]};
       for(const e of p.episodes){for(const s of e.shot_list.shots){
         for(const [b,node]of [['first-last-frame',s.first_last_frame_prompt],['multimodal',s.multimodal_prompt],['video',s.video],['tail',s.last_frame]])
           if(node.node_state.status==='generated')node.node_state.dependency_hash=dependencyHash(snapshot,b,s.id);
       }e.assembly.node_state.dependency_hash=dependencyHash(snapshot,'assembly',e.id);}
-      db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(p),p.id);
+      db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(p),p.basic_info.id);
       db.exec('PRAGMA user_version=24; DELETE FROM schema_migrations WHERE version=25;');
       const oldTasks=db.prepare('SELECT * FROM tasks').all(),oldSteps=db.prepare('SELECT * FROM task_steps').all();db.close();
-      repo=new ModelRepository(home);const migrated=(await repo.open(p.id)).read().project;
-      assert.equal(migrated.aspect_ratio,'9:16');
+      repo=new ModelRepository(home);const migrated=(await repo.open(p.basic_info.id)).read().project;
+      assert.equal(migrated.basic_info.aspect_ratio,'9:16');
       for(let i=0;i<p.episodes[0].shot_list.shots.length;i++){
         const old=p.episodes[0].shot_list.shots[i],s=migrated.episodes[0].shot_list.shots[i];
         assert.equal(s.video.address,old.video.address);assert.equal(s.last_frame.address,old.last_frame.address);
@@ -192,7 +192,7 @@ describe("project-aspects", () => {
       }
       await repo.close();repo=null;
       db=new DatabaseSync(join(home,'meiji.sqlite'));
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version,28);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version,29);
       assert.deepEqual(db.prepare('SELECT * FROM tasks').all(),oldTasks);
       assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(),oldSteps);db.close();
       assert.throws(()=>validateProject({...migrated,aspect_ratio:'768x1344'}),/aspect_ratio/);

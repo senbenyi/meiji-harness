@@ -41,7 +41,7 @@ test('程序编排把尾帧排在人物和场景后，保存引用并原样用�
   assert.match(content.prompt,/本镜首帧衔接参考 <Picture 3>/);
   assert.match(content.prompt,/上一镜 S01 的尾帧/);
   assert.match(content.prompt,/人物身份和服装以对应人物图为准/);
-  const request=videoRequest({type:'多模态',textPrompt:Object.fromEntries(['integrated_multimodal_description','overall_soundscape','non_diegetic_music'].map(key=>[key,second.text_to_video_prompt[key]])),duration:5,aspectRatio:p.aspect_ratio,referenceImages:read.map(address=>'data:image/png;base64,'+Buffer.from(address).toString('base64')),referenceBindings:shotReferenceBindings(p,e,second),packedPrompt:content.prompt});
+  const request=videoRequest({type:'多模态',textPrompt:Object.fromEntries(['integrated_multimodal_description','overall_soundscape','non_diegetic_music'].map(key=>[key,second.text_to_video_prompt[key]])),duration:5,aspectRatio:p.basic_info.aspect_ratio,referenceImages:read.map(address=>'data:image/png;base64,'+Buffer.from(address).toString('base64')),referenceBindings:shotReferenceBindings(p,e,second),packedPrompt:content.prompt});
   const payload=videoPayload({model:'MiniMax-H3',...request});
   assert.deepEqual(payload.images.map(data=>Buffer.from(data.split(',')[1],'base64').toString()),images(row));
   assert.equal('first_frame' in payload,false);assert.equal(payload.prompt,content.prompt);
@@ -97,7 +97,7 @@ test('含尾帧共9张可编排，10张明确失败且不静默丢图',async()=>
 
 function stampAll(row) {
   const {snapshot,p,e}=row;
-  for(const business of ['project-characters','project-summary'])stampDependencyHash(snapshot,business,p.id);
+  for(const business of ['project-characters','project-summary'])stampDependencyHash(snapshot,business,p.basic_info.id);
   for(const business of ['episode-summary','outline','episode-scenes','shots'])stampDependencyHash(snapshot,business,e.id);
   for(const shot of e.shot_list.shots)for(const business of ['seconds','storyboard','first-last-frame','multimodal','video','tail'])stampDependencyHash(snapshot,business,shot.id);
 }

@@ -1,3 +1,4 @@
+import { currentScript } from '../shared/script-text.js';
 import { effectiveRules } from '../shared/ai-node-rules.js';
 import { aspectRatioOfSize } from '../shared/media-parameters.js';
 import { sceneCatalog } from '../shared/scene-inputs.js';
@@ -41,7 +42,7 @@ function blockingDialog(root, message) {
   close.focus();
 }
 const names = {
-  "script-review": "剧本改编与审核",
+  "script-review": "剧本优化",
   "project-summary": "项目摘要",
   "project-characters": "角色库",
   "episode-summary": "展示摘要",
@@ -195,7 +196,7 @@ export function renderTaskPanel(root, snapshot, context) {
         const result = await sendCommand(
           session_id,
           {
-            project_id: p.id,
+            project_id: p.basic_info.id,
             request_id: globalThis.crypto.randomUUID(),
             ...command,
           },
@@ -256,8 +257,12 @@ export function renderTaskPanel(root, snapshot, context) {
       const input = element("input", "", "node-ui-opinion");
       input.placeholder = "本次执行意见";
       input.setAttribute("aria-label", "本次执行意见");
-      input.value = state.opinions[key] || "";
+      input.value = state.opinions[key] ?? (business === "script-review" ? p.script_revision.opinion : "");
       input.oninput = () => { state.opinions[key] = input.value; };
+      if (business === "script-review") input.onblur = () => {
+        if (!busy && input.value !== p.script_revision.opinion)
+          void act({ type: "edit", fields: { script_revision: { opinion: input.value } } }, true).catch(() => {});
+      };
       ui.append(input);
     }
     const failureType = reviewTypeLabel(snapshot.steps, latest);
@@ -319,7 +324,7 @@ export function renderTaskPanel(root, snapshot, context) {
         element(
           "p",
           typeof node.body === "string"
-            ? business === 'script-review' ? scriptText(node.body) : node.body
+            ? business === 'script-review' ? scriptText(node.body) || '尚未生成优化稿' : node.body
             : readable(payload(node, p)),
           "prompt full",
         ),
@@ -327,8 +332,8 @@ export function renderTaskPanel(root, snapshot, context) {
     if (typeof node.body === "string") appendJsonCopy(card, business === 'script-review' ? scriptText(node.body) : node.body);
     const program = ["first-last-frame", "multimodal", "assembly"].includes(business);
     const isPack = ["first-last-frame", "multimodal"].includes(business);
-    const hasOutput = business === "script-review" ? Boolean(node.body.trim()) : isPack ? Boolean(node.prompt.trim()) : hasContent(node),
-      typedOpinion = () => (state.opinions?.[`${business}:${id}`] || "").trim(),
+    const hasOutput = business === "script-review" ? Boolean(currentScript(p).trim()) : isPack ? Boolean(node.prompt.trim()) : hasContent(node),
+      typedOpinion = () => (state.opinions?.[`${business}:${id}`] ?? (business === "script-review" ? p.script_revision.opinion : "")).trim(),
       generate = (opinion = "", revise = false) => {
         const text = [opinion, typedOpinion()].filter(Boolean).join("\n");
         if (business === 'script-review' && revise && !text.trim()) return onError('请在本次执行意见中填写改编要求');
@@ -551,14 +556,13 @@ export function renderTaskPanel(root, snapshot, context) {
         if (!commit) return;
         return act({ type: 'edit-rule', business_type: business, target_id: state.rule_target, action, field, value }, true);
       },
-      load: () => request('rules?' + new URLSearchParams({ session_id, project_id: p.id, business })),
+      load: () => request('rules?' + new URLSearchParams({ session_id, project_id: p.basic_info.id, business })),
       back: () => go(state.rule_return || 'overview'),
     }));
   }
   else if (state.page === "script") {
     backHeader(root, "剧本详情", "返回项目概要", () => go("overview"));
-    const card = nodeCard('script-review', p.id, p.script);
-    card.append(element("p", `版本 ${p.script.version} · ${p.script.updated_at}`, "meta"));
+    const card = nodeCard('script-review', p.basic_info.id, p.script_revision);
     root.append(card);
   } else if (state.page === "settings") {
     const page = renderSettings(root, {

@@ -49,12 +49,12 @@ describe("deletion", () => {
       const del = async (b, id) => {
         const result = await service.command({
           type: "delete",
-          project_id: p.id,
+          project_id: p.basic_info.id,
           request_id: crypto.randomUUID(),
           business_type: b,
           target_id: id,
         });
-        await service.idle(p.id);
+        await service.idle(p.basic_info.id);
         return model.readAll().tasks.find((t) => t.id === result.task_id);
       };
       assert.equal((await del("character-delete", c.id)).task_status, "rejected");
@@ -103,9 +103,9 @@ describe("manual-tasks", () => {
           commitOutput: commitContent,
         });
       const base = {
-        project_id: p.id,
+        project_id: p.basic_info.id,
         business_type: "project-summary",
-        target_id: p.id,
+        target_id: p.basic_info.id,
       };
       await service.command({
         ...base,
@@ -113,7 +113,7 @@ describe("manual-tasks", () => {
         request_id: "edit",
         content: "人工新稿",
       });
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       assert.equal(model.readAll().project.project_summary.body, "人工新稿");
       assert.deepEqual(
         model.readAll().steps.map((s) => s.kind),
@@ -125,7 +125,7 @@ describe("manual-tasks", () => {
         request_id: "invalid",
         content: "",
       });
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       assert.equal(model.readAll().project.project_summary.body, "人工新稿");
       assert.equal(model.readAll().tasks[1].task_status, "rejected");
       await model.update("set-rejected", {}, (s) => {
@@ -139,7 +139,7 @@ describe("manual-tasks", () => {
         type: "override",
         request_id: "override",
       });
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       assert.equal(model.readAll().tasks[2].task_status, "completed");
       assert.equal(model.readAll().project.project_summary.node_state.status, "generated");
       assert.equal(model.readAll().tasks[1].task_status, "rejected");
@@ -160,11 +160,11 @@ describe("manual-tasks", () => {
       const model = await repository.create(project), service = new TaskService({ repository, commitOutput: commitContent,
         execute: createHandlerRegistry({ text: () => { throw Error("人工操作不调用AI"); }, media: () => { throw Error("不调用媒体"); } }),
       });
-      const base = { project_id: project.id, business_type: business, target_id: episode.id };
+      const base = { project_id: project.basic_info.id, business_type: business, target_id: episode.id };
       const node = snapshot => snapshot.project.episodes[0][business === "outline" ? "story_outline" : "shot_list"];
       try {
         const edit = await service.command({ ...base, type: "manual-edit", request_id: "edit", content });
-        await service.idle(project.id);
+        await service.idle(project.basic_info.id);
         assert.equal(model.readAll().tasks.find(task => task.id === edit.task_id).task_status, "completed");
         assert.equal(node(model.readAll()).node_state.status, "generated");
         if (business === "outline") assert.equal(model.readAll().project.episodes[0].duration_seconds, 150);
@@ -184,7 +184,7 @@ describe("manual-tasks", () => {
         });
         await reject("mark-rejected", false);
         const blocked = await service.command({ ...base, type: "override", request_id: "outside-range" });
-        await service.idle(project.id);
+        await service.idle(project.basic_info.id);
         const blockedSnapshot = model.readAll(), blockedTask = blockedSnapshot.tasks.find(task => task.id === blocked.task_id);
         assert.equal(blockedTask.task_status, "rejected");
         assert.equal(blockedSnapshot.steps.find(step => step.task_id === blocked.task_id && step.step_status === "rejected").kind, "precheck");
@@ -192,7 +192,7 @@ describe("manual-tasks", () => {
         assert.deepEqual(business === "outline" ? node(blockedSnapshot).segments : node(blockedSnapshot).shots, business === "outline" ? savedContent.segments : savedContent.shots);
         await reject("repair-rejected", true);
         const allowed = await service.command({ ...base, type: "override", request_id: "inside-range" });
-        await service.idle(project.id);
+        await service.idle(project.basic_info.id);
         const accepted = model.readAll();
         assert.equal(accepted.tasks.find(task => task.id === allowed.task_id).task_status, "completed");
         assert.equal(node(accepted).node_state.status, "generated");

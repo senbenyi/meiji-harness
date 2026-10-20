@@ -25,7 +25,7 @@ import { projectFixture, taskFixture } from "./fixtures/project.js";
 
 describe("contracts", () => {
   const projectFixture = () => {
-    const p = emptyProject({ name: "新项目", creation_mode: "自由创作", creative_direction: "测试故事" });
+    const p = emptyProject({ basic_info: { name: "新项目", creation_mode: "自由创作", creative_requirements: "测试故事" } });
     const c = emptyCharacterModel({ name: "甲", required_appearance: true });
     const co = emptyCostumeModel({ name: "常服", description: "常服" });
     c.costume_images = [emptyCostumeImageModel(co.id)];
@@ -41,7 +41,7 @@ describe("contracts", () => {
   };
   const taskFixture = (p) => ({
     id: createId("task"),
-    project_id: p.id,
+    project_id: p.basic_info.id,
     episode_id: p.episodes[0].id,
     business_type: "seconds",
     target_id: p.episodes[0].shot_list.shots[0].id,
@@ -84,7 +84,7 @@ describe("contracts", () => {
     invalid.episodes[0].本集资产 = { 状态: "empty", 原因: "", 角色: [] };
     assert.throws(() => validateProject(invalid), /本集资产/);
     assert.throws(() => validateCommand({
-      type: "submit", project_id: p.id, request_id: "removed",
+      type: "submit", project_id: p.basic_info.id, request_id: "removed",
       business_type: "episode-characters", target_id: e.id, action: "generate",
     }), /business_type/);
   });
@@ -121,7 +121,7 @@ describe("contracts", () => {
     const p = projectFixture(),
       t = taskFixture(p);
     assert.equal(validateTask(t, p), t);
-    assert.throws(() => validateTask({ ...t, target_id: p.id }, p), /目标/);
+    assert.throws(() => validateTask({ ...t, target_id: p.basic_info.id }, p), /目标/);
     assert.throws(
       () => validateTask({ ...t, episode_id: createId("episode") }, p),
       /剧集/,
@@ -131,14 +131,14 @@ describe("contracts", () => {
       /requirements/,
     );
     assert.throws(
-      () => validateCommand({ type: "resume", project_id: p.id }),
+      () => validateCommand({ type: "resume", project_id: p.basic_info.id }),
       /命令/,
     );
     assert.throws(
       () =>
         validateCommand({
           type: "submit",
-          project_id: p.id,
+          project_id: p.basic_info.id,
           business_type: "seconds",
           target_id: t.target_id,
           action: "continue",
@@ -147,7 +147,7 @@ describe("contracts", () => {
       /组合/,
     );
     assert.equal(validateProject(p), p);
-    assert.ok(!("状态" in p.script));
+    assert.ok(!("状态" in p.script_revision));
     const st = {
       id: createId("step"),
       task_id: t.id,
@@ -250,7 +250,7 @@ describe("contracts", () => {
     const p = projectFixture(),
       taskId = createId("task"),
       groupId = createId("group");
-    const base = { project_id: p.id, request_id: "request-1" };
+    const base = { project_id: p.basic_info.id, request_id: "request-1" };
     for (const data of [
       {
         type: "submit-group",
@@ -262,10 +262,10 @@ describe("contracts", () => {
       {
         type: "manual-edit",
         business_type: "project-summary",
-        target_id: p.id,
+        target_id: p.basic_info.id,
         content: { 正文: "手动" },
       },
-      { type: "override", business_type: "project-summary", target_id: p.id },
+      { type: "override", business_type: "project-summary", target_id: p.basic_info.id },
       {
         type: "delete",
         business_type: "character-delete",
@@ -274,7 +274,7 @@ describe("contracts", () => {
     ])
       assert.equal(validateCommand({ ...base, ...data }).type, data.type);
     assert.equal(
-      validateCommand({ type: "query", project_id: p.id }).type,
+      validateCommand({ type: "query", project_id: p.basic_info.id }).type,
       "query",
     );
     assert.throws(
@@ -304,7 +304,7 @@ describe("contracts", () => {
           ...base,
           type: "delete",
           business_type: "video",
-          target_id: p.id,
+          target_id: p.basic_info.id,
         }),
       /删除/,
     );
@@ -364,7 +364,7 @@ describe("node-definitions", () => {
     const scene = emptySceneModel(); project.scene_library.scenes = [scene];
     const targetByKind = {
       scene: scene.id,
-      project: project.id,
+      project: project.basic_info.id,
       character: character.id,
       costume: character.costumes[0].id,
       episode: project.episodes[0].id,

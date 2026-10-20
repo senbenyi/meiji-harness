@@ -126,15 +126,15 @@ for (const heldPhase of ['generate', 'review']) {
       repository = new ModelRepository(root);
       const project = projectFixture(); let model = await repository.create(project);
       service = start();
-      const submitted = await service.command({ type: 'submit', project_id: project.id, request_id: 'start', business_type: 'project-summary', target_id: project.id, action: 'regenerate' });
+      const submitted = await service.command({ type: 'submit', project_id: project.basic_info.id, request_id: 'start', business_type: 'project-summary', target_id: project.basic_info.id, action: 'regenerate' });
       for (let i = 0; i < 500 && ![...records.values()].some(row => row.phase === heldPhase); i++) await new Promise(resolve => setTimeout(resolve, 2));
       assert.ok([...records.values()].some(row => row.phase === heldPhase), JSON.stringify(model.readAll().tasks));
       await service.dispose();
       assert.equal(model.readAll().tasks.find(row => row.id === submitted.task_id).task_status, 'running');
       await repository.close();
       released = true;
-      repository = new ModelRepository(root); model = await repository.open(project.id); service = start();
-      await service.recover(model); await service.idle(project.id);
+      repository = new ModelRepository(root); model = await repository.open(project.basic_info.id); service = start();
+      await service.recover(model); await service.idle(project.basic_info.id);
       const result = model.readAll();
       assert.equal(result.tasks.find(row => row.id === submitted.task_id).task_status, 'completed', JSON.stringify(result.tasks));
       assert.equal(result.project.project_summary.body, '恢复后取得的原正文');

@@ -52,15 +52,15 @@ describe("panel", () => {
     const context = new PanelContext(),
       a = snapshotFixture(),
       b = snapshotFixture(),
-      first = context.select("session-a", a.project.id);
+      first = context.select("session-a", a.project.basic_info.id);
     assert.equal(context.accept(first, a), true);
-    const second = context.select("session-b", b.project.id);
+    const second = context.select("session-b", b.project.basic_info.id);
     assert.equal(context.accept(first, a), false);
     assert.equal(context.accept(second, b), true);
     const older = structuredClone(b);
     older.runtime.revision = 0;
     assert.equal(context.accept(second, older), false);
-    assert.equal(context.read().project.id, b.project.id);
+    assert.equal(context.read().project.basic_info.id, b.project.basic_info.id);
   });
   test("实际 DOM 保留页面与四标签，状态/原因直读，运行中冻结编辑且允许取消", () => {
     const dom = new JSDOM('<main id="root"></main>');
@@ -144,7 +144,7 @@ describe("panel", () => {
       view.page = "settings";
       renderTaskPanel(root, snapshot, context);
       assert.ok(!root.textContent.includes("编辑规则"));
-      assert.ok(!root.textContent.includes(snapshot.project.name));
+      assert.ok(!root.textContent.includes(snapshot.project.basic_info.name));
       assert.ok(!root.textContent.includes("技能库"));
       const t = {
         id: "t-test",
@@ -289,120 +289,45 @@ describe("panel", () => {
     } finally { globalThis.document = previous; dom.window.close(); }
   });
 
-  test("项目详情状态与操作按钮同一排，生成按钮按内容显示", () => {
-    const dom = new JSDOM("<main></main>"),
-      previous = globalThis.document;
+  test("项目详情展示基本信息和剧本优化，移除摘要并保持任务操作状态", () => {
+    const dom = new JSDOM('<main></main>'), previous = globalThis.document;
     globalThis.document = dom.window.document;
     try {
-      const snapshot = snapshotFixture(),
-        root = document.querySelector("main"),
-        project = snapshot.project,
-        cardOf = (title) =>
-          [...root.querySelectorAll(".overview-card")].find(
-            (card) => card.querySelector("h3")?.textContent === title,
-          ),
-        labelsOf = (card) =>
-          [...card.querySelectorAll(".overview-title-actions button, .workflow-generation-row button")].map(
-            (button) => button.textContent,
-          );
-      project.character_library.node_state.status = "empty";
-      const paint = () =>
-        renderTaskPanel(root, snapshot, {
-          session_id: "session-test",
-          view: { page: "overview" },
-          refresh: async () => {},
-          paint: () => {},
-          onError: () => {},
-        });
+      const snapshot = snapshotFixture(), root = document.querySelector('main'), project = snapshot.project;
+      project.basic_info.original_script = '原始剧本独立保留';
+      project.basic_info.creative_requirements = '保持人物关系与时代背景';
+      project.script_revision.body = '当前优化正文';
+      project.script_revision.opinion = '优化人物行动';
+      const paint = () => renderTaskPanel(root, snapshot, { session_id: 'session-test', view: { page: 'overview' }, refresh: async () => {}, paint: () => {}, onError: assert.fail });
+      const card = () => root.querySelector('[data-section=script_revision]');
       paint();
-      const outline = root.querySelector("[data-business=project-summary]");
-      const titled = (title) =>
-        [...root.querySelectorAll("section")].find(
-          (card) => card.querySelector("h3")?.textContent === title,
-        );
-      assert.equal(outline.querySelector(".section-titles h3").textContent, "项目摘要");
-      assert.equal(outline.querySelector(".node-data-tag").textContent, "已生成");
-      assert.equal(outline.querySelector(".section-titles .status-label"), null);
-      assert.deepEqual(
-        labelsOf(outline).filter((label) => ["AI生成", "重新生成", "原结果修订"].includes(label)),
-        ["重新生成", "原结果修订"],
-      );
-      assert.deepEqual(
-        labelsOf(cardOf("剧本")).filter((label) => ["AI生成", "重新生成", "原结果修订"].includes(label)),
-        [],
-      );
-      assert.equal(cardOf("剧本").querySelector(".status-label"), null);
-      assert.equal(titled("提取人物").querySelector(".node-data-tag").textContent, "未生成");
-      assert.deepEqual(labelsOf(titled("提取人物")), ["AI生成", "人工编辑", "任务历史", "查看规则"]);
-      assert.equal(titled("生成定妆照").querySelector(".node-ui-status").textContent, "未生成");
-      assert.equal(titled("生成定妆照").querySelector("input"), null);
-      assert.ok(cardOf("剧集").querySelector("[aria-label=重新生成]"));
-      assert.ok(![...root.querySelectorAll("button")].some((button) => button.textContent.includes("添加角色")));
-      project.creation_mode = "剧本";
-      snapshot.tasks = [{
-        id: "split",
-        business_type: "script-split",
-        target_id: project.id,
-        task_status: "running",
-        queue_order: 1,
-        group_id: "g",
-      }];
-      snapshot.groups = [{ id: "g", group_type: "single" }];
+      const info = root.querySelector('[data-section=basic_info]');
+      for (const value of [project.basic_info.id, project.basic_info.name, project.basic_info.creation_mode, project.basic_info.aspect_ratio, project.basic_info.creative_requirements, '150 秒', '原始剧本独立保留'])
+        assert.ok(info.textContent.includes(value), value);
+      assert.equal(root.querySelector('[data-business=project-summary]'), null);
+      assert.ok(!root.textContent.includes('项目摘要'));
+      assert.equal(card().querySelector('h3').textContent, '剧本优化');
+      assert.ok(card().textContent.includes('当前优化正文'));
+      assert.equal(card().querySelector('[aria-label=本次执行意见]').value, '优化人物行动');
+      assert.equal(card().querySelector('.section-head').nextElementSibling, card().querySelector('.node-ui'));
+      for (const label of ['按意见改编', '审核剧本', '查看规则', '人工编辑', '任务历史'])
+        assert.ok([...card().querySelectorAll('button')].some(b => b.textContent === label), label);
+      project.script_revision.node_state.status = 'rejected';
+      project.script_revision.node_state.reason = '人物动作缺少因果';
       paint();
-      assert.equal(cardOf("剧集").querySelector(".section-titles .status-label"), null);
-      assert.equal(cardOf("剧集").querySelector(".node-data-tag").textContent, "已生成");
-      assert.equal(cardOf("剧集").querySelector(".workflow-generation-row .node-ui-status"), null);
-      assert.deepEqual([...cardOf("剧集").querySelector(".workflow-generation-row").children].map((node) => node.className), ["node-ui-buttons", "node-ui-task-status"]);
-      assert.equal(cardOf("剧集").querySelector("[aria-label=重新生成]"), null);
-      assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "取消"));
-      assert.ok([...cardOf("剧集").querySelectorAll("button")].some((button) => button.textContent === "任务历史"));
-      // 概览提供显式详情入口，改编与审核操作在详情执行。
-      assert.deepEqual(labelsOf(cardOf("剧本")), ["改编剧本"]);
-      project.creation_mode = "自由创作";
-      project.project_summary.node_state.status = "rejected";
-      project.project_summary.node_state.reason = "摘要缺少结局";
-      project.character_library.node_state.status = "rejected";
-      project.character_library.node_state.reason = "未通过";
-      project.character_library.characters = [{ id: "c1", name: "武松", position: "好汉", costumes: [], costume_images: [{ costume_id: "", address: "" }] }];
-      snapshot.tasks = [{
-        id: "script-task",
-        business_type: "script",
-        target_id: project.id,
-        task_status: "rejected",
-        queue_order: 2,
-        group_id: "g2",
-      }];
-      snapshot.groups = [{ id: "g2", group_type: "single" }];
+      assert.equal(card().querySelector('.node-data-tag').textContent, '未通过');
+      assert.ok(card().textContent.includes('人物动作缺少因果'));
+      assert.ok(card().querySelector('.node-ui-repair-row'));
+      snapshot.tasks = [{ id: 'review-task', business_type: 'script-review', target_id: project.basic_info.id, task_status: 'running', queue_order: 1, group_id: 'g' }];
+      snapshot.groups = [{ id: 'g', group_type: 'single' }];
       paint();
-      assert.equal(
-        root.querySelector("[data-business=project-summary] .node-data-tag").textContent,
-        "未通过",
-      );
-      assert.equal(
-        [...root.querySelector("[data-business=project-summary]").querySelectorAll("button")].some((button) =>
-          ["人工编辑", "人工放行"].includes(button.textContent),
-        ),
-        false,
-      );
-      assert.deepEqual(
-        labelsOf(cardOf("项目摘要")).filter((label) => ["重新生成", "原结果修订", "修复"].includes(label)),
-        ["重新生成"],
-      );
-      assert.equal(cardOf("项目摘要").querySelector('.node-ui-repair-row button').textContent, '修复（再给 3 轮）');
-      assert.equal(cardOf("剧本").querySelector(".section-titles .status-label"), null);
-      assert.equal(cardOf("剧本").querySelector(".workflow-generation-row .node-ui-status"), null);
-      assert.deepEqual(
-        labelsOf(cardOf("剧本")).filter((label) => ["重新生成", "原结果修订"].includes(label)),
-        [],
-      );
-      assert.equal(titled("提取人物").querySelector(".node-data-tag").textContent, "未通过");
-      assert.ok(titled("提取人物").textContent.includes("未通过"));
-      assert.deepEqual(labelsOf(titled("提取人物")), ["重新生成", "人工编辑", "任务历史", "查看规则"]);
-      assert.deepEqual([...titled("提取人物").querySelectorAll('.node-ui-repair-row button')].map((b) => b.textContent), ['修复（再给 3 轮）', '人工放行']);
-    } finally {
-      globalThis.document = previous;
-      dom.window.close();
-    }
+      assert.ok([...card().querySelectorAll('button')].some(b => b.textContent === '取消'));
+      assert.ok(![...card().querySelectorAll('button')].some(b => b.textContent === '按意见改编'));
+      assert.equal(root.querySelector('[aria-label=编辑基本信息]').getAttribute('aria-disabled'), 'true');
+      assert.ok(root.querySelector('.episode-card-list'));
+      assert.ok([...root.querySelectorAll('h3')].some(h => h.textContent === '提取人物'));
+      assert.ok([...root.querySelectorAll('h3')].some(h => h.textContent === '生成定妆照'));
+    } finally { globalThis.document = previous; dom.window.close(); }
   });
 
   test("新建项目没有剧集时概览可以渲染，占位按钮打开对应操作", () => {
@@ -413,7 +338,7 @@ describe("panel", () => {
       const snapshot = snapshotFixture(), root = document.querySelector("main"), view = { page: "overview" };
       snapshot.project.episodes = [];
       const paint = (mode) => {
-        snapshot.project.creation_mode = mode;
+        snapshot.project.basic_info.creation_mode = mode;
         root.replaceChildren();
         renderTaskPanel(root, snapshot, { session_id: "session-test", view, refresh: async () => {}, paint: () => {}, onError: () => {} });
       };
@@ -471,7 +396,7 @@ describe("project-delete", () => {
    const dom=new JSDOM('<body></body>',{url:'http://localhost',pretendToBeVisual:true}), saved={};
    for(const key of ['window','document','localStorage','EventSource','fetch'])saved[key]=globalThis[key];
    const sid=`session-${randomUUID()}`, s=snapshotFixture(), other=snapshotFixture(), streams=[];
-   s.project.name='待删除甲';other.project.name='保留乙';
+   s.project.basic_info.name='待删除甲';other.project.basic_info.name='保留乙';
    const api={projects:[s,other],bound:s,fail:false,confirmed:true,deletes:0};let app;
    try {
     Object.assign(globalThis,{window:dom.window,document:dom.window.document,localStorage:dom.window.localStorage,EventSource:class{constructor(){streams.push(this);}close(){this.closed=true;}}});
@@ -482,15 +407,15 @@ describe("project-delete", () => {
       const {command}=JSON.parse(options.body);api.deletes++;
       if(api.waitDelete)await api.waitDelete;
       if(api.fail)return {ok:false,json:async()=>({message:'项目仍有未结束任务'})};
-      api.projects=api.projects.filter(p=>p.project.id!==command.project_id);
-      if(api.bound?.project.id===command.project_id)api.bound=null;
+      api.projects=api.projects.filter(p=>p.project.basic_info.id!==command.project_id);
+      if(api.bound?.project.basic_info.id===command.project_id)api.bound=null;
       return {ok:true,json:async()=>({deleted:true})};
      }
-     if(url.endsWith('/projects'))return {ok:true,json:async()=>({projects:api.projects.map(p=>({id:p.project.id,name:p.project.name,aspect_ratio:p.project.aspect_ratio,集数:1}))})};
+     if(url.endsWith('/projects'))return {ok:true,json:async()=>({projects:api.projects.map(p=>({id:p.project.basic_info.id,name:p.project.basic_info.name,aspect_ratio:p.project.basic_info.aspect_ratio,集数:1}))})};
      if(url.includes('/context?')){
       const snapshot=api.bound?structuredClone(api.bound):null;
       if(api.waitContext){const wait=api.waitContext;api.waitContext=null;await wait;}
-      return {ok:true,json:async()=>({project_id:snapshot?.project.id||null,snapshot})};
+      return {ok:true,json:async()=>({project_id:snapshot?.project.basic_info.id||null,snapshot})};
      }
      throw Error('意外请求'+url);
     };
@@ -518,7 +443,7 @@ describe("project-delete", () => {
 
   for (const page of ['overview', 'library'])
    test(`运行中的项目可从 ${page} 删除`,()=>fixture(async({app,api,s,click,library})=>{
-    s.tasks.push(taskFixture(s.project, 'project-summary', s.project.id, { task_status: 'running' }));
+    s.tasks.push(taskFixture(s.project, 'project-summary', s.project.basic_info.id, { task_status: 'running' }));
     s.runtime.revision++;
     await app.refresh();
     if (page === 'library') await library();
@@ -529,22 +454,22 @@ describe("project-delete", () => {
 
   test('取消与失败均保留当前项目和订阅',()=>fixture(async({app,api,s,streams,click,library})=>{
    await library();const card=()=>[...app.shell.content.querySelectorAll('.project-list article')].find(c=>c.textContent.includes('待删除甲'));
-   api.confirmed=false;click('删除项目',card());assert.equal(api.deletes,0);assert.equal(app.context.read().project.id,s.project.id);
+   api.confirmed=false;click('删除项目',card());assert.equal(api.deletes,0);assert.equal(app.context.read().project.basic_info.id,s.project.basic_info.id);
    api.confirmed=true;api.fail=true;click('删除项目',card());await until(()=>api.deletes===1);await new Promise(r=>setTimeout(r,0));
-   assert.equal(app.context.read().project.id,s.project.id);assert.equal(streams.at(-1).closed,undefined);assert.match(app.shell.content.textContent,/待删除甲/);
+   assert.equal(app.context.read().project.basic_info.id,s.project.basic_info.id);assert.equal(streams.at(-1).closed,undefined);assert.match(app.shell.content.textContent,/待删除甲/);
   }));
 
   test('删除其他项目仅更新列表，不清当前项目',()=>fixture(async({app,api,s,streams,click,library})=>{
    await library();const card=[...app.shell.content.querySelectorAll('.project-list article')].find(c=>c.textContent.includes('保留乙'));
    click('删除项目',card);await until(()=>api.deletes===1&&!app.shell.content.textContent.includes('保留乙'));
-   assert.equal(app.context.read().project.id,s.project.id);assert.equal(streams.at(-1).closed,undefined);assert.equal(app.view.page,'library');
+   assert.equal(app.context.read().project.basic_info.id,s.project.basic_info.id);assert.equal(streams.at(-1).closed,undefined);assert.equal(app.view.page,'library');
   }));
 
   test('删除等待期间切换上下文，旧回调不清新项目',()=>fixture(async({app,api,other,click,library})=>{
    await library();let release;api.waitDelete=new Promise(r=>release=r);
    const card=[...app.shell.content.querySelectorAll('.project-list article')].find(c=>c.textContent.includes('待删除甲'));click('删除项目',card);await until(()=>api.deletes===1);
-   app.context.select(app.context.token().session_id,other.project.id);app.context.accept(app.context.token(),other);api.bound=other;
-   release();await new Promise(r=>setTimeout(r,10));assert.equal(app.context.read().project.id,other.project.id);
+   app.context.select(app.context.token().session_id,other.project.basic_info.id);app.context.accept(app.context.token(),other);api.bound=other;
+   release();await new Promise(r=>setTimeout(r,10));assert.equal(app.context.read().project.basic_info.id,other.project.basic_info.id);
   }));
 });
 
@@ -568,14 +493,14 @@ describe("project-delete-runtime", () => {
       const project = projectFixture(), other = projectFixture(), session = `session-${randomUUID()}`;
       const model = await runtime.repository.create(project);
       await runtime.repository.create(other);
-      await runtime.bindings.bind(session, project.id);
-      const submit = request_id => runtime.tasks.command({ type: 'submit', project_id: project.id,
-        request_id, business_type: 'project-summary', target_id: project.id, action: 'regenerate' });
+      await runtime.bindings.bind(session, project.basic_info.id);
+      const submit = request_id => runtime.tasks.command({ type: 'submit', project_id: project.basic_info.id,
+        request_id, business_type: 'project-summary', target_id: project.basic_info.id, action: 'regenerate' });
       try {
-        if (state === 'queued') await seedQueuedTasks(model, [['project-summary',project.id]]);
+        if (state === 'queued') await seedQueuedTasks(model, [['project-summary',project.basic_info.id]]);
         if (state === 'running') await submit('before-delete');
         if (state === 'running') await entered;
-        const deletion = runtime.projectCommand({ type: 'delete', project_id: project.id }, session);
+        const deletion = runtime.projectCommand({ type: 'delete', project_id: project.basic_info.id }, session);
         if (state === 'running') {
           await cancelled;
           assert.equal(signal.aborted, true);
@@ -585,9 +510,9 @@ describe("project-delete-runtime", () => {
         }
         assert.deepEqual(await deletion, { deleted: true });
         assert.equal(await runtime.bindings.projectForSession(session), null);
-        await assert.rejects(runtime.repository.open(project.id), /不存在/);
+        await assert.rejects(runtime.repository.open(project.basic_info.id), /不存在/);
         await assert.rejects(model.update('late-write', {}, () => ({})), /不存在/);
-        assert.deepEqual((await runtime.repository.list()).map(p => p.id), [other.id]);
+        assert.deepEqual((await runtime.repository.list()).map(p => p.id), [other.basic_info.id]);
       } finally {
         release();
         await runtime.dispose();

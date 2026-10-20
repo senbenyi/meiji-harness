@@ -1,3 +1,4 @@
+import { currentScript } from '../../shared/script-text.js';
 import { prepareContent } from './content.js';
 import { taskNodeInput } from './node-inputs.js';
 
@@ -15,7 +16,7 @@ export function createTextHandler({ ai, readLanguage = async () => 'zh-CN' }) {
       throw error;
     }
     if (step.kind === 'review') return task.business_type === 'script-review'
-      ? {...response,content:draft ?? {body:snapshot.project.script.body}} : response;
+      ? {...response,content:draft ?? {body:currentScript(snapshot.project)}} : response;
     try { return { ...response, content: prepareContent(snapshot, task, response.result) }; }
     catch (error) {
       if (error.code === 'INVALID_CONTRACT')

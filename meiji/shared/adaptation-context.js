@@ -1,4 +1,4 @@
-import { scriptText } from './script-text.js';
+import {scriptText, currentScript } from './script-text.js';
 
 // 正文从改编小段派生，规划文本独立保存在 episode.plot。
 export function adaptedStory(episode) {
@@ -10,7 +10,7 @@ export function adaptationContext(project, episode) {
   const episodes = [...project.episodes].sort((a, b) => a.sequence - b.sequence);
   const index = episodes.findIndex(item => item.id === episode.id), previous = episodes[index - 1];
   return {
-    script: scriptText(project.script.body),
+    script: scriptText(currentScript(project)),
     episodes: episodes.map(item => ({ sequence: item.sequence, plot: item.plot, duration_seconds: item.duration_seconds })),
     previous: previous ? {
       sequence: previous.sequence,

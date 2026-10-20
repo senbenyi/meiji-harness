@@ -10,7 +10,7 @@ export const blankCharacter = () => ({
 export function addCharacter(root, env) {
   return editor(root, "添加角色", blankCharacter(), (character) =>
     env.act({ type: "manual-edit", business_type: "project-characters",
-      target_id: env.p.id, content: { characters: [character] } }),
+      target_id: env.p.basic_info.id, content: { characters: [character] } }),
   );
 }
 export function renderResource(root, env) {
@@ -119,7 +119,7 @@ export function renderResource(root, env) {
     const clothesHead = element("div", "", "image-text-head");
     clothesHead.append(element("h4", "服装"), button("＋ 添加服装", () =>
       editor(root, "添加服装", { name: "", color: "", material: "", props: [] }, (outfit) =>
-        act({ type: "manual-edit", business_type: "project-characters", target_id: p.id,
+        act({ type: "manual-edit", business_type: "project-characters", target_id: p.basic_info.id,
           content: { characters: [{ ...Object.fromEntries(Object.keys(blankCharacter()).filter((key) => key !== "costumes").map((key) => [key, character[key]])), costumes: [outfit] }] } }),
       ),
     ));

@@ -238,10 +238,10 @@ describe("split-feedback", () => {
       try {
         globalThis.document = dom.window.document;
         const s = snapshotFixture(), root = document.querySelector('main');
-        s.project.creation_mode = '剧本';
+        s.project.basic_info.creation_mode = '剧本';
         s.tasks = [
-          { id: 'old', business_type: 'script-split', target_id: s.project.id, task_status: 'failed', end_reason: '旧错误', queue_order: 1 },
-          { id: 'new', business_type: 'script-split', target_id: s.project.id, task_status: status, end_reason: status === 'failed' ? '模型没有返回有效JSON' : '', queue_order: 2 },
+          { id: 'old', business_type: 'script-split', target_id: s.project.basic_info.id, task_status: 'failed', end_reason: '旧错误', queue_order: 1 },
+          { id: 'new', business_type: 'script-split', target_id: s.project.basic_info.id, task_status: status, end_reason: status === 'failed' ? '模型没有返回有效JSON' : '', queue_order: 2 },
         ];
         const view = { page: 'overview' }, context = { session_id: 'session-test', view, refresh: async () => {}, paint: () => {}, onError: () => {} };
         renderTaskPanel(root, s, context);
@@ -283,10 +283,10 @@ describe("split-feedback", () => {
     };
     try {
       const s = snapshotFixture(), root = document.querySelector('main');
-      s.project.creation_mode = '剧本';
+      s.project.basic_info.creation_mode = '剧本';
       s.project.episodes = [];
       const reason = '第1集超过容量上限';
-      s.tasks = [{ id: 'split-rejected', business_type: 'script-split', target_id: s.project.id, task_status: 'rejected', end_reason: reason, queue_order: 1 }];
+      s.tasks = [{ id: 'split-rejected', business_type: 'script-split', target_id: s.project.basic_info.id, task_status: 'rejected', end_reason: reason, queue_order: 1 }];
       s.steps = [{ id: 'review', task_id: 'split-rejected', seq: 2, kind: 'review', step_status: 'rejected', result: { 是否通过: false, 类型: '模型问题', 原因: reason } }];
       const view = { page: 'overview' };
       renderTaskPanel(root, s, { session_id: 'session-test', view, refresh: async () => {}, paint: () => {}, onError: (message) => { throw new Error(message); } });
@@ -309,7 +309,7 @@ describe("split-feedback", () => {
       await new Promise((resolve) => setImmediate(resolve));
       assert.equal(commands.at(-1).business_type, 'script-split');
       assert.equal(commands.at(-1).action, 'revise');
-      assert.equal(commands.at(-1).target_id, s.project.id);
+      assert.equal(commands.at(-1).target_id, s.project.basic_info.id);
       assert.equal(commands.at(-1).opinion, `${reason}\n再提前一集`);
     } finally {
       globalThis.document = previous.document;

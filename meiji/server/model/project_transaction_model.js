@@ -12,7 +12,7 @@ export class ProjectModel {
     this.#history = history;
   }
   get id() {
-    return this.#read().project.id;
+    return this.#read().project.basic_info.id;
   }
   read() {
     return structuredClone(this.#read());

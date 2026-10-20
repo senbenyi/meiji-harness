@@ -221,7 +221,7 @@ describe("node-rules", () => {
     Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: async value => { copies.push(value); } } } });
     try {
       const snapshot = snapshotFixture(), p = snapshot.project, e = p.episodes[0], shot = e.shot_list.shots[1];
-      p.creation_mode = '剧本';
+      p.basic_info.creation_mode = '剧本';
       e.episode_requirements = '本集补充哨兵';
       const person = emptyCharacterModel({ name: '甲' }); p.character_library.characters.push(person);
       snapshot.tasks.push({ business_type: 'outline', target_id: e.id, task_status: 'running', queue_order: 9 });
@@ -235,7 +235,7 @@ describe("node-rules", () => {
       const context = { session_id: 'session-test', view, refresh: async () => {}, onError: assert.fail,
         paint: () => renderTaskPanel(root, snapshot, context) };
       const cases = [
-        ['overview', {}, ['project-summary', 'project-characters']],
+        ['overview', {}, ['script-review', 'project-characters']],
         ['episode', { episode_id: e.id, shot_id: null, tab: 'script' }, ['outline', 'episode-summary']],
         ['episode', { episode_id: e.id, shot_id: null, tab: 'shots' }, ['shots']],
         ['episode', { episode_id: e.id, shot_id: shot.id, tab: 'film' }, ['seconds', 'storyboard', 'video']],
@@ -296,10 +296,10 @@ describe("node-rules", () => {
     const dom = new JSDOM('<main></main>'), previous = { document: globalThis.document, fetch: globalThis.fetch };
     globalThis.document = dom.window.document;
     try {
-      const snapshot = snapshotFixture(); snapshot.project.creative_direction = '';
+      const snapshot = snapshotFixture(); snapshot.project.basic_info.creative_requirements = '';
       let attempts = 0;
       globalThis.fetch = async () => { if (++attempts === 1) throw Error('网络暂不可用'); return { ok: true, json: async () => nodeRules('project-summary') }; };
-      const root = document.querySelector('main'), context = { session_id: 's', view: { page: 'skill', rule_business: 'project-summary', rule_target: snapshot.project.id }, paint: () => {}, onError: assert.fail };
+      const root = document.querySelector('main'), context = { session_id: 's', view: { page: 'skill', rule_business: 'project-summary', rule_target: snapshot.project.basic_info.id }, paint: () => {}, onError: assert.fail };
       renderTaskPanel(root, snapshot, context); await settle();
       assert.match(root.textContent, /网络暂不可用/);
       [...root.querySelectorAll('button')].find(b => b.textContent === '重新加载').click(); await settle();

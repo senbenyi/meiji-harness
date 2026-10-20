@@ -19,11 +19,11 @@ import { shotsBudget } from "../server/prompts/duration-policy.js";
 
 describe("outline-inputs", () => {
   function fixture(mode, action = "generate") {
-    const p = emptyProject({ name: "剧情独立输入", creation_mode: mode });
+    const p = emptyProject({ basic_info: { name: "剧情独立输入", creation_mode: mode } });
     const e = emptyEpisode({ duration_seconds: 10 });
     p.episodes = [e];
-    if (mode === "剧本") p.script.body = e.plot = "林峥醒来，发现自己成为武松。";
-    else { p.creative_direction = "方向哨兵，不得代替剧情"; e.plot = "少年在雨夜的未来都市找到兄长留下的红色纸条。"; }
+    if (mode === "剧本") p.script_revision.body = e.plot = "林峥醒来，发现自己成为武松。";
+    else { p.basic_info.creative_requirements = "方向哨兵，不得代替剧情"; e.plot = "少年在雨夜的未来都市找到兄长留下的红色纸条。"; }
     if (action === "regenerate") e.story_outline = { ...e.story_outline,
       node_state: { status: "generated", reason: "", dependency_hash: "" }, segments: [{ sequence: 1, duration_seconds: 10, body: "已有剧情", causal: "" }],
     };
@@ -56,13 +56,13 @@ describe("outline-inputs", () => {
             return expanded;
           } }),
         });
-        const result = await service.command({ type: "submit", project_id: p.id, request_id: "expand", business_type: "outline", target_id: e.id, action: "generate" });
-        await service.idle(p.id);
+        const result = await service.command({ type: "submit", project_id: p.basic_info.id, request_id: "expand", business_type: "outline", target_id: e.id, action: "generate" });
+        await service.idle(p.basic_info.id);
         const saved = model.readAll();
         assert.equal(saved.tasks.find(task => task.id === result.task_id).task_status, "completed");
         assert.equal(reviewed, true);
         assert.equal(saved.project.episodes[0].plot, e.plot);
-        assert.equal(saved.project.script.body, p.script.body);
+        assert.equal(saved.project.script_revision.body, p.script_revision.body);
         assert.equal(saved.project.episodes[0].duration_seconds, 180);
         assert.deepEqual(saved.project.episodes[0].story_outline.segments, expanded.segments);
       } finally { await rm(root, { recursive: true, force: true }); }
@@ -76,8 +76,8 @@ describe("outline-inputs", () => {
       }
       p.episodes[0].plot = " \n ";
       p.project_summary = { ...p.project_summary, node_state: { status: "generated", reason: "", dependency_hash: "" }, body: "有效摘要不能替代必需输入", script_version: 1 };
-      if (mode === "剧本") p.creative_direction = "不能替代剧本";
-      else p.script.body = "不能替代创作方向";
+      if (mode === "剧本") p.basic_info.creative_requirements = "不能替代剧本";
+      else p.script_revision.body = "不能替代创作方向";
       assert.throws(() => precheck({ project: p }, task), /本集剧情为空/);
     });
 
@@ -99,9 +99,9 @@ describe("outline-inputs", () => {
                 : { segments: [{ sequence: 1, duration_seconds: 10, body: "新的剧情", causal: "" }] };
             } }) }),
           });
-          const result = await service.command({ type: "submit", project_id: p.id,
+          const result = await service.command({ type: "submit", project_id: p.basic_info.id,
             request_id: "outline", business_type: "outline", target_id: e.id, action });
-          await service.idle(p.id);
+          await service.idle(p.basic_info.id);
           const snapshot = model.readAll(), task = snapshot.tasks.find(t => t.id === result.task_id);
           assert.equal(task.task_status, "completed", task.end_reason);
           assert.deepEqual(seen, ["generate", "review"]);
@@ -133,17 +133,17 @@ describe("outline-inputs", () => {
       const root = await mkdtemp(join(tmpdir(), "meiji-outline-missing-"));
       try {
         const { p, e } = fixture(mode);
-        if (mode === "剧本") { p.episodes[0].plot = " "; p.creative_direction = "其他资料"; }
-        else { e.plot = " "; p.creative_direction = "其他资料"; }
+        if (mode === "剧本") { p.episodes[0].plot = " "; p.basic_info.creative_requirements = "其他资料"; }
+        else { e.plot = " "; p.basic_info.creative_requirements = "其他资料"; }
         p.project_summary = { ...p.project_summary, node_state: { status: "generated", reason: "", dependency_hash: "" }, body: "已有摘要", script_version: 1 };
         const repository = new ModelRepository(root), model = await repository.create(p);
         let calls = 0;
         const service = new TaskService({ repository, commitOutput: commitContent,
           execute: createTextHandler({ chat: async () => { calls++; throw new Error("不应调用模型"); } }),
         });
-        const result = await service.command({ type: "submit", project_id: p.id,
+        const result = await service.command({ type: "submit", project_id: p.basic_info.id,
           request_id: "missing", business_type: "outline", target_id: e.id, action: "generate" });
-        await service.idle(p.id);
+        await service.idle(p.basic_info.id);
         const snapshot = model.readAll(), task = snapshot.tasks.find(t => t.id === result.task_id);
         assert.equal(task.task_status, "rejected");
         assert.match(task.end_reason, /本集剧情为空/);
@@ -162,7 +162,7 @@ describe("outline-inputs", () => {
     e.story_outline.node_state.status = "generated";
     e.story_outline.segments = [{ sequence: 1, duration_seconds: 10, body: "完整故事", causal: "" }];
     stampDependencyHash({ project: p }, "outline", e.id);
-    stampDependencyHash({project:p}, "project-characters", p.id);
+    stampDependencyHash({project:p}, "project-characters", p.basic_info.id);
     p.character_library.node_state.status="generated";
     e.scene_catalog.has_result = true; e.scene_catalog.node_state.status = "generated";
     stampDependencyHash({project:p}, "episode-scenes", e.id);
@@ -171,9 +171,9 @@ describe("outline-inputs", () => {
 
 
   test("自由模式有本集剧情无需创作方向，缺少剧情不能由方向替代", () => {
-    const { p, e, task } = fixture("自由创作"); p.creative_direction = "";
+    const { p, e, task } = fixture("自由创作"); p.basic_info.creative_requirements = "";
     assert.equal(precheck({project:p},task).passed,true);
-    e.plot=""; p.creative_direction="补写另一个故事";
+    e.plot=""; p.basic_info.creative_requirements="补写另一个故事";
     assert.throws(()=>precheck({project:p},task),/本集剧情为空/);
   });
 });
@@ -202,15 +202,15 @@ describe("outline-review", () => {
     } });
     const service = new TaskService({ repository, execute: createHandlerRegistry({ text }), commitOutput: commitContent });
     try {
-      const submit = request_id => service.command({ type: "submit", project_id: project.id, request_id, business_type: "outline", target_id: episode.id, action: "regenerate" });
+      const submit = request_id => service.command({ type: "submit", project_id: project.basic_info.id, request_id, business_type: "outline", target_id: episode.id, action: "regenerate" });
       const first = await submit("outline");
-      await service.idle(project.id);
+      await service.idle(project.basic_info.id);
       const before = model.readAll();
       let second;
       if (retry) {
         retrying = true;
         second = await submit("outline-retry");
-        await service.idle(project.id);
+        await service.idle(project.basic_info.id);
       }
       return { before, after: model.readAll(), first, second, prompts, generations, aiReviews };
     } finally { await service.dispose(); await repository.close(); await rm(root, { recursive: true, force: true }); }
@@ -351,7 +351,7 @@ describe("adaptation", () => {
     const {snapshot,project,first,second}=fixture();
     const task=taskFixture(project,'outline',second.id);
     const input=taskNodeInput(snapshot,task,null,'generate');
-    assert.equal(input.script,project.script.body);assert.equal(input.sequence,2);
+    assert.equal(input.script,project.script_revision.body);assert.equal(input.sequence,2);
     assert.equal(input.episodes.length,2);assert.equal(input.plot,second.plot);
     assert.equal(input.previous.story,adaptedStory(first));
     for(const action of ['generate','regenerate','review']) {

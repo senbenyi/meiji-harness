@@ -4,7 +4,7 @@ import { shotTextInputs, characterTextCatalog } from '../../shared/shot-text-inp
 import { nodeOf, locateTarget } from '../../shared/task_contract.js';
 import { shotCharacterContext } from '../../shared/node-dependencies.js';
 import { aiProjection } from './content.js';
-import { scriptText } from '../../shared/script-text.js';
+import {scriptText, currentScript } from '../../shared/script-text.js';
 import { adaptationContext, adaptedStory } from '../../shared/adaptation-context.js';
 import { nodeAction } from '../http/ai-routes.js';
 import { reviewType } from '../../shared/task-plan.js';
@@ -60,15 +60,15 @@ function previousSplit(project) {
 
 // 各节点独立提取执行时资料；不向节点接口传入 project/snapshot。
 const inputs = {
-  'script-review': ({project}) => ({script:scriptText(project.script.body)}),
-  'project-summary': ({ project }) => ({ script: scriptText(project.script.body) }),
-  'project-characters': ({ project }) => ({ script: scriptText(project.script.body), characters: characterTextCatalog(project) }),
-  'script-split': ({ project }) => ({ script: scriptText(project.script.body), duration: project.reference_episode_duration_seconds }),
+  'script-review': ({project}) => ({script:scriptText(currentScript(project))}),
+  'project-summary': ({ project }) => ({ script: scriptText(currentScript(project)) }),
+  'project-characters': ({ project }) => ({ script: scriptText(currentScript(project)), characters: characterTextCatalog(project) }),
+  'script-split': ({ project }) => ({ script: scriptText(currentScript(project)), duration: project.basic_info.reference_episode_duration_seconds }),
   'episode-summary': ({ episode }) => ({ plot: adaptedStory(episode) || episode.plot }),
   outline: ({ project, episode }) => ({ plot: episode.plot, duration: episode.duration_seconds,
     ...adaptationContext(project, episode), sequence: episode.sequence,
     requirements: nodeRequirements(project, 'outline', episode.id) }),
-  'episode-scenes': ({project,episode}) => ({segments:episode.story_outline.segments,scenes:sceneCatalog(project),script:scriptText(project.script.body) || project.episodes.map(e=>e.plot).join('\n\n')}),
+  'episode-scenes': ({project,episode}) => ({segments:episode.story_outline.segments,scenes:sceneCatalog(project),script:scriptText(currentScript(project)) || project.episodes.map(e=>e.plot).join('\n\n')}),
   shots: ({ project, episode }) => ({ segments: episode.story_outline.segments, duration: episode.duration_seconds,
     characters: shotCharacterContext(project), scenes: sceneCatalog(project, episode) }),
   seconds: ({ project, episode, object }) => shotTextInputs(project, episode, object, 'seconds'),
@@ -128,7 +128,7 @@ export function taskNodeInput(snapshot, task, draft, action, step = {}, language
     if (business === 'episode-scenes' && action === 'review' && rejectedReviews.length)
       value.opinion = [value.opinion, '本任务此前审核记录（按先后顺序，只供核查；已解决或错误项剔除，不是新增事实或要求，改变拆并结论须给出新的具体事实）：',
         ...[...rejectedReviews].reverse().map(row => `${row.seq}. ${row.result?.原因 || row.error_reason}`)].filter(Boolean).join('\n');
-    const source = action === 'review' ? (draft ?? (business === 'script-review' ? project.script : draft)) : draft || (business === 'episode-scenes' ? {scenes:sceneCatalog(project,target.episode)} : nodeOf(project, business, task.target_id));
+    const source = action === 'review' ? (draft ?? (business === 'script-review' ? { body: currentScript(project) } : draft)) : draft || (business === 'script-review' ? {body:currentScript(project)} : business === 'episode-scenes' ? {scenes:sceneCatalog(project,target.episode)} : nodeOf(project, business, task.target_id));
     value.content = candidate(business, source);
     // 修复被拒绝的表时，审核意见指向最后失败候选，不能拿保留的旧正式表代替。
     if (business === 'shots' && action === 'regenerate' && task.action === 'revise' && !draft

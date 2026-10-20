@@ -1,3 +1,4 @@
+import { currentScript } from './script-text.js';
 import { effectiveRules, supportsRules } from './ai-node-rules.js';
 import { adaptationContext, adaptedStory } from './adaptation-context.js';
 import { sceneCatalog, sceneText, sceneImageContext } from './scene-inputs.js';
@@ -50,7 +51,7 @@ function dependencyMaterial(snapshot, business, id) {
     return copy;
   };
   if (["script-review", "project-summary", "project-characters"].includes(business))
-    return { 剧本正文: project.script.body };
+    return { 剧本正文: currentScript(project) };
   if (business === "character-image") {
     const character = locateTarget(project, business, id).character;
     return dependencyMaterial(snapshot, "costume-image", character.costumes[0]?.id || character.id);
@@ -67,15 +68,15 @@ function dependencyMaterial(snapshot, business, id) {
   }
   if (business === 'episode-scenes') {
     const e = locateTarget(project,business,id).episode;
-    return { segments:e.story_outline.segments, script:project.script.body || project.episodes.map(e=>e.plot).join('\n\n'), upstream:upstream('outline',id) };
+    return { segments:e.story_outline.segments, script:currentScript(project) || project.episodes.map(e=>e.plot).join('\n\n'), upstream:upstream('outline',id) };
   }
-  if (business === 'scene-image') return { scene:sceneText(locateTarget(project,business,id).object), context:sceneImageContext(project,id), requirements:project.creative_direction };
+  if (business === 'scene-image') return { scene:sceneText(locateTarget(project,business,id).object), context:sceneImageContext(project,id), requirements:project.basic_info.creative_requirements };
   if (business === "episode-summary")
     return { 剧情: adaptedStory(locateTarget(project, business, id).episode) || locateTarget(project, business, id).episode.plot };
   if (business === "outline") {
     const episode = locateTarget(project, business, id).episode;
     return { ...adaptationContext(project, episode), 本集规划: episode.plot, 本集序号: episode.sequence, 参考时长秒: episode.duration_seconds,
-      requirements: [project.creative_direction, episode.episode_requirements].filter(Boolean).join('\n') };
+      requirements: [project.basic_info.creative_requirements, episode.episode_requirements].filter(Boolean).join('\n') };
   }
   if (business === "shots") {
     const episode = locateTarget(project, business, id).episode;
@@ -94,14 +95,14 @@ function dependencyMaterial(snapshot, business, id) {
   }
   if (['seconds', 'storyboard'].includes(business)) {
     const { episode, object } = locateTarget(project, business, id);
-    return { ...shotTextInputs(project, episode, object, business), requirements: project.creative_direction,
+    return { ...shotTextInputs(project, episode, object, business), requirements: project.basic_info.creative_requirements,
       upstream: business === 'seconds' ? upstream('shots', episode.id) : upstream('seconds', id) };
   }
   if (['video', 'first-last-frame', 'multimodal'].includes(business)) {
     const { object: shot, episode } = locateTarget(project, business, id);
     const type = videoType(project, episode, shot), previous = previousShot(episode, shot);
     const pack = videoPack(type);
-    return { type, duration: shot.duration_seconds, aspectRatio: project.aspect_ratio,
+    return { type, duration: shot.duration_seconds, aspectRatio: project.basic_info.aspect_ratio,
       ...(business === 'video' && videoSpeechTiming(shot).length ? {speechTiming:videoSpeechTiming(shot)} : {}),
       prompt: body(shot.text_to_video_prompt), upstream: upstream('storyboard', id),
       ...(type === '多模态' ? { images: videoImages(project, shot).map(({ id, image }) => ({ id, address: image?.address || '', hash: image?.node_state.dependency_hash || '' })) } : {}),
@@ -219,7 +220,7 @@ export function downstream(snapshot, business, id) {
     { ...one("shots", episode.id), context_only: true },
     ...episode.shot_list.shots.flatMap(shot => ['seconds', 'storyboard'].map(business => ({ ...one(business, shot.id), context_only: true }))),
   ]);
-  if (["script", "script-review"].includes(business)) return [one("project-summary", p.id), one("project-characters", p.id), ...p.episodes.map(episode => ({ ...one("outline", episode.id), context_only: true }))];
+  if (["script", "script-review"].includes(business)) return [one("project-summary", p.basic_info.id), one("project-characters", p.basic_info.id), ...p.episodes.map(episode => ({ ...one("outline", episode.id), context_only: true }))];
   // 本集规划不是节点，改动后按全集上下文检查各集改编的依赖。
   if (business === "episode-plot")
     return [one("episode-summary", id), ...p.episodes.map(episode => ({ ...one('outline', episode.id), context_only: true }))];

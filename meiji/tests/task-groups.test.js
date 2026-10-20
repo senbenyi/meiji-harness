@@ -30,19 +30,19 @@ describe("history-groups", () => {
     return{content:{address:'image.png'}};
    }});
    try {
-    await service.command({type:'submit',project_id:p.id,request_id:'extract-rejected',business_type:'project-characters',target_id:p.id,action:'generate'});
-    await service.idle(p.id);const before=model.readAll(),original=before.groups[0];
+    await service.command({type:'submit',project_id:p.basic_info.id,request_id:'extract-rejected',business_type:'project-characters',target_id:p.basic_info.id,action:'generate'});
+    await service.idle(p.basic_info.id);const before=model.readAll(),original=before.groups[0];
     assert.equal(before.tasks[0].task_status,'rejected');
-    const waiting=await service.command({type:'submit',project_id:p.id,request_id:'other',business_type:'project-summary',target_id:p.id,action:'regenerate'},{source:'session',session_id:'s'});
+    const waiting=await service.command({type:'submit',project_id:p.basic_info.id,request_id:'other',business_type:'project-summary',target_id:p.basic_info.id,action:'regenerate'},{source:'session',session_id:'s'});
     await entered;
-    const pending=await service.command({type:'continue-group',project_id:p.id,request_id:'waiting-resume',group_id:original.id});
+    const pending=await service.command({type:'continue-group',project_id:p.basic_info.id,request_id:'waiting-resume',group_id:original.id});
     assert.ok(model.readAll().tasks.filter(t=>t.group_id===pending.group_id).every(t=>t.task_status==='queued'));
     assert.equal(model.readAll().groups.length,3);
-    await service.command({type:'cancel',project_id:p.id,request_id:'remove',task_id:waiting.task_id});
-    release(); await service.idle(p.id);
+    await service.command({type:'cancel',project_id:p.basic_info.id,request_id:'remove',task_id:waiting.task_id});
+    release(); await service.idle(p.basic_info.id);
     reject=false;
-    const next=await service.command({type:'continue-group',project_id:p.id,request_id:'resume',group_id:original.id});
-    await service.idle(p.id);
+    const next=await service.command({type:'continue-group',project_id:p.basic_info.id,request_id:'resume',group_id:original.id});
+    await service.idle(p.basic_info.id);
     assert.equal(groupDetail(full(model),next.group_id).status,'completed');
     assert.equal(opinions.at(-1),'遗漏角色');
     assert.deepEqual(model.readAll().tasks[0],before.tasks[0]);
@@ -51,12 +51,12 @@ describe("history-groups", () => {
 
   test('独立任务持久化单组及三级名称，重命名项目不改历史名称',()=>fixture(async({p,repository,model,root})=>{
    const service=new TaskService({repository,commitOutput:commitContent,execute:async({step})=>step.kind==='review'?{result:{是否通过:true, "类型": "",原因:''}}:{content:{body:'摘要'}}});
-   const result=await service.command({type:'submit',project_id:p.id,request_id:'one',business_type:'project-summary',target_id:p.id,action:'regenerate'});
-   await service.idle(p.id);const before=model.readAll();assert.equal(before.groups.length,1);assert.equal(before.groups[0].group_type,'single');
+   const result=await service.command({type:'submit',project_id:p.basic_info.id,request_id:'one',business_type:'project-summary',target_id:p.basic_info.id,action:'regenerate'});
+   await service.idle(p.basic_info.id);const before=model.readAll();assert.equal(before.groups.length,1);assert.equal(before.groups[0].group_type,'single');
    assert.equal(before.tasks[0].task_status,'completed');assert.ok(before.groups[0].name);assert.ok(before.tasks[0].name);assert.ok(before.steps.every(s=>s.name));
-   await model.update('rename',{rename:true},s=>{s.project.name='新项目名';return {};});
+   await model.update('rename',{rename:true},s=>{s.project.basic_info.name='新项目名';return {};});
    assert.deepEqual(model.readAll().tasks,before.tasks);
-   const restored=await new ModelRepository(root).open(p.id);assert.deepEqual(restored.readAll().groups,before.groups);
+   const restored=await new ModelRepository(root).open(p.basic_info.id);assert.deepEqual(restored.readAll().groups,before.groups);
    assert.equal(groupDetail(full(restored),before.tasks[0].group_id).steps.length,3);
    assert.equal(result.task_id,before.tasks[0].id);
   }));
@@ -70,20 +70,20 @@ describe("history-groups", () => {
     return{content:{address:'image.png'}};
    }});
    try {
-    await service.command({type:'submit',project_id:p.id,request_id:'extract',business_type:'project-characters',target_id:p.id,action:'generate'});
-    await service.idle(p.id);
+    await service.command({type:'submit',project_id:p.basic_info.id,request_id:'extract',business_type:'project-characters',target_id:p.basic_info.id,action:'generate'});
+    await service.idle(p.basic_info.id);
     assert.equal(model.readAll().tasks.length,1);
     const character=model.readAll().project.character_library.characters[0];
-    const request={type:'submit-costumes',project_id:p.id,request_id:'pictures',target_id:character.id,action:'generate'};
+    const request={type:'submit-costumes',project_id:p.basic_info.id,request_id:'pictures',target_id:character.id,action:'generate'};
     const pictures=await service.command(request);
     assert.deepEqual(await service.command(request),pictures);
-    await service.idle(p.id);const before=model.readAll();
+    await service.idle(p.basic_info.id);const before=model.readAll();
     assert.equal(before.groups.length,2);
     assert.deepEqual(before.tasks.map(t=>t.task_status),['completed','failed','cancelled']);
     assert.equal(groupDetail(full(model),pictures.group_id).status,'failed');
-    fail=false;const result=await service.command({type:'continue-group',project_id:p.id,request_id:'again',group_id:pictures.group_id});
+    fail=false;const result=await service.command({type:'continue-group',project_id:p.basic_info.id,request_id:'again',group_id:pictures.group_id});
     assert.notEqual(result.group_id,pictures.group_id);assert.equal(result.task_ids.length,2);
-    await service.idle(p.id);
+    await service.idle(p.basic_info.id);
     assert.deepEqual(model.readAll().tasks.slice(0,3),before.tasks);
     assert.equal(groupDetail(full(model),result.group_id).status,'completed');
     assert.ok(model.readAll().project.character_library.characters[0].costume_images.every(image=>image.address));
@@ -96,9 +96,9 @@ describe("history-groups", () => {
    await model.update('role',{},s=>{s.project.character_library.characters=[character];});
    const service=new TaskService({repository,commitOutput:commitContent,execute:async()=>{throw Error('不应执行');}});
    try{
-    const cmd={type:'submit',project_id:p.id,request_id:'one',business_type:'costume-image',target_id:character.id,action:'generate'};
+    const cmd={type:'submit',project_id:p.basic_info.id,request_id:'one',business_type:'costume-image',target_id:character.id,action:'generate'};
     await service.command(cmd,{source:'session',session_id:'s'});
-    await assert.rejects(service.command({type:'submit-costumes',project_id:p.id,request_id:'group',target_id:character.id,action:'generate'}),/未结束任务/);
+    await assert.rejects(service.command({type:'submit-costumes',project_id:p.basic_info.id,request_id:'group',target_id:character.id,action:'generate'}),/未结束任务/);
     await assert.rejects(service.command({...cmd,business_type:'character-image',request_id:'retired'}),/独立角色图已移除/);
     assert.equal(model.readAll().tasks.length,1);
    }finally{await service.dispose();}
@@ -108,7 +108,7 @@ describe("history-groups", () => {
 describe("task-groups", () => {
   const group = (p) => ({
     type: "submit-group",
-    project_id: p.id,
+    project_id: p.basic_info.id,
     request_id: "group",
     group_type: "episode-seconds",
     action: "regenerate",
@@ -136,7 +136,7 @@ describe("task-groups", () => {
                 },
         });
       const result = await service.command(group(p));
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       const before = model.readAll();
       assert.equal(before.tasks[0].task_status, "rejected");
       assert.equal(before.tasks[1].task_status, "cancelled");
@@ -147,7 +147,7 @@ describe("task-groups", () => {
       fail = false;
       const next = await service.command({
         type: "continue-group",
-        project_id: p.id,
+        project_id: p.basic_info.id,
         request_id: "continue",
         group_id: result.group_id,
       });
@@ -159,7 +159,7 @@ describe("task-groups", () => {
         "regenerate",
       );
       // 面板继续直接执行新组，无需再次点击开始。
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       assert.deepEqual(model.readAll().tasks.slice(0, 2), before.tasks);
       assert.deepEqual(model.readAll().groups[0], before.groups[0]);
       assert.equal(model.readAll().tasks[2].task_status, "completed");
@@ -194,7 +194,7 @@ describe("task-groups", () => {
       assert.equal(model.readAll().groups.length, before);
       assert.equal(model.readAll().tasks.length, 2);
       release();
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -224,13 +224,13 @@ describe("task-groups", () => {
       });
       const first = await service.command({
         type: "submit-group",
-        project_id: p.id,
+        project_id: p.basic_info.id,
         request_id: "first",
         group_type: "episode-film",
         action: "regenerate",
         episode_id: p.episodes[0].id,
       });
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       assert.equal(model.readAll().tasks[0].end_reason, "模拟上游失败");
       assert.equal(
         model.readAll().project.episodes[0].shot_list.shots[0].video.node_state.status,
@@ -238,7 +238,7 @@ describe("task-groups", () => {
       );
       const next = await service.command({
         type: "continue-group",
-        project_id: p.id,
+        project_id: p.basic_info.id,
         request_id: "continue",
         group_id: first.group_id,
       });
@@ -264,9 +264,9 @@ describe("task-groups", () => {
         step.kind === "review" ? { result: { 是否通过: false, "类型": "模型问题", 原因: "停点审核拒绝" } }
           : task.business_type === "shot-characters" ? { content: { has_result: true, on_screen_characters: [] } } : { content: { storyboard: structuredClone(nodeOf(snapshot.project, "seconds", task.target_id).storyboard) } } });
       const first = await service.command({ ...group(p), opinion: "旧组意见" });
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       const before = model.readAll();
-      const continued = await service.command({ type: "continue-group", project_id: p.id, request_id: "resume", group_id: first.group_id });
+      const continued = await service.command({ type: "continue-group", project_id: p.basic_info.id, request_id: "resume", group_id: first.group_id });
       const current = model.readAll(), tasks = current.tasks.filter(t => t.group_id === continued.group_id), nextGroup = current.groups.find(g => g.id === continued.group_id);
       assert.equal(tasks[0].opinion, before.tasks.find(t => t.end_reason.includes("停点审核拒绝")).end_reason);
       assert.match(tasks[0].opinion, /停点审核拒绝/);

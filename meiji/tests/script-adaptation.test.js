@@ -19,77 +19,77 @@ const opinion='将哥伦比亚炮改为哥伦比亚号探月器，按新用途�
 const original='哥伦比亚炮竖直安放，炮弹从炮口装入。旅行者准备出发。';
 const adapted='哥伦比亚号探月器停在发射场，旅行者沿舷梯进入舱门，检查探月航线。';
 const passed={是否通过:true,类型:'',原因:''};
-function fixture(){const p=projectFixture();p.script.body=original;for(const b of ['script-review','project-summary','project-characters'])stampDependencyHash({project:p},b,p.id);for(const e of p.episodes)stampDependencyHash({project:p},'outline',e.id);return p;}
-async function run(gateway,fn){const home=await mkdtemp(join(tmpdir(),'meiji-script-adapt-'));let runtime;try{runtime=await createAppRuntime({home,gateway});const p=fixture(),model=await runtime.repository.create(p);const submit=async(action,opinion='')=>{const result=await runtime.tasks.command({type:'submit',project_id:p.id,business_type:'script-review',target_id:p.id,action,opinion,request_id:crypto.randomUUID()});await runtime.tasks.idle(p.id);const s=model.readAll();return{s,task:s.tasks.find(t=>t.id===result.task_id)};};await fn({p,model,runtime,submit});}finally{await runtime?.dispose();await rm(home,{recursive:true,force:true});}}
+function fixture(){const p=projectFixture();p.basic_info.original_script=original;p.script_revision.body=original;for(const b of ['script-review','project-summary','project-characters'])stampDependencyHash({project:p},b,p.basic_info.id);for(const e of p.episodes)stampDependencyHash({project:p},'outline',e.id);return p;}
+async function run(gateway,fn){const home=await mkdtemp(join(tmpdir(),'meiji-script-adapt-'));let runtime;try{runtime=await createAppRuntime({home,gateway});const p=fixture(),model=await runtime.repository.create(p);const submit=async(action,opinion='')=>{const result=await runtime.tasks.command({type:'submit',project_id:p.basic_info.id,business_type:'script-review',target_id:p.basic_info.id,action,opinion,request_id:crypto.randomUUID()});await runtime.tasks.idle(p.basic_info.id);const s=model.readAll();return{s,task:s.tasks.find(t=>t.id===result.task_id)};};await fn({p,model,runtime,submit});}finally{await runtime?.dispose();await rm(home,{recursive:true,force:true});}}
 
-test('完整改编任务携带意见及来源，审核后保存全文、版本历史并使下游过期',async()=>{
+test('完整改编任务保存当前优化稿及意见，原稿保持不变并使下游过期',async()=>{
  const calls=[];await run({chat:async options=>{calls.push(options);return options.step.kind==='review'?passed:adapted;}},async({p,submit})=>{
   const before=structuredClone(p),{s,task}=await submit('revise',opinion);
   assert.equal(task.task_status,'completed',task.end_reason);assert.equal(calls.length,2);
   assert.equal(calls[0].trace.input.content,original);assert.equal(calls[0].trace.input.opinion,opinion);
   assert.equal(calls[1].trace.input.content,adapted);assert.equal(calls[1].trace.input.script,original);assert.equal(calls[1].trace.input.opinion,opinion);
-  assert.equal(s.project.script.body,adapted);assert.equal(s.project.script.version,before.script.version+1);
-  assert.equal(s.project.script.revision_history.at(-1).task_id,task.id);assert.equal(s.project.script.revision_history.at(-1).revision_notes,opinion);
-  assert.ok(s.project.script.updated_at);assert.equal(s.project.script.node_state.status,'generated');
+  assert.equal(s.project.script_revision.body,adapted);assert.equal(s.project.basic_info.original_script,original);
+  assert.equal(s.project.script_revision.opinion,opinion);assert.deepEqual(Object.keys(s.project.script_revision).sort(),["body","node_state","opinion","rules"]);
+  assert.equal(s.project.script_revision.node_state.status,'generated');
   assert.equal(s.project.project_summary.node_state.status,'expired');assert.equal(s.project.character_library.node_state.status,'expired');
   assert.equal(s.project.episodes[0].story_outline.node_state.status,'expired');
   assert.equal(s.project.episodes[0].shot_list.shots[0].video.address,before.episodes[0].shot_list.shots[0].video.address);
   assert.equal(s.project.episodes[0].id,before.episodes[0].id);
-  const next=taskNodeInput(s,taskFixture(s.project,'script-split',p.id),null,'generate');assert.equal(next.script,adapted);
+  const next=taskNodeInput(s,taskFixture(s.project,'script-split',p.basic_info.id),null,'generate');assert.equal(next.script,adapted);
  });
 });
 
-test('只审核不会生成或改写，拒绝后也不自动修订，重新审核通过保持版本及下游有效',async()=>{
+test('只审核不会生成或改写，拒绝后也不自动修订，重新审核通过保持原稿、优化稿及下游有效',async()=>{
  let reject=true,calls=0;await run({chat:async({step,trace})=>{calls++;assert.equal(step.kind,'review');assert.equal(trace.input.content,original);return reject?{是否通过:false,类型:'模型问题',原因:'当前正文设施操作前后冲突，请按意见改编。'}:passed;}},async({p,submit})=>{
-  const before=structuredClone(p.script);let result=await submit('generate');assert.equal(result.task.task_status,'rejected');assert.equal(calls,1);
-  assert.equal(result.s.project.script.body,before.body);assert.equal(result.s.project.script.version,before.version);assert.deepEqual(result.s.project.script.revision_history,before.revision_history);
+  const before=structuredClone(p.script_revision);let result=await submit('generate');assert.equal(result.task.task_status,'rejected');assert.equal(calls,1);
+  assert.equal(result.s.project.script_revision.body,before.body);assert.equal(result.s.project.basic_info.original_script,original);assert.equal(result.s.project.script_revision.opinion,before.opinion);
   assert.equal(result.s.steps.filter(st=>st.task_id===result.task.id&&['generate','revise'].includes(st.kind)).length,0);
   reject=false;result=await submit('regenerate');assert.equal(result.task.task_status,'completed',result.task.end_reason);assert.equal(calls,2);
-  assert.equal(result.s.project.script.body,before.body);assert.equal(result.s.project.script.version,before.version);
-  assert.equal(isNodeCurrent(result.s,'project-summary',p.id),true);assert.equal(isNodeCurrent(result.s,'project-characters',p.id),true);
+  assert.equal(result.s.project.script_revision.body,before.body);assert.equal(result.s.project.basic_info.original_script,original);
+  assert.equal(isNodeCurrent(result.s,'project-summary',p.basic_info.id),true);assert.equal(isNodeCurrent(result.s,'project-characters',p.basic_info.id),true);
  });
 });
 
-test('改编审核拒绝后以最新候选自动修订，执行意见始终保留，最终只记一次正文版本',async()=>{
+test('改编审核拒绝后以最新候选自动修订，执行意见始终保留，最终保存当前优化稿且原稿不变',async()=>{
  let reviews=0;const drafts=[];await run({chat:async({step,trace})=>{
   if(step.kind==='review')return ++reviews===1?{是否通过:false,类型:'模型问题',原因:'探月器操作仍有旧设定，请检查当前候选。'}:passed;
   drafts.push(trace.input);return drafts.length===1?'哥伦比亚号探月器等待炮口装填。':adapted;
- }},async({p,submit})=>{const {s,task}=await submit('revise',opinion);assert.equal(task.task_status,'completed',task.end_reason);assert.equal(drafts.length,2);assert.equal(drafts[1].content,'哥伦比亚号探月器等待炮口装填。');assert.ok(drafts[1].opinion.includes(opinion));assert.match(drafts[1].opinion,/旧设定/);assert.equal(s.project.script.version,p.script.version+1);assert.equal(s.project.script.revision_history.length,p.script.revision_history.length+1);});
+ }},async({p,submit})=>{const {s,task}=await submit('revise',opinion);assert.equal(task.task_status,'completed',task.end_reason);assert.equal(drafts.length,2);assert.equal(drafts[1].content,'哥伦比亚号探月器等待炮口装填。');assert.ok(drafts[1].opinion.includes(opinion));assert.match(drafts[1].opinion,/旧设定/);assert.equal(s.project.script_revision.body,adapted);assert.equal(s.project.basic_info.original_script,original);assert.equal(s.project.script_revision.opinion,opinion);});
 });
 
 test('改编与规划补充规则独立，基础仅由代码维护，三动作约束共享且授权设定优先',async()=>{
  await run({chat:async()=>passed},async({p,model,runtime})=>{
-  const planning=structuredClone(p.script.rules),sid=`session-${crypto.randomUUID()}`;await runtime.bindings.bind(sid,p.id);
-  for(const action of ['generate','review','revise'])await runtime.projectCommand({type:'edit-rule',project_id:p.id,business_type:'script-review',target_id:p.id,action,field:'supplement',value:`独立改编_${action}`,request_id:crypto.randomUUID()},sid,'panel');
-  const s=model.readAll();assert.deepEqual(s.project.script.rules,planning);
-  assert.equal(ruleNode(s.project,'script-review',p.id).rules.review.supplement,'独立改编_review');
+  const planning=structuredClone(p.story_segments.rules),sid=`session-${crypto.randomUUID()}`;await runtime.bindings.bind(sid,p.basic_info.id);
+  for(const action of ['generate','review','revise'])await runtime.projectCommand({type:'edit-rule',project_id:p.basic_info.id,business_type:'script-review',target_id:p.basic_info.id,action,field:'supplement',value:`独立改编_${action}`,request_id:crypto.randomUUID()},sid,'panel');
+  const s=model.readAll();assert.deepEqual(s.project.story_segments.rules,planning);
+  assert.equal(ruleNode(s.project,'script-review',p.basic_info.id).rules.review.supplement,'独立改编_review');
   for(const action of ['generate','review','regenerate']){
-   const task=taskFixture(s.project,'script-review',p.id,{action:'revise',opinion});
+   const task=taskFixture(s.project,'script-review',p.basic_info.id,{action:'revise',opinion});
    const prompt=composeNodePrompt('script-review',action,taskNodeInput(s,task,{body:original},action),'codex-gpt');
    assert.match(prompt.system,/明确授权的设定变化优先于旧剧本/);assert.match(prompt.system,/不能只换名称/);
    assert.ok(prompt.system.includes(`独立改编_${action==='regenerate'?'revise':action}`));
    assert.equal(prompt.system.split('专用设施不能套成外观相似的普通物件').length,2);
   }
-  await assert.rejects(runtime.projectCommand({type:'sync-base-rules',project_id:p.id,business_type:'script-review',target_id:p.id,request_id:crypto.randomUUID()},sid,'panel'),/已移除同步操作/);
-  const current=model.readAll().project;assert.deepEqual(current.script.rules,planning);assert.equal(current.script.adaptation_rules.revise.supplement,'独立改编_revise');assert.equal(current.script.adaptation_rules.revise.base,defaultRules('script-review').revise.base);
+  await assert.rejects(runtime.projectCommand({type:'sync-base-rules',project_id:p.basic_info.id,business_type:'script-review',target_id:p.basic_info.id,request_id:crypto.randomUUID()},sid,'panel'),/已移除同步操作/);
+  const current=model.readAll().project;assert.deepEqual(current.story_segments.rules,planning);assert.equal(current.script_revision.rules.revise.supplement,'独立改编_revise');assert.equal(current.script_revision.rules.revise.base,defaultRules('script-review').revise.base);
  });
 });
 
 test('v26显式迁移仅补改编规则，保留正文规划和有效下游，二次启动不重写',async()=>{
  const home=await mkdtemp(join(tmpdir(),'meiji-script-migrate-'));let repo;
  try{
-  const p=fixture();p.script.rules.review.supplement='原规划自定义';repo=new ModelRepository(home);await repo.create(p);await repo.close();repo=null;
-  const db=new DatabaseSync(join(home,'meiji.sqlite')),old=structuredClone(p);delete old.script.adaptation_rules;
-  db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(old),p.id);db.exec('DELETE FROM schema_migrations WHERE version=27; PRAGMA user_version=26');db.close();
-  repo=new ModelRepository(home);const first=(await repo.open(p.id)).read();assert.deepEqual(first.project,{...old,script:{...old.script,adaptation_rules:defaultRules('script-review')}});assert.equal(isNodeCurrent(first,'project-summary',p.id),true);
-  const revision=first.runtime.revision;await repo.close();repo=new ModelRepository(home);const second=(await repo.open(p.id)).read();assert.deepEqual(second.project,first.project);assert.equal(second.runtime.revision,revision);
+  const p=fixture();p.story_segments.rules.review.supplement='原规划自定义';repo=new ModelRepository(home);await repo.create(p);await repo.close();repo=null;
+  const db=new DatabaseSync(join(home,'meiji.sqlite')),old=structuredClone(p);delete old.script_revision.rules;
+  db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(old),p.basic_info.id);db.exec('DELETE FROM schema_migrations WHERE version=27; PRAGMA user_version=26');db.close();
+  repo=new ModelRepository(home);const first=(await repo.open(p.basic_info.id)).read();assert.deepEqual(first.project,{...old,script_revision:{...old.script_revision,rules:defaultRules('script-review')}});assert.equal(isNodeCurrent(first,'project-summary',p.basic_info.id),true);
+  const revision=first.runtime.revision;await repo.close();repo=new ModelRepository(home);const second=(await repo.open(p.basic_info.id)).read();assert.deepEqual(second.project,first.project);assert.equal(second.runtime.revision,revision);
  }finally{await repo?.close();await rm(home,{recursive:true,force:true});}
 });
 
 test('改编任务重启恢复直接读取已生成全文候选，不需要重新生成',()=>{
- const p=fixture(),task=taskFixture(p,'script-review',p.id,{action:'revise',opinion});
+ const p=fixture(),task=taskFixture(p,'script-review',p.basic_info.id,{action:'revise',opinion});
  const state=resumeState({project:p,steps:[{task_id:task.id,seq:2,kind:'generate',step_status:'done',result:adapted}]},task);
- assert.deepEqual(state.draft,{body:adapted});assert.equal(state.validationFailure,'');assert.equal(p.script.body,original);
+ assert.deepEqual(state.draft,{body:adapted});assert.equal(state.validationFailure,'');assert.equal(p.script_revision.body,original);
 });
 
 test('剧本详情提供改编、审核、规则和意见，空意见不能提交改编',async()=>{
@@ -107,17 +107,76 @@ test('剧本详情提供改编、审核、规则和意见，空意见不能提�
  }finally{globalThis.document=previous;globalThis.fetch=previousFetch;dom.window.close();}
 });
 
-test('概览剧本卡片显式改编入口跳转到带意见和审核操作的详情，不发送AI请求',()=>{
+test('项目详情直接展示优化卡，显式详情入口保持可用且不自动发送AI请求',()=>{
  const dom=new JSDOM('<main></main>'),previous=globalThis.document;globalThis.document=dom.window.document;
  try{
   const p=fixture(),root=document.querySelector('main'),snapshot={project:p,tasks:[],steps:[],groups:[]};
   const context={session_id:'s',view:{page:'overview'},refresh:async()=>{},onError:assert.fail,paint:()=>renderTaskPanel(root,snapshot,context)};
   context.paint();
-  const card=[...root.querySelectorAll('.overview-card')].find(card=>card.querySelector('h3')?.textContent==='剧本');
-  const entry=[...card.querySelectorAll('button')].find(button=>button.textContent==='改编剧本');assert.ok(entry);
+  const card=[...root.querySelectorAll('.overview-card')].find(card=>card.querySelector('h3')?.textContent==='剧本优化');
+  const entry=card.querySelector('[aria-label=打开剧本详情]');assert.ok(entry);assert.ok(card.querySelector('[aria-label=本次执行意见]'));
   entry.click();assert.equal(context.view.page,'script');
   const detail=root.querySelector('[data-business="script-review"]');assert.ok(detail);
   assert.ok(detail.querySelector('[aria-label="本次执行意见"]'));
   for(const label of ['按意见改编','审核剧本'])assert.ok([...detail.querySelectorAll('button')].some(button=>button.textContent===label));
  }finally{globalThis.document=previous;dom.window.close();}
+});
+
+test('新建项目原稿独立保存，首次按意见优化读取原稿并在重启后保留当前结果', async () => {
+ const home=await mkdtemp(join(tmpdir(),'meiji-detail-new-'));let runtime,projectId,sessionId;
+ const calls=[];
+ try {
+  runtime=await createAppRuntime({home,sessionController:{create:async()=>({sessionId:`session-${crypto.randomUUID()}`})},gateway:{chat:async options=>{
+   calls.push(options);return options.step.kind==='review'?passed:adapted;
+  }}});
+  const created=await runtime.projectCommand({type:'create',fields:{basic_info:{name:'原稿与优化稿',creation_mode:'剧本',original_script:original}}},null);
+  projectId=created.project_id;sessionId=created.session_id;
+  const model=await runtime.repository.open(projectId),initial=model.read().project;
+  assert.equal(initial.basic_info.original_script,original);
+  assert.equal(initial.script_revision.body,'');assert.equal(initial.script_revision.node_state.status,'empty');
+  assert.equal('script' in initial,false);assert.equal('id' in initial,false);
+  await runtime.projectCommand({type:'edit',project_id:projectId,request_id:crypto.randomUUID(),fields:{basic_info:{name:'新标题',creative_requirements:'保留人物关系',reference_episode_duration_seconds:180},script_revision:{opinion}}},sessionId);
+  await runtime.tasks.command({type:'submit',project_id:projectId,target_id:projectId,business_type:'script-review',action:'revise',opinion,request_id:crypto.randomUUID()});
+  await runtime.tasks.idle(projectId);
+  assert.equal(calls[0].trace.input.content,original);
+  assert.equal(model.read().project.script_revision.body,adapted);
+  assert.equal(model.read().project.basic_info.original_script,original);
+  assert.equal(model.read().project.script_revision.opinion,opinion);
+  await runtime.dispose();runtime=null;
+  runtime=await createAppRuntime({home});
+  const saved=(await runtime.repository.open(projectId)).read().project;
+  assert.equal(saved.basic_info.name,'新标题');assert.equal(saved.basic_info.creative_requirements,'保留人物关系');
+  assert.equal(saved.basic_info.reference_episode_duration_seconds,180);
+  assert.equal(saved.basic_info.original_script,original);assert.equal(saved.script_revision.body,adapted);assert.equal(saved.script_revision.opinion,opinion);
+  assert.equal(await runtime.bindings.projectForSession(sessionId),projectId);
+  assert.deepEqual(Object.keys(saved.script_revision).sort(),['body','node_state','opinion','rules']);
+ }finally{await runtime?.dispose();await rm(home,{recursive:true,force:true});}
+});
+
+test('v28项目升级基本信息与当前优化稿，规则隔离、项目ID和历史任务记录保持', async () => {
+ const home=await mkdtemp(join(tmpdir(),'meiji-details-v29-'));let repo;
+ try{
+  const p=fixture();repo=new ModelRepository(home);await repo.create(p);await repo.close();repo=null;
+  const legacy=structuredClone(p),info=legacy.basic_info;
+  Object.assign(legacy,{id:info.id,name:info.name,creation_mode:info.creation_mode,aspect_ratio:info.aspect_ratio,
+   creative_direction:info.creative_requirements,reference_episode_duration_seconds:info.reference_episode_duration_seconds,
+   script:{body:adapted,version:3,updated_at:'旧时间',future_plot:'',revision_history:[{timestamp:'旧时间',task_id:'历史任务',revision_notes:opinion}],
+    rules:legacy.story_segments.rules,adaptation_rules:legacy.script_revision.rules,node_state:legacy.script_revision.node_state}});
+  delete legacy.basic_info;delete legacy.script_revision;delete legacy.story_segments;
+  const db=new DatabaseSync(join(home,'meiji.sqlite'));
+  // 旧版库没有v29的路径触发器，按真实旧库约束构造迁移输入。
+  db.exec('DROP TRIGGER projects_basic_info_update; DROP TRIGGER projects_basic_info_insert;');
+  db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy),info.id);
+  const history=db.prepare('SELECT * FROM tasks').all();
+  db.exec('DELETE FROM schema_migrations WHERE version=29; PRAGMA user_version=28');db.close();
+  repo=new ModelRepository(home);
+  const saved=(await repo.open(info.id)).read().project;
+  assert.equal(saved.basic_info.id,info.id);assert.equal(saved.basic_info.original_script,adapted);
+  assert.equal(saved.script_revision.body,adapted);assert.equal(saved.script_revision.opinion,opinion);
+  assert.deepEqual(saved.script_revision.rules,legacy.script.adaptation_rules);assert.deepEqual(saved.story_segments.rules,legacy.script.rules);
+  assert.equal('script' in saved,false);assert.equal('version' in saved.script_revision,false);
+  await repo.close();repo=null;
+  const check=new DatabaseSync(join(home,'meiji.sqlite'),{readOnly:true});
+  assert.equal(check.prepare('PRAGMA user_version').get().user_version,29);assert.deepEqual(check.prepare('SELECT * FROM tasks').all(),history);check.close();
+ }finally{await repo?.close();await rm(home,{recursive:true,force:true});}
 });

@@ -1,12 +1,12 @@
 import { emptySceneModel } from './models/scene_model.js';
 import { invalid } from './task_contract.js';
-import { scriptText } from './script-text.js';
+import {scriptText, currentScript } from './script-text.js';
 export const sceneFields = ['id', 'name', 'description', 'layout', 'materials', 'lighting'];
 export const sceneText = scene => Object.fromEntries(sceneFields.map(key => [key, scene[key]]));
 export const sceneCatalog = (project, episode) => project.scene_library.scenes
   .filter(scene => !episode || episode.scene_catalog.scene_ids.includes(scene.id)).map(sceneText);
 export const sceneImageContext = (project, id) => ({
-  script: scriptText(project.script.body),
+  script: scriptText(currentScript(project)),
   plots: project.episodes.filter(episode => episode.scene_catalog.scene_ids.includes(id))
     .map(episode => ({ episode: episode.sequence, plot: episode.plot, story: episode.story_outline.segments.map(segment => segment.body).join('\n\n') })),
 });

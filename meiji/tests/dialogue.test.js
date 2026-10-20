@@ -154,7 +154,7 @@ describe("seconds-continuity", () => {
       const tasks = db.prepare('SELECT id,task_status FROM tasks').all();
       db.close();
       let store = new SQLiteStore(path);
-      const migrated = store.read(p.id); store.close();
+      const migrated = store.read(p.basic_info.id); store.close();
       const shots = migrated.project.episodes[0].shot_list.shots;
       for (const [i, shot] of shots.entries()) {
         assert.deepEqual(shot.seconds_storyboard.storyboard, stored.episodes[0].shot_list.shots[i].seconds_storyboard.storyboard);
@@ -166,11 +166,11 @@ describe("seconds-continuity", () => {
       db = new DatabaseSync(path);
       assert.deepEqual(db.prepare('SELECT * FROM task_steps').all(), steps);
       assert.deepEqual(db.prepare('SELECT id,task_status FROM tasks').all(), tasks);
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 28);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 29);
       assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
       db.close();
       store = new SQLiteStore(path);
-      assert.deepEqual(store.read(p.id), migrated); store.close();
+      assert.deepEqual(store.read(p.basic_info.id), migrated); store.close();
     } finally { await rm(home, { recursive: true, force: true }); }
   });
 

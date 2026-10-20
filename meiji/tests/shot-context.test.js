@@ -108,7 +108,7 @@ describe("shot-text-chain", () => {
     const p = projectFixture();
     p.character_library.characters = mergeCharacters(p, [{ name: '甲', gender: '女', era: '现代', position: '', age_range: '', body_type: '', hairstyle: '', signature_props: [], immutable_traits: [], costumes: [{ name: '白衣', color: '白', material: '棉', props: [] }] }]).characters;
     const s = { project: p, tasks: [], steps: [] };
-    stampDependencyHash(s, 'project-characters', p.id);
+    stampDependencyHash(s, 'project-characters', p.basic_info.id);
     stampDependencyHash(s, 'shots', p.episodes[0].id);
     return p;
   }
@@ -127,9 +127,9 @@ describe("shot-text-chain", () => {
       } } });
       const p = fixtureProject(), model = await runtime.repository.create(p);
       const command = async (business, action = 'generate', target = p.episodes[0].shot_list.shots[0].id, extra = {}) => {
-        const result = await runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: crypto.randomUUID(), business_type: business, target_id: target, action, ...extra });
+        const result = await runtime.tasks.command({ type: 'submit', project_id: p.basic_info.id, request_id: crypto.randomUUID(), business_type: business, target_id: target, action, ...extra });
 
-        await runtime.tasks.idle(p.id);
+        await runtime.tasks.idle(p.basic_info.id);
         return model.readAll().tasks.find(task => task.id === result.task_id);
       };
       await run({ runtime, p, model, command, calls });
@@ -137,7 +137,7 @@ describe("shot-text-chain", () => {
   }
 
   test('独立识别节点退役，每秒分镜直接继承镜头表', () => withRuntime(async ({ runtime, p, command }) => {
-    await assert.rejects(runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: 'retired', business_type: 'shot-characters', target_id: p.episodes[0].shot_list.shots[0].id, action: 'generate' }), /并入镜头表/);
+    await assert.rejects(runtime.tasks.command({ type: 'submit', project_id: p.basic_info.id, request_id: 'retired', business_type: 'shot-characters', target_id: p.episodes[0].shot_list.shots[0].id, action: 'generate' }), /并入镜头表/);
     assert.equal((await command('seconds', 'regenerate')).task_status, 'completed');
   }));
 
@@ -212,8 +212,8 @@ describe("shot-text-chain", () => {
   }, ({ task }) => task.business_type === 'seconds' ? { end_state: "人物位于镜末位置，动作已完成。", pending_actions: "", pending_dialogue: "", continuing_audio: "", storyboard: [beat('0–11s')] } : undefined));
 
   test('episode-seconds 逐镜安排识别后每秒', () => withRuntime(async ({ runtime, p, model, calls }) => {
-    const group = await runtime.tasks.command({ type: 'submit-group', project_id: p.id, request_id: 'group', group_type: 'episode-seconds', action: 'regenerate', episode_id: p.episodes[0].id });
-    await runtime.tasks.idle(p.id);
+    const group = await runtime.tasks.command({ type: 'submit-group', project_id: p.basic_info.id, request_id: 'group', group_type: 'episode-seconds', action: 'regenerate', episode_id: p.episodes[0].id });
+    await runtime.tasks.idle(p.basic_info.id);
     const tasks = model.readAll().tasks.filter(task => task.group_id === group.group_id);
     assert.deepEqual(tasks.map(task => task.business_type), ['seconds', 'seconds']);
     assert.ok(tasks.every(task => task.task_status === 'completed'), tasks.map(task => task.end_reason).join(';'));
@@ -247,15 +247,15 @@ describe("shot-text-chain", () => {
     const gate = new Promise(resolve => { release = resolve; });
     let wait = true;
     await withRuntime(async ({ runtime, p, model }) => {
-      const group = await runtime.tasks.command({ type: 'submit-group', project_id: p.id, request_id: 'cancel-group', group_type: 'episode-seconds', action: 'regenerate', episode_id: p.episodes[0].id });
+      const group = await runtime.tasks.command({ type: 'submit-group', project_id: p.basic_info.id, request_id: 'cancel-group', group_type: 'episode-seconds', action: 'regenerate', episode_id: p.episodes[0].id });
       await started;
       const oldId = model.readAll().tasks.find(task => task.task_status === 'running').id;
-      await runtime.tasks.command({ type: 'cancel', project_id: p.id, request_id: 'cancel', task_id: oldId });
-      wait = false; release(); await runtime.tasks.idle(p.id);
+      await runtime.tasks.command({ type: 'cancel', project_id: p.basic_info.id, request_id: 'cancel', task_id: oldId });
+      wait = false; release(); await runtime.tasks.idle(p.basic_info.id);
       assert.equal(model.readAll().tasks.find(task => task.id === oldId).task_status, 'cancelled');
       const old = model.readAll().tasks.find(task => task.id === oldId);
-      const resumed = await runtime.tasks.command({ type: 'continue-group', project_id: p.id, request_id: 'resume', group_id: group.group_id });
-      await runtime.tasks.idle(p.id);
+      const resumed = await runtime.tasks.command({ type: 'continue-group', project_id: p.basic_info.id, request_id: 'resume', group_id: group.group_id });
+      await runtime.tasks.idle(p.basic_info.id);
       assert.deepEqual(model.readAll().tasks.find(task => task.id === oldId), old);
       assert.ok(model.readAll().tasks.filter(task => task.group_id === resumed.group_id).every(task => task.task_status === 'completed'));
     }, async ({ task, step }) => { if (wait && task.business_type === 'seconds' && step.kind === 'generate') { entered(); await gate; } });
@@ -268,7 +268,7 @@ describe("shot-text-chain", () => {
       await repo.list();
       const path = join(root, 'meiji.sqlite');
       let db = new DatabaseSync(path);
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 28);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 29);
       for (const table of ['projects', 'task_groups', 'tasks', 'task_steps']) assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n, 0);
       db.close();
       await repo.create(fixtureProject()); await repo.close();
@@ -305,7 +305,7 @@ describe("shot-text-chain", () => {
       store.close();
       db = new DatabaseSync(path);
       const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 28);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 29);
       assert.equal(Object.hasOwn(opened, 'rules'), false);
       assert.equal(Object.hasOwn(opened, 'output_language'), false);
       assert.equal(opened.episodes[0].shot_list.shots[0].seconds_storyboard.node_state.dependency_hash, dependencyHash({ project: opened, tasks: [], steps: [] }, 'seconds', shot.id));
@@ -335,7 +335,7 @@ describe("shot-text-chain", () => {
       db = new DatabaseSync(path);
       const opened = JSON.parse(db.prepare('SELECT data_json FROM projects').get().data_json);
       const openedShot = opened.episodes[0].shot_list.shots[0];
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 28);
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 29);
       assert.equal(Object.hasOwn(opened, 'output_language'), false);
       assert.equal(openedShot.seconds_storyboard.storyboard[0].action, body);
       assert.equal(openedShot.seconds_storyboard.node_state.status, 'expired');

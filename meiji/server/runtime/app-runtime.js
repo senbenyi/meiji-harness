@@ -108,31 +108,20 @@ export async function createAppRuntime({
       if (command.type === "create") {
         const fields = command.fields || {};
         for (const key of Object.keys(fields))
-          if (
-            ![
-              "name",
-              "creation_mode",
-              "aspect_ratio",
-              "creative_direction",
-              "reference_episode_duration_seconds",
-              "script",
-            ].includes(key)
-          )
-            invalid(key, "创建项目不接受身份、节点或执行状态");
-        if (fields.script)
-          fields.script = {
-            ...emptyProject().script,
-            body: fields.script.body || "",
-          };
-        if (!fields.name?.trim()) invalid("name", "项目名称为空");
-        if ((fields.creation_mode || "剧本") === "剧本" && !fields.script?.body?.trim())
-          invalid("剧本", "剧本模式需完整剧本");
-        if (fields.creation_mode === "自由创作" && !fields.creative_direction?.trim())
-          invalid("creative_direction", "自由创作需用户提供方向");
-        const p = emptyProject(fields);
+          if (key !== 'basic_info') invalid(key, '创建项目仅接受basic_info');
+        const info = fields.basic_info || {};
+        const allowed = ['name','creation_mode','aspect_ratio','creative_requirements','reference_episode_duration_seconds','original_script'];
+        for (const key of Object.keys(info))
+          if (!allowed.includes(key)) invalid(key, '创建项目不接受身份、节点或执行状态');
+        if (!info.name?.trim()) invalid('name', '项目名称为空');
+        if ((info.creation_mode || '剧本') === '剧本' && !info.original_script?.trim())
+          invalid('剧本', '剧本模式需完整剧本');
+        if (info.creation_mode === '自由创作' && !info.creative_requirements?.trim())
+          invalid('creative_requirements', '自由创作需用户提供方向');
+        const p = emptyProject({ basic_info: info });
         await repository.create(p);
         const opened = await runtime.projectCommand(
-          { type: "open", project_id: p.id },
+          { type: "open", project_id: p.basic_info.id },
           sessionId,
           source,
         );
@@ -150,11 +139,11 @@ export async function createAppRuntime({
               });
               await workspaceController.rename({
                 workspaceId: workspace.workspaceId,
-                title: `${model.read().project.name} · ${model.id.slice(-8)}`,
+                title: `${model.read().project.basic_info.name} · ${model.id.slice(-8)}`,
               });
               return {
                 id: workspace.workspaceId,
-                title: model.read().project.name,
+                title: model.read().project.basic_info.name,
               };
             })
           : null;
@@ -184,7 +173,7 @@ export async function createAppRuntime({
         return model.update(command.request_id, command, (s) => {
           if (s.tasks.some((t) => t.task_status === "running"))
             invalid("状态", "运行中不能编辑");
-          if (s.project.creation_mode === "剧本")
+          if (s.project.basic_info.creation_mode === "剧本")
             invalid("剧集", "剧本创作方式请使用全集规划");
           for (const key of Object.keys(command.fields || {}))
             if (!["duration_seconds", "episode_requirements"].includes(key))
@@ -326,15 +315,20 @@ export async function createAppRuntime({
         return model.update(command.request_id, command, (s) => {
           if (s.tasks.some((t) => t.task_status === "running"))
             invalid("状态", "运行中不能编辑");
-          const allowed = [
-            "name",
-            "creative_direction",
-            "aspect_ratio",
-            "reference_episode_duration_seconds",
-          ];
-          for (const [key, value] of Object.entries(command.fields || {})) {
-            if (!allowed.includes(key)) invalid(key, "未定义项目配置");
-            s.project[key] = value;
+          const fields = command.fields || {};
+          for (const key of Object.keys(fields))
+            if (!['basic_info','script_revision'].includes(key)) invalid(key, '未定义项目配置');
+          for (const [key, value] of Object.entries(fields.basic_info || {})) {
+            if (!['name','creative_requirements','aspect_ratio','reference_episode_duration_seconds','original_script'].includes(key))
+              invalid(key, '未定义基本信息配置');
+            const changed = value !== s.project.basic_info[key];
+            s.project.basic_info[key] = value;
+            if (changed && key === 'original_script' && !s.project.script_revision.body.trim())
+              expireDownstream(s, 'script', s.project.basic_info.id, '原始剧本已修改');
+          }
+          for (const [key, value] of Object.entries(fields.script_revision || {})) {
+            if (key !== 'opinion' || typeof value !== 'string') invalid(key, '仅允许编辑剧本优化意见');
+            s.project.script_revision.opinion = value;
           }
           return {};
         });

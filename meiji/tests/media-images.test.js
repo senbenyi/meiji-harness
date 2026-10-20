@@ -94,13 +94,13 @@ describe("media-tasks", () => {
       const submit = async (business, id, action) => {
         const result = await service.command({
           type: "submit",
-          project_id: p.id,
+          project_id: p.basic_info.id,
           request_id: crypto.randomUUID(),
           business_type: business,
           target_id: id,
           action,
         });
-        await service.idle(p.id);
+        await service.idle(p.basic_info.id);
         assert.equal(
           model.readAll().tasks.find((t) => t.id === result.task_id).task_status,
           "completed",
@@ -122,14 +122,14 @@ describe("media-tasks", () => {
         "remote-test",
       );
       assert.ok(model.readAll().project.episodes[0].shot_list.shots[0].last_frame.address);
-      const info = await media.validate(model.readAll().project.episodes[0].shot_list.shots[0].video.address, p.id, "video");
+      const info = await media.validate(model.readAll().project.episodes[0].shot_list.shots[0].video.address, p.basic_info.id, "video");
       assert.equal(model.readAll().project.episodes[0].shot_list.shots[0].actual_duration_seconds, Math.round(info.duration * 10) / 10);
-      const restored = await new ModelRepository(join(root, "projects")).open(p.id);
+      const restored = await new ModelRepository(join(root, "projects")).open(p.basic_info.id);
       assert.equal(restored.readAll().project.episodes[0].shot_list.shots[0].actual_duration_seconds, Math.round(info.duration * 10) / 10);
       await submit("assembly", e.id, "regenerate");
-      await media.validate(model.readAll().project.episodes[0].assembly.address, p.id, "video");
+      await media.validate(model.readAll().project.episodes[0].assembly.address, p.basic_info.id, "video");
       await assert.rejects(
-        media.put(p.id, Buffer.from("invalid"), "png"),
+        media.put(p.basic_info.id, Buffer.from("invalid"), "png"),
         /媒体|Invalid|invalid|Invalid data|ffprobe/,
       );
     } finally {
@@ -229,7 +229,7 @@ describe("media-tasks", () => {
         const file = join(root, `${color}.mp4`);
         const made = spawnSync("ffmpeg", ["-y", "-v", "error", "-f", "lavfi", "-i", `color=c=${color}:s=32x32:d=0.4`, "-c:v", "libx264", "-pix_fmt", "yuv420p", file]);
         assert.equal(made.status, 0, made.stderr.toString());
-        const stored = await media.put(p.id, await readFile(file), "mp4");
+        const stored = await media.put(p.basic_info.id, await readFile(file), "mp4");
         e.shot_list.shots[index].video.address = stored.address;
         e.shot_list.shots[index].actual_duration_seconds = 0.4;
       }
@@ -238,15 +238,15 @@ describe("media-tasks", () => {
       stampAssemblyInputs(p);
       const repository = new ModelRepository(join(root, "data")), model = await repository.create(p);
       service = new TaskService({ repository, commitOutput: commitContent, execute: createMediaHandler({ media, gateway: {} }) });
-      const submitted = await service.command({ type: "submit", project_id: p.id, request_id: "assembly", business_type: "assembly", target_id: e.id, action: "regenerate" });
-      await service.idle(p.id);
+      const submitted = await service.command({ type: "submit", project_id: p.basic_info.id, request_id: "assembly", business_type: "assembly", target_id: e.id, action: "regenerate" });
+      await service.idle(p.basic_info.id);
       const after = model.readAll(), task = after.tasks.find(t => t.id === submitted.task_id), steps = after.steps.filter(st => st.task_id === task.id);
       assert.equal(task.task_status, "completed", task.end_reason);
       assert.deepEqual(steps.map(st => [st.kind, st.step_status]), [["precheck", "done"], ["generate", "done"]]);
       const address = after.project.episodes[0].assembly.address;
-      assert.ok((await media.validate(address, p.id, "video")).duration > 0);
+      assert.ok((await media.validate(address, p.basic_info.id, "video")).duration > 0);
       const pixel = time => {
-        const frame = spawnSync("ffmpeg", ["-v", "error", "-ss", String(time), "-i", media.path(address, p.id), "-frames:v", "1", "-vf", "scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
+        const frame = spawnSync("ffmpeg", ["-v", "error", "-ss", String(time), "-i", media.path(address, p.basic_info.id), "-frames:v", "1", "-vf", "scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
         assert.equal(frame.status, 0, frame.stderr.toString());
         return frame.stdout;
       };
@@ -264,15 +264,15 @@ describe("media-tasks", () => {
       const bytes = await mediaBytes(root);
       for (const kind of ["missing", "corrupt", "outside", "stale", "unfinished"]) {
         const p = projectFixture(), e = p.episodes[0], media = new MediaStore(join(root, kind, "media"));
-        const old = await media.put(p.id, bytes.video, "mp4");
+        const old = await media.put(p.basic_info.id, bytes.video, "mp4");
         e.assembly.address = old.address;
         for (const shot of e.shot_list.shots) shot.video.address = old.address;
         const target = e.shot_list.shots[0];
         if (kind === "missing" || kind === "corrupt") {
-          target.video.address = `/api/meiji/media/${p.id}/asset_${crypto.randomUUID()}.mp4`;
-          if (kind === "corrupt") await writeFile(media.path(target.video.address, p.id), "broken mp4");
+          target.video.address = `/api/meiji/media/${p.basic_info.id}/asset_${crypto.randomUUID()}.mp4`;
+          if (kind === "corrupt") await writeFile(media.path(target.video.address, p.basic_info.id), "broken mp4");
         }
-        if (kind === "outside") target.video.address = old.address.replace(p.id, `p_${crypto.randomUUID()}`);
+        if (kind === "outside") target.video.address = old.address.replace(p.basic_info.id, `p_${crypto.randomUUID()}`);
         stampAssemblyInputs(p);
         if (kind === "stale") target.video.node_state.dependency_hash = "f".repeat(64);
         if (kind === "unfinished") { target.video.node_state.status = "rejected"; target.video.node_state.reason = "未完成"; }
@@ -280,8 +280,8 @@ describe("media-tasks", () => {
         const execute = createMediaHandler({ media, gateway: {} }), calls = [];
         const service = new TaskService({ repository, commitOutput: commitContent, execute: context => { calls.push(context.step.kind); return execute(context); } });
         try {
-          const submitted = await service.command({ type: "submit", project_id: p.id, request_id: "assembly", business_type: "assembly", target_id: e.id, action: "regenerate" });
-          await service.idle(p.id);
+          const submitted = await service.command({ type: "submit", project_id: p.basic_info.id, request_id: "assembly", business_type: "assembly", target_id: e.id, action: "regenerate" });
+          await service.idle(p.basic_info.id);
           const after = model.readAll(), task = after.tasks.find(t => t.id === submitted.task_id), steps = after.steps.filter(st => st.task_id === task.id);
           assert.equal(task.task_status, "rejected", kind);
           assert.equal(steps[0].kind, "precheck");

@@ -33,7 +33,7 @@ describe("refresh-preserve", () => {
         data = await cancel(command);
       } else if (url.includes("context?")) {
         const snapshot = read();
-        data = { project_id: snapshot.project.id, snapshot };
+        data = { project_id: snapshot.project.basic_info.id, snapshot };
       } else if (url.endsWith("models")) {
         data = { settings: { output_language: "zh-CN" } };
       } else throw new Error(`意外请求 ${url}`);
@@ -65,9 +65,9 @@ describe("refresh-preserve", () => {
     } });
     const p = model.readAll().project;
     try {
-      const first = await service.command({ type: "submit", project_id: p.id, request_id: "run", business_type: "episode-summary", target_id: p.episodes[0].id, action: "regenerate" });
+      const first = await service.command({ type: "submit", project_id: p.basic_info.id, request_id: "run", business_type: "episode-summary", target_id: p.episodes[0].id, action: "regenerate" });
       await started;
-      await service.command({ type: "submit", project_id: p.id, request_id: "queue", business_type: "project-summary", target_id: p.id, action: "regenerate" });
+      await service.command({ type: "submit", project_id: p.basic_info.id, request_id: "queue", business_type: "project-summary", target_id: p.basic_info.id, action: "regenerate" });
       await withPanel(() => model.readAll(), command => service.command(command), async ({ app, commands }) => {
         await Promise.all([app.refresh(), app.refresh()]);
         assert.equal(commands.length, 0);
@@ -83,7 +83,7 @@ describe("refresh-preserve", () => {
         const card = app.shell.content.querySelector('[data-business="episode-summary"]');
         assert.equal(card.querySelector(".node-data-tag").textContent, "已生成");
         release();
-        await service.idle(p.id);
+        await service.idle(p.basic_info.id);
         assert.equal(model.readAll().project.episodes[0].summary.body, "晚到的新正文");
         assert.equal(model.readAll().tasks[0].task_status, "completed");
       });
@@ -105,7 +105,7 @@ describe("refresh-preserve", () => {
       snapshot.tasks[0].task_status = "running";
       snapshot.project.episodes[0].summary.node_state.status = "running";
       await app.refresh();
-      streams[0].onmessage({ data: JSON.stringify({ project_id: snapshot.project.id, revision: snapshot.runtime.revision }) });
+      streams[0].onmessage({ data: JSON.stringify({ project_id: snapshot.project.basic_info.id, revision: snapshot.runtime.revision }) });
       document.dispatchEvent(new dom.window.Event("visibilitychange"));
       await app.refresh();
       assert.equal(commands.length, 0);
@@ -163,7 +163,7 @@ describe("lifecycle", () => {
       const service = new TaskService({ repository, commitOutput: commitContent, execute: async () => { executed++; throw new Error("旧组合不应执行"); } });
       await seedQueuedTasks(model, p.episodes[0].shot_list.shots.flatMap(shot => ['seconds','storyboard','video'].map(b => [b,shot.id])));
       assert.equal(model.readAll().tasks.length, 6);
-      const restored = await new ModelRepository(root).open(p.id);
+      const restored = await new ModelRepository(root).open(p.basic_info.id);
       await service.recover(restored);
       const s = restored.readAll();
       assert.ok(s.tasks.every(t => t.task_status === "cancelled" && t.end_reason === "服务重启，未完成任务已取消"));
@@ -171,7 +171,7 @@ describe("lifecycle", () => {
       assert.deepEqual(s.project, beforeProject);
 
       assert.equal(executed, 0);
-      assert.deepEqual((await new ModelRepository(root).open(p.id)).readAll(), s);
+      assert.deepEqual((await new ModelRepository(root).open(p.basic_info.id)).readAll(), s);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
@@ -182,8 +182,8 @@ describe("lifecycle", () => {
       const service = new TaskService({ repository, commitOutput: commitContent, execute: async ({ step }) => step.kind === "review" ? { result: { 是否通过: true, "类型": "", 原因: "" } } : { content: { body: "新摘要" } } });
       await service.recover(model);
 
-      const r = await service.command({ type: "submit", project_id: p.id, request_id: "new", business_type: "project-summary", target_id: p.id, action: "regenerate" });
-      await service.idle(p.id);
+      const r = await service.command({ type: "submit", project_id: p.basic_info.id, request_id: "new", business_type: "project-summary", target_id: p.basic_info.id, action: "regenerate" });
+      await service.idle(p.basic_info.id);
       assert.equal(model.readAll().tasks.find(t => t.id === r.task_id).task_status, "completed");
     } finally { await rm(root, { recursive: true, force: true }); }
   });
@@ -194,20 +194,20 @@ describe("lifecycle", () => {
     const gate = new Promise(resolve => { release = resolve; }), noticeEntered = new Promise(resolve => { entered = resolve; });
     try {
       const repository = new ModelRepository(join(home, "storages", "meiji", "projects"), { databasePath: join(home, "storages", "meiji", "meiji.sqlite") }), p = projectFixture(), model = await repository.create(p);
-      const pending = taskFixture(p, "project-summary", p.id, { episode_id: null });
+      const pending = taskFixture(p, "project-summary", p.basic_info.id, { episode_id: null });
       await model.update("setup", {}, s => {
-        s.groups = [singleGroup(pending)]; s.tasks = [pending]; s.runtime.outbox.push({ id: "restart-notice", project_id: p.id, task_id: pending.id, group_id: null, session_id: "session-test", event: "submitted", status: "queued", reason: "", delivery_status: "pending", error: "" });
+        s.groups = [singleGroup(pending)]; s.tasks = [pending]; s.runtime.outbox.push({ id: "restart-notice", project_id: p.basic_info.id, task_id: pending.id, group_id: null, session_id: "session-test", event: "submitted", status: "queued", reason: "", delivery_status: "pending", error: "" });
       });
       const creating = createAppRuntime({ home, sessionController: { resolveAgent: async () => { entered(); await gate; return { agent: { session: { append: async () => {} } } }; } } });
       try {
         runtime = await Promise.race([creating, new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("通知阻塞了 runtime 启动")), 2000); })]);
       } finally { clearTimeout(timeout); }
       await noticeEntered;
-      const restored = await runtime.repository.open(p.id);
+      const restored = await runtime.repository.open(p.basic_info.id);
       assert.equal(restored.readAll().tasks[0].task_status, "cancelled");
 
       release();
-      await runtime.notices.drain(p.id);
+      await runtime.notices.drain(p.basic_info.id);
       assert.ok(restored.readAll().runtime.outbox.every(n => n.delivery_status === "delivered"));
     } finally { release(); if (runtime) await runtime.dispose(); await rm(home, { recursive: true, force: true }); }
   });
@@ -219,7 +219,7 @@ describe("lifecycle", () => {
     try {
       const repository = new ModelRepository(root), p = projectFixture(), model = await repository.create(p);
       const service = new TaskService({ repository, commitOutput: commitContent, execute: async () => { enter(); await gate; return { content: { body: "不能提交的晚到结果" } }; } });
-      const r = await service.command({ type: "submit", project_id: p.id, request_id: "before-stop", business_type: "project-summary", target_id: p.id, action: "regenerate" });
+      const r = await service.command({ type: "submit", project_id: p.basic_info.id, request_id: "before-stop", business_type: "project-summary", target_id: p.basic_info.id, action: "regenerate" });
       await entered;
       const changed = new Promise(resolve => repository.once("change", resolve));
       const stopping = service.dispose();
@@ -238,13 +238,13 @@ describe("lifecycle", () => {
       const repository = new ModelRepository(root),
         p = projectFixture(),
         model = await repository.create(p),
-        task = taskFixture(p, "project-summary", p.id, {
+        task = taskFixture(p, "project-summary", p.basic_info.id, {
           episode_id: null,
           task_status: "running",
           started_at: new Date().toISOString(),
         }),
         queued = taskFixture(p, "episode-summary", p.episodes[0].id, { queue_order: 2, previous_node_state: { status: "expired", reason: "上游已变化" } }),
-        terminal = taskFixture(p, "project-summary", p.id, { episode_id: null, task_status: "failed", queue_order: 3, end_reason: "旧失败", ended_at: new Date().toISOString() }),
+        terminal = taskFixture(p, "project-summary", p.basic_info.id, { episode_id: null, task_status: "failed", queue_order: 3, end_reason: "旧失败", ended_at: new Date().toISOString() }),
         done = { ...newStep(task, 1, "precheck"), step_status: "done", result: { ok: true }, started_at: task.started_at, ended_at: task.started_at },
         running = { ...newStep(task, 2, "generate"), step_status: "running", started_at: task.started_at };
       await model.update("crash-setup", {}, (s) => {
@@ -256,7 +256,7 @@ describe("lifecycle", () => {
         return {};
       });
       const freshRepository = new ModelRepository(root),
-        restored = await freshRepository.open(p.id),
+        restored = await freshRepository.open(p.basic_info.id),
         service = new TaskService({
           repository: freshRepository,
           execute: async ({ step }) => step.kind === "review" ? { result: { 是否通过: true, "类型": "", 原因: "" } } : { content: { body: "重启后新摘要" } },
@@ -275,12 +275,12 @@ describe("lifecycle", () => {
       assert.equal(snapshot.project.episodes[0].summary.node_state.status, "expired");
       assert.equal(snapshot.project.episodes[0].summary.node_state.reason, "上游已变化");
 
-      assert.deepEqual((await new ModelRepository(root).open(p.id)).readAll(), snapshot);
+      assert.deepEqual((await new ModelRepository(root).open(p.basic_info.id)).readAll(), snapshot);
       await service.recover(restored);
       assert.deepEqual(restored.readAll(), snapshot, "重复恢复不产生新的变更");
-      const fresh = await service.command({ type: "submit", project_id: p.id, request_id: "after-restart", business_type: "project-summary", target_id: p.id, action: "regenerate" });
+      const fresh = await service.command({ type: "submit", project_id: p.basic_info.id, request_id: "after-restart", business_type: "project-summary", target_id: p.basic_info.id, action: "regenerate" });
       assert.notEqual(fresh.task_id, task.id);
-      await service.idle(p.id);
+      await service.idle(p.basic_info.id);
       const after = restored.readAll();
       assert.deepEqual(after.tasks.slice(0,3), snapshot.tasks);
       assert.equal(after.tasks.find(t => t.id === fresh.task_id).task_status, "completed");
@@ -379,9 +379,9 @@ describe("workbench", () => {
       other = `session-${randomUUID()}`,
       a = snapshotFixture(),
       b = snapshotFixture();
-    a.project.name = "项目甲";
-    a.project.creation_mode = "自由创作";
-    b.project.name = "项目乙";
+    a.project.basic_info.name = "项目甲";
+    a.project.basic_info.creation_mode = "自由创作";
+    b.project.basic_info.name = "项目乙";
     let deferred, resolve, app;
     try {
       Object.assign(globalThis, {
@@ -414,7 +414,7 @@ describe("workbench", () => {
         return {
           ok: true,
           json: async () => ({
-            project_id: snapshot.project.id,
+            project_id: snapshot.project.basic_info.id,
             snapshot: structuredClone(snapshot),
           }),
         };
@@ -422,7 +422,7 @@ describe("workbench", () => {
       app = mount();
       await app.refresh();
       const content = app.shell.content;
-      content.querySelector("[aria-label=编辑创作方向]").click();
+      content.querySelector("[aria-label=编辑基本信息]").click();
       const area = content.querySelector("dialog textarea");
       area.value = "草稿不丢";
       a.runtime.revision++;
@@ -435,7 +435,7 @@ describe("workbench", () => {
       );
       await new Promise((done, reject) => {
         const timer = setInterval(() => {
-            if (app.context.read()?.project.id === b.project.id) {
+            if (app.context.read()?.project.basic_info.id === b.project.basic_info.id) {
               clearInterval(timer);
               clearTimeout(timeout);
               done();

@@ -9,3 +9,8 @@ export function scriptText(body) {
   } catch { /* 普通剧本原文 */ }
   return raw;
 }
+
+// 所有后续制作统一读取当前优化稿，尚未优化时读取原稿。
+export function currentScript(project) {
+  return project.script_revision.body.trim() ? project.script_revision.body : project.basic_info.original_script;
+}

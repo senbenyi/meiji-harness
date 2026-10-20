@@ -202,7 +202,7 @@ export function renderHistory(root, env, snapshot) {
       "h2",
       selecting
         ? "任务组详情"
-        : `${p.name} · 任务历史`,
+        : `${p.basic_info.name} · 任务历史`,
     ),
   );
   view.append(header);

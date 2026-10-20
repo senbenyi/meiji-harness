@@ -12,7 +12,7 @@ export async function seedQueuedTasks(model, specs) {
         episode_id: locateTarget(s.project,business,target).episode?.id || null,
         queue_order: s.tasks.length + 1,
       });
-      const group = createTaskGroupModel({ project_id: s.project.id, episode_id: task.episode_id,
+      const group = createTaskGroupModel({ project_id: s.project.basic_info.id, episode_id: task.episode_id,
         group_type: 'single', source: 'panel', action: task.action });
       task.group_id = group.id; task.group_seq = 1;
       enqueueNode(s.project, task);

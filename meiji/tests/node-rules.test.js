@@ -41,8 +41,8 @@ test('面板规则事务：仅编辑补充、拒绝基础与同步，持久化�
   try {
     runtime = await createAppRuntime({home});
     const s = snapshotFixture(), p = s.project, e = p.episodes[0], sid = `session-${randomUUID()}`;
-    const model = await runtime.repository.create(p); await runtime.bindings.bind(sid,p.id);
-    const command = fields => runtime.projectCommand({project_id:p.id,request_id:randomUUID(),business_type:'outline',target_id:e.id,...fields},sid,'panel');
+    const model = await runtime.repository.create(p); await runtime.bindings.bind(sid,p.basic_info.id);
+    const command = fields => runtime.projectCommand({project_id:p.basic_info.id,request_id:randomUUID(),business_type:'outline',target_id:e.id,...fields},sid,'panel');
     const oldHash = dependencyHash(s,'outline',e.id);
     await command({type:'edit-rule',action:'generate',field:'supplement',value:'本剧补充'});
     await command({type:'edit-rule',action:'review',field:'supplement',value:'审核独立补充'});
@@ -56,7 +56,7 @@ test('面板规则事务：仅编辑补充、拒绝基础与同步，持久化�
     assert.equal(n.rules.generate.supplement,'本剧补充'); assert.equal(n.rules.review.supplement,'审核独立补充'); assert.equal(n.rules.revise.supplement,'');
     await assert.rejects(command({type:'edit-rule',action:'unknown',field:'base',value:'x'}),/rules/);
     await runtime.dispose(); runtime = await createAppRuntime({home});
-    assert.deepEqual((await runtime.repository.open(p.id)).read().project.episodes[0].story_outline.rules,n.rules);
+    assert.deepEqual((await runtime.repository.open(p.basic_info.id)).read().project.episodes[0].story_outline.rules,n.rules);
   } finally { await runtime?.dispose(); await rm(home,{recursive:true,force:true}); }
 });
 
@@ -67,11 +67,11 @@ test('基础快照不影响有效规则和hash，补充变化影响相应节点�
  assert.equal(effectiveRules(p,'outline',e.id).generate.base,defaultRules('outline').generate.base);
  e.story_outline.rules.generate.supplement='本次补充';assert.notEqual(dependencyHash(s,'outline',e.id),before);
  assert.equal(e.story_outline.rules.generate.base,'旧代码留下的基础副本');
- const plan=structuredClone(p.script.rules),adapt=structuredClone(p.script.adaptation_rules);
- p.script.adaptation_rules.revise.base='旧改编基础';p.script.adaptation_rules.revise.supplement='只用于改编';
- assert.equal(effectiveRules(p,'script-review',p.id).revise.base,defaultRules('script-review').revise.base);
- assert.equal(effectiveRules(p,'script-review',p.id).revise.supplement,'只用于改编');
- assert.deepEqual(p.script.rules,plan);assert.equal(effectiveRules(p,'script-split',p.id).revise.supplement,plan.revise.supplement);
+ const plan=structuredClone(p.story_segments.rules),adapt=structuredClone(p.script_revision.rules);
+ p.script_revision.rules.revise.base='旧改编基础';p.script_revision.rules.revise.supplement='只用于改编';
+ assert.equal(effectiveRules(p,'script-review',p.basic_info.id).revise.base,defaultRules('script-review').revise.base);
+ assert.equal(effectiveRules(p,'script-review',p.basic_info.id).revise.supplement,'只用于改编');
+ assert.deepEqual(p.story_segments.rules,plan);assert.equal(effectiveRules(p,'script-split',p.basic_info.id).revise.supplement,plan.revise.supplement);
 });
 
 test('v25到v26显式迁移：补齐规则、保留正文媒体和有效链、二次启动不重写', async () => {
@@ -84,18 +84,18 @@ test('v25到v26显式迁移：补齐规则、保留正文媒体和有效链、�
     strip(legacy);
     const e = legacy.episodes[0], snapshot = {project:legacy};
     for (const [business,id,node] of [
-      ['project-summary',legacy.id,legacy.project_summary],['project-characters',legacy.id,legacy.character_library],
+      ['project-summary',legacy.basic_info.id,legacy.project_summary],['project-characters',legacy.basic_info.id,legacy.character_library],
       ['outline',e.id,e.story_outline],['episode-scenes',e.id,e.scene_catalog],['shots',e.id,e.shot_list],
       ...e.shot_list.shots.flatMap(s=>[['seconds',s.id,s.seconds_storyboard],['storyboard',s.id,s.text_to_video_prompt],['first-last-frame',s.id,s.first_last_frame_prompt],['multimodal',s.id,s.multimodal_prompt],['video',s.id,s.video],['tail',s.id,s.last_frame]]),['assembly',e.id,e.assembly],
     ]) node.node_state.dependency_hash = dependencyHash(snapshot,business,id);
     const db = new DatabaseSync(join(home,'meiji.sqlite'));
-    db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy),p.id);
+    db.prepare('UPDATE projects SET data_json=? WHERE id=?').run(JSON.stringify(legacy),p.basic_info.id);
     db.exec('DELETE FROM schema_migrations WHERE version=26; PRAGMA user_version=25'); db.close();
-    repo = new ModelRepository(home); const next = (await repo.open(p.id)).read();
+    repo = new ModelRepository(home); const next = (await repo.open(p.basic_info.id)).read();
     assert.deepEqual(next.project.episodes[0].story_outline.rules,defaultRules('outline'));
-    assert.equal(next.project.script.body,p.script.body);
+    assert.equal(next.project.script_revision.body,p.script_revision.body);
     assert.equal(next.project.episodes[0].assembly.address,p.episodes[0].assembly.address);
     assert.equal(isNodeCurrent(next,'outline',e.id),true); assert.equal(isNodeCurrent(next,'assembly',e.id),true);
-    await repo.close(); repo = new ModelRepository(home); assert.deepEqual((await repo.open(p.id)).read(),next);
+    await repo.close(); repo = new ModelRepository(home); assert.deepEqual((await repo.open(p.basic_info.id)).read(),next);
   } finally { await repo?.close(); await rm(home,{recursive:true,force:true}); }
 });

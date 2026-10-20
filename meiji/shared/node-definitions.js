@@ -13,7 +13,7 @@ export const TEXT_RETRY_ROUNDS = 3;
 
 export const NODE_DEFINITIONS = freezeDefinitions({
   // 可选的全文改编与审核，不作为全集规划和人物提取的前置。
-  "script-review": { targetKind: "project", field: "script", label: "剧本改编与审核", handler: "text", output: "text", programReview: false, aiReview: true, retryRounds: TEXT_RETRY_ROUNDS, precheck: "project-text" },
+  "script-review": { targetKind: "project", field: "script_revision", label: "剧本优化", handler: "text", output: "text", programReview: false, aiReview: true, retryRounds: TEXT_RETRY_ROUNDS, precheck: "project-text" },
   "project-summary": {
     targetKind: "project",
     field: "project_summary",

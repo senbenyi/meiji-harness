@@ -6,7 +6,7 @@ import { snapshotFixture, taskFixture } from '../tests/fixtures/project.js';
 const business = process.argv[2] || 'project-summary';
 const snapshot = snapshotFixture(), project = snapshot.project;
 const id = ['project-summary', 'project-characters', 'script-split'].includes(business)
-  ? project.id : ['seconds', 'storyboard'].includes(business)
+  ? project.basic_info.id : ['seconds', 'storyboard'].includes(business)
     ? project.episodes[0].shot_list.shots[0].id : project.episodes[0].id;
 const task = taskFixture(project, business, id);
 for (const action of Object.keys(nodeRoutes[business].actions)) {

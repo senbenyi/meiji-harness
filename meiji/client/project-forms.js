@@ -171,13 +171,13 @@ export function projectDialog(root, save) {
     }
     submit.disabled = true;
     try {
-      await save({
+      await save({ basic_info: {
         name: name.value.trim(),
-        creation_mode: mode.value === "script" ? "剧本" : "自由创作",
+        creation_mode: mode.value === 'script' ? '剧本' : '自由创作',
         aspect_ratio: aspect.value,
-        creative_direction: mode.value === "free" ? premise.value.trim() : "",
-        ...(mode.value === "script" ? { script: { body: text } } : {}),
-      });
+        creative_requirements: mode.value === 'free' ? premise.value.trim() : '',
+        original_script: mode.value === 'script' ? text : '',
+      } });
       dialog.close();
     } catch (e) {
       error.textContent = e.message;
@@ -221,6 +221,8 @@ export function detailsDialog(
         "label",
         {
           name: "短剧标题",
+          aspect_ratio: "画幅",
+          creative_requirements: "创作要求",
           duration_seconds: "本集时长（秒）",
           episode_requirements: "本集要求（选填）",
           reference_episode_duration_seconds: "参考单集时长（秒）",
@@ -230,7 +232,7 @@ export function detailsDialog(
       input = element(
         key === "aspect_ratio"
           ? "select"
-          : ["episode_requirements", "plot"].includes(key)
+          : ["episode_requirements", "plot", "creative_requirements"].includes(key)
             ? "textarea"
             : "input",
       );

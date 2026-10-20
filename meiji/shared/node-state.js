@@ -1,3 +1,4 @@
+import { currentScript } from './script-text.js';
 import { assertShotDialogue, assertPromptDialogue, assertPendingDialogue } from './dialogue-integrity.js';
 import { nodeOf, invalid, locateTarget } from "./task_contract.js";
 import { validateProject } from "./project_contract.js";
@@ -28,7 +29,7 @@ export function hasNodeContent(project, business, targetId) {
   if (business === 'episode-scenes') return node.has_result;
   if (business === "outline") return node.segments.length > 0;
   if (business === "shots") return node.shots.length > 0;
-  if (business === "script-review") return Boolean(node.body.trim());
+  if (business === "script-review") return Boolean(currentScript(project).trim());
   if (business === "seconds") return node.storyboard.length > 0;
   if (business === "storyboard") return Boolean(node.integrated_multimodal_description.trim());
   return Boolean((node.body ?? node.prompt ?? node.address ?? "").trim());

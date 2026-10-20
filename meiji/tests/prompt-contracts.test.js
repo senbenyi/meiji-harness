@@ -98,7 +98,7 @@ describe("ai-routes", () => {
 
   test('自动修订使用本任务最近原始结果；排除审核、未来和其他任务结果', () => {
     const snapshot = snapshotFixture(), project = snapshot.project;
-    const task = taskFixture(project, 'project-summary', project.id, { opinion: '保留结局' });
+    const task = taskFixture(project, 'project-summary', project.basic_info.id, { opinion: '保留结局' });
     snapshot.steps = [
       { task_id: task.id, kind: 'generate', step_status: 'done', seq: 1, result: '第一轮结果' },
       { task_id: task.id, kind: 'revise', step_status: 'done', seq: 3, result: '最新原始结果' },
@@ -127,13 +127,13 @@ describe("ai-routes", () => {
       const settings = { ...config, baseUrl: `${await listen(remote)}/v1`, textBaseUrl: `${await listen(local)}/v1`, apiKey: 'private-route-key' };
       await modelStore(home).write(settings);
       runtime = await createAppRuntime({ home });
-      const project = emptyProject({ name: '节点路由', creation_mode: '剧本' }); project.script.body = input.script;
+      const project = emptyProject({ basic_info: { name: '节点路由', creation_mode: '剧本' } }); project.script_revision.body = input.script;
       const stored = await runtime.repository.create(project), before = stored.read();
       const sid = `session-${randomUUID()}`;
-      await runtime.bindings.bind(sid, project.id);
+      await runtime.bindings.bind(sid, project.basic_info.id);
       api = createServer(createTaskHttpHandler(runtime, { authorize: req => req.headers['x-deny'] ? 401 : null }));
       const base = await listen(api), path = '/api/meiji/ai/project-summary/generate';
-      const url = `${base}${path}?session_id=${sid}&project_id=${project.id}`;
+      const url = `${base}${path}?session_id=${sid}&project_id=${project.basic_info.id}`;
       const post = (body = input, options = {}) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Meiji-Request': '1', ...options }, body: JSON.stringify(body) });
       for (const [model, source, key] of [['codex-gpt', 'llm-server', 'ollama'], ['qwen3.5:27b', 'llm-server', 'ollama']]) {
         await runtime.models.write({ ...settings, text: { model } });
@@ -289,10 +289,10 @@ describe("storyboard-language", () => {
           assert.deepEqual(stored.readAll().project.episodes[0].shot_list.shots[0].text_to_video_prompt, kept);
           for (const action of ['regenerate', 'revise']) {
             const start = calls.length;
-            const accepted = await runtime.tasks.command({ type: 'submit', project_id: project.id,
+            const accepted = await runtime.tasks.command({ type: 'submit', project_id: project.basic_info.id,
               request_id: `${model}-${language}-${action}`, business_type: 'storyboard', target_id: shot.id,
               action, ...(action === 'revise' ? { opinion: '保持原事件，修正表达' } : {}) });
-            await runtime.tasks.idle(project.id);
+            await runtime.tasks.idle(project.basic_info.id);
             const snapshot = stored.readAll(), task = snapshot.tasks.find(t => t.id === accepted.task_id);
             assert.equal(task.task_status, 'completed', task.end_reason);
             assert.deepEqual(calls.slice(start).map(call => call.action), [action === 'revise' ? 'regenerate' : 'generate', 'review']);
@@ -463,7 +463,7 @@ describe("prompt-chain", () => {
     if (node === 'scene-image') return {language:'zh-CN',requirements:'',scene:{name:'客厅'},aspectRatio:'9:16',references:[],...(action === 'regenerate' ? {opinion:'保留布局'} : {})};
     if (node === 'costume-image') return { language: 'zh-CN', requirements: '', person: '人物甲', costume: '蓝衣', referenceDescription: '', aspectRatio: '9:16', references: [], ...(action === 'regenerate' ? { opinion: '保持身份' } : {}) };
     if (node === 'video') return { type: '文生', textPrompt: { integrated_multimodal_description: '人物静立', overall_soundscape: '风声', non_diegetic_music: 'N/A' }, duration: 5, aspectRatio: '9:16', ...(action === 'regenerate' ? { opinion: '保持动作' } : {}) };
-    const target = ['project-summary','project-characters','script-review','script-split'].includes(node) ? p.id : ['outline','shots','episode-summary','episode-scenes'].includes(node) ? ep.id : shot.id;
+    const target = ['project-summary','project-characters','script-review','script-split'].includes(node) ? p.basic_info.id : ['outline','shots','episode-summary','episode-scenes'].includes(node) ? ep.id : shot.id;
     return taskNodeInput({ project: p, tasks: [], steps: [] }, { id: 'audit', business_type: node, target_id: target, opinion: '保持原话与动作' }, null, action);
   }
 

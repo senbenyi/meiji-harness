@@ -30,10 +30,10 @@ describe("repair-policy", () => {
       } } });
       const model = await runtime.repository.create(p), before = structuredClone(model.readAll().project);
       const target = business === 'shots' ? p.episodes[0].id : p.episodes[0].shot_list.shots[0].id;
-      const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, target_id: target, business_type: business,
+      const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.basic_info.id, target_id: target, business_type: business,
         action: 'revise', opinion: '修正指定问题，其他保持', request_id: crypto.randomUUID() });
-      await runtime.tasks.idle(p.id);
-      await check({ snapshot: model.readAll(), history: runtime.repository.history(p.id), before, calls, taskId: submitted.task_id });
+      await runtime.tasks.idle(p.basic_info.id);
+      await check({ snapshot: model.readAll(), history: runtime.repository.history(p.basic_info.id), before, calls, taskId: submitted.task_id });
     } finally { await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }
   }
 
@@ -203,11 +203,11 @@ describe("repair-policy", () => {
       } } });
       const model = await runtime.repository.create(p);
       const normalizedOld = structuredClone(model.readAll().project.episodes[0].shot_list.shots);
-      const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, target_id: p.episodes[0].id,
+      const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.basic_info.id, target_id: p.episodes[0].id,
         business_type: 'shots', action: 'revise', opinion: '修镜头', request_id: 'patch-cancel-submit' });
       await ready;
-      await runtime.tasks.command({ type: 'cancel', project_id: p.id, task_id: submitted.task_id, request_id: 'patch-cancel' });
-      release(); await runtime.tasks.idle(p.id);
+      await runtime.tasks.command({ type: 'cancel', project_id: p.basic_info.id, task_id: submitted.task_id, request_id: 'patch-cancel' });
+      release(); await runtime.tasks.idle(p.basic_info.id);
       assert.equal(model.readAll().tasks.find(t => t.id === submitted.task_id).task_status, 'cancelled');
       assert.deepEqual(model.readAll().project.episodes[0].shot_list.shots, normalizedOld);
     } finally { release(); await runtime?.dispose(); await rm(home, { recursive: true, force: true }); }

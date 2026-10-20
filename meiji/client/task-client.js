@@ -45,7 +45,7 @@ export class PanelContext {
     return true;
   }
   accept(token, snapshot) {
-    if (!this.valid(token) || snapshot.project.id !== this.#project || snapshot.runtime.revision < (this.#snapshot?.runtime.revision || 0)) return false;
+    if (!this.valid(token) || snapshot.project.basic_info.id !== this.#project || snapshot.runtime.revision < (this.#snapshot?.runtime.revision || 0)) return false;
     this.#snapshot = snapshot;
     const tasks = new Set(Object.values(snapshot.project.latest_tasks || {})), groups = new Set(Object.values(snapshot.project.latest_groups || {}));
     for (const [id, view] of this.#records) if (view.tasks.some(unfinished) || (!groups.has(id) && !view.tasks.some(t => tasks.has(t.id)))) this.#records.delete(id);

@@ -8,7 +8,6 @@ import {
 } from "./task_contract.js";
 import { emptySceneModel } from './models/scene_model.js';
 import { emptyProjectModel } from "./models/project_model.js";
-import { emptyScriptRevisionModel } from "./models/script_revision_model.js";
 import { emptyCharacterModel } from "./models/character_model.js";
 import { emptyCostumeImageModel } from "./models/costume_image_model.js";
 import { emptyCostumeModel } from "./models/costume_model.js";
@@ -28,11 +27,11 @@ export const emptyShot = (fields = {}) =>
 
 const arrayModels = {
   "project.scene_library.scenes": emptySceneModel,
-  "project.script.revision_history": emptyScriptRevisionModel,
   "project.character_library.characters": emptyCharacterModel,
   "project.character_library.characters[].costume_images": () => emptyCostumeImageModel(),
   "project.character_library.characters[].costumes": emptyCostumeModel,
   "project.episodes": () => emptyEpisodeModel(),
+  "project.story_segments.segments": () => emptyStorySegmentModel(),
   "project.episodes[].story_outline.segments": () => emptyStorySegmentModel(),
   "project.episodes[].shot_list.shots": () => emptyShotModel(),
   "project.episodes[].shot_list.shots[].on_screen_characters": emptyOnScreenCharacterModel,
@@ -122,11 +121,11 @@ export function validateProject(project) {
     if (ids.has(value)) invalid(path, "重复 ID");
     ids.add(value);
   };
-  register(project.id, "project.id");
-  assertEnum(project.aspect_ratio, PROJECT_ASPECT_RATIOS, "project.aspect_ratio");
-  assertEnum(project.creation_mode, ["剧本", "自由创作"], "project.creation_mode");
-  if (!Number.isInteger(project.reference_episode_duration_seconds) || project.reference_episode_duration_seconds < 1)
-    invalid("project.reference_episode_duration_seconds", "需为正整数");
+  register(project.basic_info.id, "project.basic_info.id");
+  assertEnum(project.basic_info.aspect_ratio, PROJECT_ASPECT_RATIOS, "project.basic_info.aspect_ratio");
+  assertEnum(project.basic_info.creation_mode, ["剧本", "自由创作"], "project.basic_info.creation_mode");
+  if (!Number.isInteger(project.basic_info.reference_episode_duration_seconds) || project.basic_info.reference_episode_duration_seconds < 1)
+    invalid("project.basic_info.reference_episode_duration_seconds", "需为正整数");
 
   const scenes = new Map();
   for (const scene of project.scene_library.scenes) { register(scene.id, 'scene.id'); scenes.set(scene.id, scene); }

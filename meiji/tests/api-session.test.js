@@ -46,7 +46,7 @@ describe("api-session", () => {
       });
       const p = projectFixture();
       await runtime.repository.create(p);
-      await runtime.bindings.bind(sid, p.id);
+      await runtime.bindings.bind(sid, p.basic_info.id);
       server = createServer(
         createTaskHttpHandler(runtime, {
           authorize: (req) => (req.headers["x-test-auth"] === "1" ? null : 401),
@@ -79,10 +79,10 @@ describe("api-session", () => {
     httpFixture(async ({ runtime, p, sid, other, post, messages }) => {
       const command = {
         type: "submit",
-        project_id: p.id,
+        project_id: p.basic_info.id,
         request_id: "api",
         business_type: "project-summary",
-        target_id: p.id,
+        target_id: p.basic_info.id,
         action: "regenerate",
       };
       assert.equal((await post(command, other)).status, 403);
@@ -98,8 +98,8 @@ describe("api-session", () => {
           ),
         );
       assert.equal(result.body.task_id, again.task_id);
-      await runtime.tasks.idle(p.id);
-      await runtime.notices.drain(p.id);
+      await runtime.tasks.idle(p.basic_info.id);
+      await runtime.notices.drain(p.basic_info.id);
       assert.ok(
         messages.some((row) => row.data.text.includes("已通过")),
       );
@@ -137,25 +137,25 @@ describe("api-session", () => {
           },
         });
         await r.repository.create(p);
-        await r.bindings.bind(sid, p.id);
+        await r.bindings.bind(sid, p.basic_info.id);
         const command = {
             type: "submit",
-            project_id: p.id,
+            project_id: p.basic_info.id,
             request_id: "notify",
             business_type: "project-summary",
-            target_id: p.id,
+            target_id: p.basic_info.id,
             action: "regenerate",
           },
           result = await r.command(command, sid);
         assert.equal(result.accepted, true);
         assert.ok(result.notification_error);
-        await r.tasks.idle(p.id);
-        const noticeIds = (await r.repository.open(p.id))
+        await r.tasks.idle(p.basic_info.id);
+        const noticeIds = (await r.repository.open(p.basic_info.id))
           .readAll()
           .runtime.outbox.map((n) => n.id);
         available = true;
-        await r.notices.drain(p.id);
-        await r.notices.drain(p.id);
+        await r.notices.drain(p.basic_info.id);
+        await r.notices.drain(p.basic_info.id);
         assert.deepEqual(ids, noticeIds);
         assert.equal((await r.command(command, sid)).task_id, result.task_id);
         await r.dispose();
@@ -229,16 +229,16 @@ describe("api-session", () => {
       const headers = { "X-Test-Auth": "1" };
       const get = async path => { const response = await fetch(`${base}${path}`, { headers }); return { status: response.status, body: await response.json() }; };
       const submitted = await post({
-        type: "submit", project_id: p.id, request_id: "panel-snapshot",
-        business_type: "project-summary", target_id: p.id, action: "regenerate",
+        type: "submit", project_id: p.basic_info.id, request_id: "panel-snapshot",
+        business_type: "project-summary", target_id: p.basic_info.id, action: "regenerate",
       });
       assert.equal(submitted.status, 200);
-      await runtime.tasks.idle(p.id);
+      await runtime.tasks.idle(p.basic_info.id);
       const snapshot = (await get(`/api/meiji/context?session_id=${sid}`)).body.snapshot;
       // 任务已结束：工作快照不再携带，项目 JSON 记录最近任务 ID。
       assert.deepEqual(snapshot.tasks, []);
       assert.deepEqual(snapshot.steps, []);
-      const taskId = snapshot.project.latest_tasks[`project-summary:${p.id}`];
+      const taskId = snapshot.project.latest_tasks[`project-summary:${p.basic_info.id}`];
       assert.equal(taskId, submitted.body.task_id);
       const summary = await get(`/api/meiji/records?session_id=${sid}&task_ids=${taskId}`);
       assert.equal(summary.status, 200);
@@ -267,20 +267,20 @@ describe("api-session", () => {
   test("提交直接返回正在进行的任务组快照", () =>
     httpFixture(async ({ p, post }) => {
       const submitted = await post({
-        type: "submit", project_id: p.id, request_id: "group-snapshot",
-        business_type: "project-summary", target_id: p.id, action: "regenerate",
+        type: "submit", project_id: p.basic_info.id, request_id: "group-snapshot",
+        business_type: "project-summary", target_id: p.basic_info.id, action: "regenerate",
       });
       assert.equal(submitted.status, 200);
       const body = submitted.body;
       // 提交只新增最近任务关联，以 links 增量返回，不算作正文变化。
       assert.equal(body.content, false);
-      assert.equal(body.links.latest_tasks[`project-summary:${p.id}`], body.task_id);
+      assert.equal(body.links.latest_tasks[`project-summary:${p.basic_info.id}`], body.task_id);
       assert.equal(body.groups.length, 1);
       const view = body.groups[0];
       assert.equal(view.tasks[0].id, body.task_id);
       assert.equal(view.tasks[0].task_status, "queued");
       assert.equal(view.tasks[0].business_type, "project-summary");
-      assert.equal(view.tasks[0].target_id, p.id);
+      assert.equal(view.tasks[0].target_id, p.basic_info.id);
       assert.ok(view.steps.length);
       assert.equal(view.steps.every(step => !Object.hasOwn(step, "prompt") && typeof step.has_prompt === "boolean"), true);
     }));
@@ -289,7 +289,7 @@ describe("api-session", () => {
     const context = new PanelContext();
     context.select("session", "project");
     assert.equal(context.accept(context.token(), {
-      project: { id: "project" },
+      project: { basic_info: { id: "project" } },
       tasks: [{ id: "old", group_id: "g1", task_status: "completed" }],
       steps: [{ id: "s-old", task_id: "old", prompt: "keep" }],
       groups: [{ id: "g1" }],
@@ -326,7 +326,7 @@ describe("boundaries", () => {
       const notice = (id) => ({
         id,
         session_id: sid,
-        project_id: p.id,
+        project_id: p.basic_info.id,
         event: "completed",
         delivery_status: "pending",
         error: "",
@@ -350,7 +350,7 @@ describe("boundaries", () => {
           },
         }),
       });
-      await outbox.drain(p.id);
+      await outbox.drain(p.basic_info.id);
       assert.deepEqual(ids, ["notice-first", "notice-second"]);
       assert.ok(
         model
@@ -386,7 +386,7 @@ describe("boundaries", () => {
         runtime.projectCommand(
           {
             type: "create",
-            fields: { id: "p_injected", name: "注入", creative_direction: "方向" },
+            fields: { basic_info: { id: "p_injected", name: "注入", creative_requirements: "方向" } },
           },
           null,
         ),
@@ -394,7 +394,7 @@ describe("boundaries", () => {
       );
       for (let i = 0; i < 2; i++)
         await runtime.projectCommand(
-          { type: "create", fields: { name: "同名项目", creation_mode: "自由创作", creative_direction: "方向" } },
+          { type: "create", fields: { basic_info: { name: "同名项目", creation_mode: "自由创作", creative_requirements: "方向" } } },
           null,
         );
       const entries = await runtime.repository.list();
@@ -489,7 +489,7 @@ describe("boundaries", () => {
       const object_id = `c_${randomUUID()}`;
       p.character_library.characters.push({ id: object_id, costumes: [] });
       await library.command(
-        { type: "reference", id, project_id: p.id, object_id },
+        { type: "reference", id, project_id: p.basic_info.id, object_id },
         repository,
       );
       assert.deepEqual(await library.references(), [object_id]);
@@ -498,7 +498,7 @@ describe("boundaries", () => {
         /仍被项目引用/,
       );
       await library.command(
-        { type: "unreference", id, project_id: p.id, object_id },
+        { type: "unreference", id, project_id: p.basic_info.id, object_id },
         repository,
       );
       await library.command({ type: "delete", id }, repository);
@@ -527,20 +527,20 @@ describe("boundaries", () => {
       for (const image of c.costume_images)
         Object.assign(image, { node_state: { status: "generated", reason: "", dependency_hash: "" }, address: "costume.png" });
       const model = await runtime.repository.create(p);
-      await runtime.bindings.bind(sid, p.id);
+      await runtime.bindings.bind(sid, p.basic_info.id);
       await runtime.projectCommand(
         {
           type: "edit",
-          project_id: p.id,
+          project_id: p.basic_info.id,
           request_id: "settings",
-          fields: { aspect_ratio: "9:16" },
+          fields: { basic_info: { aspect_ratio: "9:16" } },
         },
         sid,
       );
       await runtime.projectCommand(
         {
           type: "edit-character",
-          project_id: p.id,
+          project_id: p.basic_info.id,
           request_id: "voice-default",
           target_id: c.id,
           fields: { voice: "新声音", default_costume_id: c.costumes[1].id },
@@ -557,7 +557,7 @@ describe("boundaries", () => {
         runtime.projectCommand(
           {
             type: "edit",
-            project_id: p.id,
+            project_id: p.basic_info.id,
             request_id: "bad-rule",
             fields: { rules: [] },
           },
@@ -567,7 +567,7 @@ describe("boundaries", () => {
       );
       await assert.rejects(
         runtime.projectCommand(
-          { type: "edit", project_id: p.id, request_id: "bad-language", fields: { output_language: "en" } },
+          { type: "edit", project_id: p.basic_info.id, request_id: "bad-language", fields: { output_language: "en" } },
           sid,
         ),
         /未定义项目配置/,

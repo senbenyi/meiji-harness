@@ -80,11 +80,11 @@ describe("expiration", () => {
     s.text_to_video_prompt.node_state.status = "rejected";
     s.text_to_video_prompt.node_state.reason = "未通过";
     stampGenerated(snapshot);
-    p.script.body = "修改后的剧本";
-    expireDownstream(snapshot, "script", p.id);
+    p.script_revision.body = "修改后的剧本";
+    expireDownstream(snapshot, "script", p.basic_info.id);
     assert.equal(p.project_summary.node_state.status, "expired");
     assert.equal(p.episodes[0].story_outline.node_state.status, "expired");
-    p.aspect_ratio = "9:16";
+    p.basic_info.aspect_ratio = "9:16";
     assert.equal(s.video.node_state.status, "expired");
     expireDownstream(snapshot, "seconds", s.id, "上游已修改", { compareHash: false });
     assert.equal(s.text_to_video_prompt.node_state.status, "rejected");
@@ -115,7 +115,7 @@ describe("expiration", () => {
   function stampGenerated(snapshot) {
     const project = snapshot.project,
       episode = project.episodes[0];
-    stampDependencyHash(snapshot, "project-summary", project.id);
+    stampDependencyHash(snapshot, "project-summary", project.basic_info.id);
     for (const business of ["episode-summary", "outline", "shots"])
       stampDependencyHash(snapshot, business, episode.id);
     for (const shot of episode.shot_list.shots)
@@ -340,9 +340,9 @@ describe("expiration", () => {
   test("角色节点仅因剧本变为过期，分集改编和镜头表随原剧本一起过期", () => {
     const snapshot = withCharacter(), p = snapshot.project;
     p.character_library.node_state.status = "generated";
-    stampDependencyHash(snapshot, "project-characters", p.id);
-    p.script.body = "新的剧本";
-    expireDownstream(snapshot, "script", p.id);
+    stampDependencyHash(snapshot, "project-characters", p.basic_info.id);
+    p.script_revision.body = "新的剧本";
+    expireDownstream(snapshot, "script", p.basic_info.id);
     assert.equal(p.character_library.node_state.status, "expired");
     assert.equal(p.episodes[0].shot_list.node_state.status, "expired");
   });
@@ -352,7 +352,7 @@ describe("expiration", () => {
       const snapshot = withCharacter(), p = snapshot.project, c = p.character_library.characters[0];
       if (remove) {
         p.character_library.characters = [];
-        expireDownstream(snapshot, "project-characters", p.id);
+        expireDownstream(snapshot, "project-characters", p.basic_info.id);
       } else {
         c.costumes[0].color = "红";
         // 资料编辑入口也应检查文字依赖，与是否已生成定妆照无关。
@@ -381,14 +381,14 @@ describe("expiration", () => {
   test("角色rejected候选不传播，相同文字通过或人工放行后使镜头过期", () => {
     for (const action of ["regenerate", "override"]) {
       const snapshot = withCharacter(), p = snapshot.project, e = p.episodes[0];
-      const task = taskFixture(p, "project-characters", p.id, { episode_id: null });
+      const task = taskFixture(p, "project-characters", p.basic_info.id, { episode_id: null });
       const candidate = { characters: structuredClone(p.character_library.characters) };
       candidate.characters[0].position = "巡检";
       commitContent(snapshot, task, candidate, { passed: false });
       assert.equal(e.shot_list.node_state.status, "generated");
       task.action = action;
       commitContent(snapshot, task, candidate, { passed: true });
-      expireDownstream(snapshot, "project-characters", p.id);
+      expireDownstream(snapshot, "project-characters", p.basic_info.id);
       assert.equal(e.shot_list.node_state.status, "expired");
     }
   });

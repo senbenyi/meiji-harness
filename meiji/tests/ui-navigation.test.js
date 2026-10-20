@@ -116,9 +116,9 @@ describe("ui-restore", () => {
       assert.equal(dialog.querySelector("#title").value, "恢复剧本");
       submit(dialog.querySelector("form"), dom);
       await tick();
-      assert.equal(output.creation_mode, "剧本");
-      assert.equal(output.script.body, "第一幕");
-      assert.equal(output.aspect_ratio, "9:16");
+      assert.equal(output.basic_info.creation_mode, "剧本");
+      assert.equal(output.basic_info.original_script, "第一幕");
+      assert.equal(output.basic_info.aspect_ratio, "9:16");
       const second = projectDialog(root, (v) => {
         output = v;
       });
@@ -130,8 +130,8 @@ describe("ui-restore", () => {
       second.querySelector("#project-premise").value = "新的方向";
       submit(second.querySelector("form"), dom);
       await tick();
-      assert.equal(output.creation_mode, "自由创作");
-      assert.equal(output.creative_direction, "新的方向");
+      assert.equal(output.basic_info.creation_mode, "自由创作");
+      assert.equal(output.basic_info.creative_requirements, "新的方向");
       assert.equal("剧本" in output, false);
     }));
   test("UI-1 素材库选择剧本按正文提交，未选择不得创建", () =>
@@ -168,7 +168,7 @@ describe("ui-restore", () => {
       await d.querySelector("select.script-picker").onchange();
       submit(d.querySelector("form"), dom);
       await tick();
-      assert.equal(value.script.body, "库中剧本");
+      assert.equal(value.basic_info.original_script, "库中剧本");
     }));
   test("UI-2/3 概要原卡片、剧本入口；剧集四标签和镜头两标签保持返回层级", () =>
     domTest((root) => {
@@ -182,9 +182,9 @@ describe("ui-restore", () => {
           paint: () => renderTaskPanel(root, snap, context),
         };
       context.paint();
-      assert.ok(root.querySelector(".summary-preview"));
+      assert.ok(root.querySelector("[data-section=basic_info]"));
       assert.ok(root.querySelector(".episode-card .episode-cover"));
-      assert.ok(root.querySelector(".script-title-row"));
+      assert.ok(root.querySelector("[data-section=script_revision]"));
       assert.equal(root.querySelector("nav.tabs"), null);
       assert.equal(root.querySelector("pre"), null);
       root.querySelector(".episode-card").click();
@@ -324,7 +324,7 @@ describe("ui-restore", () => {
           id: "t",
           group_id: "g",
           group_seq: 1,
-          target_id: snap.project.id,
+          target_id: snap.project.basic_info.id,
           business_type: "project-summary",
           task_status: "completed",
           queue_order: 1,
@@ -455,7 +455,7 @@ describe("ui-restore", () => {
         globalThis.fetch = async () => {
           requests++;
           if (release === null) await new Promise(resolve => { release = resolve; });
-          return { ok: true, json: async () => ({ project_id: snap.project.id, snapshot: structuredClone(snap) }) };
+          return { ok: true, json: async () => ({ project_id: snap.project.basic_info.id, snapshot: structuredClone(snap) }) };
         };
         app = mount(); await app.refresh();
         assert.equal(streams.length, 1);
@@ -502,7 +502,7 @@ describe("ui-restore", () => {
             const body = JSON.parse(options.body);
             if (url.endsWith("/models")) Object.assign(settings, body.settings);
           }
-          return { ok: true, json: async () => url.endsWith("/models") ? { settings: structuredClone(settings) } : { project_id: snap.project.id, snapshot: structuredClone(snap) } };
+          return { ok: true, json: async () => url.endsWith("/models") ? { settings: structuredClone(settings) } : { project_id: snap.project.basic_info.id, snapshot: structuredClone(snap) } };
         };
         app = mount();
         await app.refresh();
@@ -524,7 +524,7 @@ describe("ui-restore", () => {
         await tick();
         assert.equal(settings.output_language, "en");
         assert.equal(Object.hasOwn(snap.project, "output_language"), false);
-        assert.ok(!content.textContent.includes(snap.project.name));
+        assert.ok(!content.textContent.includes(snap.project.basic_info.name));
         snap.runtime.revision++;
         await app.refresh(); await tick();
         language = content.querySelector("[name=output_language]"); model = content.querySelector("[name=text]");
@@ -608,8 +608,8 @@ describe("ui-restore", () => {
   }));
 
   test("项目模型默认竖版，显式横版保持不变", () => {
-    assert.equal(emptyProjectModel().aspect_ratio, "9:16");
-    assert.equal(emptyProjectModel({ aspect_ratio: "16:9" }).aspect_ratio, "16:9");
+    assert.equal(emptyProjectModel().basic_info.aspect_ratio, "9:16");
+    assert.equal(emptyProjectModel({ basic_info: { aspect_ratio: "16:9" } }).basic_info.aspect_ratio, "16:9");
   });
 
   test("出镜角色按ID展示姓名、服装名称与描述，不展示关联UUID", () => domTest(root => {

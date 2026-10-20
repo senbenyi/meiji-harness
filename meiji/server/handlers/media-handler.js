@@ -46,17 +46,17 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
       node = nodeOf(p, business, task.target_id);
     if (step.kind === "precheck" && business === "assembly") {
       for (const shot of episode.shot_list.shots)
-        await media.validate(shot.video.address, p.id, "video");
+        await media.validate(shot.video.address, p.basic_info.id, "video");
       signal.throwIfAborted();
       return { result: { passed: true } };
     }
     if (business === 'video' && step.kind === 'apply') {
-      const info = await media.validate(draft.address, p.id, 'video');
+      const info = await media.validate(draft.address, p.basic_info.id, 'video');
       const temp = await mkdtemp(join(tmpdir(), 'meiji-video-tail-'));
       try {
-        const frame = await saveLastFrame(media.path(draft.address, p.id), join(temp, 'tail.png'), signal);
+        const frame = await saveLastFrame(media.path(draft.address, p.basic_info.id), join(temp, 'tail.png'), signal);
         signal.throwIfAborted();
-        const tail = await media.put(p.id, frame, 'png', signal);
+        const tail = await media.put(p.basic_info.id, frame, 'png', signal);
         signal.throwIfAborted();
         const content = { ...draft, actual_duration_seconds: seconds(info.duration), last_frame: { address: tail.address } };
         return { content, result: { address: content.address, server_address: content.server_address || '', duration: content.actual_duration_seconds, last_frame: tail.address } };
@@ -75,9 +75,9 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
         await record({ http });
       }, () => downloadVideo({ server_address, remote_id: generated?.result?.remote_id || '', signal }));
       signal.throwIfAborted();
-      file = await normalizeVideo(file, p.aspect_ratio, signal);
+      file = await normalizeVideo(file, p.basic_info.aspect_ratio, signal);
       signal.throwIfAborted();
-      const asset = await media.put(p.id, file, 'mp4', signal);
+      const asset = await media.put(p.basic_info.id, file, 'mp4', signal);
       signal.throwIfAborted();
       const content = { server_address, address: asset.address, actual_duration_seconds: seconds(asset.duration) };
       return { content, result: { server_address, address: asset.address, duration: asset.duration } };
@@ -98,7 +98,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
       } else {
         const info = await media.validate(
           input?.address,
-          p.id,
+          p.basic_info.id,
           ["video", "assembly"].includes(business) ? "video" : "image",
         );
         return {
@@ -112,17 +112,17 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
       const temp = await mkdtemp(join(tmpdir(), 'meiji-media-step-'));
       try {
         const output = join(temp, 'film.mp4');
-        const inputs = [...episode.shot_list.shots].sort((a,b) => a.sequence-b.sequence).map(shot => media.path(shot.video.address, p.id));
+        const inputs = [...episode.shot_list.shots].sort((a,b) => a.sequence-b.sequence).map(shot => media.path(shot.video.address, p.basic_info.id));
         await concatFilms({ inputs, output });
         signal.throwIfAborted(); bytes = await readFile(output);
       } finally { await rm(temp, { recursive: true, force: true }); }
     } else if (business === 'scene-image') {
       const references = [];
       if (node.address) {
-        await media.validate(node.address,p.id,'image');
-        references.push(dataUrl(await media.read(node.address,p.id), node.address.endsWith('.jpg') ? 'image/jpeg' : node.address.endsWith('.webp') ? 'image/webp' : 'image/png'));
+        await media.validate(node.address,p.basic_info.id,'image');
+        references.push(dataUrl(await media.read(node.address,p.basic_info.id), node.address.endsWith('.jpg') ? 'image/jpeg' : node.address.endsWith('.webp') ? 'image/webp' : 'image/png'));
       }
-      const response = await ai(business, task.opinion.trim() ? 'regenerate' : 'generate', { language, rules: effectiveRules(p,business,task.target_id)[task.opinion.trim() ? 'revise' : 'generate'], requirements:nodeRequirements(p,business,task.target_id), scene:sceneText(object), context:sceneImageContext(p,object.id), aspectRatio:p.aspect_ratio, references, ...(task.opinion.trim() ? {opinion:task.opinion} : {}) }, {signal,record,task,step});
+      const response = await ai(business, task.opinion.trim() ? 'regenerate' : 'generate', { language, rules: effectiveRules(p,business,task.target_id)[task.opinion.trim() ? 'revise' : 'generate'], requirements:nodeRequirements(p,business,task.target_id), scene:sceneText(object), context:sceneImageContext(p,object.id), aspectRatio:p.basic_info.aspect_ratio, references, ...(task.opinion.trim() ? {opinion:task.opinion} : {}) }, {signal,record,task,step});
       bytes = Buffer.from(response.result.data,'base64'); prompt = response.prompt;
     } else if (business === "costume-image") {
       const modify = Boolean(node.address) && Boolean(task.opinion.trim());
@@ -131,8 +131,8 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
       const reference = first ? person.reference_image.address : primary.address;
       const references = [];
       if (reference) {
-        await media.validate(reference, p.id, 'image');
-        references.push(dataUrl(await media.read(reference, p.id), reference.endsWith('.webp') ? 'image/webp' : reference.endsWith('.jpg') ? 'image/jpeg' : 'image/png'));
+        await media.validate(reference, p.basic_info.id, 'image');
+        references.push(dataUrl(await media.read(reference, p.basic_info.id), reference.endsWith('.webp') ? 'image/webp' : reference.endsWith('.jpg') ? 'image/jpeg' : 'image/png'));
       }
       const response = await ai(business, modify ? 'regenerate' : 'generate', {
         language,
@@ -141,13 +141,13 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
         person: personSentence(person),
         costume: object ? [object.name, object.color, object.material, ...object.props].filter(Boolean).join('，') : '',
         referenceDescription: reference ? first ? '参考图用于人物身份和面相，服装按本次资料。' : '参考图为第一套定妆照，保持人物身份、面相和体型，服装按本次资料。' : '',
-        aspectRatio: p.aspect_ratio,
+        aspectRatio: p.basic_info.aspect_ratio,
         references,
         ...(modify ? { opinion: task.opinion } : {}),
       }, { signal, record, task, step });
       bytes = Buffer.from(response.result.data, 'base64');
       prompt = response.prompt;
-      prompt.parameters = { reference_count: references.length, reference_address: reference || null, aspectRatio: p.aspect_ratio };
+      prompt.parameters = { reference_count: references.length, reference_address: reference || null, aspectRatio: p.basic_info.aspect_ratio };
       await record({ prompt });
     } else if (business === "video") {
       const type = object.video_generation_type, pack = videoPack(type);
@@ -157,12 +157,12 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
       if (type === '多模态') {
         referenceIds = videoImages(p, object).map(row => row.id);
         for (const row of packed.reference_images) {
-          await media.validate(row.address, p.id, 'image');
-          refs.push(dataUrl(await media.read(row.address, p.id), row.address.endsWith('.jpg') ? 'image/jpeg' : row.address.endsWith('.webp') ? 'image/webp' : 'image/png'));
+          await media.validate(row.address, p.basic_info.id, 'image');
+          refs.push(dataUrl(await media.read(row.address, p.basic_info.id), row.address.endsWith('.jpg') ? 'image/jpeg' : row.address.endsWith('.webp') ? 'image/webp' : 'image/png'));
         }
       } else if (type === '首尾帧') {
-        await media.validate(packed.input_reference, p.id, 'image');
-        firstFrame = dataUrl(await media.read(packed.input_reference, p.id), 'image/png');
+        await media.validate(packed.input_reference, p.basic_info.id, 'image');
+        firstFrame = dataUrl(await media.read(packed.input_reference, p.basic_info.id), 'image/png');
       }
       const prev = previousShot(episode, object);
       const opinion = task.opinion;
@@ -173,7 +173,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
         textPrompt: aiProjection(object.text_to_video_prompt),
         duration: object.duration_seconds,
         speechTiming: videoSpeechTiming(object),
-        aspectRatio: p.aspect_ratio,
+        aspectRatio: p.basic_info.aspect_ratio,
         ...(packed ? { packedPrompt: packed.prompt } : {}),
         ...(refs.length ? {
           referenceImages: refs,
@@ -182,7 +182,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
         ...(modify ? { opinion } : {}),
       }, { signal, record, task, step });
       prompt = response.prompt;
-      prompt.parameters = { ...prompt.parameters, duration: object.duration_seconds, aspectRatio: p.aspect_ratio, reference_ids: referenceIds, first_frame: firstFrame ? prev.last_frame.address : null };
+      prompt.parameters = { ...prompt.parameters, duration: object.duration_seconds, aspectRatio: p.basic_info.aspect_ratio, reference_ids: referenceIds, first_frame: firstFrame ? prev.last_frame.address : null };
       await record({ prompt });
       return {
         content: { server_address: response.result.server_address },
@@ -191,7 +191,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
       };
     } else invalid("媒体", "未知业务");
     if (["video", "assembly"].includes(business) && task.action !== "manual_edit")
-      bytes = await normalizeVideo(bytes, p.aspect_ratio, signal);
+      bytes = await normalizeVideo(bytes, p.basic_info.aspect_ratio, signal);
     signal.throwIfAborted();
     const ext = ["video", "assembly"].includes(business)
         ? "mp4"
@@ -200,7 +200,7 @@ export function createMediaHandler({ media, ai, readLanguage = async () => 'zh-C
           : bytes.subarray(0, 4).toString() === "RIFF"
             ? "webp"
             : "png",
-      asset = await media.put(p.id, bytes, ext, signal);
+      asset = await media.put(p.basic_info.id, bytes, ext, signal);
     signal.throwIfAborted();
     return {
       content: {

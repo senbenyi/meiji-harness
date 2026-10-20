@@ -133,17 +133,17 @@ describe("button-regressions", () => {
    try {
     const oldSid=`session-${randomUUID()}`, created=[];
     runtime=await createAppRuntime({home,sessionController:{create:async opts=>{const sid=`session-${randomUUID()}`;created.push({sid,...opts});return {sessionId:sid};}}});
-    const a=projectFixture();await runtime.repository.create(a);await runtime.bindings.bind(oldSid,a.id);
-    const b=await runtime.projectCommand({type:'create',fields:{name:'乙',creation_mode: "自由创作", creative_direction:'乙方向'}},oldSid,'panel');
-    assert.notEqual(b.session_id,oldSid);assert.equal(await runtime.bindings.projectForSession(oldSid),a.id);
+    const a=projectFixture();await runtime.repository.create(a);await runtime.bindings.bind(oldSid,a.basic_info.id);
+    const b=await runtime.projectCommand({type:'create',fields:{ basic_info: { name: '乙', creation_mode: "自由创作", creative_requirements: '乙方向' } }},oldSid,'panel');
+    assert.notEqual(b.session_id,oldSid);assert.equal(await runtime.bindings.projectForSession(oldSid),a.basic_info.id);
     assert.equal(await runtime.bindings.projectForSession(b.session_id),b.project_id);
     assert.equal(created[0].agentPreset,'meiji');
-    const opened=await runtime.projectCommand({type:'open',project_id:a.id},b.session_id,'panel');
+    const opened=await runtime.projectCommand({type:'open',project_id:a.basic_info.id},b.session_id,'panel');
     assert.equal(opened.session_id,oldSid);assert.equal(created.length,1);
     await assert.rejects(runtime.bindings.bind(oldSid,b.project_id),/其他项目/);
     await assert.rejects(runtime.projectCommand({type:'open',project_id:b.project_id},oldSid,'session'),/新会话/);
     const unbound=`session-${randomUUID()}`;
-    const c=await runtime.projectCommand({type:'create',fields:{name:'丙',creation_mode: "自由创作", creative_direction:'丙方向'}},unbound,'session');
+    const c=await runtime.projectCommand({type:'create',fields:{ basic_info: { name: '丙', creation_mode: "自由创作", creative_requirements: '丙方向' } }},unbound,'session');
     assert.equal(c.session_id,unbound);
    } finally {await runtime?.dispose();await rm(home,{recursive:true,force:true});}
   });

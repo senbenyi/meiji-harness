@@ -71,7 +71,7 @@ export function validateSnapshot(snapshot) {
       t,
       TERMINAL_TASKS.includes(t.task_status) ? undefined : snapshot.project,
     );
-    if (t.project_id !== snapshot.project.id)
+    if (t.project_id !== snapshot.project.basic_info.id)
       invalid("task.project_id", "跨项目");
     if (!t.group_id || !groups.has(t.group_id))
       invalid("task.group_id", "组合不存在");
@@ -101,7 +101,7 @@ export function validateSnapshot(snapshot) {
       ],
       "group",
     );
-    if (group.project_id !== snapshot.project.id)
+    if (group.project_id !== snapshot.project.basic_info.id)
       invalid("group.project_id", "跨项目");
     if (Object.hasOwn(group, "name")) { assertText(group.name, "group.name"); if (!group.name.trim()) invalid("group.name", "不可为空"); }
     const generic = ["single", "workflow"].includes(group.group_type);
@@ -250,7 +250,7 @@ export class ModelRepository extends EventEmitter {
     })();
   }
   async #syncProjectJSON(snapshot) {
-    const dir = join(this.#root, snapshot.project.id), file = join(dir, "project.json"), temp = file + ".tmp";
+    const dir = join(this.#root, snapshot.project.basic_info.id), file = join(dir, "project.json"), temp = file + ".tmp";
     try {
       await mkdir(dir, { recursive: true });
       await writeFile(temp, JSON.stringify(snapshot.project, null, 2) + "\n", { mode: 0o600 });
@@ -277,9 +277,9 @@ export class ModelRepository extends EventEmitter {
   }
   async create(project) {
     validateProject(project);
-    return this.#serial(project.id, async () => {
-      const dir = join(this.#root, project.id);
-      if (this.#store.read(project.id)) fail("PROJECT_EXISTS", "项目已存在", 409);
+    return this.#serial(project.basic_info.id, async () => {
+      const dir = join(this.#root, project.basic_info.id);
+      if (this.#store.read(project.basic_info.id)) fail("PROJECT_EXISTS", "项目已存在", 409);
       try {
         await mkdir(dir);
       } catch (error) {
@@ -301,10 +301,10 @@ export class ModelRepository extends EventEmitter {
         this.#store.write(validateSnapshot(snapshot), null, this.#hook);
       } catch (error) {
         if (error.committed) {
-          const saved = await this.#read(project.id);
+          const saved = await this.#read(project.basic_info.id);
           const model = this.#install(saved);
           await this.#syncProjectJSON(saved);
-          this.#notify(project.id, saved.runtime.revision);
+          this.#notify(project.basic_info.id, saved.runtime.revision);
           return model;
         }
         await rm(dir, { recursive: true, force: true });
@@ -339,7 +339,7 @@ export class ModelRepository extends EventEmitter {
     }
     for (const id of ids) {
       const model = await this.open(id), p = model.read().project;
-      rows.push({ id, name: p.name, aspect_ratio: p.aspect_ratio, episode_count: p.episodes.length,
+      rows.push({ id, name: p.basic_info.name, aspect_ratio: p.basic_info.aspect_ratio, episode_count: p.episodes.length,
         completed: p.episodes.length > 0 && p.episodes.every(e => e.assembly.node_state.status === "generated") });
     }
     return rows;
@@ -371,7 +371,7 @@ export class ModelRepository extends EventEmitter {
     return { deleted: true };
   }
   #install(snapshot) {
-    const id = snapshot.project.id;
+    const id = snapshot.project.basic_info.id;
     let model = this.#models.get(id);
     this.#snapshots.set(id, structuredClone(pruneFinished(snapshot)));
     if (!model) {

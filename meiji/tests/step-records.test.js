@@ -33,7 +33,7 @@ describe("step-records", () => {
     const home = await mkdtemp(join(tmpdir(), 'meiji-steps-'));
     try {
       let repo = new ModelRepository(home); const p = projectFixture(); const model = await repo.create(p);
-      await seedQueuedTasks(model, [['project-summary', p.id]]);
+      await seedQueuedTasks(model, [['project-summary', p.basic_info.id]]);
       const steps = model.read().steps, generate = steps.find(step => step.kind === 'generate'), precheck = steps.find(step => step.kind === 'precheck');
       await repo.close();
       const legacy = { node: 'project-summary', action: 'generate', model: 'qwen3.5:27b', system: '系统规则', user: '用户任务', body: '系统规则\n\n用户任务',
@@ -44,7 +44,7 @@ describe("step-records", () => {
       db.prepare("UPDATE task_steps SET prompt_json='{}' WHERE id=?").run(precheck.id);
       db.exec('DELETE FROM schema_migrations WHERE version=22; PRAGMA user_version=21'); db.close();
       repo = new ModelRepository(home);
-      await repo.open(p.id); const migrated = repo.history(p.id).group(model.read().groups[0].id, { records: true }).steps, g = migrated.find(step => step.id === generate.id), c = migrated.find(step => step.id === precheck.id);
+      await repo.open(p.basic_info.id); const migrated = repo.history(p.basic_info.id).group(model.read().groups[0].id, { records: true }).steps, g = migrated.find(step => step.id === generate.id), c = migrated.find(step => step.id === precheck.id);
       assert.equal(g.executor, 'ai'); assert.equal(c.executor, 'program');
       assert.deepEqual(g.http, legacy.transfers);
       assert.deepEqual(g.prompt.messages, legacy.messages);
@@ -53,7 +53,7 @@ describe("step-records", () => {
       assert.equal(c.prompt, null); assert.deepEqual(c.http, []);
       await repo.close();
       db = new DatabaseSync(join(home, 'meiji.sqlite'));
-      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 28); db.close();
+      assert.equal(db.prepare('PRAGMA user_version').get().user_version, 29); db.close();
     } finally { await rm(home, { recursive: true, force: true }); }
   });
 
@@ -61,22 +61,22 @@ describe("step-records", () => {
     const home = await mkdtemp(join(tmpdir(), 'meiji-records-'));
     try {
       const repo = new ModelRepository(home); const p = projectFixture(); const model = await repo.create(p);
-      await seedQueuedTasks(model, [['project-summary', p.id], ['episode-summary', p.episodes[0].id]]);
+      await seedQueuedTasks(model, [['project-summary', p.basic_info.id], ['episode-summary', p.episodes[0].id]]);
       const s = model.read(), [first, second] = s.tasks, step = s.steps.find(row => row.task_id === first.id && row.kind === 'generate');
       await model.update(crypto.randomUUID(), {}, x => { Object.assign(x.tasks.find(row=>row.id===first.id), {task_status:'running',started_at:new Date().toISOString()}); Object.assign(x.steps.find(row => row.id === step.id), { step_status: 'running' }); });
-      await repo.writeStepRecord(p.id,{step_id:step.id,task_id:first.id,group_id:first.group_id},{prompt:{node:'project-summary',messages:[{role:'user',content:'提示'}]},http:[]});
-      const records = groupDetailRecords(repo.history(p.id), new Map(), first.group_id, p, model.read().runtime.revision);
+      await repo.writeStepRecord(p.basic_info.id,{step_id:step.id,task_id:first.id,group_id:first.group_id},{prompt:{node:'project-summary',messages:[{role:'user',content:'提示'}]},http:[]});
+      const records = groupDetailRecords(repo.history(p.basic_info.id), new Map(), first.group_id, p, model.read().runtime.revision);
       assert.equal(records.group.id, first.group_id);
       assert.deepEqual(records.steps.map(row => row.id).sort(), s.steps.filter(row => row.task_id === first.id).map(row => row.id).sort());
       assert.ok(!records.steps.some(row => s.steps.find(x => x.id === row.id).task_id === second.id));
       assert.equal(records.steps.find(row => row.id === step.id).prompt.messages[0].content, '提示');
-      assert.equal(groupDetailRecords(repo.history(p.id), new Map(), 'tg_missing', p, 0), null);
+      assert.equal(groupDetailRecords(repo.history(p.basic_info.id), new Map(), 'tg_missing', p, 0), null);
       const light = lightStep({ ...step, prompt: { messages: [] }, http: [{}] });
       assert.equal(Object.hasOwn(light, 'prompt'), false); assert.equal(Object.hasOwn(light, 'http'), false);
       assert.equal(light.has_prompt, true); assert.equal(light.has_http, true);
       const before = model.read(), events = [];
       repo.on('change', event => events.push(event));
-      await repo.writeStepRecord(p.id,{step_id:step.id,task_id:first.id,group_id:first.group_id},{http:[{fn:'chat',request:{}}]});
+      await repo.writeStepRecord(p.basic_info.id,{step_id:step.id,task_id:first.id,group_id:first.group_id},{http:[{fn:'chat',request:{}}]});
       assert.deepEqual(model.read(), before, '记录不改工作快照、版本与幂等结果');
       assert.equal(events.at(-1).record.group_id,first.group_id);
       assert.equal(events.at(-1).record.has_http,true);
@@ -119,7 +119,7 @@ describe("step-records", () => {
     let repo;
     try {
       repo=new ModelRepository(home);const p=projectFixture();const model=await repo.create(p);
-      await seedQueuedTasks(model,[['project-summary',p.id]]);
+      await seedQueuedTasks(model,[['project-summary',p.basic_info.id]]);
       await repo.close();repo=null;
       const db=new DatabaseSync(join(home,'meiji.sqlite'));
       const before=db.prepare('SELECT * FROM task_steps ORDER BY position').all();
@@ -127,9 +127,9 @@ describe("step-records", () => {
       const legacy=[...names.filter(n=>!['executor','http_json'].includes(n)),'executor','http_json'].join(',');
       db.exec(`CREATE TABLE legacy_steps AS SELECT ${legacy} FROM task_steps; DROP TABLE task_steps; ALTER TABLE legacy_steps RENAME TO task_steps; PRAGMA user_version=23;`);
       db.close();
-      repo=new ModelRepository(home);await repo.open(p.id);await repo.close();repo=null;
+      repo=new ModelRepository(home);await repo.open(p.basic_info.id);await repo.close();repo=null;
       const migrated=new DatabaseSync(join(home,'meiji.sqlite'));
-      assert.equal(migrated.prepare('PRAGMA user_version').get().user_version,28);
+      assert.equal(migrated.prepare('PRAGMA user_version').get().user_version,29);
       const after=migrated.prepare('SELECT * FROM task_steps ORDER BY position').all();
       assert.deepEqual(after,before);
       migrated.close();

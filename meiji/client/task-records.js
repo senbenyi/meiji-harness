@@ -15,7 +15,7 @@ export async function loadLatestRecords(context) {
 
 // 历史缓存与当前项目绑定，异步完成只重绘当前页面，不能把用户拉回历史页。
 function cacheOf(env) {
-  if (env.state.taskRecords?.project !== env.p.id) env.state.taskRecords = { project: env.p.id, details: {}, pages: {}, pending: {}, errors: {} };
+  if (env.state.taskRecords?.project !== env.p.basic_info.id) env.state.taskRecords = { project: env.p.basic_info.id, details: {}, pages: {}, pending: {}, errors: {} };
   return env.state.taskRecords;
 }
 function load(env, key, path, save) {

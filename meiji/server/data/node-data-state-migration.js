@@ -27,8 +27,8 @@ export function migrateNodeDataStates(snapshot) {
     for(const task of tasks) if(task.business_type===business&&task.target_id===id&&['queued','running'].includes(task.task_status))
       task.previous_node_state={status:state.status,reason:state.reason,fail_message:''};
   };
-  apply('project-summary',project.id,project.project_summary);
-  apply('project-characters',project.id,project.character_library);
+  apply('project-summary',project.basic_info.id,project.project_summary);
+  apply('project-characters',project.basic_info.id,project.character_library);
   for(const c of project.character_library.characters) for(const image of c.costume_images)
     apply('costume-image',image.costume_id||c.id,image);
   for(const e of project.episodes){

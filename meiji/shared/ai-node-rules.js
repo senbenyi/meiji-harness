@@ -8,8 +8,8 @@ export function supportsRules(business) {
 }
 export function ruleNode(project, business, id) {
   if (!supportsRules(business)) invalid('business_type', '本业务不是AI节点');
-  if (business === 'script-review') { locateTarget(project, business, id); return {rules:project.script.adaptation_rules,node_state:project.script.node_state}; }
-  if (business === 'script-split') { locateTarget(project, business, id); return project.script; }
+  if (business === 'script-review') { locateTarget(project, business, id); return project.script_revision; }
+  if (business === 'script-split') { locateTarget(project, business, id); return project.story_segments; }
   return nodeOf(project, business, id);
 }
 // 保存的base仅作快照；展示、执行和依赖统一读取代码基础规则。
@@ -21,5 +21,5 @@ export function effectiveRules(project, business, id) {
 export const ruleAction = action => action === 'regenerate' ? 'revise' : action;
 export function nodeRequirements(project, business, id) {
   const episode = locateTarget(project, business, id).episode;
-  return [...new Set([project.creative_direction, business === 'outline' ? episode.episode_requirements : ''].filter(value => value?.trim()))].join('\n');
+  return [...new Set([project.basic_info.creative_requirements, business === 'outline' ? episode.episode_requirements : ''].filter(value => value?.trim()))].join('\n');
 }

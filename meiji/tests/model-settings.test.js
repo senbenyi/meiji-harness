@@ -134,11 +134,11 @@ describe("qwen", () => {
       const saved = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Meiji-Request': '1' }, body: JSON.stringify({ settings: get.settings }) })
       assert.equal(saved.status, 200)
       assert.deepEqual(await runtime.models.read(), { ...local, video: { model: 'MiniMax-H3' } })
-      const p = emptyProject({ name: '连接测试', creation_mode: '剧本' })
-      p.script.body = '小林丢了钥匙，回到公园长椅旁，找回了钥匙。'
+      const p = emptyProject({ basic_info: { name: '连接测试', creation_mode: '剧本' } })
+      p.script_revision.body = '小林丢了钥匙，回到公园长椅旁，找回了钥匙。'
       const model = await runtime.repository.create(p)
-      const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: 'qwen', business_type: 'project-summary', target_id: p.id, action: 'generate' })
-      await runtime.tasks.idle(p.id)
+      const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.basic_info.id, request_id: 'qwen', business_type: 'project-summary', target_id: p.basic_info.id, action: 'generate' })
+      await runtime.tasks.idle(p.basic_info.id)
       const task = model.readAll().tasks.find(t => t.id === submitted.task_id)
       assert.equal(task.task_status, 'completed', task.end_reason)
       assert.equal(requests.length, 4)
@@ -214,10 +214,10 @@ describe("settings", () => {
           assert.equal(synced.at(-2), key)
           assert.equal(synced.at(-1).models[0].contextWindow, kind === 'qwen' ? 262144 : 65536)
         }
-        const p = emptyProject({ name: 'HTTP验证', creation_mode: '剧本' }); p.script.body = '阿明丢失钥匙，寻找后找回。'
+        const p = emptyProject({ basic_info: { name: 'HTTP验证', creation_mode: '剧本' } }); p.script_revision.body = '阿明丢失钥匙，寻找后找回。'
         project = await runtime.repository.create(p)
-        const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.id, request_id: modelName, business_type: 'project-summary', target_id: p.id, action: 'generate' })
-        await runtime.tasks.idle(p.id)
+        const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.basic_info.id, request_id: modelName, business_type: 'project-summary', target_id: p.basic_info.id, action: 'generate' })
+        await runtime.tasks.idle(p.basic_info.id)
         const task = project.readAll().tasks.find(t => t.id === submitted.task_id)
         assert.equal(task.task_status, 'completed', task.end_reason)
         assert.equal(requests.length - before, 2)
@@ -231,11 +231,11 @@ describe("settings", () => {
       assert.equal((await save({ ...selection, output_language: 'en' })).status, 200)
       assert.equal(project.readAll().project.project_summary.body, kept)
       assert.equal(Object.hasOwn(project.readAll().project, 'output_language'), false)
-      const fresh = emptyProject({ name: '语言验证', creation_mode: '剧本' }); fresh.script.body = '阿明丢失钥匙，寻找后找回。'
+      const fresh = emptyProject({ basic_info: { name: '语言验证', creation_mode: '剧本' } }); fresh.script_revision.body = '阿明丢失钥匙，寻找后找回。'
       await runtime.repository.create(fresh)
       const beforeLanguage = requests.length
-      await runtime.tasks.command({ type: 'submit', project_id: fresh.id, request_id: 'lang', business_type: 'project-summary', target_id: fresh.id, action: 'generate' })
-      await runtime.tasks.idle(fresh.id)
+      await runtime.tasks.command({ type: 'submit', project_id: fresh.basic_info.id, request_id: 'lang', business_type: 'project-summary', target_id: fresh.basic_info.id, action: 'generate' })
+      await runtime.tasks.idle(fresh.basic_info.id)
       const languageCalls = requests.slice(beforeLanguage).map(item => JSON.stringify(item.body)).join('\n')
       assert.match(languageCalls, /English（英文）/)
       assert.doesNotMatch(languageCalls, /简体中文/)
