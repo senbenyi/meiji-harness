@@ -8,7 +8,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const selector = join(root, 'scripts/project-path.sh');
-const projects = (await readdir(join(root, 'projects'), { withFileTypes: true })).filter(row => row.isDirectory()).map(row => row.name);
+const projectNames = (await readdir(join(root, 'projects'), { withFileTypes: true })).filter(row => row.isDirectory()).map(row => row.name);
+const plugins = [];
+for (const name of projectNames) {
+  try { await readFile(join(root, 'projects', name, 'package.json')); plugins.push(name); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
 const select = (repo, name = '') => spawnSync('bash', ['-c', 'source "$1"; select_project "$2" "$3"', 'select', selector, repo, name], { encoding: 'utf8' });
 
 test('唯一业务项目自动选择，支持复制模板后使用新的项目名', async () => {
@@ -46,7 +51,7 @@ test('工作区包通过本地源码链接，业务模块能够导入', async ()
   for (const name of ['http-client', 'prompt-composer', 'setting', 'task']) {
     assert.equal(await realpath(join(root, 'node_modules/@agent-modules', name)), await realpath(join(root, 'packages', name)));
   }
-  for (const project of projects) {
+  for (const project of plugins) {
     assert.equal(typeof (await import(pathToFileURL(join(root, 'projects', project, 'index.js')))).apply, 'function');
     assert.equal(typeof (await import(pathToFileURL(join(root, 'projects', project, 'session.js')))).apply, 'function');
   }
@@ -72,7 +77,7 @@ test('开发钩子覆盖公共包和业务代码，纯文档豁免', async () =>
 });
 
 test('项目入口和开发指引的相对路径有效', async () => {
-  for (const name of projects) {
+  for (const name of plugins) {
     const project = JSON.parse(await readFile(join(root, 'projects', name, 'package.json'), 'utf8'));
     assert.ok(project.dsh.bundle.patch);
     await readFile(join(root, 'projects', name, project.dsh.bundle.patch));

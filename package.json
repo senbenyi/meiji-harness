@@ -5,8 +5,9 @@
   "type": "module",
   "workspaces": ["packages/*", "projects/*"],
   "scripts": {
-    "test": "npm run test:workspaces && npm run test:infrastructure",
+    "test": "npm run test:workspaces && npm run test:infrastructure && npm run test:drama",
     "test:workspaces": "npm test --workspaces --if-present",
+    "test:drama": "node --test projects/drama/tests/*.test.js",
     "test:packages": "npm test --workspace @agent-modules/http-client --workspace @agent-modules/prompt-composer --workspace @agent-modules/setting --workspace @agent-modules/task",
     "test:infrastructure": "node --test scripts/tests/*.test.js",
     "example": "node examples/minimal-agent.js",
