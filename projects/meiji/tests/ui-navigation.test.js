@@ -494,7 +494,7 @@ describe("ui-restore", () => {
           "dsh.sessions.current",
           JSON.stringify({ sessionId: "session-" + randomUUID() }),
         );
-        const settings = { output_language: "zh-CN", text: { model: "qwen3.5:27b" }, image: { model: "gpt-image" }, video: { model: "MiniMax-H3" } };
+        const settings = { output_language: "zh-CN", session: { model: "codex-gpt" }, text: { model: "qwen3.5:27b" }, image: { model: "gpt-image" }, video: { model: "MiniMax-H3" } };
         let fail = false;
         globalThis.fetch = async (url, options = {}) => {
           if (options.method === "POST") {
@@ -509,16 +509,23 @@ describe("ui-restore", () => {
         app.shell.root.querySelector(".settings").click();
         await tick();
         const content = app.shell.content;
-        assert.equal(content.querySelectorAll("select").length, 4);
+        assert.equal(content.querySelectorAll("select").length, 5);
         assert.equal(content.querySelectorAll("input, textarea").length, 0);
         assert.ok(![...content.querySelectorAll("button")].some(b => b.textContent === "保存"));
-        let language = content.querySelector("[name=output_language]"), model = content.querySelector("[name=text]");
+        let language = content.querySelector("[name=output_language]"), model = content.querySelector("[name=text]"), session = content.querySelector("[name=session]");
+        assert.equal(session.value, "codex-gpt");
+        assert.deepEqual([...session.options].map(o => o.textContent), [...model.options].map(o => o.textContent));
         assert.deepEqual([...model.options].map(o => o.textContent), ["Qwen3.5 27B", "GPT（Codex 套餐）"]);
         assert.deepEqual([...content.querySelector("[name=image]").options].map(o => o.textContent), ["krea2 turbo V2.5", "GPT（Codex 套餐）"]);
         assert.deepEqual([...content.querySelector("[name=video]").options].map(o => o.textContent), ["MiniMax H3"]);
+        session.value = "qwen3.5:27b";
+        await session.onchange();
+        assert.equal(settings.session.model, "qwen3.5:27b");
+        assert.equal(settings.text.model, "qwen3.5:27b");
         model.value = "codex-gpt";
         await model.onchange();
         assert.equal(settings.text.model, "codex-gpt");
+        assert.equal(settings.session.model, "qwen3.5:27b");
         language.value = "en";
         await language.onchange();
         await tick();

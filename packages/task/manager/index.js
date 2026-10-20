@@ -27,6 +27,7 @@ export class TaskManager {
     text(type, 'node_type', true); text(label, 'label', true);
     if (this.#nodes.has(type)) throw new Error(`节点类型已注册：${type}`);
     if (typeof plan !== 'function' || typeof execute !== 'function' || (commit !== undefined && typeof commit !== 'function')) invalid('node', '需提供 plan、execute，可选同步 commit');
+    if (commit?.constructor.name === 'AsyncFunction') invalid('commit', '必须为同步函数');
     this.#nodes.set(type, { label, plan, execute, commit });
     return this;
   }
@@ -65,13 +66,26 @@ export class TaskManager {
   }
   history(scope, filter) { return this.store.history(scope, filter); }
   detail(scope, id) { return this.store.detail(scope, id); }
+  historySource(scope) {
+    text(scope, 'scope', true);
+    return {
+      history: filter => this.history(scope, filter),
+      detail: id => this.detail(scope, id),
+      resolveTask: id => this.store.read(scope, { steps: false }).tasks.find(task => task.id === id)?.group_id || null,
+      subscribe: listener => this.store.subscribe(changed => { if (changed === scope) listener(); }),
+    };
+  }
   start(scope) {
     this.#requireOpen(); text(scope, 'scope', true);
     if (this.#running.has(scope)) return;
     const entry = { controller: null, taskId: null, groupId: null, promise: null };
     this.#running.set(scope, entry);
-    entry.promise = Promise.resolve().then(() => this.#loop(scope, entry)).finally(() => {
+    let completed = false;
+    entry.promise = Promise.resolve().then(async () => { await this.#loop(scope, entry); completed = true; }).finally(() => {
       this.#running.delete(scope);
+      // 最后一项结束与释放执行上下文之间，仍可能有新组入队。
+      if (completed && !this.#closed && this.#automatic
+        && this.store.read(scope, { steps: false }).tasks.some(t => t.task_status === 'queued')) this.start(scope);
     });
     // 避免无人调用 idle 时未处理 rejection；idle 仍能收到原失败。
     entry.promise.catch(() => {});
@@ -147,7 +161,8 @@ export class TaskManager {
           if (!binding) { binding = { id: createId(), prompt_id: saved.prompt?.id || null }; transfers.set(transfer, binding); }
           const index = saved.http.findIndex(row => row.id === binding.id);
           if (drop) { if (index >= 0) saved.http.splice(index, 1); return; }
-          const row = { ...structuredClone(transfer), ...binding };
+          // HTTP 回调可能包含未设置的可选字段；记录使用实际可序列化值。
+          const row = { ...JSON.parse(JSON.stringify(transfer)), ...binding };
           if (index < 0) saved.http.push(row); else saved.http[index] = row;
         });
       },
@@ -182,6 +197,7 @@ export class TaskManager {
         const saved = snapshot.tasks.find(t => t.id === task.id);
         saved.task_status = 'running'; saved.started_at = now();
       });
+      task.task_status = 'running';
       try {
         if (!node) throw new Error(`节点类型未注册：${task.node_type}`);
         const steps = this.store.read(scope).steps.filter(st => st.task_id === task.id).sort((a, b) => a.seq - b.seq);
@@ -194,6 +210,8 @@ export class TaskManager {
           });
           const outcome = await node.execute(this.#context(scope, task, step, signal));
           signal.throwIfAborted();
+          record(outcome ?? {}, 'outcome');
+          for (const key of Object.keys(outcome ?? {})) if (!['status', 'result', 'reason'].includes(key)) invalid(`outcome.${key}`, '未知执行结果字段');
           const { status = 'done', result = null, reason = '' } = outcome || {};
           if (!['done', 'rejected', 'skipped'].includes(status)) invalid('outcome.status', '需为 done/rejected/skipped');
           text(reason, 'outcome.reason');

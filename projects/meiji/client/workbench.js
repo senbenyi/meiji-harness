@@ -303,7 +303,7 @@ export function mount() {
       const message = element("p", "", "error settings-error");
       message.setAttribute("role", "status");
       const selects = [];
-      for (const [kind, title] of [["text", "文本模型"], ["image", "图片模型"], ["video", "视频模型"]]) {
+      for (const [kind, title] of [["session", "会话模型"], ["text", "文本模型"], ["image", "图片模型"], ["video", "视频模型"]]) {
         const label = element("label", title, "settings-option"), select = element("select");
         select.name = kind;
         select.setAttribute("aria-label", title);

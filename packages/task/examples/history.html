@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>公共任务历史</title>
+<style>
+body{margin:0;padding:24px;background:#101115;color:#e6e7eb;font:14px/1.65 system-ui,sans-serif}main{max-width:960px;margin:auto}h1{font-size:24px;margin:0 0 6px}main>p{color:#a4a6b2;margin:0 0 24px}@media(max-width:480px){body{padding:12px}}
+</style>
+<main><h1>公共任务历史</h1><p>独立示例 · 业务提供节点类型，任务包提供记录与界面</p><div id="history"></div></main>
+<script type="module">
+import { TaskGroupModel, TaskModel, StepModel, groupSummary } from '../models/index.js';
+import { createTaskHistory } from '../ui/index.js';
+const groups = [], tasks = [], steps = [];
+const types = [{type:'summarize',label:'资料整理'},{type:'inspect',label:'结果检查'}];
+for (let i = 0; i < 3; i++) {
+  const type = i === 2 ? 'inspect' : 'summarize';
+  const group = new TaskGroupModel({name:['资料整理任务组','等待处理的任务组','检查未通过的任务组'][i],metadata:{project_id:'example-project'}}).toJSON();
+  const status = ['completed','queued','rejected'][i];
+  const task = new TaskModel({group_id:group.id,node_type:type,name:types.find(t=>t.type===type).label,queue_order:i+1,task_status:status,end_reason:i===2?'结果缺少必要的来源说明。':'',metadata:{target_id:'document-'+i}}).toJSON();
+  const prompt = {id:'prompt-'+i,model:'example-model',messages:[{role:'system',content:'仅使用提供的资料。\n输出清晰、准确的整理结果。'},{role:'user',content:'整理输入资料，列出关键结论及依据。'}],input:{topic:'示例资料'},created_at:group.created_at};
+  const step = new StepModel({task_id:task.id,name:i===2?'审核结果':'生成摘要',kind:i===2?'review':'generate',executor:'ai',step_status:i===0?'done':i===1?'ready':'rejected',result:i===1?null:{text:'这是示例结果。',sources:['输入资料']},error_reason:i===2?'结果缺少必要的来源说明。':'',prompt:i===1?null:prompt,http:i===1?[]:[{id:'http-'+i,prompt_id:prompt.id,method:'POST',path:'/v1/chat/completions',request:{method:'POST',body:{model:'example-model',messages:prompt.messages}},status:200,ok:true,durationMs:245,body:{text:'这是示例结果。'}},{id:'poll-'+i,prompt_id:null,method:'GET',path:'/result',request:{method:'GET'},status:200,body:{ready:true}}]}).toJSON();
+  groups.push(group); tasks.push(task); steps.push(step);
+}
+const source = {
+  history({status,node_type,offset,limit}) {
+    const rows = groups.map(g=>groupSummary(g,tasks.filter(t=>t.group_id===g.id))).filter(r=>(!status||r.status===status)&&(!node_type||r.tasks.some(t=>t.node_type===node_type)));
+    return {groups:rows.slice(offset,offset+limit),total:rows.length,offset,limit};
+  },
+  detail(id) {
+    const group=groups.find(g=>g.id===id); if(!group)return null;
+    const members=tasks.filter(t=>t.group_id===id);
+    return {...groupSummary(group,members),steps:steps.filter(st=>members.some(t=>t.id===st.task_id))};
+  }
+};
+const history = createTaskHistory({source,nodeTypes:types,presentation:{
+  review: step => ({type:step.kind==='review'?'规则问题':''}),
+}});
+document.querySelector('#history').append(history.element);
+</script>
+</html>

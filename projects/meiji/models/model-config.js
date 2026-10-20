@@ -34,12 +34,12 @@ export function normalizeModels(raw) {
   const apiKey = String(raw?.apiKey || '').replace(/^Bearer\s+/i, '').trim()
   return { ...raw, baseUrl, textBaseUrl, apiKey, ...new SettingsModel(raw).toJSON() }
 }
-// 聊天与制作文本读取同一个选择；本地 HTTP 不使用网关凭据。
+// 聊天读取会话模型，制作文本读取文本选择；本地 HTTP 不使用网关凭据。
 export function modelRoute(config, purpose) {
   const selected = new SettingsModel(config)
-  const kind = purpose === 'chat' || purpose === 'story' ? 'text' : purpose
+  const kind = purpose === 'chat' ? 'session' : purpose === 'story' ? 'text' : purpose
   const model = selected[kind].model
-  const local = (kind === 'text' && ['qwen3.5:27b', 'codex-gpt'].includes(model)) || (kind === 'image' && ['krea2 turbo V2.5', 'gpt-image'].includes(model)) || (kind === 'video' && model === 'MiniMax-H3')
+  const local = (['session', 'text'].includes(kind) && ['qwen3.5:27b', 'codex-gpt'].includes(model)) || (kind === 'image' && ['krea2 turbo V2.5', 'gpt-image'].includes(model)) || (kind === 'video' && model === 'MiniMax-H3')
   return {
     baseUrl: gatewayBaseUrl(local ? config.textBaseUrl : config.baseUrl),
     apiKey: local ? 'ollama' : config.apiKey,

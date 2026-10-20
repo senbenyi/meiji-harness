@@ -1,6 +1,6 @@
 import { modelRoute } from '../../models/model-config.js'
 
-// 会话推理由 Harness 执行，与制作文本读取同一设置 Model。
+// 会话推理由 Harness 执行，只读取设置里的会话模型。
 export async function syncChatModel({ settings, credentials }, routes) {
   const provider = 'meiji-gateway', ref = 'MEIJI_GATEWAY_API_KEY'
   const chat = modelRoute(routes, 'chat')

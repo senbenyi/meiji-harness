@@ -13,6 +13,9 @@
     "image": 2,
     "video": 2
   },
+  "session": {
+    "model": "codex-gpt"
+  },
   "text": {
     "model": "qwen3.5:27b"
   },

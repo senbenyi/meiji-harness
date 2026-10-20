@@ -43,7 +43,7 @@ test('项目参数拒绝目录穿越和绝对路径', () => {
 });
 
 test('工作区包通过本地源码链接，业务模块能够导入', async () => {
-  for (const name of ['http-client', 'prompt-composer']) {
+  for (const name of ['http-client', 'prompt-composer', 'task']) {
     assert.equal(await realpath(join(root, 'node_modules/@agent-modules', name)), await realpath(join(root, 'packages', name)));
   }
   for (const project of projects) {

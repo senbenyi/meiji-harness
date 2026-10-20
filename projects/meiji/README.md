@@ -20,9 +20,9 @@ HTTP 与提示词编排使用仓库内 `packages` 的两个公共工作区包，
 
 图片和视频沿用现有网关协议，尾帧和合片使用 FFmpeg，所有产物在保存前校验。停止视频任务只停止本地等待，网关不提供远端取消接口。不要同时运行多个写入同一 DSH_HOME 的实例。
 
-设置页提供「语言」和「模型」卡片，选择后自动保存，不绑定当前项目。语言和模型只作用于之后的生成，不改写已有内容。文本固定为「Qwen3.5 27B」（本地 HTTP `qwen3.5:27b`）或「GPT（Codex 套餐）」（`codex-gpt`）。聊天与制作文本共同读取 `SettingsModel` 的文本选择。图片可选「krea2 turbo V2.5」（默认，经 `textBaseUrl` 调用 llm-server `POST /v1/images/comfy`）或「GPT（Codex 套餐）」（`gpt-image`，`POST /v1/images/generations`）。两者都不使用媒体密钥。视频固定为「MiniMax H3」（`MiniMax-H3`，经 `textBaseUrl` 调用 llm-server `POST /v1/videos/generations`）。已保存的 `elysium-video` 会按 MiniMax H3 读取。界面不再编辑地址、密钥或自由模型名。
+设置页提供「语言」和「模型」卡片，选择后自动保存，不绑定当前项目。语言和模型只作用于之后的生成，不改写已有内容。会话模型和文本模型都固定为「Qwen3.5 27B」（本地 HTTP `qwen3.5:27b`）或「GPT（Codex 套餐）」（`codex-gpt`）。会话模型默认 GPT，制作文本默认 Qwen。聊天读取会话选择，制作文本读取文本选择。图片可选「krea2 turbo V2.5」（默认，经 `textBaseUrl` 调用 llm-server `POST /v1/images/comfy`）或「GPT（Codex 套餐）」（`gpt-image`，`POST /v1/images/generations`）。两者都不使用媒体密钥。视频固定为「MiniMax H3」（`MiniMax-H3`，经 `textBaseUrl` 调用 llm-server `POST /v1/videos/generations`）。已保存的 `elysium-video` 会按 MiniMax H3 读取。界面不再编辑地址、密钥或自由模型名。
 
-连接配置仍在 `$DSH_HOME/storages/meiji/models.json`：当前所有可选模型使用 `textBaseUrl` 连接独立 [meiji-server](../../../meiji-server/README.md)（默认 `http://127.0.0.1:11435/v1`，由服务端连接模型和供应商）。真实供应商密钥只保存在 meiji-server；meiji 无需填写媒体网关密钥，本地请求的 `ollama` 仅为协议占位值。旧 `baseUrl/apiKey` 字段保留兼容读取，不用于当前模型调用，缺省或空密钥不会阻止设置保存。`text/image/video.model` 为设置 Model 的唯一选择来源；旧 `chat/story` 已移除。已有配置执行 `node projects/meiji/scripts/migrate-settings-model.js`（可传 DSH_HOME 路径）后重启：先备份，保留既有连接字段、并发配置及当前文本选择；不更改项目数据。未知模型配置迁移时直接报错，需明确修正，不作运行时兜底。
+连接配置仍在 `$DSH_HOME/storages/meiji/models.json`：当前所有可选模型使用 `textBaseUrl` 连接独立 [meiji-server](../../../meiji-server/README.md)（默认 `http://127.0.0.1:11435/v1`，由服务端连接模型和供应商）。真实供应商密钥只保存在 meiji-server；meiji 无需填写媒体网关密钥，本地请求的 `ollama` 仅为协议占位值。旧 `baseUrl/apiKey` 字段保留兼容读取，不用于当前模型调用，缺省或空密钥不会阻止设置保存。`session/text/image/video.model` 为设置 Model 的选择来源；旧 `chat/story` 已移除。已有配置执行 `node projects/meiji/scripts/migrate-settings-model.js`（可传 DSH_HOME 路径）后重启：先备份，保留既有连接字段、并发配置及当前文本选择，缺省的会话模型写成 GPT；不更改项目数据。未知模型配置迁移时直接报错，需明确修正，不作运行时兜底。
 
 隧道中断后可运行 `ssh -fN -L 127.0.0.1:11435:127.0.0.1:11434 -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -p 24520 root@js4.blockelite.cn`，在终端输入实例密码；密码不保存在项目内。实例地址改变时需同步 SSH 连接参数。
 

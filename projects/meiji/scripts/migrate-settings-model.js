@@ -24,7 +24,7 @@ export async function migrateSettingsModel(home) {
   const { chat, story, ...rest } = current
   const text = [current.text, story, chat].find(value => valid('text', value)) || base.text
   const pick = purpose => valid(purpose, current[purpose]) ? current[purpose] : base[purpose]
-  const next = normalizeModels({ ...rest, output_language: languageOk ? current.output_language : (base.output_language || 'zh-CN'), textBaseUrl: current.textBaseUrl || base.textBaseUrl, text, image: pick('image'), video: pick('video') })
+  const next = normalizeModels({ ...rest, output_language: languageOk ? current.output_language : (base.output_language || 'zh-CN'), textBaseUrl: current.textBaseUrl || base.textBaseUrl, session: pick('session'), text, image: pick('image'), video: pick('video') })
   const backup = existing ? `${file}.before-settings-${Date.now()}.bak` : null
   if (backup) await copyFile(file, backup, constants.COPYFILE_EXCL)
   await modelStore(home).write(next)

@@ -29,7 +29,7 @@ try {
   // 项目清单变化后由 npm 更新锁文件；随后验证干净安装。
   run('npm', ['install', '--package-lock-only', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
   run('npm', ['ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
-  for (const name of ['http-client', 'prompt-composer']) {
+  for (const name of ['http-client', 'prompt-composer', 'task']) {
     assert.equal(await realpath(join(copy, 'node_modules/@agent-modules', name)), await realpath(join(copy, 'packages', name)));
   }
   run(process.execPath, ['--input-type=module', '-e', `await import('./projects/${copiedProject}/index.js'); await import('./projects/${copiedProject}/session.js');`]);
@@ -37,6 +37,7 @@ try {
   assert.equal(selected.trim(), copiedProject);
   run(process.execPath, ['--test', 'scripts/tests/workspace.test.js']);
   process.stdout.write(run('npm', ['run', 'example']));
+  process.stdout.write(run('npm', ['run', 'example:task']));
   console.log('复制验收通过：不同目录、修改项目目录与包名、离线 npm ci、公共包本地链接及插件入口导入。');
 } finally {
   await rm(temp, { recursive: true, force: true });

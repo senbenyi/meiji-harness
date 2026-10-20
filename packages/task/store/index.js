@@ -14,6 +14,9 @@ export function validateSnapshot(next, previous = emptySnapshot()) {
     for (const row of previous[key]) {
       const found = normalized[key].find(item => item.id === row.id);
       if (!found) invalid(key, '不允许删除已有执行记录');
+      for (const field of key === 'tasks' ? ['group_id', 'group_seq', 'queue_order', 'node_type', 'metadata'] : key === 'steps' ? ['task_id', 'seq', 'kind', 'executor', 'round', 'metadata'] : []) {
+        if (!same(found[field], row[field])) invalid(`${key}.${field}`, '已有任务的归属、计划与业务参数不可变');
+      }
       if ((key === 'groups' || (key === 'tasks' && terminalTask(row)) || (key === 'steps' && terminalStep(row))) && !same(found, row)) {
         invalid(key, '任务组定义及终态记录不可变');
       }
@@ -49,6 +52,7 @@ export class TaskStore {
   }
   transaction(scope, change) {
     text(scope, 'scope', true);
+    if (change.constructor.name === 'AsyncFunction') throw new TypeError('task 事务回调必须同步');
     if (this.#writing) throw new Error('不允许嵌套 task 事务');
     this.#writing = true;
     let result;
@@ -78,7 +82,8 @@ export class TaskStore {
     if (!group) return null;
     const tasks = snapshot.tasks.filter(t => t.group_id === groupId);
     const ids = new Set(tasks.map(t => t.id));
-    return { ...groupSummary(group, tasks), steps: snapshot.steps.filter(st => ids.has(st.task_id)).sort((a, b) => a.seq - b.seq) };
+    return { ...groupSummary(group, tasks), steps: snapshot.steps.filter(st => ids.has(st.task_id)).sort((a, b) =>
+      tasks.find(t => t.id === a.task_id).group_seq - tasks.find(t => t.id === b.task_id).group_seq || a.seq - b.seq) };
   }
 }
 

@@ -28,15 +28,15 @@ describe("qwen", () => {
 
   test('千问：文本路由和媒体凭据隔离，配置保存不丢失独立地址', async () => {
     const base = await defaults(new URL('./fixtures/absent-local.json', import.meta.url))
+    assert.equal(base.session.model, 'codex-gpt')
     assert.equal(base.text.model, 'qwen3.5:27b')
     assert.equal(base.image.model, 'krea2 turbo V2.5')
     const normalized = normalizeModels(config)
-    for (const purpose of ['chat', 'story']) {
-      assert.deepEqual(modelRoute(normalized, purpose), { baseUrl: config.textBaseUrl, apiKey: 'ollama', model: 'qwen3.5:27b' })
-    }
+    assert.deepEqual(modelRoute(normalized, 'story'), { baseUrl: config.textBaseUrl, apiKey: 'ollama', model: 'qwen3.5:27b' })
+    assert.deepEqual(modelRoute(normalized, 'chat'), { baseUrl: config.textBaseUrl, apiKey: 'ollama', model: 'codex-gpt' })
     assert.deepEqual(modelRoute(normalized, 'image'), { baseUrl: config.textBaseUrl, apiKey: 'ollama', model: 'gpt-image' })
     assert.deepEqual(modelRoute(normalized, 'video'), { baseUrl: config.textBaseUrl, apiKey: 'ollama', model: 'MiniMax-H3' })
-    assert.deepEqual(normalized, { ...config, video: { model: 'MiniMax-H3' } })
+    assert.deepEqual(normalized, { ...config, session: { model: 'codex-gpt' }, video: { model: 'MiniMax-H3' } })
     assert.throws(() => normalizeModels({ ...config, textBaseUrl: '' }), /网关地址无效/)
     assert.equal(modelRoute({ ...config, apiKey: '' }, 'story').apiKey, 'ollama')
   })
@@ -66,6 +66,7 @@ describe("qwen", () => {
       const after = await store.read()
       for (const key of ['baseUrl', 'apiKey', 'image', 'concurrency']) assert.deepEqual(after[key], previous[key])
       assert.equal(after.video.model, 'MiniMax-H3')
+      assert.equal(after.session.model, 'codex-gpt')
       assert.equal(after.text.model, 'qwen3.5:27b')
       assert.equal(after.chat, undefined)
       assert.equal(after.story, undefined)
@@ -85,6 +86,7 @@ describe("qwen", () => {
       const migrated = await migrateSettingsModel(home)
       assert.equal(migrated.changed, true)
       const after = await store.read()
+      assert.equal(after.session.model, 'codex-gpt')
       assert.equal(after.text.model, 'qwen3.5:27b')
       assert.equal(after.image.model, 'krea2 turbo V2.5')
       assert.equal(after.video.model, 'MiniMax-H3')
@@ -102,9 +104,13 @@ describe("qwen", () => {
   test('千问：聊天通过公开服务同步，不依赖媒体密钥，正确声明容量和思考开关', async () => {
     const calls = []
     await syncChatModel({
+      settings: { mutate: () => assert.fail('默认会话模型不切换工具会话'), update: () => assert.fail() },
+      credentials: { set: () => assert.fail() },
+    }, { ...config, apiKey: '' })
+    await syncChatModel({
       credentials: { set: async (...args) => calls.push(['credential', ...args]) },
       settings: { mutate: async (...args) => calls.push(['mutate', ...args]), update: async (...args) => calls.push(['update', ...args]) },
-    }, { ...config, apiKey: '' })
+    }, { ...config, apiKey: '', session: { model: 'qwen3.5:27b' } })
     assert.deepEqual(calls[0], ['credential', 'MEIJI_GATEWAY_API_KEY', 'ollama'])
     const provider = calls[1][2][0].value
     assert.equal(provider.baseURL, config.textBaseUrl)
@@ -141,11 +147,11 @@ describe("qwen", () => {
       await new Promise(resolve => api.listen(0, '127.0.0.1', resolve))
       const url = `http://127.0.0.1:${api.address().port}/api/meiji/models`
       const get = await (await fetch(url)).json()
-      assert.deepEqual(get.settings, { output_language: 'zh-CN', text: config.text, image: config.image, video: { model: 'MiniMax-H3' } })
+      assert.deepEqual(get.settings, { output_language: 'zh-CN', session: { model: 'codex-gpt' }, text: config.text, image: config.image, video: { model: 'MiniMax-H3' } })
       assert.ok(!JSON.stringify(get).includes(config.apiKey))
       const saved = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Meiji-Request': '1' }, body: JSON.stringify({ settings: get.settings }) })
       assert.equal(saved.status, 200)
-      assert.deepEqual(await runtime.models.read(), { ...local, video: { model: 'MiniMax-H3' } })
+      assert.deepEqual(await runtime.models.read(), { ...local, session: { model: 'codex-gpt' }, video: { model: 'MiniMax-H3' } })
       const p = emptyProject({ basic_info: { name: '连接测试', creation_mode: '剧本' } })
       p.script_revision.body = '小林丢了钥匙，回到公园长椅旁，找回了钥匙。'
       const model = await runtime.repository.create(p)
@@ -172,14 +178,16 @@ describe("qwen", () => {
 });
 
 describe("settings", () => {
-  const selection = { output_language: 'zh-CN', text: { model: 'qwen3.5:27b' }, image: { model: 'gpt-image' }, video: { model: 'MiniMax-H3' } }
+  const selection = { output_language: 'zh-CN', session: { model: 'codex-gpt' }, text: { model: 'qwen3.5:27b' }, image: { model: 'gpt-image' }, video: { model: 'MiniMax-H3' } }
   const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}/v1`)))
 
-  test('设置 Model 拒绝未知选项、图片冒用文本，聊天和制作同源', () => {
+  test('设置 Model 拒绝未知选项、图片冒用文本，会话与制作文本分开', () => {
     assert.throws(() => new SettingsModel({ ...selection, text: { model: 'unknown' } }), /请选择有效模型/)
     assert.throws(() => new SettingsModel({ ...selection, image: selection.text }), /请选择有效模型/)
     const config = { ...selection, baseUrl: 'https://gateway.test/v1', textBaseUrl: 'http://localhost:11435/v1', apiKey: 'private' }
-    assert.deepEqual(modelRoute(config, 'chat'), modelRoute(config, 'story'))
+    assert.equal(modelRoute(config, 'chat').model, 'codex-gpt')
+    assert.equal(modelRoute(config, 'story').model, config.text.model)
+    assert.notEqual(modelRoute(config, 'chat').model, modelRoute(config, 'story').model)
     for (const [purpose, model] of [['text', 'elysium-chat'], ['image', 'elysium-image']]) {
       assert.throws(() => new SettingsModel({ ...selection, [purpose]: { model } }), /请选择有效模型/)
     }
@@ -222,10 +230,7 @@ describe("settings", () => {
         const before = requests.length
         const response = await save({ ...selection, text: { model: modelName }, apiKey: 'must-not-overwrite', baseUrl: 'http://must-not-use.test' })
         assert.equal(response.status, 200)
-        if (modelName !== 'codex-gpt') {
-          assert.equal(synced.at(-2), key)
-          assert.equal(synced.at(-1).models[0].contextWindow, kind === 'qwen' ? 262144 : 65536)
-        }
+        assert.equal(synced.length, 0, '切换文本模型不改变会话模型')
         const p = emptyProject({ basic_info: { name: 'HTTP验证', creation_mode: '剧本' } }); p.script_revision.body = '阿明丢失钥匙，寻找后找回。'
         project = await runtime.repository.create(p)
         const submitted = await runtime.tasks.command({ type: 'submit', project_id: p.basic_info.id, request_id: modelName, business_type: 'project-summary', target_id: p.basic_info.id, action: 'generate' })
@@ -239,6 +244,12 @@ describe("settings", () => {
           assert.equal(req.body.reasoning_effort, undefined) // Qwen 默认参数由 llm-server 补齐
         }
       }
+      const sessionSave = await save({ ...selection, text: { model: 'codex-gpt' }, session: { model: 'qwen3.5:27b' } })
+      assert.equal(sessionSave.status, 200)
+      assert.equal(synced.at(-2), 'ollama')
+      assert.equal(synced.at(-1).models[0].contextWindow, 262144)
+      assert.equal((await runtime.models.read()).text.model, 'codex-gpt')
+      assert.equal((await runtime.models.read()).session.model, 'qwen3.5:27b')
       const kept = project.readAll().project.project_summary.body
       assert.equal((await save({ ...selection, output_language: 'en' })).status, 200)
       assert.equal(project.readAll().project.project_summary.body, kept)

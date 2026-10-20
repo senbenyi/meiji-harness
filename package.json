@@ -7,9 +7,10 @@
   "scripts": {
     "test": "npm run test:workspaces && npm run test:infrastructure",
     "test:workspaces": "npm test --workspaces --if-present",
-    "test:packages": "npm test --workspace @agent-modules/http-client --workspace @agent-modules/prompt-composer",
+    "test:packages": "npm test --workspace @agent-modules/http-client --workspace @agent-modules/prompt-composer --workspace @agent-modules/task",
     "test:infrastructure": "node --test scripts/tests/*.test.js",
     "example": "node examples/minimal-agent.js",
+    "example:task": "node packages/task/examples/agent.js",
     "verify:install": "node scripts/verify-install.js",
     "verify:copy": "node scripts/verify-copy.js",
     "configure": "bash configure-harness.sh",
