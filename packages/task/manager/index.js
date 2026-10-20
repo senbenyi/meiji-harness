@@ -168,6 +168,14 @@ export class TaskManager {
       },
     };
   }
+  #halt(scope, taskId, status, reason) {
+    this.store.transaction(scope, snapshot => {
+      const task = snapshot.tasks.find(t => t.id === taskId);
+      if (!task || terminalTask(task)) return;
+      stopTask(snapshot, task, status, reason);
+      for (const next of snapshot.tasks.filter(t => t.group_id === task.group_id && !terminalTask(t))) stopTask(snapshot, next, 'cancelled', '前序任务未完成：' + reason);
+    });
+  }
   #finish(scope, taskId, status, reason, node) {
     this.store.transaction(scope, (snapshot, database) => {
       const task = snapshot.tasks.find(t => t.id === taskId);
@@ -193,12 +201,16 @@ export class TaskManager {
       const node = this.#nodes.get(task.node_type);
       entry.controller = new AbortController(); entry.taskId = task.id; entry.groupId = task.group_id;
       const signal = entry.controller.signal;
-      this.store.transaction(scope, snapshot => {
-        const saved = snapshot.tasks.find(t => t.id === task.id);
-        saved.task_status = 'running'; saved.started_at = now();
-      });
-      task.task_status = 'running';
       try {
+        // 读到排队任务后仍可能被取消。终态不能改回运行中，否则这次写入会让整个 scope 的调度退出。
+        const claimed = this.store.transaction(scope, snapshot => {
+          const saved = snapshot.tasks.find(t => t.id === task.id);
+          if (saved?.task_status !== 'queued') return false;
+          saved.task_status = 'running'; saved.started_at = now();
+          return true;
+        });
+        if (!claimed) continue;
+        task.task_status = 'running';
         if (!node) throw new Error(`节点类型未注册：${task.node_type}`);
         const steps = this.store.read(scope).steps.filter(st => st.task_id === task.id).sort((a, b) => a.seq - b.seq);
         let rejected = false;
@@ -223,7 +235,14 @@ export class TaskManager {
         }
         if (!rejected) this.#finish(scope, task.id, 'completed', '', node);
       } catch (error) {
-        if (!signal.aborted) this.#finish(scope, task.id, 'failed', error.message || String(error));
+        if (signal.aborted) {
+          const reason = signal.reason instanceof Error ? signal.reason.message : '已取消';
+          this.#halt(scope, task.id, 'cancelled', reason);
+        } else {
+          const reason = error.message || String(error);
+          this.#finish(scope, task.id, 'failed', reason);
+          this.#halt(scope, task.id, 'failed', reason);
+        }
       } finally { entry.controller = null; entry.taskId = null; entry.groupId = null; }
     }
   }

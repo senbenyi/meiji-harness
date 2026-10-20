@@ -83,6 +83,6 @@ AI节点和审核动作以 `shared/node-definitions.js` 与 `server/http/nodes/`
 
 非当前类型的素材字段必须省略，不能传空数组或空字符串。首尾帧在三段前加固定 0.00 秒对齐行；多模态保留三段原文。`video/regenerate` 额外传非空 `opinion`，只追加本轮意见。视频不再接收 `language/requirements/previous/referenceDescriptions`。
 
-视频编排是纯程序函数 `server/http/video-request.js`，协议白名单在 `server/http/elysium/video-params.js`；不额外调用文本模型。HTTP 返回媒体候选不代表通过视频文件、实测时长和尾帧校验。HTTP 不选择缺图降级策略，不创建程序编排任务；任务层已接入两种程序编排与按类型依赖，并把文件校验、实测、截帧、程序审核合并到视频任务。缺定妆照时等待补图，不自动降级。视频/尾帧成对提交；失败或取消保留旧配对。
+视频编排是纯程序函数 `server/http/video-request.js`，协议白名单在公共包 `packages/http-client/src/llm-server/params.js`（`@agent-modules/http-client/model-parameters`）；不额外调用文本模型。HTTP 返回媒体候选不代表通过视频文件、实测时长和尾帧校验。HTTP 不选择缺图降级策略，不创建程序编排任务；任务层已接入两种程序编排与按类型依赖，并把文件校验、实测、截帧、程序审核合并到视频任务。缺定妆照时等待补图，不自动降级。视频/尾帧成对提交；失败或取消保留旧配对。
 
 节点文件同时定义输入/输出契约及简单参数编排（`compose`），PromptModel 只保存文本/图片节点实际使用的提示内容。通用输入映射和渲染仍在 `prompts/inputs.js`、`prompts/render.js`；视频复杂编排保留在 `http/video-request.js`，不设置无执行用途的 PromptModel。

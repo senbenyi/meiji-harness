@@ -127,6 +127,35 @@ test('记录按请求对象更新、稳定关联提示词，drop 删除指定 HT
   await manager.dispose();
 });
 
+test('取消赶在标为运行中之前时，不中断同 scope 的后续任务', async () => {
+  class ReadHookStore extends MemoryTaskStore {
+    onQueueRead = null;
+    read(scope, options) {
+      const data = super.read(scope, options);
+      if (options?.steps === false && this.onQueueRead) this.onQueueRead(scope, data);
+      return data;
+    }
+  }
+  const store = new ReadHookStore();
+  const ran = [];
+  const manager = new TaskManager({ store, autoStart: false, nodes: { custom: { plan: () => [{ kind: 'generate' }], execute: async ({ task }) => {
+    ran.push(task.group_id); return { result: 'ok' };
+  } } } });
+  const first = manager.submit('s', { tasks: tasks(1) });
+  const next = manager.submit('s', { tasks: tasks(1) });
+  store.onQueueRead = (scope, data) => {
+    store.onQueueRead = null;
+    const queued = data.tasks.filter(t => t.task_status === 'queued').sort((a, b) => a.queue_order - b.queue_order)[0];
+    manager.cancel(scope, queued.group_id);
+  };
+  manager.start('s');
+  await manager.idle('s');
+  assert.equal(manager.detail('s', first.group.id).status, 'cancelled');
+  assert.equal(manager.detail('s', next.group.id).status, 'completed');
+  assert.deepEqual(ran, [next.group.id]);
+  await manager.dispose();
+});
+
 test('取消可中断执行，迟到返回不覆盖状态，同 scope 下一个组继续', async () => {
   const entered = deferred(), finish = deferred(); let late;
   const manager = new TaskManager({ nodes: { custom: { plan: () => [{ kind: 'generate' }], execute: async ctx => {

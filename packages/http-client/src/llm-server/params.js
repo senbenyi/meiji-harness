@@ -115,15 +115,3 @@ export function chatParameters({ baseUrl, model, messages, requestId, apiKey = '
     body: { model, messages: structuredClone(messages), stream: false },
   };
 }
-
-export function videoContentAddress(baseUrl, id) {
-  const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-  return new URL(`videos/${encodeURIComponent(id)}/content`, base).href;
-}
-
-export function isGatewayContentAddress(serverAddress, remoteId) {
-  if (!serverAddress || !remoteId) return false;
-  try { return new URL(serverAddress).pathname.endsWith(`/videos/${encodeURIComponent(remoteId)}/content`) || new URL(serverAddress).pathname.endsWith(`/videos/${remoteId}/content`); }
-  catch { return false; }
-}
-

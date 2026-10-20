@@ -7,8 +7,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { generateGatewayImage, submitGatewayVideo, retrieveGatewayVideo } from "../server/gateway/model-gateway.js";
-import { decodeImageData } from "../server/media/decode-image-data.js";
+import { decodeImageData, dataUrl } from "../server/media/decode-image-data.js";
 import { saveLastFrame } from "../server/media/extract-video-tail.js";
 import { createServer } from "node:http";
 import { createAiRoutes, composeNodePrompt, validateNodeResult } from "../server/http/ai-routes.js";
@@ -90,89 +89,10 @@ describe("foundations", () => {
     assert.throws(() => parseJsonValue(text));
   });
 
-  test("图片生成 JSON 与参考图编辑 multipart 保持协议和字节", async () => {
-    for (const edit of [false, true]) {
-      const result = await generateGatewayImage({
-        ...connection,
-        prompt: "图片",
-        aspectRatio: "16:9",
-        seed: 42,
-        references: edit ? [{ mime: "image/png", bytes: png }] : [],
-        fetchImpl: async (url, options) => {
-          assert.equal(
-            url.pathname,
-            edit ? "/v1/images/edits" : "/v1/images/generations",
-          );
-          if (edit) {
-            assert.ok(options.body instanceof FormData);
-            assert.equal(options.body.get("seed"), null);
-            assert.equal(options.body.get("image[]").type, "image/png");
-            assert.deepEqual(
-              Buffer.from(await options.body.get("image[]").arrayBuffer()),
-              png,
-            );
-          } else {
-            const body = JSON.parse(options.body);
-            assert.equal(body.seed, 42);
-            assert.equal(body.size, "1344x768");
-          }
-          return json({ data: [{ b64_json: png.toString("base64") }] });
-        },
-      });
-      assert.deepEqual(result, png);
-    }
-  });
-
-  test("视频提交记录远端 ID，轮询终态后下载；失败终态停止", async () => {
-    const remote = await submitGatewayVideo({
-      ...connection,
-      prompt: "视频",
-      duration: 5,
-      aspectRatio: "16:9",
-      mode: "reference",
-      referenceImages: [`data:image/png;base64,${png.toString("base64")}`],
-      fetchImpl: async (url, options) => {
-        assert.equal(url.pathname, "/v1/videos");
-        const body = JSON.parse(options.body);
-        assert.equal(body.seconds, "5");
-        assert.equal(body.reference_images.length, 1);
-        return json({ id: "remote-1" });
-      },
-    });
-    assert.equal(remote.id, "remote-1");
-    let polls = 0;
-    let pauses = 0;
-    const bytes = await retrieveGatewayVideo({
-      ...connection,
-      promptId: remote.id,
-      maxPolls: 3,
-      pause: async () => {
-        pauses++;
-      },
-      fetchImpl: async (url) => {
-        if (url.pathname.endsWith("/content"))
-          return new Response(Buffer.from("mock-video"));
-        polls++;
-        return json({ status: polls === 1 ? "processing" : "completed" });
-      },
-    });
-    assert.equal(bytes.toString(), "mock-video");
-    assert.equal(polls, 2);
-    assert.equal(pauses, 1);
-    await assert.rejects(
-      retrieveGatewayVideo({
-        ...connection,
-        promptId: "bad",
-        fetchImpl: async () =>
-          json({ status: "failed", error: { message: "远端失败" } }),
-      }),
-      /远端失败/,
-    );
-  });
 
   test("图片解码与 JSON 提取拒绝无效类型和语法", () => {
     assert.deepEqual(
-      decodeImageData(`data:image/png;base64,${png.toString("base64")}`),
+      decodeImageData(dataUrl(png, "image/png")),
       { mime: "image/png", bytes: png },
     );
     assert.equal(
@@ -229,28 +149,6 @@ describe("http-contracts", () => {
   const image = 'data:image/png;base64,aW1hZ2U=';
   const common = { language: 'zh-CN', requirements: '' };
 
-  test('视频三种类型实际发出互斥协议，生成三段原文不被系统正文包裹', async () => {
-    for (const input of [video, { ...video, type: '首尾帧', firstFrame: image }, { ...video, type: '多模态', referenceImages: [image] }]) {
-      let payload, chats = 0;
-      const ai = createAiRoutes({ readConfig: async () => config, gateway: {
-        chat: async () => { chats++; throw Error('不应调用文本模型'); },
-        submitVideo: options => submitGatewayVideo({ ...options, fetchImpl: async (_url, request) => { payload = JSON.parse(request.body); return new Response(JSON.stringify({ id: 'remote' }), { status: 200 }); } }),
-        retrieveVideo: async () => Buffer.from('candidate'),
-      } });
-      const { result } = await ai('video', 'generate', input);
-      assert.equal(result.remote_id, 'remote');
-      assert.match(result.server_address, /\/videos\/remote\/content$/);
-      assert.equal(chats, 0);
-      assert.equal(payload.seconds, '5');
-      assert.equal(payload.size, '1024x576');
-      assert.ok(payload.prompt.includes(text));
-      if (input.type === '首尾帧') assert.equal(payload.prompt, defaultRules('video').generate.base + '\n\n' + "首帧为上一镜的尾帧，用作本镜0秒的开场画面。随后动作、运镜与声音按下文已审核分镜推进，本镜结尾画面落在分镜的最后一拍。\n\n" + text);
-      assert.doesNotMatch(payload.prompt, /# 角色|# 输出格式|视频制作执行器/);
-      assert.deepEqual(Object.keys(payload).sort(), ['model', 'prompt', 'seconds', 'size', ...(input.type === '首尾帧' ? ['input_reference'] : input.type === '多模态' ? ['reference_images'] : [])].sort());
-      if (input.type !== '首尾帧') assert.equal(payload.prompt, defaultRules('video').generate.base + '\n\n' + text);
-    }
-  });
-
   test('三种视频方式都发给 MiniMax H3，mode 固定为文生、首尾帧、多模态', async () => {
     const seen = [];
     const server = createServer(async (req, res) => {
@@ -271,6 +169,11 @@ describe("http-contracts", () => {
         assert.equal(prompt.model, 'MiniMax-H3');
         assert.equal(prompt.parameters.remote_id, `task-${seen.length}`);
       }
+      for (const { body } of seen) {
+        assert.ok(body.prompt.includes(text));
+        assert.ok(body.prompt.includes(defaultRules('video').generate.base));
+        assert.doesNotMatch(body.prompt, /# 角色|# 输出格式|视频制作执行器/);
+      }
       assert.deepEqual(seen.map(item => item.body.mode), ['文生', '首尾帧', '多模态']);
       assert.equal(seen[0].authorization, 'Bearer ollama');
       assert.equal('model' in seen[0].body, false);
@@ -290,6 +193,13 @@ describe("http-contracts", () => {
     } finally {
       server.closeAllConnections();
       await new Promise(resolve => server.close(resolve));
+    }
+  });
+
+  test('视频生成缺少任务ID或返回URL时拒绝，不拼接旧content地址', async () => {
+    for (const located of [{ taskId: 'remote' }, { url: 'https://example.test/video.mp4' }, { id: 'remote' }]) {
+      const ai = createAiRoutes({ readConfig: async () => config, gateway: { video: async () => located } });
+      await assert.rejects(ai('video', 'generate', video), /服务端视频地址/);
     }
   });
 
@@ -333,15 +243,6 @@ describe("http-contracts", () => {
     await assert.rejects(ai('costume-image', 'generate', { ...input, references: [{}] }), /字符串/);
   });
 
-  test('网关直连入口同样拒绝猜类型和混用素材；9张及首帧裸Base64可用', async () => {
-    let calls = 0;
-    const base = { baseUrl: config.baseUrl, apiKey: config.apiKey, model: 'elysium-video', prompt: text, duration: 5, aspectRatio: '16:9', fetchImpl: async () => { calls++; return new Response('{"id":"remote"}'); } };
-    for (const args of [{}, { mode: 'text', inputReference: image }, { mode: 'first_frame', inputReference: image, referenceImages: [image] }, { mode: 'reference', referenceImages: [] }, { mode: 'text', duration: 5.5 }]) await assert.rejects(submitGatewayVideo({ ...base, ...args }), /视频/);
-    assert.equal(calls, 0);
-    await submitGatewayVideo({ ...base, mode: 'reference', referenceImages: Array(9).fill(image) });
-    await submitGatewayVideo({ ...base, mode: 'first_frame', inputReference: 'aW1hZ2U=' });
-    assert.equal(calls, 2);
-  });
 });
 
 describe("timeout", () => {

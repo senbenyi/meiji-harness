@@ -5,14 +5,14 @@ import { createTextHandler } from '../../server/handlers/text-handler.js';
 import { createMediaHandler } from '../../server/handlers/media-handler.js';
 import { taskNodeInput } from '../../server/handlers/node-inputs.js';
 
-export const config = { baseUrl: 'http://elysium.test/v1', apiKey: 'test-only', textBaseUrl: 'http://qwen.test/v1', text: { model: 'qwen3.5:27b' }, image: { model: 'gpt-image' }, video: { model: 'elysium-video' } };
+export const config = { baseUrl: 'http://elysium.test/v1', apiKey: 'test-only', textBaseUrl: 'http://qwen.test/v1', text: { model: 'qwen3.5:27b' }, image: { model: 'gpt-image' }, video: { model: 'MiniMax-H3' } };
 export const testAi = gateway => createAiRoutes({ readConfig: async () => config, gateway });
 export const createTestTextHandler = ({ chat }) => createTextHandler({ ai: testAi({ chat }) });
 export const createTestMediaHandler = ({ media, gateway }) => createHandlerRegistry({
   media: createMediaHandler({
     media,
     ai: testAi(gateway),
-    downloadVideo: (options) => gateway.retrieveVideo(options),
+    downloadVideo: ({ server_address, signal }) => gateway.downloadVideo({ url: server_address, signal }),
   }),
   videoPrompt: createVideoPromptHandler({ media }),
 });

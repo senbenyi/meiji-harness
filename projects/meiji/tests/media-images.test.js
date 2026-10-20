@@ -82,8 +82,8 @@ describe("media-tasks", () => {
               calls.push(options);
               return bytes.image;
             },
-            submitVideo: async () => ({ id: "remote-test" }),
-            retrieveVideo: async () => bytes.video,
+            video: async () => ({ taskId: "remote-test", url: "https://example.test/remote-test.mp4" }),
+            downloadVideo: async () => bytes.video,
           },
         }),
         service = new TaskService({

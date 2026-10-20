@@ -125,11 +125,11 @@ describe("production-chain", () => {
               storyboard: "integrated_multimodal_description:\n[Shot 1] 秒针走动，镜头固定，桌面有机械声，结束秒针停止。\noverall_soundscape:\n机械声\nnon_diegetic_music:\n无",
             }[task.business_type];
           },
-          submitVideo: async () => {
+          video: async () => {
             if (failVideo) throw Error("模拟网关暂时失败");
-            return { id: "remote-chain" };
+            return { taskId: "remote-chain", url: "https://example.test/remote-chain.mp4" };
           },
-          retrieveVideo: async () => bytes,
+          downloadVideo: async () => bytes,
         },
       });
       const p = emptyProject({ basic_info: { name: "完整制作链", creation_mode: "剧本", reference_episode_duration_seconds: 5 } });

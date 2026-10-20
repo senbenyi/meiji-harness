@@ -9,10 +9,9 @@ import { renderPrompt } from '../prompts/render.js';
 import { textProvider } from '../prompts/providers.js';
 import { modelRoute } from '../../models/model-config.js';
 import { elysiumClient } from './elysium/client.js';
-import { llmServerClient, videoContentAddress } from './llm-server/client.js';
+import { llmServerClient } from './llm-server/client.js';
 import { withGatewayTrace } from '../gateway/gateway-trace.js';
 import { stepPrompt } from '../data/step-records.js';
-import { generateGatewayImage, submitGatewayVideo } from '../gateway/model-gateway.js';
 import { defaultRules } from '../../shared/rule-defaults.js';
 import { ruleAction } from '../../shared/ai-node-rules.js';
 
@@ -114,11 +113,9 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
       } else {
         let bytes;
         if (kind === 'video') {
-          const located = connection.model === 'MiniMax-H3' && !gateway.submitVideo
-            ? await (gateway.video || llmServerClient.generateVideo)({ ...options, ...composed.request })
-            : await (gateway.submitVideo || submitGatewayVideo)({ ...options, ...composed.request });
-          const remote_id = located.taskId || located.id;
-          const server_address = located.url || videoContentAddress(connection.baseUrl, remote_id);
+          const located = await (gateway.video || llmServerClient.generateVideo)({ ...options, ...composed.request });
+          const remote_id = located.taskId;
+          const server_address = located.url;
           if (!remote_id || !server_address) invalid('响应', '需返回服务端视频地址');
           prompt.parameters = { remote_id, server_address };
           result = { server_address, remote_id };
@@ -128,7 +125,7 @@ export function createAiRoutes({ readConfig, gateway = {} }) {
           return { result, prompt, http };
         }
         if (kind === 'image') {
-          const generate = gateway.image || (['krea2 turbo V2.5', 'gpt-image'].includes(connection.model) ? llmServerClient.generateImage : generateGatewayImage);
+          const generate = gateway.image || llmServerClient.generateImage;
           bytes = await generate({ ...options, prompt: composed.body, aspectRatio: input.aspectRatio, references: input.references.map(value => decodeImageData(value)) });
         }
         signal?.throwIfAborted();

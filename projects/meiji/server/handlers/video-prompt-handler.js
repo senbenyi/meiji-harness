@@ -5,7 +5,7 @@ import { videoPayload } from '../http/llm-server/params.js';
 import { videoSizeOf } from '../../shared/media-parameters.js';
 import { shotReferenceBindings } from '../../shared/shot-text-inputs.js';
 import { aiProjection } from './content.js';
-import { dataUrl } from '../gateway/model-gateway.js';
+import { dataUrl } from '../media/decode-image-data.js';
 
 export function createVideoPromptHandler({ media }) {
   return async ({ snapshot, task, signal }) => {

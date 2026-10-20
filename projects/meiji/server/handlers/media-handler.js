@@ -3,7 +3,6 @@ import { sceneText, sceneImageContext } from '../../shared/scene-inputs.js';
 import { videoPack, previousShot, videoImages, videoSpeechTiming } from '../../shared/video-inputs.js';
 import { shotReferenceBindings } from '../../shared/shot-text-inputs.js';
 import { primaryCostumeImage } from "../../shared/models/character_model.js";
-import { dataUrl } from "../gateway/model-gateway.js";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -11,7 +10,7 @@ import { nodeOf, locateTarget, invalid } from "../../shared/task_contract.js";
 import { aiProjection } from "./content.js";
 import { saveLastFrame } from "../media/extract-video-tail.js";
 import { concatFilms } from "../media/concat-videos.js";
-import { decodeImageData } from "../media/decode-image-data.js";
+import { decodeImageData, dataUrl } from "../media/decode-image-data.js";
 import { withGatewayTrace } from "../gateway/gateway-trace.js";
 import { normalizeVideo } from "../media/normalize-video.js";
 // 实际时长按成片文件测得，保留一位小数。

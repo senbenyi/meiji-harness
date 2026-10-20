@@ -1,6 +1,5 @@
 import { modelClient } from '@agent-modules/http-client';
 import { recoverableRequest } from './task-request.js';
-export { videoContentAddress, isGatewayContentAddress } from '@agent-modules/http-client/model-parameters';
 
 // meiji 只映射任务上下文；文本/图片/视频协议及请求执行由公共模块提供。
 function transportOptions(options) {

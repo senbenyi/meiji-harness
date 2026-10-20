@@ -193,8 +193,11 @@ describe("video-chain", () => {
       const bytes = await readFile(file), calls = [];
       runtime = await createAppRuntime({ home, gateway: {
         chat: async input => { if (options.chat) return options.chat(input); throw Error('视频编排不得调用文本模型'); },
-        submitVideo: async input => { calls.push(input); return { id: 'v16' }; },
-        retrieveVideo: async () => options.retrieve ? options.retrieve(bytes) : bytes,
+        video: async input => { calls.push(input); return { taskId: 'v16', url: 'https://example.test/v16.mp4' }; },
+        downloadVideo: async ({ url }) => {
+          assert.equal(url, 'https://example.test/v16.mp4');
+          return options.retrieve ? options.retrieve(bytes) : bytes;
+        },
       } });
       const p = projectFixture(), episode = p.episodes[0];
       for (const shot of episode.shot_list.shots) {
@@ -237,7 +240,7 @@ describe("video-chain", () => {
     assert.equal(shot.video_generation_type,mode);
     assert.equal(shot.video.node_state.status,'generated'); assert.equal(shot.last_frame.node_state.status,'generated');
     assert.notEqual(shot.video.address,target.video.address); assert.notEqual(shot.last_frame.address,target.last_frame.address);
-    assert.match(shot.video.server_address, /\/videos\/v16\/content$/);
+    assert.equal(shot.video.server_address, 'https://example.test/v16.mp4');
     await runtime.media.validate(shot.last_frame.address,p.basic_info.id,'image');
     const tasks = model.readAll().tasks.filter(t=>t.group_id===task.group_id).sort((a,b)=>a.group_seq-b.group_seq);
     assert.deepEqual(tasks.map(t=>t.business_type),mode==='文生'?['video']:[mode==='首尾帧'?'first-last-frame':'multimodal','video']);
@@ -289,7 +292,7 @@ describe("video-chain", () => {
     assert.equal(calls.length,1);
     assert.equal(shot.video.node_state.status,'generated');assert.equal(shot.last_frame.node_state.status,'generated');
     assert.equal(shot.actual_duration_seconds,15.1);
-    assert.match(shot.video.server_address, /\/videos\/v16\/content$/);
+    assert.equal(shot.video.server_address, 'https://example.test/v16.mp4');
     assert.ok(shot.video.address);
     assert.notEqual(shot.video.address, shot.video.server_address);
     assert.deepEqual(model.readAll().steps.filter(row=>row.task_id===task.id).map(row=>row.kind),['precheck','generate','download','apply']);

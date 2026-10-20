@@ -2,6 +2,10 @@
 
 const dataUri = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\s]+)$/
 
+export function dataUrl(bytes, mime) {
+  return `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`;
+}
+
 export function decodeImageData(data, mime) {
   const text = String(data || '').trim()
   const match = dataUri.exec(text)

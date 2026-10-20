@@ -14,9 +14,7 @@ import { createHandlerRegistry } from "../handlers/handler-registry.js";
 import { commitContent } from "../handlers/content.js";
 import { MediaStore } from "../media/media-store.js";
 import { createAiRoutes } from '../http/ai-routes.js';
-import { llmServerClient, isGatewayContentAddress } from '../http/llm-server/client.js';
-import { modelRoute } from '../../models/model-config.js';
-import { retrieveGatewayVideo } from '../gateway/model-gateway.js';
+import { llmServerClient } from '../http/llm-server/client.js';
 import { modelStore } from "../data/model-settings.js";
 import { SettingsModel } from "../../models/settings-model.js";
 import { NotificationOutbox } from "../host/notification-outbox.js";
@@ -41,12 +39,8 @@ export async function createAppRuntime({
   const text = createTextHandler({ ai, readLanguage }),
     mediaHandler = createMediaHandler({
       media, ai, readLanguage,
-      downloadVideo: async ({ server_address, remote_id, signal }) => {
-        const connection = modelRoute(await models.read(), 'video');
-        if (isGatewayContentAddress(server_address, remote_id))
-          return (injected?.retrieveVideo || retrieveGatewayVideo)({ ...connection, promptId: remote_id, signal });
-        return llmServerClient.downloadVideo({ url: server_address, apiKey: connection.apiKey, signal });
-      },
+      downloadVideo: ({ server_address, signal }) =>
+        (injected?.downloadVideo || llmServerClient.downloadVideo)({ url: server_address, signal }),
     }),
     execute = createHandlerRegistry({ text, media: mediaHandler, videoPrompt: createVideoPromptHandler({ media }) }),
     tasks = new TaskService({
