@@ -10,7 +10,7 @@ const temp = await mkdtemp(join(tmpdir(), 'agent-modules-install-'));
 const run = (command, args, cwd) => execFileSync(command, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 try {
   const archives = [];
-  for (const name of ['http-client', 'prompt-composer', 'task']) {
+  for (const name of ['http-client', 'prompt-composer', 'setting', 'task']) {
     const result = JSON.parse(run('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', temp], join(root, 'packages', name)));
     assert.ok(result[0].files.every(file => !file.path.includes('elysium/')), '公共包不应包含旧网关兼容文件');
     archives.push(join(temp, result[0].filename));
@@ -94,7 +94,33 @@ try {
   `], temp);
   // 公共分发不含 meiji 的旧网关兼容模块。
   run(process.execPath, ['--input-type=module', '-e', "const { default: assert } = await import('node:assert/strict'); await assert.rejects(import('@agent-modules/http-client/elysium'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' }); await import('@agent-modules/http-client/model-parameters'); await import('@agent-modules/http-client/remote-task');"], temp);
-  console.log('三个 npm tarball 已在隔离目录离线安装并运行，未引用原工作区源码。');
+  run(process.execPath, ['--input-type=module', '-e', `
+    import assert from 'node:assert/strict';
+    import { SettingsModel } from '@agent-modules/setting';
+    const spec = { language: { default: 'zh-CN', options: [{ value: 'zh-CN', label: '中文' }] },
+      models: { session: { options: [{ value: 'remote', label: '远程' }], default: 'remote' } } };
+    const model = new SettingsModel({}, spec);
+    assert.equal(model.session.model, 'remote');
+    assert.deepEqual(new SettingsModel(JSON.parse(JSON.stringify(model)), spec).toJSON(), model.toJSON());
+    const { createSettingsStore } = await import('@agent-modules/setting/store');
+    const { renderSettingsPanel } = await import('@agent-modules/setting/ui');
+    const { mkdtemp, rm } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { JSDOM } = await import(${JSON.stringify(import.meta.resolve('jsdom'))});
+    const dir = await mkdtemp(join(tmpdir(), 'setting-install-'));
+    try {
+      const store = createSettingsStore(join(dir, 'settings.json'), { spec, defaults: {} });
+      const saved = await store.write({});
+      assert.equal(saved.session.model, 'remote');
+      const dom = new JSDOM('<main></main>');
+      const panel = renderSettingsPanel(spec, { document: dom.window.document, store });
+      await panel.ready;
+      assert.equal(panel.shadowRoot.querySelector('[name=session]').value, 'remote');
+      dom.window.close();
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  `], temp);
+  console.log('四个 npm tarball 已在隔离目录离线安装并运行，未引用原工作区源码。');
 } finally {
   await rm(temp, { recursive: true, force: true });
 }

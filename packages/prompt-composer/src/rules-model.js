@@ -53,6 +53,14 @@ export class RulesModel {
     return structuredClone(this.#data);
   }
 
+  /** 由接入方在保存成功后调用；显式更新同一实例，不开放基础快照编辑。 */
+  setSupplement(action, value) {
+    if (!ACTIONS.includes(action)) invalid('action', '需为 generate、review 或 revise');
+    if (!this.#data.supports_supplement) invalid('supports_supplement', '当前模型不支持补充规则');
+    this.#data.rules[action].supplement = text(value, `rules.${action}.supplement`);
+    return this;
+  }
+
   /** 仅解析选中的动作；必须提供当前基础规则，不回退到保存的快照。 */
   resolve(action, currentBase) {
     if (!ACTIONS.includes(action)) invalid('action', '需为 generate、review 或 revise');

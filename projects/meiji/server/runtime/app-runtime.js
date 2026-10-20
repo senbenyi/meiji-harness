@@ -18,7 +18,7 @@ import { llmServerClient, isGatewayContentAddress } from '../http/llm-server/cli
 import { modelRoute } from '../../models/model-config.js';
 import { retrieveGatewayVideo } from '../gateway/model-gateway.js';
 import { modelStore } from "../data/model-settings.js";
-import { SettingsModel } from "../../shared/models/settings_model.js";
+import { SettingsModel } from "../../models/settings-model.js";
 import { NotificationOutbox } from "../host/notification-outbox.js";
 import { emptyProject, emptyEpisode } from "../../shared/project_contract.js";
 import { invalid } from "../../shared/task_contract.js";

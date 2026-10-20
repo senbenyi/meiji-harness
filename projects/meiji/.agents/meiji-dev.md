@@ -44,7 +44,7 @@ Meiji 是 DeepSeek Harness 外部插件。开发流程引用 [AGENTS.md](../../.
 
 浏览器仅加载 `client/`、`shared/`，服务端不引用 client。共享领域模块不读写磁盘，不调用模型。旧 Run、即时操作、隐式上下文、jobs/goals 控制、生产 skill 与旧格式迁移脚本已经删除，不重新引入包装入口。
 
-通用 HTTP、文本/图片/视频协议、下载与异步恢复位于根 `packages/http-client`；模板填充、章节渲染及消息组装位于 `packages/prompt-composer`。上表原文件保留 meiji 适配或导出入口；业务规则、节点契约、模型选择、步骤映射和取消原因仍由 meiji 决定。接入说明见[公共工作区](../../../README.md)。根执行 `npm ci` 安装；公共包以工作区源码链接加载，其他 Agent 也可独立安装 tarball。
+通用 HTTP、文本/图片/视频协议、下载与异步恢复位于根 `packages/http-client`；模板填充、章节渲染及消息组装位于 `packages/prompt-composer`；语言和模型选择的校验位于 `packages/setting`。上表原文件保留 meiji 适配或导出入口；业务规则、节点契约、模型选项、步骤映射和取消原因仍由 meiji 决定。接入说明见[公共工作区](../../../README.md)。根执行 `npm ci` 安装；公共包以工作区源码链接加载，其他 Agent 也可独立安装 tarball。
 
 当前模型全部连接 `textBaseUrl` 的 meiji-server，供应商密钥由该服务管理。meiji 不要求旧媒体 `apiKey`；历史连接字段兼容读取，当前请求只用 `ollama` 协议占位值，不转发旧媒体密钥。公共 HTTP 包可接收可选服务鉴权密钥，meiji 适配不从历史配置注入。
 
@@ -93,7 +93,7 @@ task/group/step 创建时保存 name，后续资料改名不改历史；已有�
 
 文本按对应节点声明解析：项目/剧集摘要为纯文本，人物和切点等按 JSON 结构校验；分镜提示词保留其既定段落协议。可解析 JSON 缺少必填字段时由程序审核判 rejected 并按既有轮次修订，原始候选留任务历史；耗尽后保留旧正式内容和 hash，仅写节点未通过及原因。不属于缺字段的 JSON 结构/解析错误仍 failed 并保留旧内容；网络、接口异常仅记失败，不自动带入提示词；可用候选的业务审核未通过时按节点轮次修订，耗尽后将最后内容及 rejected 原因存正式节点，不刷新 hash、不传播、不派生。图片每次最多一张参考图，不附角色声线。视频人物服装、场景及衔接尾帧参考图合计最多九张；同场景同状态连续接拍时，多模态末尾附有效前镜尾帧并由程序填写开场引用，首尾帧类型使用接口首帧，节拍文本继承前镜交接资料。生成与下载阶段均保留HTTP详情。
 
-文本由 `shared/models/settings_model.js` 的 SettingsModel 固定选择：独立 llm-server 提供的 `qwen3.5:27b` 或 `codex-gpt`。图片可选krea2 turbo V2.5或gpt-image；视频固定为MiniMax-H3，旧配置elysium-video映射到该模型。`elysium-chat`、`elysium-image` 已移出选项，保存或读取时按无效模型拒绝；旧配置用迁移脚本改为默认值。选择 Qwen、Codex 文本或 `gpt-image` 时，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 messages、stream=false（生成/审核为 system/user，文本修订为 system/user/assistant/user）；Qwen 的 reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5 默认参数已迁到独立 llm-server；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由节点路由契约注入提示词，并按同一契约进行本地校验。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../README.md)。
+文本由公共 `@agent-modules/setting` 的 SettingsModel 按 `shared/models/settings_model.js` 的选项固定选择：独立 llm-server 提供的 `qwen3.5:27b` 或 `codex-gpt`。图片可选krea2 turbo V2.5或gpt-image；视频固定为MiniMax-H3，旧配置elysium-video映射到该模型。`elysium-chat`、`elysium-image` 已移出选项，保存或读取时按无效模型拒绝；旧配置用迁移脚本改为默认值。选择 Qwen、Codex 文本或 `gpt-image` 时，`textBaseUrl` 独立于媒体 `baseUrl/apiKey`。`POST /v1/chat/completions` 使用标准 messages、stream=false（生成/审核为 system/user，文本修订为 system/user/assistant/user）；Qwen 的 reasoning_effort=none、temperature=0.7、top_p=0.8、presence_penalty=1.5 默认参数已迁到独立 llm-server；不发送 max_tokens，不配置聊天 maxTokens；不发送 response_format 或不支持的模板参数。JSON 输出由节点路由契约注入提示词，并按同一契约进行本地校验。文本渲染追加资料边界与最终输出约定，图片/视频渲染保持原样。官方依据与隧道操作见 [README](../README.md)。
 
 当前媒体接口按模型分派：gpt-image调用images/generations，krea调用images/comfy，MiniMax-H3调用videos/generations等待成功URL后下载；均为本机服务。参数、素材与取消边界以视频接口设计为准，不再使用旧网关视频提交/轮询/content协议。新增视频和合片按项目像素归一化、保留音轨，文件经FFprobe及FFmpeg解码校验。
 

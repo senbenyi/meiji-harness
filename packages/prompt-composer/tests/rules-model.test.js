@@ -72,3 +72,17 @@ test('模型直接接入现有编排，规则文本中的占位符保留字面�
   assert.match(result.system, /保留 \{\{literal\}\}/);
   assert.doesNotMatch(result.system, /旧快照|review|revise/);
 });
+
+test('显式 setSupplement 更新同一实例，仅改选中动作，禁止非法类型和未启用模型', () => {
+  const model = new RulesModel({ supports_supplement: true, rules: {
+    generate: { base: '快照', supplement: '旧补充' }, review: { supplement: '审核补充' },
+  } });
+  const owner = { rules: model };
+  assert.equal(model.setSupplement('generate', '新补充'), model);
+  assert.equal(owner.rules.rules.generate.supplement, '新补充');
+  assert.equal(model.rules.generate.base, '快照');
+  assert.equal(model.rules.review.supplement, '审核补充');
+  assert.throws(() => model.setSupplement('other', ''), { code: 'INVALID_RULES', path: 'action' });
+  assert.throws(() => model.setSupplement('generate', null), { code: 'INVALID_RULES' });
+  assert.throws(() => new RulesModel().setSupplement('generate', ''), { code: 'INVALID_RULES', path: 'supports_supplement' });
+});

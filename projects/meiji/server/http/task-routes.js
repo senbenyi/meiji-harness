@@ -1,4 +1,4 @@
-import { SettingsModel } from '../../shared/models/settings_model.js';
+import { SettingsModel } from '../../models/settings-model.js';
 import { nodeRules } from './node-rules.js';
 import { llmServerClient } from './llm-server/client.js';
 import { readFile } from "node:fs/promises";

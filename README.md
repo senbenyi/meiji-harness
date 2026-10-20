@@ -7,6 +7,7 @@ agent-harness/
 ├─ packages/
 │  ├─ http-client/          # 文本、图片、视频、下载、HTTP记录与异步恢复
 │  ├─ prompt-composer/      # 模板、章节、消息编排与规则面板
+│  ├─ setting/              # 语言与模型选择的设置 Model
 │  └─ task/                 # 通用任务调度、Model、存储与历史 UI
 ├─ projects/
 │  └─ meiji/               # 短剧规则、业务流程、数据模型、界面和测试
@@ -30,9 +31,9 @@ npm run verify:install
 npm run verify:copy
 ```
 
-`npm test` 执行所有工作区测试和工程入口测试；也可使用 `npm test --workspace @meiji/harness-plugin` 单独验证 meiji。三个公共包是工作区本地链接；meiji 当前接入 HTTP/编排，task 供后续业务重构接入。
+`npm test` 执行所有工作区测试和工程入口测试；也可使用 `npm test --workspace @meiji/harness-plugin` 单独验证 meiji。四个公共包是工作区本地链接；meiji 当前接入 HTTP、编排和设置 Model，task 供后续业务重构接入。
 
-`example`、`example:task` 和打包/复制验证使用本机模拟 HTTP，不调用真实模型。`verify:install` 验证三个 npm tarball 的独立安装；`verify:copy` 复制仓库到临时目录，只调整项目目录及包名，自动更新锁文件后离线安装、导入插件和运行示例。离线验证依赖已安装后的 npm 缓存。
+`example`、`example:task` 和打包/复制验证使用本机模拟 HTTP，不调用真实模型。`verify:install` 验证四个 npm tarball 的独立安装；`verify:copy` 复制仓库到临时目录，只调整项目目录及包名，自动更新锁文件后离线安装、导入插件和运行示例。离线验证依赖已安装后的 npm 缓存。
 
 ## 使用业务项目
 
@@ -62,6 +63,7 @@ npm run restart -- meiji
 - [meiji 项目说明](projects/meiji/README.md)及[项目规范](projects/meiji/AGENTS.md)
 - [HTTP 与模型接口](packages/http-client/README.md)
 - [提示词编排](packages/prompt-composer/README.md)
+- [设置 Model](packages/setting/README.md)
 - [公共任务系统](packages/task/README.md)
 
 本次重组保留原仓库 Git 历史与已有未提交变更，未更改远端仓库地址，也未自动提交、发布或启动生产服务。历史计划里的旧路径用于追溯，当前入口以本文为准。

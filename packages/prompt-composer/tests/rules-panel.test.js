@@ -28,10 +28,10 @@ test('只传模型展示快照，三动作独立且内容只读，输入保持�
     assert.equal(section.hidden, action !== 'generate');
     assert.equal(section.querySelector('[data-field=base] h3').textContent, '基础规则快照');
     assert.equal(section.querySelector('[data-field=base] pre').textContent, input.rules[action].base);
-    assert.equal(section.querySelector('[data-field=supplement] pre').textContent, input.rules[action].supplement);
+    assert.equal(section.querySelector('[data-field=supplement] textarea').value, input.rules[action].supplement);
   }
   assert.match(root.textContent, /不代表当前执行规则/);
-  assert.equal(root.querySelector('textarea, input'), null);
+  assert.ok([...root.querySelectorAll('textarea')].every(area => area.readOnly));
   assert.deepEqual(model.toJSON(), before);
   assert.deepEqual(input, before);
 });

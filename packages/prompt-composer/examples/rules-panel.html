@@ -17,15 +17,19 @@
   <label><input id="supplements" type="checkbox" checked> 支持补充规则</label>
   <div id="panel"></div>
   <p id="navigation" role="status"></p>
+  <p id="saved" role="status"></p>
 </main>
 <script type="module">
   import { RulesModel } from '../src/index.js';
   import { renderRulesPanel } from '../src/ui/rules-panel.js';
-  const rules = {
+  const defaults = {
     generate: { base: '历史生成规则，仅作为保存的快照。', supplement: '保持段落简洁，优先使用提供的资料。' },
     revise: { base: '历史修订规则，仅作为保存的快照。', supplement: '只调整意见指出的部分，其余内容保持一致。' },
     review: { base: '历史审核规则，仅作为保存的快照。', supplement: '逐项说明发现的问题，给出对应依据。' },
   };
+  const stored = localStorage.getItem('prompt-composer-rules-example');
+  const rules = stored ? JSON.parse(stored).rules : defaults;
+  let opinion = localStorage.getItem('prompt-composer-opinion-example') || '';
   const currentBases = {
     generate: '依据输入资料完成任务。\n\n输出应完整、清晰，遵守调用方提供的格式要求。\n资料不足时明确说明缺口，不补造事实。',
     revise: '依据本轮意见修订已有结果。\n\n保持上下文一致，返回完整的修订结果。',
@@ -35,6 +39,20 @@
     const model = new RulesModel({ supports_supplement: document.querySelector('#supplements').checked, rules });
     document.querySelector('#panel').replaceChildren(renderRulesPanel(model, {
       title: '任务 · 规则', currentBases,
+      opinion,
+      onSave({ action, value }) {
+        // 先完成持久化，再更新同一实例。真实项目接入时替换此回调。
+        const next = model.toJSON(); next.rules[action].supplement = value;
+        localStorage.setItem('prompt-composer-rules-example', JSON.stringify(next));
+        model.setSupplement(action, value);
+        rules[action].supplement = value;
+        document.querySelector('#saved').textContent = '补充规则已保存，原 Model 已更新。';
+      },
+      onOpinionSave({ value }) {
+        localStorage.setItem('prompt-composer-opinion-example', value);
+        opinion = value;
+        document.querySelector('#saved').textContent = '本次修改意见已保存。';
+      },
       onBack: () => { document.querySelector('#navigation').textContent = '返回事件由接入项目处理。'; },
     }));
   };

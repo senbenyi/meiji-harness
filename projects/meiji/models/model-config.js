@@ -1,4 +1,4 @@
-import { SettingsModel } from '../shared/models/settings_model.js'
+import { SettingsModel } from './settings-model.js'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
