@@ -1,492 +1,405 @@
 {
-  "id": "p_uuid（当前对象的唯一标识。）",
-  "name": "（项目或资料的名称。）",
-  "creation_mode": "剧本（项目的创作模式。）",
-  "aspect_ratio": "9:16（项目画面宽高比，默认9:16，可选21:9、16:9、4:3、1:1、3:4、9:16；场景图和视频统一跟随。）",
-  "creative_direction": "（项目整体创作方向。）",
-  "reference_episode_duration_seconds": "150（全集规划使用的参考单集时长；规划产出各集固定时长，供分集改编和镜头表审核。）",
-  "project_summary": {
-    "node_state": {
-      "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，未通过原因写入 reason，失败说明写入 fail_message。排队不写入节点状态。）",
-      "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-      "fail_message": "（失败原因，不交给 AI。）",
-      "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-    },
-    "body": "（正文或摘要内容。）",
-    "script_version": "1（生成该摘要时采用的剧本版本号。；数值）",
-    "rules": {
-      "generate": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-      },
-      "review": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-      },
-      "revise": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-      }
-    }
-  },
-  "script": {
-    "version": "1（剧本版本号。；数值）",
-    "updated_at": "（剧本最近一次更新时间。）",
-    "body": "（正文或摘要内容。）",
-    "future_plot": "（尚未发生的后续剧情资料。）",
-    "revision_history": [
-      {
-        "timestamp": "（本次修改发生的时间。）",
-        "task_id": "t_uuid（产生本条修改记录的任务标识。）",
-        "revision_notes": "（本次修改的说明或意见。）"
-      }
-    ],
-    "node_state": {
-      "status": "empty（剧本节点状态；审核通过或人工放行为 generated，审核未通过为 rejected，reason 为修改意见；详情界面展示状态，其他制作节点不要求剧本审核先通过。）",
-      "reason": "（审核未通过时给剧本的修改意见；「修改」任务带上它改写剧本。）",
-      "fail_message": "（失败原因，不交给 AI。）",
-      "dependency_hash": "（审核所依据剧本正文的摘要值；剧本变化后节点过期。）"
+  "$comment": "本文件为新版项目结构说明。$defs和$ref仅用于复用字段定义，不属于实际项目业务数据。展开后仍是原有8个业务一级字段；每个AI节点、每个动作各有独立规则值和状态，不共享可变数据，也不改变现有基础规则动态读取方式。 生成各节点的请求指令在任务详情/执行记录中查看，图片节点不保存prompt字段；text_prompt的三段正文仍为正式业务结果。prompt_pack.prompt是完整的本地POST /v1/videos/generations请求体，可直接用于调用；其中prompt字段为最终提示词字符串，媒体和生成参数也放在该请求体内。node_state与请求体prompt平级，不发送给接口。人物costume_images[i]与costumes[i]按位置一一对应，costume_id等于该服装ID；服装增删重排时同步调整两个数组。没有服装目录时costumes为空，保留一张costume_id为空的定妆照，不编造服装。 人物不设默认服装或默认定妆照。后续节点选用人物定妆照时，必须显式使用character_id与costume_id定位该人物的costume_images对应项，不按默认值或数组首项自动选图；视频编排按明确选择保存参考素材。无服装目录时，显式指定character_id并令costume_id为空，定位该人物唯一的未绑定服装定妆照。可见人物仍允许不绑定并按文字推断；已明确选择的图片不可被其他服装图片自动替代。 视频生成节点的地址、实际时长和keyframes均平铺保存，不设result包装。关键帧为按视频时间升序排列的图片地址数组，必须包含实际最后一帧；需要尾帧时取最后一项，不再保存重复的tail_frame_address，也不建立独立尾帧提取节点。 prompt_pack.prompt示例采用多模态请求：images、videos、audios为按引用顺序排列的素材字符串数组，正文prompt按多模态六段编排。首尾帧请求结构见$defs.h3_first_last_frame_request，正文为对齐指令和三个命名段；ratio为adaptive，无目标尾帧时省略last_frame，不传空字符串。prompt.images是图片Base64字符串数组，每项包含完整图片数据并带MIME前缀，例如data:image/png;base64,...，不保存图片地址或业务对象，可直接传给当前接口。图片节点的裸Base64参考图用于此处时需补齐对应MIME前缀。videos、audios仍按接口支持的HTTPS地址、mm_file://地址或对应媒体的Base64 data URL填写。人物、服装等业务ID不进入接口请求体；模型由本地服务配置，不在此重复保存。仅在连续接拍且场景、状态有效时，选用前片keyframes最后一项作为首帧；目标尾帧与生成后实际尾帧分别保存。",
+  "$defs": {
+    "rule_action": {
+      "base": "（本动作基础规则快照；执行、展示及依赖计算统一读取当前代码基础规则，不执行旧快照。未启用的动作不因此新增执行步骤。）",
+      "supplement": "（本动作独立补充规则；三个动作互不引用，冲突由人工修改；与UI同步保存。）"
     },
     "rules": {
       "generate": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
+        "$ref": "#/$defs/rule_action"
       },
       "review": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
+        "$ref": "#/$defs/rule_action"
       },
       "revise": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
+        "$ref": "#/$defs/rule_action"
       }
     },
-    "adaptation_rules": {
-      "generate": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-      },
-      "review": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-      },
-      "revise": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-      }
+    "node_state": {
+      "status": "empty（枚举：empty、generated、rejected、expired；任务排队与运行状态由任务系统管理。）",
+      "reason": "（业务未通过或过期原因；业务问题进入未通过，不作为HTTP/网络失败。）",
+      "fail_message": "（HTTP、网络等执行失败说明，不作为AI改写意见。）",
+      "dependency_hash": "（生成时的有效输入和规则依赖指纹；上游变化后用于判断结果是否过期。）"
+    },
+    "h3_first_last_frame_request": {
+      "mode": "首尾帧",
+      "prompt": "How the reference pictures align with the video: Picture 1 corresponds to 0 seconds; Picture 2 corresponds to the end of the video.\n\nintegrated_multimodal_description:\n（按首帧状态、动作发展与目标尾帧编排完整画面、摄影、对白及同步声音。）\n\noverall_soundscape:\n（环境声、动作声和非语言人声。）\n\nnon_diegetic_music:\nN/A",
+      "duration": 7,
+      "resolution": "768P",
+      "ratio": "adaptive",
+      "first_frame": "https://example.com/first-frame.png",
+      "last_frame": "https://example.com/last-frame.png"
     }
   },
-  "character_library": {
-    "node_state": {
-      "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-      "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-      "fail_message": "（失败原因，不交给 AI。）",
-      "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
+  "basic_info": {
+    "id": "project_001",
+    "name": "（项目名称；本文件为新版项目目标结构及字段说明。）",
+    "creation_mode": "剧本（创作模式；保留现有剧本导入与自由创作能力。）",
+    "aspect_ratio": "9:16（项目画幅；可选21:9、16:9、4:3、1:1、3:4、9:16。）",
+    "creative_requirements": "（全项目创作要求。）",
+    "episode_reference_seconds": 180,
+    "original_script": "（原始剧本独立保存；故事解析可同时核对原稿与当前优化稿。）"
+  },
+  "script_revision": {
+    "opinion": "（人工对剧本的优化意见。）",
+    "body": "（当前最终优化正文；每次覆盖，不保存版本号、更新时间、修改历史或历史正文。）",
+    "rules": {
+      "$ref": "#/$defs/rules"
     },
+    "node_state": {
+      "$ref": "#/$defs/node_state"
+    }
+  },
+  "story_segments": [
+    {
+      "id": "segment_001",
+      "sequence": 1,
+      "title": "（故事段标题。）",
+      "body": "（完整剧情正文、原对白及重要描述；按有因果的故事推进拆段，不是事件摘要。）",
+      "world_background": "（与本段有关的世界观、时代背景和影响剧情的重要设定；不另设全剧共用资料对象。）",
+      "key_anchors": [
+        {
+          "id": "anchor_001",
+          "content": "（本段必须表达的事实、态度、程度、情绪、世界观信息或伏笔。）",
+          "expression": "（以画面、对白、动作、声音或其组合落实的要求；明确原话与画面文字仍逐字保留。）"
+        }
+      ],
+      "characters_and_groups": "（参与人物、背景群体、在场状态及各自作用；不重复保存完整人物资产。）",
+      "scene_and_space": "（所在场景、初始分布、建筑区域及行动关系；稳定布局由场景资产提供。）",
+      "emotion_and_rhythm": "（情绪起止、压力积累、转折、释放及观看期待。）",
+      "duration_seconds": 30,
+      "continuity": {
+        "opening": "（承接前段的事实和初始状态。）",
+        "ending": "（本段结果、待续事项及后段承接。）"
+      },
+      "rules": {
+        "$ref": "#/$defs/rules"
+      },
+      "node_state": {
+        "$ref": "#/$defs/node_state"
+      }
+    }
+  ],
+  "character_extraction": {
     "characters": [
       {
-        "id": "c_uuid（当前对象的唯一标识。）",
-        "name": "（项目或资料的名称。）",
-        "age_range": "（角色年龄段；对应角色节点“年龄段”，只保存来源明确给出的范围，不推算精确年龄。）",
-        "nationality": "（角色国籍或所属族群。）",
-        "gender": "（角色性别。）",
-        "era": "（角色所属时代。）",
-        "height": "（角色身高。）",
-        "body_type": "（角色体型描述。）",
-        "facial_features": "（角色面部特征描述。）",
-        "voice": "（角色声音特征，或分镜中的声音内容。）",
-        "required_appearance": "false（该角色是否为必须出现的角色。；布尔值）",
-        "default_costume_id": "co_uuid（默认服装 id；没有明确服装时为空字符串。）",
-        "costume_images": [
+        "id": "character_001",
+        "name": "角色甲（人物名称示例。）",
+        "position": "（身份、职位或社会角色。）",
+        "age_range": "（有依据的年龄段，不推算精确年龄。）",
+        "nationality": "（国籍或所属族群。）",
+        "gender": "（性别。）",
+        "era": "（所属时代。）",
+        "height": "（身高。）",
+        "body_type": "（体型。）",
+        "facial_features": "（面部特征。）",
+        "hairstyle": "（发型。）",
+        "voice": "（稳定声线特征；具体台词与发声时序写入分镜。）",
+        "relationships": "（人物之间已确认的稳定关系。）",
+        "signature_props": [
           {
-            "node_state": {
-              "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-              "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-              "fail_message": "（失败原因，不交给 AI。）",
-              "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-            },
-            "costume_id": "co_uuid（对应服装 id；角色没有明确服装时为空字符串，表示未绑定服装的定妆照。）",
-            "address": "（图片、视频或文件的存储地址。）",
-            "rules": {
-              "generate": {
-                "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-              },
-              "review": {
-                "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-              },
-              "revise": {
-                "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-              }
-            }
+            "id": "prop_001",
+            "name": "（人物道具名称。）",
+            "description": "（道具完整描述，包含有依据的外观、材质、颜色及特征；当前实际持有、使用及归属按剧情和最近状态确定，不因人物资料列有道具就默认一直持有。）"
           }
         ],
-        "reference_image": {
-          "address": "（图片、视频或文件的存储地址。）"
-        },
+        "immutable_traits": [
+          "（明确不可改变的人物特征。）"
+        ],
+        "reference_image": "（用户提供的单张人物原始参考图片Base64字符串；没有时为空字符串。）",
         "costumes": [
           {
-            "id": "co_uuid（当前对象的唯一标识。）",
-            "name": "（服装名称；数组允许为空，剧本未明确描述服装时不创建服装项。）",
-            "color": "（该套服装的颜色；角色级资料不再重复存服装颜色。）",
-            "material": "（服装材质描述。）",
-            "props": [
-              "（角色或服装关联的道具。）"
-            ]
+            "id": "costume_001",
+            "name": "常服（服装名称示例。）",
+            "description": "（服装完整外观描述，统一写款式、颜色、材质、纹理与有依据的细节；未明确的内容不编造。人物道具保存在人物signature_props，不写入服装字段。）"
           }
         ],
-        "hairstyle": "（角色发型。）",
+        "costume_images": [
+          {
+            "costume_id": "costume_001",
+            "reference_image": "（单张明确参考图片的Base64字符串；无参考图时为空字符串。不使用数组，不包含address、role或其他字段。）",
+            "aspect_ratio": "9:16（示例；继承项目画幅，其他参数按所选图片模型实际支持能力编排。）",
+            "address": "（生成或导入并确认有效的结果图地址；支持预览及点击放大。）",
+            "rules": {
+              "$ref": "#/$defs/rules"
+            },
+            "node_state": {
+              "$ref": "#/$defs/node_state"
+            }
+          }
+        ]
+      },
+      {
+        "id": "character_002",
+        "name": "角色乙（无明确服装目录的示例。）",
+        "position": "（身份、职位或社会角色。）",
+        "age_range": "（有依据的年龄段，不推算精确年龄。）",
+        "nationality": "（国籍或所属族群。）",
+        "gender": "（性别。）",
+        "era": "（所属时代。）",
+        "height": "（身高。）",
+        "body_type": "（体型。）",
+        "facial_features": "（面部特征。）",
+        "hairstyle": "（发型。）",
+        "voice": "（稳定声线特征；具体台词与发声时序写入分镜。）",
+        "relationships": "（人物之间已确认的稳定关系。）",
         "signature_props": [
-          "（角色签名道具。）"
+          {
+            "id": "prop_002",
+            "name": "（人物道具名称。）",
+            "description": "（道具完整描述，包含有依据的外观、材质、颜色及特征；当前实际持有、使用及归属按剧情和最近状态确定，不因人物资料列有道具就默认一直持有。）"
+          }
         ],
-        "position": "（角色在故事中的定位。）",
         "immutable_traits": [
-          "（角色不可改特征。）"
+          "（明确不可改变的人物特征。）"
+        ],
+        "reference_image": "（用户提供的单张人物原始参考图片Base64字符串；没有时为空字符串。）",
+        "costumes": [],
+        "costume_images": [
+          {
+            "costume_id": "",
+            "reference_image": "（单张明确参考图片的Base64字符串；无参考图时为空字符串。不使用数组，不包含address、role或其他字段。）",
+            "aspect_ratio": "9:16（示例；继承项目画幅，其他参数按所选图片模型实际支持能力编排。）",
+            "address": "（生成或导入并确认有效的结果图地址；支持预览及点击放大。）",
+            "rules": {
+              "$ref": "#/$defs/rules"
+            },
+            "node_state": {
+              "$ref": "#/$defs/node_state"
+            }
+          }
         ]
       }
     ],
     "rules": {
-      "generate": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-      },
-      "review": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-      },
-      "revise": {
-        "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-        "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-      }
+      "$ref": "#/$defs/rules"
+    },
+    "node_state": {
+      "$ref": "#/$defs/node_state"
     }
   },
-  "episodes": [
-    {
-      "id": "e_uuid（当前对象的唯一标识。）",
-      "sequence": "1（剧集、故事段落或镜头在列表中的顺序号。；数值）",
-      "duration_seconds": "150（本集参考时长，有限正数，单位秒；由切集或人工编辑确定的固定预算锚；大纲保存不自动回写。大纲及镜头表合计均按该参考±30秒校验。）",
-      "actual_duration_seconds": "0（当前正式镜头视频实测时长总和，单位秒；由本集各镜头 actual_duration_seconds 累加，视频生成、导入或镜头集合变化后重算，不从参考时长推算，也不被合片实测时长覆盖。）",
-      "episode_requirements": "（本集额外的制作要求。）",
-      "plot": "（本集规划文本：核心事件、冲突与转折、阶段性结果、开场/结尾状态、钩子及伏笔安排；不是原文拼接或改编正文。）",
-      "cover": "（剧集封面资源。）",
-      "summary": {
-        "node_state": {
-          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-          "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-          "fail_message": "（失败原因，不交给 AI。）",
-          "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-        },
-        "body": "（正文或摘要内容。）",
-        "rules": {
-          "generate": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
+  "scene_extraction": {
+    "scenes": [
+      {
+        "id": "scene_001",
+        "name": "（场景名称。）",
+        "description": "（地点身份、时代与空间风格。）",
+        "layout": "（权威固定布局与建筑相对关系，不因机位变化改动。）",
+        "materials": "（主要材质及色彩。）",
+        "lighting": "（基础光源与光照；剧情中昼夜或天气变化由分片和Shot状态描述。）",
+        "entrances_and_routes": "（出入口、区域连通关系及可通行路径。）",
+        "fixed_landmarks": "（跨镜复用的固定参照及其名称。）",
+        "image_generation": {
+          "reference_image": "（单张明确参考图片的Base64字符串；无参考图时为空字符串。不使用数组，不包含address、role或其他字段。）",
+          "aspect_ratio": "9:16（示例；继承项目画幅，其他参数按所选图片模型实际支持能力编排。）",
+          "address": "（生成或导入并确认有效的结果图地址；支持预览及点击放大。）",
+          "rules": {
+            "$ref": "#/$defs/rules"
           },
-          "review": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-          },
-          "revise": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
+          "node_state": {
+            "$ref": "#/$defs/node_state"
           }
         }
-      },
-      "story_outline": {
-        "node_state": {
-          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-          "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-          "fail_message": "（失败原因，不交给 AI。）",
-          "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-        },
-        "segments": [
+      }
+    ],
+    "rules": {
+      "$ref": "#/$defs/rules"
+    },
+    "node_state": {
+      "$ref": "#/$defs/node_state"
+    }
+  },
+  "clips": [
+    {
+      "id": "clip_001",
+      "sequence": 1,
+      "story_segment_id": "segment_001",
+      "clip_design": {
+        "title": "（分片标题；一个分片对应一次视频生成请求。）",
+        "body": "（本片完整事件、原对白、可见人物和背景；正文保留未绑定人物的姓名或称谓及表演。）",
+        "duration_seconds": 7,
+        "key_anchor_ids": [
+          "anchor_001"
+        ],
+        "narrative_purpose": "（本片建立空间、推进选择、呈现行动、反馈结果或释放情绪的作用。）",
+        "emotion_and_rhythm": "（本片情绪推进与节奏安排。）",
+        "character_bindings": [
           {
-            "sequence": "1（剧集、故事段落或镜头在列表中的顺序号。；数值）",
-            "duration_seconds": "12.5（该故事小段的计划时长预算，单位秒；有限正数，允许小数。所有小段预算合计由程序按本集 duration_seconds ±30 秒校验。）",
-            "body": "（分集改编后的完整剧情，允许在全集规划约束下合理增删改；按顺序拼接各段即本集正文，不另存副本。）",
-            "causal": "（本段与前后段落的衔接因果。）"
+            "character_id": "character_001",
+            "costume_id": "costume_001"
           }
         ],
+        "background_characters": "（实际可见的背景人物或群体、规模、区域、朝向与持续活动；可见人物允许未绑定。）",
+        "scene_id": "scene_001",
+        "scene_state": "（分片开场的昼夜、天气、损坏等有依据的场景状态。）",
+        "scene_transition": "opening（枚举：opening开场、continuous连续接拍、viewpoint_change切换机位、scene_change换场、time_jump时间跳转。仅描述与前一分片的关系；首片固定opening，同时换场和跳时间使用time_jump。）",
+        "spatial_setup": {
+          "fixed_landmarks": "（本片选用的固定参照；完整布局来自场景资产。）",
+          "character_positions": "（开场人物相对地标的位置、身体朝向、目光对象、距离、通道及遮挡。）",
+          "departed_characters": "（实际离场者及依据；画外不等于离场。）",
+          "lighting": "（本片具体光位，继承场景基础光照并写明有依据的变化。）"
+        },
+        "audio_arrangement": {
+          "narration": "（剧本原有旁白及说话人，没有则空。）",
+          "dialogue": "（本片原对白及明确说话人；具体发声区间在节拍中落实。）",
+          "sound_effects": "（整片已有音效基线与声源。）"
+        },
+        "continuity": {
+          "opening": "（开场如何接前片；是设计要求，不冒充已完成动作。）",
+          "ending": "（本片结束意图及后片接续要求；实际结束状态由storyboard产生。）"
+        },
         "rules": {
-          "generate": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-          },
-          "review": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-          },
-          "revise": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-          }
+          "$ref": "#/$defs/rules"
+        },
+        "node_state": {
+          "$ref": "#/$defs/node_state"
         }
       },
-      "shot_list": {
-        "node_state": {
-          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-          "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-          "fail_message": "（失败原因，不交给 AI。）",
-          "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-        },
+      "storyboard": {
         "shots": [
           {
-            "id": "s_uuid（当前对象的唯一标识。）",
-            "sequence": "1（剧集、故事段落或镜头在列表中的顺序号。；数值）",
-            "number": "S01（角色或镜头的展示编号。）",
-            "duration_seconds": "12（该镜计划参考时长，整数秒；单镜4–15秒、全剧集镜头时长总和按本集 duration_seconds ±30 秒由程序审核。）",
-            "actual_duration_seconds": "0（该镜最终视频实测时长，单位秒；生成视频节点测量并写入，不是提示词或分镜预算。）",
-            "title": "（镜头标题。）",
-            "body": "（本镜完整事件、原台词、场景背景及整镜摄影安排；只写整镜安排，不写逐秒时间点。）",
-            "seconds_storyboard": {
-              "end_state": "（镜末人物、物件与环境的已知状态。）",
-              "pending_actions": "（未完成动作及进度；无则为空。）",
-              "pending_dialogue": "（未结束对白、说话人与进度；无则为空。）",
-              "continuing_audio": "（切点仍持续的声音及声源；无则为空。）",
-              "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-                "fail_message": "（失败原因，不交给 AI。）",
-                "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-              },
-              "storyboard": [
-                {
-                  "time_range": "0–2s（节拍起止时段，长度不固定；从0连续覆盖，末段结束等于镜头参考时长。）",
-                  "action": "（本节拍动作、姿态和表情；事件写起点到终点，持续状态写保持内容与细微变化。）",
-                  "camera": "（本节拍镜头运动及幅度、速度。）",
-                  "space": "（本节拍人物、道具和地标空间位置。）",
-                  "audio": "（本节拍对白、旁白、音效或无声，含拍内时点。）",
-                  "handoff": "（交给下一节拍的状态；末段留空。）",
-                  "dialogue": [
-                    {
-                      "speaker_id": "c_uuid（说话人角色 id；未建卡人物或独立旁白为空字符串。）",
-                      "speaker_name": "（说话人称谓；未建卡时保留原称谓。）",
-                      "mode": "画内（发声方式：画内、画外或心声。）",
-                      "dialogue_text": "（该节拍原台词。无对白时 dialogue 为空数组。）"
-                    }
-                  ]
-                }
-              ],
-              "rules": {
-                "generate": {
-                  "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                  "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-                },
-                "review": {
-                  "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                  "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-                },
-                "revise": {
-                  "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                  "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-                }
-              }
-            },
-            "text_to_video_prompt": {
-              "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-                "fail_message": "（失败原因，不交给 AI。）",
-                "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-              },
-              "integrated_multimodal_description": "（视频生成请求中的画面描述正文。）",
-              "overall_soundscape": "（整体环境声与动作声描述。）",
-              "non_diegetic_music": "（角色听不见的配乐描述。）",
-              "rules": {
-                "generate": {
-                  "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                  "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-                },
-                "review": {
-                  "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                  "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-                },
-                "revise": {
-                  "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                  "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-                }
-              }
-            },
-            "first_last_frame_prompt": {
-              "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-                "fail_message": "（失败原因，不交给 AI。）",
-                "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-              },
-              "model": "（调用的生成模型名称。）",
-              "prompt": "（提交给生成模型的提示词。）",
-              "seconds": "0（请求使用的本镜参考时长，单位秒；最终视频实际时长另记在 actual_duration_seconds。）",
-              "size": "（内部兼容画幅快照，不作为MiniMax HTTP字段；新视频请求使用resolution=768P和项目ratio。）",
-              "input_reference": "（上一镜尾帧的本地媒体地址，发送前读图转为first_frame；不是本镜目标尾帧。）"
-            },
-            "multimodal_prompt": {
-              "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-                "fail_message": "（失败原因，不交给 AI。）",
-                "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-              },
-              "model": "（调用的生成模型名称。）",
-              "prompt": "（提交给生成模型的提示词。）",
-              "seconds": "0（请求使用的本镜参考时长，单位秒；最终视频实际时长另记在 actual_duration_seconds。）",
-              "size": "（内部兼容画幅快照，不作为MiniMax HTTP字段；新视频请求使用resolution=768P和项目ratio。）",
-              "reference_images": []
-            },
-            "video_generation_type": "（本镜实际使用的视频生成类型。）",
-            "video": {
-              "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-                "fail_message": "（失败原因，不交给 AI。）",
-                "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-              },
-              "address": "（图片、视频或文件的存储地址。）",
-              "rules": {
-                "generate": {
-                  "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                  "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-                },
-                "review": {
-                  "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                  "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-                },
-                "revise": {
-                  "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-                  "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-                }
-              }
-            },
-            "last_frame": {
-              "node_state": {
-                "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-                "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-                "fail_message": "（失败原因，不交给 AI。）",
-                "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-              },
-              "address": "（图片、视频或文件的存储地址。）"
-            },
-            "shot_scale": "（本镜景别。）",
-            "hook": "视觉笑点|反转|悬念|温情|追逐|揭示|回扣|表情拍（本镜钩子类型。）",
-            "continuity_transition": "（承接上一镜并为下一镜开场做准备。）",
-            "reference_anchor": {
-              "fixed_landmark": "（固定地标、初始构图及关键物件的画面相对位置。）",
-              "character_positions": "（出镜角色的位置、朝向、初始姿态、已知服装及实际可见身体范围。）",
-              "departed_characters": "（本镜不在场角色及离场原因。）",
-              "lighting": "（场景光位基线。）"
-            },
-            "audio_arrangement": {
-              "narration": "（本镜旁白安排。）",
-              "dialogue": "（本镜对白和说话人安排。）",
-              "sound_effects": "（本镜关键音效安排。）"
-            },
-            "on_screen_characters": [
+            "id": "shot_001",
+            "sequence": 1,
+            "start_seconds": 0,
+            "end_seconds": 4,
+            "scene_id": "scene_001",
+            "scene_state": "（本Shot实际场景状态。）",
+            "shot_scale": "中景（本Shot景别。）",
+            "camera": "（本Shot机位、观察方向及连续摄影安排。）",
+            "space": "（当前机位实际可见的人物、群体和地标关系；固定设定继承，变化明确交代。）",
+            "beats": [
               {
-                "character_id": "c_uuid（镜头表确定的卡内出镜人物ID。）",
-                "costume_id": "co_uuid（所属服装ID；仅无服装目录时为空。）"
+                "start_seconds": 0,
+                "end_seconds": 2,
+                "action": "（示例：人物走到桌前；从明确起始状态执行。）",
+                "camera": "（当前Shot内的运镜过程或保持状态；实际剪辑切镜须新增Shot。）",
+                "space": "（本节拍人物、物件和地标关系的变化；身体方向、目光对象与画面左右分别交代。）",
+                "audio": "（发声起止、声源、音效与静默；节拍范围不代表对白占满整拍，不重复抄写原台词。）",
+                "dialogue": []
+              },
+              {
+                "start_seconds": 2,
+                "end_seconds": 4,
+                "action": "（示例：拿起信件，保持同一拍摄镜头。）",
+                "camera": "（当前Shot内的运镜过程或保持状态；实际剪辑切镜须新增Shot。）",
+                "space": "（本节拍人物、物件和地标关系的变化；身体方向、目光对象与画面左右分别交代。）",
+                "audio": "（发声起止、声源、音效与静默；节拍范围不代表对白占满整拍，不重复抄写原台词。）",
+                "dialogue": []
               }
-            ],
-            "background_characters": "（镜头表确定的不具名群演及可见行为；无则为空，不关联角色卡。）",
-            "scene_id": "（本集已提取场景ID；普通地点为空。）",
-            "scene_state": "（本镜昼夜、天气及有依据的状态变化，不新建场景图。）",
-            "scene_transition": "切换机位（连续接拍、切换机位、换场。）"
+            ]
+          },
+          {
+            "id": "shot_002",
+            "sequence": 2,
+            "start_seconds": 4,
+            "end_seconds": 7,
+            "scene_id": "scene_001",
+            "scene_state": "（切镜后的实际场景状态。）",
+            "shot_scale": "特写（本Shot景别。）",
+            "camera": "（第4秒真实剪辑切至人物面部；后续保持该Shot。）",
+            "space": "（切镜后的可见范围、人物身体朝向及目光对象，不能机械复制上一机位画面左右。）",
+            "beats": [
+              {
+                "start_seconds": 4,
+                "end_seconds": 5.5,
+                "action": "（示例：人物读信。）",
+                "camera": "（当前Shot内的运镜过程或保持状态；实际剪辑切镜须新增Shot。）",
+                "space": "（本节拍人物、物件和地标关系的变化；身体方向、目光对象与画面左右分别交代。）",
+                "audio": "（发声起止、声源、音效与静默；节拍范围不代表对白占满整拍，不重复抄写原台词。）",
+                "dialogue": []
+              },
+              {
+                "start_seconds": 5.5,
+                "end_seconds": 7,
+                "action": "（示例：神情凝重，原有对白与反应按实际关系并行。）",
+                "camera": "（当前Shot内的运镜过程或保持状态；实际剪辑切镜须新增Shot。）",
+                "space": "（本节拍人物、物件和地标关系的变化；身体方向、目光对象与画面左右分别交代。）",
+                "audio": "（发声起止、声源、音效与静默；节拍范围不代表对白占满整拍，不重复抄写原台词。）",
+                "dialogue": [
+                  {
+                    "speaker_id": "character_001",
+                    "speaker_name": "角色甲（显示姓名或上游称谓；未建卡或未明确对应角色时speaker_id可为空。）",
+                    "mode": "画内（区分画内、画外、心声等实际发声方式。）",
+                    "dialogue_text": "（只保存原话和原标点；不得混入说话人、语气或动作。）"
+                  }
+                ]
+              }
+            ]
           }
         ],
+        "end_state": "（当前分片最后一刻的真实位置、朝向、姿态、服装、持物和行动进度，不得为空。）",
+        "pending_actions": "（切点仍未完成的动作，没有则空。）",
+        "pending_dialogue": "（有依据且尚未说出的待续原话；已说完或主动中止且无后续时为空。）",
+        "continuing_audio": "（切点仍持续的声音，没有则空。）",
         "rules": {
-          "generate": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-          },
-          "review": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-          },
-          "revise": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-          }
+          "$ref": "#/$defs/rules"
+        },
+        "node_state": {
+          "$ref": "#/$defs/node_state"
         }
       },
-      "assembly": {
-        "node_state": {
-          "status": "empty（节点状态；生成/校验通过为 generated，程序审核或 AI 审核未通过为 rejected，失败原因写入同对象 reason。排队不写入节点状态。）",
-          "reason": "（未通过原因，含需要交给 AI 的程序审核；重新提交时作为修改意见。）",
-          "fail_message": "（失败原因，不交给 AI。）",
-          "dependency_hash": "（节点生成时所依据资料的摘要值，用于判断上游变更。）"
-        },
-        "address": "（图片、视频或文件的存储地址。）"
-      },
-      "scene_catalog": {
-        "scene_ids": [
-          "sc_UUID（本集选中地点；可为空，不包含一次性不重要地点。）"
-        ],
-        "has_result": "false（是否完成选择；空结果也可为true。）",
-        "node_state": {
-          "status": "empty（未生成、已生成、未通过或已过期。）",
-          "reason": "（未通过或过期原因。）",
-          "fail_message": "（节点不保存任务失败原因。）",
-          "dependency_hash": "（依赖指纹。）"
-        },
+      "text_prompt": {
+        "integrated_multimodal_description": "（依照Shot和Beat顺序连续转写画面、声音、原话及已明确的发声时间；首个[Shot 1]不加剪辑时间戳，真实后续切镜才使用[Shot N] At MM:SS.mmm。）",
+        "overall_soundscape": "（环境声、动作声和非语言人声的概述，不重复对白。）",
+        "non_diegetic_music": "（仅承接上游已有配乐，没有则N/A。）",
         "rules": {
-          "generate": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-          },
-          "review": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-          },
-          "revise": {
-            "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-            "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-          }
+          "$ref": "#/$defs/rules"
+        },
+        "node_state": {
+          "$ref": "#/$defs/node_state"
         }
       }
     }
   ],
-  "scene_library": {
-    "scenes": [
-      {
-        "id": "sc_UUID（项目内唯一ID，跨镜头和剧集复用。）",
-        "name": "（反复出现、重要或明确指定的地点名称。）",
-        "description": "（空间身份与风格。）",
-        "layout": "（固定布局、门窗与地标相对关系。）",
-        "materials": "（主要材质及色彩。）",
-        "lighting": "（基础光源；昼夜变化写镜头状态。）",
-        "reference_image": {
-          "address": "（按需生成或导入的一张无人物空间参考图。）",
-          "node_state": {
-            "status": "empty（未生成、已生成、未通过或已过期。）",
-            "reason": "（未通过或过期原因。）",
-            "fail_message": "（节点不保存任务失败原因。）",
-            "dependency_hash": "（依赖指纹。）"
-          },
-          "rules": {
-            "generate": {
-              "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-              "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-            },
-            "review": {
-              "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-              "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-            },
-            "revise": {
-              "base": "（创建或迁移时的基础规则快照；不参与执行。执行与展示读取代码中的本动作基础规则。）",
-              "supplement": "（本动作独立补充规则；与其他动作互不引用，冲突由人工修改。）"
-            }
-          }
+  "videos": [
+    {
+      "clip_id": "clip_001",
+      "video_prompt": {
+        "prompt_pack": {
+          "mode": "多模态",
+          "prompt": "subject_definitions:\n（多模态最终提示词第1段：用<Subject N>、<Picture N>等H3标签定义参考内容、特征和来源；不写项目人物ID或服装ID。）\n\nsummary:\n（第2段：任务类型、目标视频和主要参考关系。）\n\nretention_analysis:\n（第3段：各参考内容的保留、迁移或复用方式。）\n\ndetailed_description:\n（第4段：按[Shot N]顺序写画面、动作、摄影、对白及同步声音，保留实际切镜和发声时序。）\n\noverall_soundscape:\n（第5段：环境声、动作声和非语言人声，不重复对白。）\n\nnon_diegetic_music:\n（第6段：观众可听、角色听不到的配乐；没有则N/A。）",
+          "duration": 7,
+          "resolution": "768P",
+          "ratio": "9:16",
+          "images": [
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="
+          ],
+          "videos": [],
+          "audios": []
+        },
+        "node_state": {
+          "$ref": "#/$defs/node_state"
+        }
+      },
+      "video_generation": {
+        "address": "（下载并验证后的本地视频地址。）",
+        "server_address": "（服务端返回的视频地址，保留远端结果与下载恢复关联。）",
+        "actual_duration_seconds": 0,
+        "keyframes": [
+          "（关键帧图片地址；按视频时间升序排列，提取结果必须包含视频实际最后一帧，因此最后一项即尾帧。未提取时为空数组。）"
+        ],
+        "rules": {
+          "$ref": "#/$defs/rules"
+        },
+        "node_state": {
+          "$ref": "#/$defs/node_state"
         }
       }
-    ]
-  },
-  "latest_tasks": {
-    "业务类型:目标ID": "t_uuid（该节点最近一次任务ID，展示时按ID查询数据库；不参与节点依赖指纹。）"
-  },
-  "latest_groups": {
-    "episode-film:e_uuid": "tg_uuid（本集最近成片任务组，含继续产生的新组。）",
-    "shot-film:s_uuid": "tg_uuid（该镜最近单镜成片任务组。）",
-    "costume-image": "tg_uuid（最近定妆照任务组。）"
-  }
+    }
+  ],
+  "episodes": [
+    {
+      "id": "episode_001",
+      "sequence": 1,
+      "clip_ids": [
+        "clip_001"
+      ],
+      "actual_duration_seconds": 0,
+      "video_address": "（按clip_ids顺序合并得到的成片地址；程序累计分片视频实际时长，达到参考时长后封集，末集保留剩余视频，不拆单个视频或跳过缺失、失效视频。）",
+      "node_state": {
+        "$ref": "#/$defs/node_state"
+      }
+    }
+  ]
 }
