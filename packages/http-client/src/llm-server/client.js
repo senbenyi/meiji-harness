@@ -9,10 +9,10 @@ function transportOptions(request, options, fn) {
   const { url, headers, body, apiKey } = request;
   const trace = {
     fn, method: 'POST', path: url.pathname,
-    request: { method: 'POST', path: options.recovering ? options.resumeFrom : headers.Prefer ? url.href : url.pathname, headers: publicHeaders(headers, apiKey), body: redactJson(body, apiKey) },
+    request: { method: 'POST', path: options.recovering ? options.resumeFrom : headers.Prefer ? url.href : url.pathname, headers: publicHeaders(headers, apiKey, options), body: redactJson(body, apiKey) },
   };
   return {
-    signal: options.signal, trace, retryDelays: options.retryDelays, timeoutMs: options.timeoutMs,
+    signal: options.signal, trace, retryDelays: options.retryDelays, timeoutMs: options.timeoutMs, dispatcher: options.dispatcher,
     ...(options.record ? { record: options.record } : {}),
     fetchResponse: (signal, dispatcher) => requestRemoteTask(request, {
       ...options, signal, id: options.requestId,
@@ -62,12 +62,12 @@ function assertVideoUrl(value) {
   return target;
 }
 
-export async function downloadRemoteVideo({ url, signal, fetchImpl = fetch, apiKey, record }) {
+export async function downloadRemoteVideo({ url, signal, fetchImpl = fetch, apiKey, record, dispatcher, timeoutMs }) {
   const target = assertVideoUrl(url);
   const downloadPath = `${target.origin}${target.pathname}`;
   const download = { fn: 'downloadVideo', method: 'GET', path: downloadPath, request: { method: 'GET', path: downloadPath, headers: {} } };
   const { data: bytes } = await requestData({ url: target, method: 'GET', apiKey }, {
-    signal, fetchImpl, responseType: 'bytes', trace: download, ...(record ? { record } : {}),
+    signal, fetchImpl, dispatcher, timeoutMs, responseType: 'bytes', trace: download, ...(record ? { record } : {}),
     validateResponse(response) {
       if (!response.ok) throw Object.assign(new Error(`视频下载失败：HTTP ${response.status}`), { status: 502 });
     },
@@ -87,10 +87,10 @@ export const modelClient = Object.freeze({
   generateImage,
   generateVideo,
   downloadVideo: downloadRemoteVideo,
-  async gpu({ baseUrl, fetchImpl = fetch, apiKey = 'ollama', signal }) {
+  async gpu({ baseUrl, fetchImpl = fetch, apiKey = 'ollama', signal, dispatcher, timeoutMs }) {
     try {
       const { data } = await requestData({ url: `${gatewayBaseUrl(baseUrl)}/gpu`, headers: { Authorization: `Bearer ${apiKey}` } }, {
-        fetchImpl, signal, record: async () => {},
+        fetchImpl, signal, dispatcher, timeoutMs, record: async () => {},
         validateResponse(response) { if (!response.ok) throw new Error('GPU unavailable'); },
       });
       return data;

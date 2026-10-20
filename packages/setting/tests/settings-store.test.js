@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createSettingsStore } from '../src/store.js'
@@ -43,5 +43,31 @@ test('无效选择不改已有文件', async () => {
     const before = await readFile(file, 'utf8')
     await assert.rejects(store.write({ draft: { model: 'missing' } }), { code: 'INVALID_SETTINGS', path: 'draft' })
     assert.equal(await readFile(file, 'utf8'), before)
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('同文件不同store的并发补丁串行合并，失败后队列仍可写', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'setting-concurrency-'))
+  const file = join(root, 'settings.json')
+  try {
+    const options = { spec, defaults: { draft: { model: 'local' } } }
+    const stores = [createSettingsStore(file, options), createSettingsStore(join(root, '.', 'settings.json'), options)]
+    await stores[0].write({})
+    const results = await Promise.allSettled(Array.from({ length: 12 }, (_, i) => stores[i % 2].write({ [`field_${i}`]: i })))
+    assert.ok(results.every(result => result.status === 'fulfilled'), JSON.stringify(results))
+    const saved = await stores[0].read()
+    for (let i = 0; i < 12; i++) assert.equal(saved[`field_${i}`], i)
+    const recovery = await Promise.allSettled([
+      stores[0].write({ draft: { model: 'missing' } }),
+      stores[1].write({ output_language: 'en' }),
+    ])
+    assert.equal(recovery[0].status, 'rejected')
+    assert.equal(recovery[0].reason.code, 'INVALID_SETTINGS')
+    assert.equal(recovery[1].status, 'fulfilled')
+    const next = await stores[0].read()
+    assert.equal(next.output_language, 'en')
+    assert.equal(next.field_11, 11)
+    assert.equal((await stat(file)).mode & 0o777, 0o600)
+    assert.deepEqual(await readdir(root), ['settings.json'])
   } finally { await rm(root, { recursive: true, force: true }) }
 })

@@ -9,7 +9,7 @@ export async function sendChat(request, { signal, retryDelays = [1000, 3000], ..
     const trace = options.trace ? structuredClone(options.trace) : {
       fn: 'sendChat', method: 'POST', path: new URL(request.url).pathname,
       request: { method: 'POST', path: request.headers?.Prefer ? String(request.url) : new URL(request.url).pathname,
-        headers: publicHeaders(request.headers, request.apiKey), body: redactJson(request.body, request.apiKey) },
+        headers: publicHeaders(request.headers, request.apiKey, options), body: redactJson(request.body, request.apiKey) },
     };
     const { response, data } = await requestData({ ...request, method: 'POST', fn: 'sendChat' }, {
       ...options, signal, trace,

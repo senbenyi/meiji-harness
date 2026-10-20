@@ -92,6 +92,10 @@ prompt 固定结构：`{id, model, messages, input, created_at}`。一套实际�
 
 MemoryTaskStore 适用于测试和临时执行；SQLiteTaskStore 持久化全部历史。`store.transaction(scope, (snapshot, database) => ...)` 是同步事务；模型/关系校验失败回滚，组定义与终态任务/步骤不可变。history 查询只读组、任务，不加载提示词和 HTTP；detail 按组返回完整记录。
 
+内置调度器提交时只追加新组，执行、提示词和 HTTP 记录只加载当前任务所在组，调度与恢复只加载活动组。SQLite 按差异执行 INSERT/UPDATE，空修改不写入；历史筛选、排序、计数及分页在数据库完成，仅把当前页组与任务解析到内存，详情按目标组读取。组内顺序、全局队列顺序与单个运行任务通过索引约束保护；既有数据库打开时自动创建索引，公共 Model 与记录 JSON 无需迁移。
+
+显式调用 `store.read(scope)` 或不带第三参数的 `store.transaction(scope, change)` 仍会读取完整 scope，适用于批量操作。需要受限更新时可传第三参数 `{ groupId }`、`{ taskId }`（任务所属组）或 `{ activeOnly: true }`；受限事务只允许更新已有记录，不能新增或换归属，仍执行相同校验。SQLite 负责跨工作集合的唯一性检查并在冲突时回滚。内存后端保留相同语义，适用于临时、小规模数据；长期历史推荐 SQLite。
+
 SQLite 使用独立 agent_task_* 表，scope 在存储列中；可用 `new SQLiteTaskStore(':memory:', { database })` 接入已有 DatabaseSync 连接，不关闭调用方的连接。注册节点的同步 commit 在任务完成的同一事务内运行，抛错会回滚业务表写入并将任务记失败。独立数据库、文件、网络等外部写入不具备跨系统原子性，应由业务提供幂等提交或恢复机制。不要把异步操作放入 commit。
 
 ## 公共历史 UI

@@ -82,3 +82,24 @@ test('请求 dispatcher 沿用当前全局代理并设置头/体等待时限', (
   assert.equal(publicHeaders({ Authorization: 'secret' }).Authorization, '[已隐藏]');
   assert.equal(redactJson(undefined), null);
 });
+
+for (const mode of ['requestData', 'sendChat']) {
+  test(`${mode} 默认与扩展鉴权头只在记录中隐藏，发送原值不变`, async () => {
+    const rows = [];
+    const headers = { 'X-API-Key': 'test-api-secret', 'api_key': 'test-alt-secret', Cookie: 'test-cookie-secret',
+      'Proxy-Authorization': 'test-proxy-secret', 'X-Workspace-Token': 'test-custom-secret', 'X-Request-ID': 'visible-id' };
+    const options = { sensitiveHeaders: ['x-workspace-token'], record: row => rows.push(structuredClone(row)), fetchImpl: async (_, sent) => {
+      assert.deepEqual(sent.headers, headers);
+      return json({ choices: [{ finish_reason: 'stop', message: { content: 'ok' } }] });
+    } };
+    const request = { url: 'http://example/headers', headers, body: {} };
+    if (mode === 'sendChat') assert.equal(await sendChat(request, options), 'ok');
+    else await requestData(request, options);
+    assert.doesNotMatch(JSON.stringify(rows), /test-(?:api|alt|cookie|proxy|custom)-secret/);
+    assert.equal(rows[0].request.headers['X-Request-ID'], 'visible-id');
+    const projected = publicHeaders(new Headers(headers), undefined, { sensitiveHeaders: ['X-Workspace-Token'] });
+    assert.equal(projected['x-api-key'], '[已隐藏]');
+    assert.equal(projected['x-workspace-token'], '[已隐藏]');
+    assert.equal(projected['x-request-id'], 'visible-id');
+  });
+}

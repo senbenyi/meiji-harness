@@ -1,6 +1,13 @@
-export function publicHeaders(headers, apiKey) {
-  return Object.fromEntries(Object.entries(headers || {}).map(([key, value]) => {
-    const hidden = /authorization/i.test(key) || (apiKey && String(value).includes(apiKey));
+const sensitiveHeaderNames = new Set(['authorization', 'proxy-authorization', 'api-key', 'apikey', 'x-api-key', 'x-apikey',
+  'cookie', 'set-cookie', 'auth-token', 'access-token', 'x-auth-token', 'x-access-token']);
+const headerName = name => String(name).toLowerCase().replaceAll('_', '-');
+
+export function publicHeaders(headers, apiKey, { sensitiveHeaders = [] } = {}) {
+  const extra = new Set(sensitiveHeaders.map(headerName));
+  const entries = headers instanceof Headers ? [...headers.entries()] : Array.isArray(headers) ? headers : Object.entries(headers || {});
+  return Object.fromEntries(entries.map(([key, value]) => {
+    const hidden = sensitiveHeaderNames.has(headerName(key)) || /authorization/i.test(key) || extra.has(headerName(key))
+      || (apiKey && String(value).includes(apiKey));
     return [key, hidden ? '[已隐藏]' : value];
   }));
 }

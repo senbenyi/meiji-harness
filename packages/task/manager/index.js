@@ -48,19 +48,19 @@ export class TaskManager {
       return { task, steps };
     });
     this.store.transaction(scope, snapshot => {
-      if (snapshot.groups.some(g => g.id === bundle.id)) invalid('group.id', '任务组已存在');
-      let order = Math.max(0, ...snapshot.tasks.map(t => t.queue_order));
+      if (this.store.hasGroup(scope, bundle.id)) invalid('group.id', '任务组已存在');
+      let order = this.store.queueTail(scope);
       snapshot.groups.push(bundle);
       for (const { task, steps } of prepared) {
         task.queue_order = ++order;
         snapshot.tasks.push(task); snapshot.steps.push(...steps);
       }
-    });
+    }, { append: true });
     if (this.#automatic) this.start(scope);
     return this.store.detail(scope, bundle.id);
   }
   activeGroups(scope) {
-    const snapshot = this.store.read(scope, { steps: false });
+    const snapshot = this.store.read(scope, { steps: false, activeOnly: true });
     return snapshot.groups.filter(g => snapshot.tasks.some(t => t.group_id === g.id && !terminalTask(t)))
       .map(group => ({ group, tasks: snapshot.tasks.filter(t => t.group_id === group.id) }));
   }
@@ -71,7 +71,7 @@ export class TaskManager {
     return {
       history: filter => this.history(scope, filter),
       detail: id => this.detail(scope, id),
-      resolveTask: id => this.store.read(scope, { steps: false }).tasks.find(task => task.id === id)?.group_id || null,
+      resolveTask: id => this.store.taskGroupId(scope, id),
       subscribe: listener => this.store.subscribe(changed => { if (changed === scope) listener(); }),
     };
   }
@@ -85,7 +85,7 @@ export class TaskManager {
       this.#running.delete(scope);
       // 最后一项结束与释放执行上下文之间，仍可能有新组入队。
       if (completed && !this.#closed && this.#automatic
-        && this.store.read(scope, { steps: false }).tasks.some(t => t.task_status === 'queued')) this.start(scope);
+        && this.store.read(scope, { steps: false, activeOnly: true }).tasks.some(t => t.task_status === 'queued')) this.start(scope);
     });
     // 避免无人调用 idle 时未处理 rejection；idle 仍能收到原失败。
     entry.promise.catch(() => {});
@@ -98,7 +98,7 @@ export class TaskManager {
     if (!this.store.detail(scope, groupId)) throw new Error('任务组不存在');
     this.store.transaction(scope, snapshot => {
       for (const task of snapshot.tasks.filter(t => t.group_id === groupId)) stopTask(snapshot, task, 'cancelled', reason);
-    });
+    }, { groupId });
     const entry = this.#running.get(scope);
     if (entry?.groupId === groupId) entry.controller?.abort(new Error(reason));
   }
@@ -123,7 +123,7 @@ export class TaskManager {
         groups.add(task.group_id); stopTask(snapshot, task, 'failed', '执行中断，需要重新提交或继续');
       }
       for (const task of snapshot.tasks.filter(t => groups.has(t.group_id) && !terminalTask(t))) stopTask(snapshot, task, 'cancelled', '前序任务执行中断');
-    });
+    }, { activeOnly: true });
     if (this.#automatic) this.start(scope);
   }
   async dispose() {
@@ -139,13 +139,13 @@ export class TaskManager {
       const task = snapshot.tasks.find(t => t.id === taskId), step = snapshot.steps.find(st => st.id === stepId);
       if (task?.task_status !== 'running' || step?.step_status !== 'running') throw closedStep();
       change(step);
-    });
+    }, { taskId });
   }
   #context(scope, task, step, signal) {
     const transfers = new WeakMap();
     return {
       scope, task: structuredClone(task), step: structuredClone(step), signal,
-      previousResults: this.store.read(scope).steps.filter(st => st.task_id === task.id && st.seq < step.seq).map(st => ({ ...st })),
+      previousResults: this.store.read(scope, { taskId: task.id }).steps.filter(st => st.task_id === task.id && st.seq < step.seq).map(st => ({ ...st })),
       recordPrompt: ({ model = '', messages, input = {} }) => {
         const prompt = { id: createId(), model, messages: structuredClone(messages), input: structuredClone(input), created_at: now() };
         this.#stepRecord(scope, task.id, step.id, saved => {
@@ -174,7 +174,7 @@ export class TaskManager {
       if (!task || terminalTask(task)) return;
       stopTask(snapshot, task, status, reason);
       for (const next of snapshot.tasks.filter(t => t.group_id === task.group_id && !terminalTask(t))) stopTask(snapshot, next, 'cancelled', '前序任务未完成：' + reason);
-    });
+    }, { taskId });
   }
   #finish(scope, taskId, status, reason, node) {
     this.store.transaction(scope, (snapshot, database) => {
@@ -192,11 +192,11 @@ export class TaskManager {
         }
         for (const next of snapshot.tasks.filter(t => t.group_id === task.group_id && !terminalTask(t))) stopTask(snapshot, next, 'cancelled', '前序任务未完成：' + reason);
       }
-    });
+    }, { taskId });
   }
   async #loop(scope, entry) {
     while (!this.#closed) {
-      const task = this.store.read(scope, { steps: false }).tasks.filter(t => t.task_status === 'queued').sort((a, b) => a.queue_order - b.queue_order)[0];
+      const task = this.store.read(scope, { steps: false, activeOnly: true }).tasks.filter(t => t.task_status === 'queued').sort((a, b) => a.queue_order - b.queue_order)[0];
       if (!task) return;
       const node = this.#nodes.get(task.node_type);
       entry.controller = new AbortController(); entry.taskId = task.id; entry.groupId = task.group_id;
@@ -208,18 +208,18 @@ export class TaskManager {
           if (saved?.task_status !== 'queued') return false;
           saved.task_status = 'running'; saved.started_at = now();
           return true;
-        });
+        }, { taskId: task.id });
         if (!claimed) continue;
         task.task_status = 'running';
         if (!node) throw new Error(`节点类型未注册：${task.node_type}`);
-        const steps = this.store.read(scope).steps.filter(st => st.task_id === task.id).sort((a, b) => a.seq - b.seq);
+        const steps = this.store.read(scope, { taskId: task.id }).steps.filter(st => st.task_id === task.id).sort((a, b) => a.seq - b.seq);
         let rejected = false;
         for (const step of steps) {
           signal.throwIfAborted();
           this.store.transaction(scope, snapshot => {
             const saved = snapshot.steps.find(st => st.id === step.id);
             saved.step_status = 'running'; saved.started_at = now();
-          });
+          }, { taskId: task.id });
           const outcome = await node.execute(this.#context(scope, task, step, signal));
           signal.throwIfAborted();
           record(outcome ?? {}, 'outcome');

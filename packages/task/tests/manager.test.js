@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TaskManager, MemoryTaskStore } from '../index.js';
+import { TaskManager, MemoryTaskStore, TaskGroupModel, TaskModel, StepModel } from '../index.js';
 import { SQLiteTaskStore } from '../store/sqlite.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -221,3 +221,47 @@ test('SQLite commit 业务写回抛错时回滚，任务记失败；正常写回
     assert.equal(store.database.prepare('SELECT COUNT(*) AS n FROM outputs').get().n, 1);
   } finally { await manager.dispose(); store.close(); }
 });
+
+for (const backend of ['memory', 'sqlite']) {
+  test(`${backend}调度、HTTP记录、取消及恢复只读取当前组/活动组，不扫描完整历史`, async () => {
+    const store = backend === 'sqlite' ? new SQLiteTaskStore() : new MemoryTaskStore();
+    const seed = { groups: [], tasks: [], steps: [] };
+    for (let i = 0; i < 120; i++) {
+      const group = new TaskGroupModel().toJSON();
+      const task = new TaskModel({ group_id: group.id, node_type: 'custom', queue_order: i + 1, task_status: 'completed' }).toJSON();
+      seed.groups.push(group); seed.tasks.push(task);
+      seed.steps.push(new StepModel({ task_id: task.id, kind: 'generate', step_status: 'done', result: 'heavy historical HTTP'.repeat(100) }).toJSON());
+    }
+    store.transaction('s', snapshot => Object.assign(snapshot, seed));
+    const read = store.read.bind(store);
+    store.read = (scope, options) => {
+      assert.ok(options && (options.append || options.taskId || options.groupId || options.activeOnly || options.groupIds), '调度不能全读历史');
+      const snapshot = read(scope, options);
+      assert.ok(snapshot.groups.length <= 2, '工作快照只含活动组');
+      return snapshot;
+    };
+    let records = 0;
+    const manager = new TaskManager({ store, autoStart: false, nodes: { custom: {
+      plan: () => [{ kind: 'generate', executor: 'ai' }],
+      execute: async context => {
+        context.recordPrompt({ model: 'custom', messages: [{ role: 'user', content: 'hello' }] });
+        const transfer = { method: 'POST', path: '/mock', request: { body: 'request' } };
+        for (let i = 0; i < 12; i++) { transfer.status = i; context.recordHttp(transfer); records++; }
+        return { result: 'ok' };
+      },
+    } } });
+    try {
+      const first = manager.submit('s', { tasks: tasks(1) });
+      assert.equal(first.tasks[0].queue_order, 121);
+      manager.start('s'); await manager.idle('s');
+      assert.equal(manager.detail('s', first.group.id).status, 'completed');
+      assert.equal(records, 12);
+      assert.equal(manager.historySource('s').resolveTask(seed.tasks[0].id), seed.groups[0].id);
+      const next = manager.submit('s', { tasks: tasks(1) });
+      manager.cancel('s', next.group.id);
+      manager.recover('s');
+      assert.equal(manager.detail('s', next.group.id).status, 'cancelled');
+      assert.equal(manager.activeGroups('s').length, 0);
+    } finally { await manager.dispose(); store.close(); }
+  });
+}

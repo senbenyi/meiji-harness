@@ -55,8 +55,12 @@ const result = await requestData({
 
 `requestData(request, options)` 支持 JSON、FormData 和二进制响应（`responseType: 'bytes'`），返回 `{ ok, response, data, durationMs }`。`body` 默认按 JSON 发送；FormData 原样发送，记录内容由 `logBody` 提供。HTTP 错误作为结果返回，网络/读取错误抛出；`validateResponse`、`validateData` 可在记录结算前做协议校验。默认总时限及响应头/体等待时限为 60 分钟，dispatcher 在调用时读取全局代理；可传 `timeoutMs`、`dispatcher` 或 `fetchImpl`。
 
+`modelClient.complete/generateImage/generateVideo/downloadVideo/gpu` 均接受 `timeoutMs`、`dispatcher`、`fetchImpl`。生成请求的自定义 dispatcher 同时用于异步状态查询、取回结果与停止请求；`timeoutMs` 覆盖本次生成及等待结果的总时限，下载和 GPU 查询分别使用各自传入的总时限。自定义 dispatcher 的响应头/体等待策略由调用方配置；未提供时仍使用公共默认代理与 60 分钟等待策略。
+
 `sendChat` 可直接调用任意 OpenAI 兼容的非流式文本接口，连接和完整请求体由调用方提供。默认仅普通同步请求的 502/503/504 按 1秒、3秒重试；不重试 400、网络异常或不完整输出。异步模型请求不重新提交。`retryDelays` 可覆盖等待策略。
 
 记录优先使用显式 `record(row, options)`，否则使用 `withRequestTrace(record, run)` 的并发隔离上下文。发送前、响应后各调用一次，同一次请求的 row 对象保持身份；持久化应在回调内复制内容。`options.drop=true` 表示删除不需要保留的中间轮询。`keepRecord(result)` 可决定轮询记录是否保留。日志脱敏接口为 `publicHeaders/publicData/redactJson`：隐藏 Authorization、API key 和 Base64 媒体；原始响应仍完整返回给调用方。
+
+请求头默认按字段名隐藏 Authorization、Proxy-Authorization、API-Key/X-API-Key、Cookie/Set-Cookie 及常见 Auth/Access-Token，大小写与下划线变体均可识别，无需额外提供密钥值。`requestData`、`sendChat` 和模型生成接口可传 `sensitiveHeaders: ['X-Workspace-Token']` 补充敏感头名称；直接投影使用 `publicHeaders(headers, apiKey, { sensitiveHeaders })`。支持普通对象、Headers 和键值对数组；仅改变记录投影，实际请求头保持原值。自行传入的 `trace` 由调用方确保已脱敏。
 
 底层 `requestRemoteTask/remoteTaskHeaders` 位于 `@agent-modules/http-client/remote-task`，可在不使用模型客户端时独立接入相同异步服务协议。

@@ -20,6 +20,7 @@ export async function requestData(request, {
   responseType = 'json', trace, record = recordTransfer,
   keepRecord = () => true, emptyBodyValue = '',
   validateResponse = () => {}, validateData = () => {},
+  sensitiveHeaders,
 } = {}) {
   signal?.throwIfAborted();
   const { url, headers, body, apiKey, logBody, redirect, fn } = request;
@@ -28,7 +29,7 @@ export async function requestData(request, {
   const address = new URL(url);
   const transfer = trace || {
     fn, method, path: address.pathname,
-    request: { method, path: address.pathname, headers: publicHeaders(headers, apiKey), body: redactJson(form ? logBody : body, apiKey) },
+    request: { method, path: address.pathname, headers: publicHeaders(headers, apiKey, { sensitiveHeaders }), body: redactJson(form ? logBody : body, apiKey) },
   };
   const started = Date.now();
   const timeout = AbortSignal.timeout(timeoutMs);

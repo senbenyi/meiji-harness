@@ -153,3 +153,43 @@ test('公共视频下载不转发服务密钥、不记录签名；HTTP错误和�
   }
 });
 
+
+for (const kind of ['text', 'image', 'video', 'download', 'gpu']) {
+  test(`公共${kind}透传dispatcher与timeoutMs，异步查询沿用同一代理`, async t => {
+    const dispatcher = { dispatch() { throw Error('mock fetch不实际发送'); } };
+    const durations = [], calls = [];
+    const timeout = AbortSignal.timeout.bind(AbortSignal);
+    t.mock.method(AbortSignal, 'timeout', ms => { durations.push(ms); return timeout(ms); });
+    const payload = kind === 'text' ? { choices: [{ finish_reason: 'stop', message: { content: 'ok' } }] }
+      : kind === 'image' ? { data: [{ b64_json: Buffer.from('image').toString('base64') }] }
+      : { status: 'succeeded', task_id: 'remote', url: 'https://cdn.example/video.mp4' };
+    const options = { baseUrl, requestId: 'custom-transport', dispatcher, timeoutMs: 1234,
+      fetchImpl: async (url, request) => {
+        calls.push({ url: String(url), dispatcher: request.dispatcher, signal: request.signal });
+        if (kind === 'download') return new Response('video');
+        if (kind === 'gpu') return json({ gpus: [] });
+        if (request.method === 'POST') return json({}, 202);
+        return json(String(url).endsWith('/result') ? payload : { status: 'succeeded' });
+      },
+    };
+    if (kind === 'text') await modelClient.complete({ ...options, model: 'custom', messages: [] });
+    if (kind === 'image') await modelClient.generateImage({ ...options, model: 'gpt-image', prompt: 'image' });
+    if (kind === 'video') await modelClient.generateVideo({ ...options, model: 'MiniMax-H3', mode: 'text', prompt: 'video', duration: 5, aspectRatio: '16:9' });
+    if (kind === 'download') await modelClient.downloadVideo({ ...options, url: 'https://cdn.example/video.mp4' });
+    if (kind === 'gpu') await modelClient.gpu(options);
+    assert.ok(calls.every(call => call.dispatcher === dispatcher && call.signal));
+    assert.deepEqual(durations, [1234]);
+    assert.equal(calls.length, ['download', 'gpu'].includes(kind) ? 1 : 3);
+  });
+}
+
+test('视频下载自定义超时实际中止等待并保留失败记录', async () => {
+  const rows = [];
+  await assert.rejects(modelClient.downloadVideo({ url: 'https://cdn.example/video.mp4', timeoutMs: 5, record: row => rows.push(row),
+    fetchImpl: async (_, { signal }) => {
+      const { setTimeout: delay } = await import('node:timers/promises');
+      await delay(50, undefined, { signal }); return new Response('late');
+    },
+  }), /abort/i);
+  assert.equal(rows.at(-1).ok, false);
+});
