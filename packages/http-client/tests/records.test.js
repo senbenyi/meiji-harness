@@ -86,3 +86,56 @@ test('列表按开始时间分页，缺失记录返回空', async () => {
   assert.throws(() => new HttpRecords(), /缺少数据库/);
   db.close();
 });
+
+
+test('标题在写入、等待中、列表和详情保留，空标题回退为方法与路径', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const records = new HttpRecords(db), transfer = { id: 'title', title: '  剧本优化  ', method: 'POST', path: '/v1/chat' };
+    await records.record(transfer);
+    assert.equal(records.active()[0].title, '剧本优化');
+    assert.equal(records.list()[0].title, '剧本优化');
+    await records.record(Object.assign(transfer, { ok: true, status: 200, body: '完成' }));
+    assert.equal(records.read('title').title, '剧本优化');
+    await records.record({ id: 'fallback', title: ' ', method: 'GET', path: '/health' });
+    assert.equal(records.read('fallback').title, 'GET /health');
+  } finally { db.close(); }
+});
+
+test('旧数据库补title并回填模型/历史还原用途，原始正文保留，重复初始化不覆盖自定义标题', () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(`CREATE TABLE http_records (id TEXT PRIMARY KEY, started_at TEXT, returned_at TEXT, method TEXT, path TEXT, headers_json TEXT, params_json TEXT, status INTEGER, ok INTEGER, response_json TEXT, error TEXT)`);
+    const insert = db.prepare(`INSERT INTO http_records VALUES (?, 'original-time', 'returned', ?, ?, '{}', ?, NULL, 1, '{"result":"保留"}', '')`);
+    insert.run('old', 'MODEL', 'session-log://provider/model/conversation', JSON.stringify({ purpose: 'conversation', messages: ['保留原文'] }));
+    insert.run('title', 'MODEL', 'model://provider/model/session-title', '{}');
+    insert.run('http', 'POST', '/images', '{}');
+    const records = new HttpRecords(db);
+    assert.equal(records.read('old').title, '会话回复');
+    assert.equal(records.read('title').title, '会话标题生成');
+    assert.equal(records.read('http').title, 'POST /images');
+    assert.deepEqual(records.read('old').params.messages, ['保留原文']);
+    assert.deepEqual(records.read('old').response, { result: '保留' });
+    assert.equal(records.read('old').started_at, 'original-time');
+    db.prepare('UPDATE http_records SET title=? WHERE id=?').run('自定义', 'old');
+    assert.equal(new HttpRecords(db).read('old').title, '自定义');
+  } finally { db.close(); }
+});
+
+
+test('结算时更新标题；历史通用会话标题补算但自定义标题及原始数据不变', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const records = new HttpRecords(db), transfer = { id: 'business', method: 'MODEL', path: 'model://p/m/conversation', request: { body: { messages: [{ role: 'user', content: '帮我创建项目' }] } } };
+    await records.record(transfer);
+    assert.equal(records.read('business').title, '创建项目');
+    await records.record(Object.assign(transfer, { title: '创建项目：测试', ok: true, body: { content: [{ type: 'tool-call', arguments: { name: '测试' } }] } }));
+    assert.equal(records.read('business').title, '创建项目：测试');
+    db.prepare('UPDATE http_records SET title=? WHERE id=?').run('会话回复', 'business');
+    const before = db.prepare('SELECT params_json,response_json,started_at,returned_at FROM http_records').get();
+    assert.equal(new HttpRecords(db).read('business').title, '创建项目：测试');
+    assert.deepEqual(db.prepare('SELECT params_json,response_json,started_at,returned_at FROM http_records').get(), before);
+    db.prepare('UPDATE http_records SET title=? WHERE id=?').run('自定义标题', 'business');
+    assert.equal(new HttpRecords(db).read('business').title, '自定义标题');
+  } finally { db.close(); }
+});

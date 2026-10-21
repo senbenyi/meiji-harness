@@ -93,7 +93,7 @@ try {
     dom.window.close();
   `], temp);
   // 公共分发不含 meiji 的旧网关兼容模块。
-  run(process.execPath, ['--input-type=module', '-e', "const { default: assert } = await import('node:assert/strict'); await assert.rejects(import('@agent-modules/http-client/elysium'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' }); await import('@agent-modules/http-client/model-parameters'); await import('@agent-modules/http-client/remote-task'); await import('@agent-modules/http-client/records'); const ui = await import('@agent-modules/http-client/ui'); assert.equal(typeof ui.createHttpHistory, 'function'); assert.equal(typeof ui.renderHttpDetails, 'function');"], temp);
+  run(process.execPath, ['--input-type=module', '-e', "const { default: assert } = await import('node:assert/strict'); await assert.rejects(import('@agent-modules/http-client/elysium'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' }); await import('@agent-modules/http-client/model-parameters'); await import('@agent-modules/http-client/remote-task'); await import('@agent-modules/http-client/records'); const capture = await import('@agent-modules/http-client/model-records'); assert.equal(typeof capture.createModelRecorder, 'function'); const ui = await import('@agent-modules/http-client/ui'); assert.equal(typeof ui.createHttpHistory, 'function'); assert.equal(typeof ui.renderHttpDetails, 'function');"], temp);
   run(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
     import { SettingsModel } from '@agent-modules/setting';

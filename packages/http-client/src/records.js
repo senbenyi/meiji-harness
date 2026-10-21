@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { recordTitle } from './record-title.js';
 
 // 一次 HTTP 请求一行。进行中的请求留在本类内存，同时插入本地；
 // 返回合并后更新同一行。多次返回先留在内存，全部结束才更新本地。
@@ -6,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 const httpRecordsSchema = `
 CREATE TABLE IF NOT EXISTS http_records (
   id TEXT PRIMARY KEY NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
   started_at TEXT NOT NULL,
   returned_at TEXT,
   method TEXT NOT NULL,
@@ -20,7 +22,7 @@ CREATE TABLE IF NOT EXISTS http_records (
 CREATE INDEX IF NOT EXISTS http_records_started ON http_records(started_at, id);
 `;
 
-const summary = 'id,started_at,returned_at,method,path,status,ok,error';
+const summary = 'id,title,started_at,returned_at,method,path,status,ok,error';
 
 function reject(message) {
   return Object.assign(new Error(message), { status: 400 });
@@ -55,6 +57,7 @@ function requestOf(transfer) {
     started_at: new Date().toISOString(),
     returned_at: null,
     method, path,
+    title: recordTitle({ title: transfer.title ?? request.title, method, path, params: request.body }),
     headers: request.headers && typeof request.headers === 'object' ? request.headers : {},
     params: request.body === undefined ? null : request.body,
     status: null,
@@ -82,13 +85,19 @@ export class HttpRecords {
   constructor(db) {
     if (!db || typeof db.prepare !== 'function') throw reject('缺少数据库');
     db.exec(httpRecordsSchema);
+    if (!db.prepare('PRAGMA table_info(http_records)').all().some(column => column.name === 'title'))
+      db.exec("ALTER TABLE http_records ADD COLUMN title TEXT NOT NULL DEFAULT ''");
+    // 旧表只补标题，不重建请求正文或改变来源；重复初始化可继续未完成的回填。
+    const fillTitle = db.prepare('UPDATE http_records SET title=? WHERE id=?');
+    for (const row of db.prepare("SELECT id,method,path,params_json,response_json,ok FROM http_records WHERE title='' OR (method='MODEL' AND title='会话回复') ").all())
+      fillTitle.run(recordTitle({ ...row, params: JSON.parse(row.params_json), response: row.ok === 1 ? JSON.parse(row.response_json) : undefined }), row.id);
     this.#insert = db.prepare(`INSERT INTO http_records
-      (id,started_at,returned_at,method,path,headers_json,params_json,status,ok,response_json,error)
-      VALUES (?,?,NULL,?,?,?,?,NULL,NULL,'null','')`);
-    this.#update = db.prepare(`UPDATE http_records SET returned_at=?,status=?,ok=?,response_json=?,error=? WHERE id=?`);
+      (id,title,started_at,returned_at,method,path,headers_json,params_json,status,ok,response_json,error)
+      VALUES (?,?,?,NULL,?,?,?,?,NULL,NULL,'null','')`);
+    this.#update = db.prepare(`UPDATE http_records SET title=?,returned_at=?,status=?,ok=?,response_json=?,error=? WHERE id=?`);
     this.#remove = db.prepare('DELETE FROM http_records WHERE id=?');
     this.#list = db.prepare(`SELECT ${summary} FROM http_records ORDER BY started_at, id LIMIT ? OFFSET ?`);
-    this.#read = db.prepare(`SELECT id,started_at,returned_at,method,path,headers_json,params_json,status,ok,response_json,error
+    this.#read = db.prepare(`SELECT id,title,started_at,returned_at,method,path,headers_json,params_json,status,ok,response_json,error
       FROM http_records WHERE id=?`);
   }
 
@@ -102,6 +111,7 @@ export class HttpRecords {
     }
     const current = existing || this.#open(transfer);
     if (current.written || !returned(transfer)) return;
+    if (typeof transfer.title === 'string' && transfer.title.trim()) current.title = transfer.title.trim();
     current.status = Number.isInteger(transfer.status) ? transfer.status : null;
     current.ok = transfer.ok === true;
     current.response = responseOf(transfer);
@@ -109,7 +119,7 @@ export class HttpRecords {
     if (options?.partial) return;
     current.returned_at = new Date().toISOString();
     current.written = true;
-    this.#update.run(current.returned_at, current.status, current.ok ? 1 : 0, json(current.response), current.error, current.id);
+    this.#update.run(current.title, current.returned_at, current.status, current.ok ? 1 : 0, json(current.response), current.error, current.id);
     this.#pending.delete(transfer);
     this.#active.delete(current.id);
   };
@@ -134,7 +144,7 @@ export class HttpRecords {
 
   #open(transfer) {
     const created = requestOf(transfer);
-    this.#insert.run(created.id, created.started_at, created.method, created.path, json(created.headers), json(created.params));
+    this.#insert.run(created.id, created.title, created.started_at, created.method, created.path, json(created.headers), json(created.params));
     this.#pending.set(transfer, created);
     this.#active.set(created.id, created);
     return created;

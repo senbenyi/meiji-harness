@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { createModelRecorder } from '@agent-modules/http-client/model-records'
 import { HttpRecords } from '@agent-modules/http-client/records'
 import { TaskManager } from '@agent-modules/task'
 import { SQLiteTaskStore } from '@agent-modules/task/sqlite'
@@ -15,6 +16,10 @@ export function createRecordService(root) {
   const database = new DatabaseSync(join(root, 'records.sqlite'))
   const store = new SQLiteTaskStore(undefined, { database })
   const http = new HttpRecords(database)
+  const models = createModelRecorder({ record: http.record })
   const tasks = new TaskManager({ store, autoStart: false })
-  return { scope: 'drama', http, tasks, nodeTypes: historyNodeTypes, async dispose() { await tasks.dispose(); database.close() } }
+  let closing
+  return { scope: 'drama', http, tasks, models, nodeTypes: historyNodeTypes, dispose() {
+    return closing ||= (async () => { try { await models.dispose(); await tasks.dispose() } finally { database.close() } })()
+  } }
 }

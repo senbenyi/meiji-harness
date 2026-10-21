@@ -7,7 +7,8 @@
     "./remote-task": "./src/remote-task.js",
     "./records": "./src/records.js",
     "./model-parameters": "./src/llm-server/params.js",
-    "./ui": "./ui/index.js"
+    "./ui": "./ui/index.js",
+    "./model-records": "./src/model-records.js"
   },
   "files": [
     "src",

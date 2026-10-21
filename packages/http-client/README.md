@@ -69,7 +69,7 @@ const result = await requestData({
 
 `HttpRecords` 位于 `@agent-modules/http-client/records`。调用方传入自己的 `node:sqlite` 连接。建表、记录、进行中的内存副本和查询都由这个类完成，不打开数据库文件，也不依赖任务或步骤。
 
-`http_records` 一行是一次 HTTP 请求。字段为 `id`、`started_at`、`returned_at`、`method`、`path`、请求头、参数、HTTP `status`、`ok`、返回结果和 `error`。`records.record` 可直接传给 `requestData`：发出时写入内存并插入本地，返回时间与结果先空着；返回后更新同一行。`options.partial` 表示还有后续返回，中间结果只留在内存，全部结束后才更新本地。`options.drop` 从内存和本地删除这条记录。`active()` 返回仍在等待返回的请求。
+`http_records` 一行是一次 HTTP 请求。字段为 `id`、`title`、`started_at`、`returned_at`、`method`、`path`、请求头、参数、HTTP `status`、`ok`、返回结果和 `error`。`records.record` 可直接传给 `requestData`：发出时写入内存并插入本地，返回时间与结果先空着；返回后更新同一行。`options.partial` 表示还有后续返回，中间结果只留在内存，全部结束后才更新本地。`options.drop` 从内存和本地删除这条记录。`active()` 返回仍在等待返回的请求。
 
 `list({ offset, limit })` 按开始时间分页，只返回摘要。`read(id)` 返回请求头、参数和返回结果，不存在时为 `null`。`limit` 为 1–100，默认 50。
 
@@ -78,3 +78,19 @@ const result = await requestData({
 `@agent-modules/http-client/ui` 提供 `createHttpHistory({ source, document, onBack, copyText })`。`source.list({offset, limit})` 返回 `HttpRecords.list` 的摘要数组，`source.read(id)` 返回 `HttpRecords.read` 的完整记录；列表按需读取详情，支持分页、刷新、失败重试和销毁。
 
 `renderHttpDetails(container, { transfers, copyText })` 直接渲染原步骤HTTP详情，返回销毁函数；保留请求次数、请求/返回标签、ID和内容复制。既接受HTTP存储记录，也接受HTTP模块原生transfer，样式由调用方容器提供。公共UI不绑定业务、URL或数据库；宿主负责认证和静态模块映射。
+
+### 模型适配器调用记录
+
+`@agent-modules/http-client/model-records` 导出 `createModelRecorder({ record })`。把公开模型拦截接口的 `options` 和 `next` 交给 `recorder.stream(options, next)`，并将 `HttpRecords.record` 作为record回调。请求在调用next之前完整写入，保存messages、system、tools、toolHistory及生成参数；每次消费获得独立ID。流结束保存原始chunks、合并content、usage和finish_reason；异常、取消、消费者退出及dispose保留已收到的内容。记录器不修改输入或返回流，不导入Harness或业务模块。
+
+这些记录使用 `MODEL` 与 `model://provider/model/purpose`，`capture_layer` 为 `model-adapter`。它们是适配器输入和输出，不是HTTP原始报文，不虚构HTTP状态码或请求头；SDK内部未再次经过拦截接口的网络重试不单独可见。接口再次调用会单独记录。凭据和AbortSignal不进入保存字段，提示词、工具声明及模型正文不截断。记录写入失败会阻止这次模型发送或在结束时上报错误。
+
+调用方关闭数据库前须等待`recorder.dispose()`。关闭时先保存进行中流的部分返回，之后晚到的增量只透传，不再写入；已经入库的模型调用可通过公共HTTP记录界面查看。
+
+
+记录标题由写入方传入：`requestData({ url, title: '剧本优化', ... })`、`records.record({ title, method, path, ... })` 或 `recorder.stream({ ...options, title }, next)`。未指定标题时，模型记录按purpose生成“会话回复”“会话标题生成”“会话上下文压缩”，其他用途保留用途名；普通HTTP记录使用方法和路径。标题在写入时保存，列表只展示标题，完整路径与记录来源仍保留在详情正文中。
+
+已有`http_records`表在初始化时自动增加非空`title`列，并为缺标题的旧记录回填用途或方法/路径，保留原始请求、返回与时间；重复初始化不覆盖已有标题。`active/list/read`均返回title。
+
+
+会话请求（purpose缺省或conversation）优先从最后一条有效用户文本生成业务摘要，忽略system/assistant/tool、媒体与运行环境/技能提醒，移除常见请求开头并取首句，派生标题最多30个Unicode字符。成功返回中若有tool-call参数或完整JSON文本的project_name/node_name/name/title等明确名称，则补充名称；普通回答、推理、失败及中断不会替换摘要。调用方显式title优先，session-title/compaction保持内部用途标题。不额外调用模型。结算时更新同一记录title；已保存的通用“会话回复”标题在初始化时按原请求及成功返回补算，其他标题保留。

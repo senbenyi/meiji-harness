@@ -81,7 +81,9 @@ export function createHttpHistory({ source, document = globalThis.document, onBa
       const list = el('div', '', 'http-list'); page.append(list);
       for (const row of data.slice(0, pageSize)) {
         const card = button('', () => { selected = row.id; void refresh(); }); card.className = 'http-record';
-        card.append(el('strong', `${row.method} ${row.path}`), el('span', `${row.status ?? (row.returned_at ? '失败' : '等待返回')} · ${row.started_at}`, 'muted'), el('code', row.id), el('span', row.error || '', 'error')); list.append(card);
+        const title = row.title || (row.method === 'MODEL' ? row.path : `${row.method} ${row.path}`);
+        const outcome = row.status ?? (row.returned_at ? row.ok ? '已完成' : '失败 / 中断' : '等待返回');
+        card.append(el('strong', title), el('span', `${outcome} · ${row.started_at}`, 'muted'), el('code', row.id), el('span', row.error || '', 'error')); list.append(card);
       }
       const actions = el('div', '', 'actions');
       if (offset) actions.append(button('上一页', () => { offset = Math.max(0, offset - pageSize); void refresh(); }));

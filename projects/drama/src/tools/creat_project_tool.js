@@ -1,3 +1,4 @@
+import { editProject } from '../project/edit_project.js'
 import { EventEmitter } from 'node:events'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -63,7 +64,7 @@ export class CreateProjectTool extends EventEmitter {
   /** 列表只展示已完成创建的项目，打开时继续使用其原会话。 */
   async listProjects() {
     const state = await this.#readBindings()
-    const rows = Object.values(state.requests).filter(row => row.session_id && row.workspace)
+    const rows = Object.values(state.requests).filter(row => row.session_id && row.workspace && !row.deleted_at)
     return Promise.all(rows.map(async row => {
       const manager = await ProjectManager.open(join(this.root, 'projects', row.project_id, 'project.json'))
       const info = manager.read().basic_info
@@ -75,9 +76,70 @@ export class CreateProjectTool extends EventEmitter {
     const state = await this.#readBindings()
     const id = Object.hasOwn(state.sessions, sessionId) ? state.sessions[sessionId] : null
     if (!id) return { project: null }
-    const manager = await ProjectManager.open(join(this.root, 'projects', id, 'project.json'))
     const request = Object.values(state.requests).find(row => row.project_id === id)
+    if (request?.deleted_at) return { project: null }
+    const manager = await ProjectManager.open(join(this.root, 'projects', id, 'project.json'))
     return { project: manager.read(), session_id: request.session_id, workspace: request.workspace }
+  }
+
+  /** 编辑走同一串行队列，绑定与旧值在服务端核对，创建请求快照保持原样。 */
+  edit(command, { sessionId, projectId }) {
+    const run = this.#tail.catch(() => {}).then(async () => {
+      const state = await this.#readBindings()
+      if (!/^p_[a-f0-9-]{36}$/i.test(projectId || '') || state.sessions[sessionId] !== projectId)
+        throw Object.assign(new Error('当前会话未绑定此项目'), { code: 'PROJECT_SCOPE' })
+      if (Object.values(state.requests).some(row => row.project_id === projectId && row.deleted_at))
+        throw Object.assign(new Error('项目已删除'), { code: 'PROJECT_DELETED' })
+      const manager = await ProjectManager.open(join(this.root, 'projects', projectId, 'project.json'))
+      const previous = manager.read(), next = editProject(previous, command)
+      if (JSON.stringify(next) === JSON.stringify(previous)) return { project: previous }
+      const row = Object.values(state.requests).find(item => item.project_id === projectId)
+      const renamed = next.basic_info.name !== previous.basic_info.name
+      if (renamed) await this.workspaceController.rename({ workspaceId: row.workspace.id, title: next.basic_info.name })
+      manager.change(draft => Object.assign(draft, next))
+      try { await manager.model.update() }
+      catch (error) {
+        if (renamed) {
+          try { await this.workspaceController.rename({ workspaceId: row.workspace.id, title: previous.basic_info.name }) }
+          catch (rollback) { throw new AggregateError([error, rollback], '项目保存失败，工作区名称恢复失败') }
+        }
+        throw error
+      }
+      this.emit('updated', { project_id: projectId, session_ids: Object.keys(state.sessions).filter(id => state.sessions[id] === projectId) })
+      return { project: manager.read() }
+    })
+    this.#tail = run
+    return run
+  }
+
+  /** 移除工作区登记后标记项目删除；目录、会话和记录保留。 */
+  remove({ sessionId, projectId }) {
+    const run = this.#tail.catch(() => {}).then(async () => {
+      const state = await this.#readBindings()
+      if (!/^p_[a-f0-9-]{36}$/i.test(projectId || '') || !Object.hasOwn(state.sessions, sessionId) || state.sessions[sessionId] !== projectId)
+        throw Object.assign(new Error('当前会话未绑定此项目'), { code: 'PROJECT_SCOPE' })
+      const rows = Object.values(state.requests).filter(row => row.project_id === projectId)
+      if (!rows.length) throw Object.assign(new Error('项目不存在'), { code: 'ENOENT' })
+      if (!rows.every(row => row.deleted_at)) {
+        const active = this.records?.tasks.activeGroups(this.records.scope) || []
+        if (active.some(({ group, tasks }) => tasks.some(task => ['queued', 'running'].includes(task.task_status) && (task.metadata.project_id ?? group.metadata.project_id) === projectId)))
+          throw Object.assign(new Error('项目有排队或执行中的任务，请结束后再删除'), { code: 'PROJECT_ACTIVE' })
+      }
+      // 只使用服务端绑定的ID；宿主已删而bindings未落盘时，重试仍可完成。
+      for (const workspaceId of new Set(rows.map(row => row.workspace?.id).filter(Boolean))) {
+        try { await this.workspaceController.delete({ workspaceId }) }
+        catch (error) { if (error.code !== 'workspace/not-found') throw error }
+      }
+      if (!rows.every(row => row.deleted_at)) {
+        const deletedAt = new Date().toISOString()
+        for (const row of rows) row.deleted_at = deletedAt
+        await this.#saveBindings(state)
+      }
+      this.emit('updated', { project_id: projectId, deleted: true, session_ids: Object.keys(state.sessions).filter(id => state.sessions[id] === projectId) })
+      return { deleted: true, project_id: projectId }
+    })
+    this.#tail = run
+    return run
   }
 
   async execute(args, exec) {
@@ -99,6 +161,7 @@ export class CreateProjectTool extends EventEmitter {
     const state = await this.#readBindings()
     const key = JSON.stringify([sourceSessionId, requestId])
     let row = state.requests[key]
+    if (row?.deleted_at) throw Object.assign(new Error('项目已删除，请使用新的创建请求'), { code: 'PROJECT_DELETED' })
     if (row && JSON.stringify(row.info) !== JSON.stringify(info)) throw new Error('同一请求ID不能用于不同项目资料')
     if (!row) {
       row = state.requests[key] = { project_id: `p_${randomUUID()}`, info }
@@ -118,7 +181,7 @@ export class CreateProjectTool extends EventEmitter {
       row.workspace = { id: workspace.workspaceId, path: directory }
       await this.#saveBindings(state)
     }
-    await this.workspaceController.rename({ workspaceId: row.workspace.id, title: info.name })
+    await this.workspaceController.rename({ workspaceId: row.workspace.id, title: manager.read().basic_info.name })
     if (!row.session_id) {
       row.pending_session_id ??= `session-${randomUUID()}`
       await this.#saveBindings(state)

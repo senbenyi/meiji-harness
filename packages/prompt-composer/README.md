@@ -93,3 +93,5 @@ container.replaceChildren(renderRulesPanel(model, {
 - 样式可通过宿主容器上的 `--rules-background`、`--rules-card-background`、`--rules-color`、`--rules-muted`、`--rules-border`、`--rules-accent`、`--rules-selected-background` CSS 变量覆盖。多实例互不影响。
 
 独立浏览器示例见 `examples/rules-panel.html`；用任意静态 HTTP 服务打开包目录即可运行，无需 meiji。示例通过回调保存到自己的 localStorage，并更新原 Model，刷新后可恢复；这不是业务项目接入。直接使用浏览器原生 ESM 时，将示例中的相对 import 指向已安装包的 `src/index.js` 和 `src/ui/rules-panel.js`；npm 子路径导入由接入项目的构建器或 import map 解析。
+
+规则UI可选`baseLabel`与`ruleNote`覆盖基础规则标题和说明；适用于以项目保存规则为执行来源的调用方。仅改变展示文字，不影响Model、保存回调或默认快照语义。

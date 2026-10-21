@@ -47,3 +47,12 @@ test('HTTP列表晚到响应、销毁和复制失败保护', async t => {
   root.querySelector('[aria-label="复制HTTP ID"]').click(); await tick(); assert.match(root.textContent, /复制失败/);
   button(root, '返回').click(); assert.match(root.textContent, /尚未返回/);
 });
+
+test('适配器模型调用显示已完成，缺HTTP状态码不误报失败', async t => {
+  const dom = new JSDOM(); t.after(() => dom.window.close());
+  const row = { id: 'model', title: '会话标题生成', method: 'MODEL', path: 'model://provider/model/session-title', started_at: 'now', returned_at: 'later', ok: true, status: null };
+  const ui = createHttpHistory({ document: dom.window.document, source: { list: () => [row], read: () => ({ ...row, params: { purpose: 'session-title', messages: [{ role: 'user', content: '完整提示词' }] }, response: { content: [{ type: 'text', text: '完整返回' }] } }) } });
+  t.after(() => ui.dispose()); await ui.ready;
+  const root = ui.element.shadowRoot; assert.equal(root.querySelector('.http-record strong').textContent, '会话标题生成'); assert.doesNotMatch(root.querySelector('.http-record').textContent, /模型调用|历史还原|model:\/\//); assert.match(root.querySelector('.http-record').textContent, /已完成/); assert.doesNotMatch(root.querySelector('.http-record').textContent, /失败/);
+  await ui.openRecord('model'); assert.match(root.querySelector('pre').textContent, /完整提示词/); button(root, '返回').click(); assert.match(root.querySelector('pre').textContent, /完整返回/);
+});

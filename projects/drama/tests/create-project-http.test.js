@@ -233,3 +233,27 @@ test('记录接口认证、独立持久化、任务详情与公共浏览器模�
   assert.equal(reopened.tasks.history(reopened.scope).total, 1)
   await reopened.dispose()
 })
+
+test('释放SSE期间的项目创建通知在恢复连接后补发，不跨会话或重复补发', async t => {
+  const {tool,request}=await fixture(t)
+  const source=`session-${randomUUID()}`
+  const abort=new AbortController();t.after(()=>abort.abort())
+  const initial=await request(`/api/drama/events?session_id=${source}`,{signal:abort.signal})
+  const first=new TextDecoder().decode((await initial.body.getReader().read()).value)
+  const cursor=JSON.parse(first.split('data: ')[1].trim()).cursor
+  abort.abort()
+  const result=await tool.create({name:'后台完成'},{sessionId:source,requestId:'missed'})
+  const resume=new AbortController();t.after(()=>resume.abort())
+  const stream=await request(`/api/drama/events?session_id=${source}&cursor=${cursor}`,{signal:resume.signal})
+  const reader=stream.body.getReader();let data=''
+  for(let i=0;i<2&&!data.includes('created');i++) data+=new TextDecoder().decode((await reader.read()).value)
+  assert.match(data,/created/);assert.ok(data.includes(result.session_id))
+  const messages=data.split('\n\n').filter(line=>line.startsWith('data: ')).map(line=>JSON.parse(line.slice(6)))
+  const last=Math.max(...messages.map(event=>event.cursor))
+  resume.abort()
+  for(const path of [`session_id=other&cursor=${cursor}`,`session_id=${source}&cursor=${last}`]){
+    const stop=new AbortController();const response=await request('/api/drama/events?'+path,{signal:stop.signal})
+    const text=new TextDecoder().decode((await response.body.getReader().read()).value)
+    assert.match(text,/refresh/);assert.doesNotMatch(text,/created/);stop.abort()
+  }
+})

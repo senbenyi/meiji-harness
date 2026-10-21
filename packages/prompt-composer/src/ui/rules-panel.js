@@ -6,7 +6,7 @@ const ACTIONS = [['generate', '生成规则'], ['revise', '修订规则'], ['rev
 /** 原规则面板交互；保存通过回调提交，组件不隐式修改传入 Model。 */
 export function renderRulesPanel(model, {
   title = '规则', currentBases, loadCurrentBases, onBack, copyText,
-  onSave, onChange, opinion, onOpinionSave, document = globalThis.document,
+  onSave, onChange, opinion, onOpinionSave, baseLabel, ruleNote, document = globalThis.document,
 } = {}) {
   const data = model instanceof RulesModel ? model : new RulesModel(model);
   const savedData = data.toJSON();
@@ -113,16 +113,16 @@ export function renderRulesPanel(model, {
         supplement.append(ruleInput('补充规则', savedData.rules[action].supplement, action, 'supplement', onSave, false));
         section.append(supplement);
       }
-      const base = ruleCard(current ? '基础规则' : '基础规则快照', 'skill-base', 'base');
+      const base = ruleCard(baseLabel ?? (current ? '基础规则' : '基础规则快照'), 'skill-base', 'base');
       const text = current ? bases[action] : savedData.rules[action].base;
       const pre = element('pre', text || `暂无${current ? '基础规则' : '基础规则快照'}。`, 'skill-text');
       pre.dataset.empty = String(!text); base.append(pre); section.append(base);
       if (action === 'revise' && (opinion !== undefined || onOpinionSave || (current && bases.revise))) {
         section.append(ruleInput('本次修改意见', opinion ?? '', action, 'opinion', onOpinionSave));
       }
-      section.append(element('p', current
+      section.append(element('p', ruleNote ?? (current
         ? '基础规则由代码维护；各动作的补充规则独立使用，冲突请调整补充规则。'
-        : '当前展示保存的基础规则快照，不代表当前执行规则。', 'skill-rule-note'));
+        : '当前展示保存的基础规则快照，不代表当前执行规则。'), 'skill-rule-note'));
       const tab = button(label, () => select(index)); tab.id = `tab-${action}`;
       tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', section.id);
       tab.onkeydown = event => {

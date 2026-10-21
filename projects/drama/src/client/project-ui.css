@@ -25,3 +25,142 @@ header,main,[role=status]{padding:16px}header{display:flex;align-items:center;ju
 .library-card h3{margin:0 0 8px}.library-card p{margin:8px 0}.library-assets .import-script{margin-bottom:12px}
 .workflow-generation-row{display:flex;flex-wrap:wrap;gap:8px}.workflow-generation-row button{flex:1;white-space:nowrap}
 .library-assets .library-tabs button{padding:6px 8px;min-width:0}
+/* 实际复制自meiji/client/panel-styles.css：概要、节点与返回栏；仅添加页面作用域。 */
+:is(.project-overview,.project-script-page) .title-with-edit{display:flex;align-items:center;gap:16px;min-width:0}
+:is(.project-overview,.project-script-page) .title-with-edit h2,:is(.project-overview,.project-script-page) .title-with-edit h3{margin:0;min-width:0;overflow-wrap:anywhere}
+:is(.project-overview,.project-script-page) button.icon-edit{border:0;padding:0;width:16px;height:16px;display:inline-flex;flex:none;color:#9b9fab}
+:is(.project-overview,.project-script-page) button.icon-edit svg{width:16px;height:16px;display:block}
+:is(.project-overview,.project-script-page) button.icon-edit:hover{background:none;color:#dfc196}
+:is(.project-overview,.project-script-page) .section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:18px 0 24px}
+:is(.project-overview,.project-script-page) .section-titles{min-width:0}
+:is(.project-overview,.project-script-page) .section-titles .story-status{margin:0;flex:none;font-size:13px;font-weight:650;line-height:1.4;color:#f0c98a}
+:is(.project-overview,.project-script-page) .section-titles .hint{margin:6px 0 0;font-size:13px;font-weight:600;line-height:1.5;color:#f0c98a}
+:is(.project-overview,.project-script-page) .section-titles .hint.warn{color:#f0a0a0}
+:is(.project-overview,.project-script-page) .section-head .primary{flex:none}
+:is(.project-overview,.project-script-page) .episode-bar{display:flex;align-items:center;gap:8px;margin:8px 0 2px}
+:is(.project-overview,.project-script-page) .episode-bar h2{margin:0;font-size:16px;min-width:0;overflow-wrap:anywhere}
+:is(.project-overview,.project-script-page) button.episode-back{border:0;width:28px;height:28px;padding:0;flex:none;font-size:18px;line-height:1}
+:is(.project-overview,.project-script-page) button.episode-back:hover{background:none;color:#dfc196}
+.project-overview{padding:8px 0 24px}
+.project-overview>h2,.project-overview .title-with-edit{margin:0 0 2px}
+.project-overview>.meta{margin:0 0 14px}
+:is(.project-overview,.project-script-page) .overview-card{background:none;border:0;padding:0;margin:0 0 14px}
+:is(.project-overview,.project-script-page) .overview-card h3{margin:0 0 4px}
+:is(.project-overview,.project-script-page) .overview-card .summary-preview{margin:0}
+:is(.project-overview,.project-script-page) .json-copy-row{display:flex;justify-content:flex-end;margin-top:8px;flex-basis:100%;grid-column:1/-1}
+:is(.project-overview,.project-script-page) .json-copy-row button{margin:0;padding:4px 8px;font-size:12px}
+:is(.project-overview,.project-script-page) .node-ui{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:0 0 12px}
+:is(.project-overview,.project-script-page) .node-ui-status{margin:0;flex:none;font-size:12px;font-weight:650;line-height:1.4;color:#dfc196;white-space:nowrap}
+:is(.project-overview,.project-script-page) .node-ui-opinion{width:100%;box-sizing:border-box;margin:0}
+:is(.project-overview,.project-script-page) .overview-card>.node-ui-opinion{margin:8px 0}
+:is(.project-overview,.project-script-page) .workflow-generation-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;min-width:0}
+:is(.project-overview,.project-script-page) .workflow-generation-row>.story-status,:is(.project-overview,.project-script-page) .workflow-generation-row>h4,:is(.project-overview,.project-script-page) .workflow-generation-row>p{margin:0}
+:is(.project-overview,.project-script-page) .workflow-generation-row>button{flex:none;margin:0}
+:is(.project-overview,.project-script-page) .workflow-generation-row>button{padding:4px 10px}
+:is(.project-overview,.project-script-page) button.icon-edit{width:32px;height:32px;align-items:center;justify-content:center;border-radius:8px}
+:is(.project-overview,.project-script-page) button.icon-edit:hover{background:#30323a}
+:is(.project-overview,.project-script-page) .workflow-generation-row>button{min-height:34px;padding:6px 10px;font-size:13px;line-height:20px}
+:is(.project-overview,.project-script-page) .section-head{flex-wrap:wrap}
+:is(.project-overview,.project-script-page) .overview-card-title h3{margin:0}
+:is(.project-overview,.project-script-page) .overview-card-title .icon-edit{flex:none;width:26px;height:26px;padding:5px}
+.project-overview .episode-card{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:8px;flex:0 0 calc((100% - 24px) / 3.5);width:auto;min-width:0;min-height:0;margin:0;padding:8px;scroll-snap-align:start}
+.project-overview .episode-card .episode-cover{width:100%;height:auto;aspect-ratio:auto;align-self:stretch;contain:size;min-height:0;border-radius:8px;object-fit:cover}
+.project-overview .episode-card .episode-copy{min-width:0;padding:4px 0}
+.project-overview .episode-card .episode-copy p{display:-webkit-box;-webkit-line-clamp:4;line-height:1.55;overflow:hidden;overflow-wrap:anywhere}
+.project-overview .characters-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,190px));justify-content:start;gap:8px;padding:4px 0 10px;overflow:visible}
+.project-overview .library-card-strip-scenes{grid-template-columns:repeat(auto-fill,minmax(240px,320px))}
+.project-overview .library-card-characters{padding:10px 6px}
+.project-overview .library-card-characters .library-card-avatar{width:min(56px,100%);height:auto;aspect-ratio:1;object-fit:cover;object-position:center top}
+.project-overview .library-card-characters .library-card-info{width:100%}
+.project-overview .library-card{display:flex;align-items:center;gap:10px;width:100%;min-width:0;padding:10px;border:1px solid #353840;border-radius:10px;background:#1b1c21;text-align:left;color:inherit}
+.project-overview .library-card:hover{border-color:#dfc196;background:#23242a}
+.project-overview .library-card-info{display:grid;gap:4px;min-width:0;text-align:left}
+.project-overview .library-card-info strong,.project-overview .library-card-info .meta{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-overview .library-card-avatar{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:50%;overflow:hidden;background:#282b32}
+.project-overview .library-card-image{display:block;flex:none;width:92px;height:56px;border-radius:7px;overflow:hidden;background:#282b32}
+.project-overview .library-card-avatar img,.project-overview .library-card-image img{display:block;width:100%;height:100%;object-fit:cover}
+.project-overview .library-card-placeholder{display:grid;place-items:center;width:100%;height:100%;color:#b7a487;font-size:20px}
+.project-overview .library-card-characters,.project-overview .library-card-props{flex-direction:column;align-items:center}
+.project-overview .library-card-characters .library-card-info,.project-overview .library-card-props .library-card-info{text-align:center}
+.project-overview .library-card-characters .library-card-info strong,.project-overview .library-card-props .library-card-info strong{max-width:100%}
+.project-overview .episode-card{grid-template-columns:44% minmax(0,1fr);flex-basis:calc((100% - 24px) / 3.5)}
+.project-overview .episode-card .episode-cover{height:auto}
+.project-overview .characters-strip{grid-template-columns:repeat(2,150px);justify-content:start}
+.project-overview .library-card-strip-scenes{grid-template-columns:minmax(0,1fr)}
+:is(.project-overview,.project-script-page) .section-titles{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+:is(.project-overview,.project-script-page) .section-titles h3{margin:0}
+:is(.project-overview,.project-script-page) .section-titles .meiji-log-copy{margin:0;padding:2px 8px;font-size:12px;flex:none}
+:is(.project-overview,.project-script-page) .section-titles .status-label{margin:0;flex:none;font-size:12px;font-weight:650;line-height:1.4;color:#dfc196;white-space:nowrap}
+.project-overview .character-card{display:flex;flex-direction:column;gap:8px;min-width:0}
+.project-overview .character-card>.library-card{width:100%;box-sizing:border-box}
+:is(.project-overview,.project-script-page) .node-data-tag{display:inline-flex;align-items:center;flex:none;margin:0 0 0 12px;padding:1px 8px;border:1px solid #8d734f;border-radius:6px;background:#3a3126;color:#dfc196;font-size:12px;font-weight:650;line-height:18px;white-space:nowrap}
+:is(.project-overview,.project-script-page) .node-ui{box-sizing:border-box;padding:12px 0}
+:is(.project-overview,.project-script-page) .node-ui>.workflow-generation-row{justify-content:flex-start}
+:is(.project-overview,.project-script-page) .node-ui-buttons{display:flex;flex:none;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:10px;max-width:100%;min-width:0}
+:is(.project-overview,.project-script-page) .node-ui-buttons>button{flex:none;margin:0;min-height:34px;padding:6px 10px;font-size:13px;line-height:20px}
+:is(.project-overview,.project-script-page) .node-ui>.workflow-generation-row>.node-ui-task-status{margin:0 16px 0 0;flex:0 1 auto;max-width:100%;min-width:0;font-size:13px;line-height:1.4;color:#c8c4bc;text-align:left}
+:is(.project-overview,.project-script-page) .node-ui-failure{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+:is(.project-overview,.project-script-page) .node-ui-reason.is-clamped{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+:is(.project-overview,.project-script-page) .node-ui-reason-toggle{margin-top:4px;padding:2px 8px;font-size:12px}
+.project-info-line,.original-script .prompt{overflow-wrap:anywhere;white-space:pre-wrap}
+.project-overview .script-title-arrow{border:0;background:none;padding:0 4px;font-size:22px;flex:none}
+:is(.project-overview,.project-script-page) .section-titles{display:flex;align-items:center;flex-wrap:wrap}
+:is(.project-overview,.project-script-page) .prompt{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7}
+:is(.project-overview,.project-script-page) .node-ui-opinion{display:block;padding:8px;background:#17191f;color:#fff;border:1px solid #444852;border-radius:6px;font:inherit}
+.project-script-import{margin:10px 0 0}.project-script-import .workflow-generation-row{gap:10px}.project-script-import .error:empty,.node-ui-failure:empty{display:none}.project-script-import select{display:block;max-width:100%;margin-top:8px;background:#17191f;color:#fff}
+:is(.project-overview,.project-script-page) button:focus-visible{outline:2px solid #dfc196;outline-offset:3px}
+
+/* meiji基础按钮样式按项目限定，沿用当前黑色面板背景。 */
+:is(.project-overview,.project-script-page) button{background:none;border-color:#383a41;border-radius:8px}
+:is(.project-overview,.project-script-page) button:hover{background:#30323a}
+/* 恢复旧页面长内容由外层滚动的行为，避免底部状态行覆盖节点按钮。 */
+.workspace-content>main:has(.project-overview,.project-script-page){flex-shrink:0}
+.workspace-content>p.error:empty{display:none}
+
+/* 项目详情字体层级；不影响顶部导航和公共包面板。 */
+:is(.project-overview,.project-script-page){font-size:13px;line-height:1.7}
+.project-overview .title-with-edit{margin-bottom:16px}
+.project-overview .title-with-edit h2,.project-script-page .episode-bar h2{font-size:18px;font-weight:600;line-height:1.4;letter-spacing:.01em}
+:is(.project-overview,.project-script-page) h3{font-size:14px;font-weight:600;line-height:1.5}
+.project-overview .project-info-line{margin:10px 0;font-size:13px;line-height:1.65;font-weight:400}
+.project-overview .project-info-line strong{font-weight:500;margin-right:4px}
+.project-overview .original-script{margin-top:18px}
+:is(.project-overview,.project-script-page) .prompt,:is(.project-overview,.project-script-page) .summary{font:400 13px/1.8 system-ui,sans-serif}
+:is(.project-overview,.project-script-page) .node-ui-buttons>button,.project-script-import button{font-size:12px;line-height:18px;min-height:32px;padding:6px 9px;font-weight:400}
+:is(.project-overview,.project-script-page) .node-ui-opinion{font-size:13px;line-height:1.6}
+:is(.project-overview,.project-script-page) .node-data-tag{font-size:11px;font-weight:500;line-height:18px}
+
+/* 剧本节点视觉重整：标题、工具、操作和结果各自承担清晰角色。 */
+:is(.project-overview,.project-script-page) .script-node{margin-top:24px}
+:is(.project-overview,.project-script-page) .script-node>.section-head{margin:0;align-items:center;gap:12px}
+:is(.project-overview,.project-script-page) .script-node .section-titles{gap:10px}
+:is(.project-overview,.project-script-page) .script-node .node-data-tag{display:inline-flex;gap:5px;margin:0;padding:0;border:0;background:transparent;color:#9c917c;font-size:11px;font-weight:400;line-height:20px}
+.script-node .node-data-tag:before{content:'';width:4px;height:4px;background:currentColor;border-radius:50%;align-self:center}
+:is(.project-overview,.project-script-page) .script-node[data-status=generated] .node-data-tag{color:#83ad91}
+:is(.project-overview,.project-script-page) .script-node[data-status=rejected] .node-data-tag{color:#d58d8d}
+:is(.project-overview,.project-script-page) .script-node[data-status=expired] .node-data-tag{color:#c1a474}
+:is(.project-overview,.project-script-page) .script-node .node-ui-records{display:flex;justify-content:flex-start;align-items:center;flex-wrap:nowrap;gap:8px;margin:0;min-width:0}
+:is(.project-overview,.project-script-page) .script-node .node-ui-records>button{flex:0 0 auto;margin:0;padding:4px 8px;min-height:28px;border:1px solid #343a44;border-radius:6px;background:none;color:#b3bac5;font-size:11px;line-height:18px}
+:is(.project-overview,.project-script-page) .script-node .node-ui-records>button:hover{color:#fff;background:none}
+:is(.project-overview,.project-script-page) .script-node>.node-ui{display:flex;flex-direction:column;gap:10px;margin:14px 0 0;padding:0;overflow:visible;border:0;border-radius:0;background:none}
+:is(.project-overview,.project-script-page) .script-node .node-ui-opinion:focus{border-color:#6b7382}
+:is(.project-overview,.project-script-page) .script-node .node-ui-opinion{width:100%;min-height:44px;margin:0;padding:10px 12px;border:1px solid #292d35;border-radius:8px;background:#0e1014;color:#e9ebef;outline:none;box-shadow:none;font-size:13px;line-height:22px}
+.script-node .node-ui-opinion::placeholder{color:#6e7684;font-size:12px}
+:is(.project-overview,.project-script-page) .script-node .node-ui-buttons{display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:0;box-sizing:border-box}
+.script-node .node-ui-execution{display:flex;flex:0 0 auto;align-items:center;justify-content:flex-end;gap:4px;min-width:0;margin-left:auto}
+:is(.project-overview,.project-script-page) .script-node .node-ui-execution>button{flex:0 0 auto;margin:0;min-height:28px;padding:3px 8px;border:1px solid transparent;border-radius:6px;background:transparent;color:#a2a9b5;font-size:12px;line-height:20px;white-space:nowrap}
+:is(.project-overview,.project-script-page) .script-node .node-ui-execution>button:first-child{border-color:#373e49;background:#242a33;color:#e8c58c}
+:is(.project-overview,.project-script-page) .script-node .node-ui-execution>button:disabled{opacity:1;cursor:not-allowed;color:#686f7c}
+:is(.project-overview,.project-script-page) .script-node .node-ui-execution>button:first-child:disabled{background:#1b1f27;border-color:#303640;color:#e8c58c}
+.script-node .node-ui-failure:not(:empty),.script-node .node-ui-reason{padding:0;margin:0;font-size:12px}
+.script-node .node-result{margin-top:16px;padding-top:0;border:0;min-width:0}
+.script-node .node-result>.meta{margin:0 0 8px;font-size:12px}
+.script-node .node-result>.summary{margin:0 0 10px}
+:is(.project-overview,.project-script-page) .script-node .node-result>.json-copy-row{margin:0 0 8px;justify-content:flex-end}
+:is(.project-overview,.project-script-page) .script-node .json-copy{border:0;padding:2px 0 2px 8px;background:none;color:#8f97a4;font-size:11px;line-height:18px;min-height:22px}
+:is(.project-overview,.project-script-page) .script-node .json-copy:hover{color:#fff;background:none}
+
+.project-overview .title-with-edit>.project-delete{flex:none;margin-left:auto;padding:3px 8px;min-height:28px;font-size:12px;line-height:20px;border:1px solid #533b3f;border-radius:6px;background:none;color:#d59399}
+.project-overview .title-with-edit>.project-delete:hover{border-color:#b36c75;background:#27191c;color:#f0b8be}
+.project-overview .title-with-edit>.project-delete:disabled{opacity:.5;cursor:wait}
+.project-delete-error:empty{display:none}

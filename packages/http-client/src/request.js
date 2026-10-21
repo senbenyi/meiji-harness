@@ -28,7 +28,7 @@ export async function requestData(request, {
   const form = body instanceof FormData;
   const address = new URL(url);
   const transfer = trace || {
-    fn, method, path: address.pathname,
+    fn, title: request.title, method, path: address.pathname,
     request: { method, path: address.pathname, headers: publicHeaders(headers, apiKey, { sensitiveHeaders }), body: redactJson(form ? logBody : body, apiKey) },
   };
   const started = Date.now();

@@ -8,7 +8,7 @@ const json = (value, status = 200) => new Response(JSON.stringify(value), { stat
 
 test('普通 JSON 请求在发送前记录、完成后补响应，密钥与图片均脱敏', async () => {
   const rows = [], key = 'private-example-key';
-  const result = await requestData({ url: 'http://example/v1/action', headers: { Authorization: `Bearer ${key}` }, apiKey: key, body: { image: 'data:image/png;base64,YWJj', secret: key } }, {
+  const result = await requestData({ url: 'http://example/v1/action', title: '生成素材', headers: { Authorization: `Bearer ${key}` }, apiKey: key, body: { image: 'data:image/png;base64,YWJj', secret: key } }, {
     record(row) { if (!rows.includes(row)) rows.push(row); },
     fetchImpl: async (url, request) => {
       assert.equal(rows.length, 1);
@@ -20,6 +20,7 @@ test('普通 JSON 请求在发送前记录、完成后补响应，密钥与图�
   });
   assert.equal(result.data.answer, '完成');
   assert.equal(rows[0].status, 200);
+  assert.equal(rows[0].title, '生成素材');
   assert.doesNotMatch(JSON.stringify(rows), /private-example-key|YWJj/);
 });
 
