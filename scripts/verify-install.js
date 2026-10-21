@@ -15,11 +15,11 @@ try {
     assert.ok(result[0].files.every(file => !file.path.includes('elysium/')), '公共包不应包含旧网关兼容文件');
     archives.push(join(temp, result[0].filename));
   }
-  // task 自身不依赖另外两个公共包，也应能单独安装与运行。
+  // task的HTTP详情依赖http-client；不依赖业务项目或其余公共包。
   const taskOnly = join(temp, 'task-only');
   await mkdir(taskOnly);
   await writeFile(join(taskOnly, 'package.json'), JSON.stringify({ name: 'task-only-check', private: true, type: 'module' }));
-  run('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', archives.at(-1)], taskOnly);
+  run('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', archives.at(-1), archives[0]], taskOnly);
   run(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
     import { TaskManager, TaskModel, NodeStateModel } from '@agent-modules/task';
@@ -93,7 +93,7 @@ try {
     dom.window.close();
   `], temp);
   // 公共分发不含 meiji 的旧网关兼容模块。
-  run(process.execPath, ['--input-type=module', '-e', "const { default: assert } = await import('node:assert/strict'); await assert.rejects(import('@agent-modules/http-client/elysium'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' }); await import('@agent-modules/http-client/model-parameters'); await import('@agent-modules/http-client/remote-task');"], temp);
+  run(process.execPath, ['--input-type=module', '-e', "const { default: assert } = await import('node:assert/strict'); await assert.rejects(import('@agent-modules/http-client/elysium'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' }); await import('@agent-modules/http-client/model-parameters'); await import('@agent-modules/http-client/remote-task'); await import('@agent-modules/http-client/records'); const ui = await import('@agent-modules/http-client/ui'); assert.equal(typeof ui.createHttpHistory, 'function'); assert.equal(typeof ui.renderHttpDetails, 'function');"], temp);
   run(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
     import { SettingsModel } from '@agent-modules/setting';

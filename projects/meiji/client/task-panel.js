@@ -1,4 +1,4 @@
-import { renderSettings } from "../../drama/src/client/settings-ui.js";
+import { renderSettings } from "./settings-ui.js";
 import { currentScript } from '../shared/script-text.js';
 import { effectiveRules } from '../shared/ai-node-rules.js';
 import { aspectRatioOfSize } from '../shared/media-parameters.js';

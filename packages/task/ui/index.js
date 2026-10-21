@@ -1,3 +1,4 @@
+import { renderHttpDetails } from '@agent-modules/http-client/ui';
 const statuses = { queued: '排队中', running: '执行中', completed: '已完成', rejected: '未通过', failed: '失败', cancelled: '已取消', ready: '待执行', done: '已完成', skipped: '已跳过' };
 const asText = value => typeof value === 'string' ? value : JSON.stringify(value ?? null, null, 2);
 import { styles } from './styles.js';
@@ -24,6 +25,7 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
   root.append(element('style', styles), page);
   const state = { status: '', node_type: '', offset: 0, groupId: null, taskId: null, stepId: null, record: null, httpIndex: 0, httpTab: 'request', ...initialView };
   const expanded = new Map(), pages = new Map(), details = new Map(), dirty = new Set();
+  let disposeHttp;
   let epoch = 0, disposed = false, loadedGroup = null, recordParent = state.stepId && !state.record ? 'step' : 'group';
   const taskName = task => presentation.taskName?.(task) ?? task.name;
   const stepName = (step, task) => presentation.stepName?.(step, task) ?? step.name;
@@ -56,9 +58,14 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
     node.append(row, element('pre', asText(value))); return node;
   };
   const header = (label, back) => {
+    disposeHttp?.(); disposeHttp = null;
     const node = element('header', '', 'task-history-header');
-    if (back) node.append(button('← 返回', back));
-    node.append(element('h2', label)); page.replaceChildren(node, notice); notice.textContent = '';
+    if (back) {
+      const control = button('←', back, '返回'); control.className = 'task-history-back'; control.title = '返回'; node.append(control);
+    }
+    const heading = element('h2', label); heading.title = label;
+    const reload = button('刷新', () => refresh({ reload: true })); reload.className = 'task-history-refresh';
+    node.append(heading, reload); page.replaceChildren(node, notice); notice.textContent = '';
   };
   const metadata = value => {
     const node = element('details', '', 'metadata muted');
@@ -200,27 +207,11 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
       for (const [i, message] of messages.entries()) { const messageCard = card(`${i + 1}. ${message.role}`, message.content); messageCard.querySelector('button').remove(); records.append(messageCard); }
       return;
     }
-    const transfers = step.http || [];
-    if (!transfers.length) return records.append(element('p', '此步骤没有已保存的 HTTP 记录', 'muted'));
-    state.httpIndex = Math.min(state.httpIndex, transfers.length - 1);
-    const choose = element('div', '', 'run-record-tabs'); choose.setAttribute('role', 'tablist'); choose.setAttribute('aria-label', '选择请求次数');
-    if (transfers.length > 1) transfers.forEach((transfer, index) => {
-      const tab = button(`第 ${index + 1} 次 · ${transfer.method || ''} ${transfer.path || ''}`.trim(), () => { state.httpIndex = index; refresh(); });
-      tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(state.httpIndex === index)); choose.append(tab);
+    const body = element('div', '', 'http-details'); records.append(body);
+    disposeHttp = renderHttpDetails(body, { transfers: step.http || [], document, copyText: write,
+      initialIndex: state.httpIndex, initialTab: state.httpTab,
+      onChange: ({ index, tab }) => { state.httpIndex = index; state.httpTab = tab; },
     });
-    if (transfers.length > 1) records.append(choose);
-    const transfer = transfers[state.httpIndex];
-    records.append(identity('HTTP', transfer.id));
-    if (transfer.prompt_id) records.append(element('p', `关联提示词 ID：${transfer.prompt_id}`, 'muted'));
-    const tabs = element('div', '', 'run-record-tabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'HTTP 请求与返回');
-    for (const [key, title] of [['request', '请求'], ['response', '返回']]) {
-      const tab = button(title, () => { state.httpTab = key; refresh(); }); tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(state.httpTab === key)); tabs.append(tab);
-    }
-    records.append(tabs);
-    const { request, id, prompt_id, ...response } = transfer;
-    const responded = ['ok', 'status', 'body', 'error', 'bytes'].some(key => Object.hasOwn(response, key));
-    records.append(state.httpTab === 'request' ? card('请求', request ?? null)
-      : responded ? card('返回', response) : element('p', '尚未返回', 'muted'));
   }
   async function refresh({ reload = false } = {}) {
     if (disposed) return;
@@ -270,6 +261,6 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
     openGroup: showGroup,
     openTask(taskId) { state.taskId = taskId; state.groupId = null; state.stepId = null; state.record = null; return refresh(); },
     dispose() {
-    if (disposed) return; disposed = true; epoch++; unsubscribe?.(); host.remove();
+    if (disposed) return; disposed = true; epoch++; disposeHttp?.(); unsubscribe?.(); host.remove();
   } };
 }

@@ -9,7 +9,8 @@ export function createShell() {
   const toggle = document.createElement('button')
   toggle.type = 'button'
   toggle.className = 'toggle'
-  toggle.textContent = '›'
+  // Harness的IconPanelLeftOutlineRegular，镜像后分隔线位于右侧。
+  toggle.innerHTML = '<svg class="panel-toggle-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" stroke-width="1"><path d="M13.5 1.5H2.5C1.94772 1.5 1.5 1.94772 1.5 2.5V13.5C1.5 14.0523 1.94772 14.5 2.5 14.5H13.5C14.0523 14.5 14.5 14.0523 14.5 13.5V2.5C14.5 1.94772 14.0523 1.5 13.5 1.5Z" stroke="currentColor"/><path d="M5.5 1.5V14.5" stroke="currentColor"/></svg>'
   document.body.append(host)
   const sidebar = root.querySelector('.sidebar'), handle = root.querySelector('.resize-handle')
   const stored = Number(localStorage.getItem('drama-panel-width'))

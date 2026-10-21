@@ -32,7 +32,7 @@ export function projectDialog(root, save, { listScripts, readScript } = {}) {
   const scriptGroup = element("div", "", "create-script-fields"),
     row = element("div", "", "workflow-generation-row"),
     imp = element("button", "导入剧本", "script-import"),
-    choose = element("button", "从素材库选择剧本", "script-choose"),
+    choose = element("button", "从素材库导入", "script-choose"),
     clear = element("button", "移除剧本", "script-clear"),
     file = element("input"),
     picker = element("select", "", "script-picker"),
@@ -139,6 +139,7 @@ export function projectDialog(root, save, { listScripts, readScript } = {}) {
         picker.append(o);
       }
       picker.hidden = false;
+      error.textContent = assets.some(a => a.category === "scripts") ? "" : "素材库暂无剧本，请先在片库的素材 / 剧本中导入";
     } catch (e) {
       error.textContent = e.message;
     }

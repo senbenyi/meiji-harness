@@ -1,9 +1,9 @@
-import { renderProjectDetails } from "../../drama/src/client/project-detail.js";
+import { renderProjectDetails } from "./project-detail.js";
 import { BUSINESS_DEFINITIONS } from '../shared/node-definitions.js';
 import { latestNodeTask, taskStatusRow, taskFailureRow, repairButtonLabel, revisionNote, reasonParagraph, reviewTypeLabel, reasonHeading } from './node-task-status.js';
 import { primaryCostumeImage } from "../shared/models/character_model.js";
 import { nodeOf } from "../shared/task_contract.js";
-import { detailsDialog } from "../../drama/src/client/project-forms.js";
+import { detailsDialog } from "./project-forms.js";
 import { element, tabs, showImagePreview, showVideoPreview } from "./panel-dom.js";
 import { editor, readable } from "./content-forms.js";
 import { historyGroups, groupStatus } from "../shared/task-labels.js";

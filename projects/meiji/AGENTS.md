@@ -7,3 +7,5 @@
 - 当前目录包含业务规则、节点、任务系统、持久化和界面；公共 HTTP/编排通过包名导入，业务规则不放入 packages。
 - 根运行 `npm test --workspace @meiji/harness-plugin` 验证本项目；跨公共边界变更运行根 `npm test`。
 - 计划及实施记录使用仓库根 docs/plans、docs/implement；项目数据仍在 `$DSH_HOME/storages/meiji`，与本目录改名无关。
+
+- meiji 与 drama 是独立项目，不能相互引用、转发导出、运行时读取源码、提供对方静态资源或建立跨项目符号链接。代码复用采用复制实际源码并改成本地引用；后续修改各自维护，共享能力只通过根 `packages`。

@@ -1,4 +1,4 @@
-@import url("../../drama/src/client/project-ui.css");
+@import url("./project-ui.css");
 
     :host{font:14px/1.6 system-ui;color:#e8e9ed}*{box-sizing:border-box}button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit;background:none;border:1px solid #383a41;border-radius:8px;padding:7px 12px}button:hover{background:#30323a}button:disabled{opacity:.5;cursor:default}
 .gpu-status{flex:none;padding:0 6px;color:#a7aab5;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}.collapsed .gpu-status{display:none}

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, rm, realpath, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve, relative, dirname, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -85,3 +85,39 @@ test('项目入口和开发指引的相对路径有效', async () => {
   }
   for (const tool of ['.claude', '.cursor']) assert.equal(await realpath(join(root, tool, 'agent-harness-dev.md')), await realpath(join(root, '.agents/agent-harness-dev.md')));
 });
+
+
+test('业务项目独立：源码、样式、测试和符号链接不得引用其他项目', async () => {
+  const projects = join(root, 'projects')
+  const owner = file => {
+    const path = relative(projects, file)
+    if (path.startsWith('..') || path.startsWith('/')) return null
+    const name = path.split('/')[0]
+    return projectNames.includes(name) ? name : null
+  }
+  const packageNames = new Map()
+  for (const name of plugins) packageNames.set(JSON.parse(await readFile(join(projects, name, 'package.json'), 'utf8')).name, name)
+  const scan = async (directory, project) => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (['node_modules', '.git', 'docs', 'dev_docs', 'reports'].includes(entry.name)) continue
+      const file = join(directory, entry.name)
+      if (entry.isSymbolicLink()) {
+        const target = owner(await realpath(file))
+        assert.ok(!target || target === project, `跨项目链接：${file}`)
+      } else if (entry.isDirectory()) await scan(file, project)
+      else if (['.js', '.mjs', '.ts', '.tsx', '.css', '.json', '.yml', '.yaml'].includes(extname(file))) {
+        const source = await readFile(file, 'utf8')
+        for (const [, spec] of source.matchAll(/['"](\.{1,2}\/[^'"\r\n]+)['"]/g)) {
+          const target = owner(resolve(dirname(file), spec))
+          assert.ok(!target || target === project, `跨项目路径：${relative(root, file)} → ${spec}`)
+        }
+        for (const [name, target] of packageNames) {
+          if (target === project) continue
+          const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          assert.equal(new RegExp(`['"]${escaped}(?:/[^'"\\r\\n]*)?['"]`).test(source), false, `跨项目包引用：${file} → ${name}`)
+        }
+      }
+    }
+  }
+  for (const project of projectNames) await scan(join(projects, project), project)
+})

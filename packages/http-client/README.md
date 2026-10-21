@@ -64,3 +64,17 @@ const result = await requestData({
 请求头默认按字段名隐藏 Authorization、Proxy-Authorization、API-Key/X-API-Key、Cookie/Set-Cookie 及常见 Auth/Access-Token，大小写与下划线变体均可识别，无需额外提供密钥值。`requestData`、`sendChat` 和模型生成接口可传 `sensitiveHeaders: ['X-Workspace-Token']` 补充敏感头名称；直接投影使用 `publicHeaders(headers, apiKey, { sensitiveHeaders })`。支持普通对象、Headers 和键值对数组；仅改变记录投影，实际请求头保持原值。自行传入的 `trace` 由调用方确保已脱敏。
 
 底层 `requestRemoteTask/remoteTaskHeaders` 位于 `@agent-modules/http-client/remote-task`，可在不使用模型客户端时独立接入相同异步服务协议。
+
+## 调用记录
+
+`HttpRecords` 位于 `@agent-modules/http-client/records`。调用方传入自己的 `node:sqlite` 连接。建表、记录、进行中的内存副本和查询都由这个类完成，不打开数据库文件，也不依赖任务或步骤。
+
+`http_records` 一行是一次 HTTP 请求。字段为 `id`、`started_at`、`returned_at`、`method`、`path`、请求头、参数、HTTP `status`、`ok`、返回结果和 `error`。`records.record` 可直接传给 `requestData`：发出时写入内存并插入本地，返回时间与结果先空着；返回后更新同一行。`options.partial` 表示还有后续返回，中间结果只留在内存，全部结束后才更新本地。`options.drop` 从内存和本地删除这条记录。`active()` 返回仍在等待返回的请求。
+
+`list({ offset, limit })` 按开始时间分页，只返回摘要。`read(id)` 返回请求头、参数和返回结果，不存在时为 `null`。`limit` 为 1–100，默认 50。
+
+### 公共记录界面
+
+`@agent-modules/http-client/ui` 提供 `createHttpHistory({ source, document, onBack, copyText })`。`source.list({offset, limit})` 返回 `HttpRecords.list` 的摘要数组，`source.read(id)` 返回 `HttpRecords.read` 的完整记录；列表按需读取详情，支持分页、刷新、失败重试和销毁。
+
+`renderHttpDetails(container, { transfers, copyText })` 直接渲染原步骤HTTP详情，返回销毁函数；保留请求次数、请求/返回标签、ID和内容复制。既接受HTTP存储记录，也接受HTTP模块原生transfer，样式由调用方容器提供。公共UI不绑定业务、URL或数据库；宿主负责认证和静态模块映射。

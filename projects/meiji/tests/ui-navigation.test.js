@@ -1,7 +1,7 @@
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { projectDialog, detailsDialog } from "../../drama/src/client/project-forms.js";
+import { projectDialog, detailsDialog } from "../client/project-forms.js";
 import { editor, fieldsForm } from "../client/content-forms.js";
 import { renderTaskPanel } from "../client/task-panel.js";
 import { mergeCharacters } from "../shared/collection-identity.js";

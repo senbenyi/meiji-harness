@@ -1,6 +1,6 @@
 # 公共任务系统
 
-`@agent-modules/task` 提供任务组、任务、步骤、节点状态 Model，任务管理器，内存/SQLite 存储，以及完整历史 UI。零运行时外部依赖。业务节点、项目结构、网络端点和提示词规则由调用方提供；包内不包含 meiji 适配。
+`@agent-modules/task` 提供任务组、任务、步骤、节点状态 Model，任务管理器，内存/SQLite 存储，以及完整历史 UI。任务核心使用内置能力，历史UI依赖公共http-client包。业务节点、项目结构、网络端点和提示词规则由调用方提供；包内不包含 meiji 适配。
 
 ## 入口
 
@@ -149,3 +149,5 @@ const history = createTaskHistory({
 远程 source 可自行实现 `history({node_type,status,offset,limit})`、`detail(groupId)` 和可选 `subscribe(listener)`（返回取消订阅函数），返回结构同 manager。支持 task ID 入口时，另提供 `resolveTask(taskId)` 返回组 ID 或 null；manager.historySource 已提供。切换业务范围时销毁旧控制器再创建，拒绝旧请求回写。UI 不内置 HTTP 路由、鉴权、项目定位或业务标签。`document`、`copyText(text)` 可注入；Shadow DOM 隔离样式，支持 --task-background、--task-card-background、--task-color、--task-muted、--task-border、--task-accent CSS 变量。
 
 `examples/history.html` 使用纯浏览器 Model 与模拟数据，可通过任意静态 HTTP 服务直接查看。`examples/agent.js` 联合安装本工作区的 task、prompt-composer、http-client 后可运行，验证真实本地模拟 HTTP、任务调度及 SQLite 重开；不调用真实模型。
+
+HTTP步骤详情由 `@agent-modules/http-client/ui` 提供，task的npm依赖包含http-client；历史任务的列表、任务组及步骤卡片仍由task维护。浏览器直接加载源码时，需用import map或宿主静态模块映射解析该依赖，示例见 `examples/history.html`。

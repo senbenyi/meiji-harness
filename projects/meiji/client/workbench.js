@@ -1,7 +1,7 @@
-import { renderSettings, renderModelSettings } from "../../drama/src/client/settings-ui.js";
+import { renderSettings, renderModelSettings } from "./settings-ui.js";
 import { loadLatestRecords } from './task-records.js';
 import { modelOptions } from '../shared/models/settings_model.js';
-import { projectDialog } from "../../drama/src/client/project-forms.js";
+import { projectDialog } from "./project-forms.js";
 import { renderLibrary as libraryView } from "./library-ui.js";
 import { createShell } from "./panel-shell.js";
 import { mountGpuStatus } from "./gpu-status.js";

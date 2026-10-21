@@ -24,7 +24,7 @@ export function apply(ctx) {
   tool.ready = tool.models.read().then(config => configureMainAgent(ctx, config))
   void tool.ready.catch(error => ctx.logger.warn('Drama 主Agent配置失败：%s', error.message))
   const handler = createProjectHttpHandler(tool, { authorize: req => ctx.connection.requestRejection(req), models: tool.models })
-  for (const path of ['/plugins/drama/src/client', '/api/drama'])
+  for (const path of ['/plugins/drama/src/client', '/plugins/drama/packages', '/api/drama'])
     ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path, handler }), `drama: ${path}`)
   ctx.effect(() => () => handler.dispose(), 'drama: stop events')
   ctx.on('webserver/index-inject', rows => rows.push({ kind: 'script-src', placement: 'body', src: '/plugins/drama/src/client/panel.js' }))

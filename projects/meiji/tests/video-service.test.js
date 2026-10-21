@@ -14,7 +14,7 @@ import { DatabaseSync } from "node:sqlite";
 import { JSDOM } from "jsdom";
 import { PROJECT_ASPECT_RATIOS, projectFrameSize, videoSizeOf, aspectRatioOfSize } from "../shared/media-parameters.js";
 import { emptyProject, validateProject } from "../shared/project_contract.js";
-import { projectDialog, detailsDialog } from "../../drama/src/client/project-forms.js";
+import { projectDialog, detailsDialog } from "../client/project-forms.js";
 import { ModelRepository } from "../server/data/model-repository.js";
 import { dependencyHash, isNodeCurrent } from "../shared/node-dependencies.js";
 import { seedQueuedTasks } from "./fixtures/queued-tasks.js";

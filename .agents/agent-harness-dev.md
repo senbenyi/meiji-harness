@@ -5,7 +5,7 @@
 ## 边界
 
 - `packages/`：可独立安装的公共包，不导入 `projects/`、宿主私有模块或业务配置，不内置业务规则。各包维护自己的 package.json、公开 exports、说明和测试。
-- `projects/`：业务插件、规则、数据、界面、模型选择及测试。修改业务前读取该项目 AGENTS.md 及其指向的业务规格。当前项目见 [meiji](../projects/meiji/AGENTS.md)。
+- `projects/`：业务插件、规则、数据、界面、模型选择及测试。项目之间必须独立，禁止相互 import、re-export、运行时读取源码、提供对方的静态资源路由或建立跨项目符号链接。复用现有项目代码时复制实际源码到目标项目并改为目标项目内部引用；只有 `packages` 公共能力允许共享。修改业务前读取该项目 AGENTS.md 及其指向的业务规格。当前项目见 [meiji](../projects/meiji/AGENTS.md)。
 - 根目录与 `scripts/`：工作区、项目选择、宿主配置和验证，不硬编码具体业务包名。
 - `meiji-server` 与 `deepseek-harness` 是外部服务/宿主。日常项目开发不修改它们的源码，不把供应商凭据放入仓库。
 

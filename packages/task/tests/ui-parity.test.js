@@ -47,10 +47,10 @@ test('原列表卡片六层信息顺序、当前运行任务、整行及键盘�
   let row = check(); row.querySelector('.run-id-copy').click(); await settle();
   assert.equal(calls.detail, 0); assert.deepEqual(copies, [detail.group.id]);
   row.querySelector('code').click(); await settle(); assert.equal(calls.detail, 1);
-  button(root, '← 返回').click(); await settle();
+  button(root, '←').click(); await settle();
   row = check(); row.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await settle();
   assert.ok(root.querySelector('.run-task-head'));
-  button(root, '← 返回').click(); await settle();
+  button(root, '←').click(); await settle();
   row = check(); row.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })); await settle();
   assert.ok(root.querySelector('.run-task-head'));
 });
@@ -67,12 +67,12 @@ test('步骤内联完整结果与复制，展开状态经过记录页面与刷�
   button(step(), '复制结果').click(); await settle(); assert.equal(copies[0], detail.steps[0].result);
   button(step(), '展开').click(); assert.equal(step().querySelector('.run-step-toggle').getAttribute('aria-expanded'), 'true');
   button(step(), '查看 HTTP').click(); await settle(); assert.match(root.textContent, /此步骤没有已保存的 HTTP 记录/);
-  button(root, '← 返回').click(); await settle(); assert.equal(step().classList.contains('is-expanded'), true);
+  button(root, '←').click(); await settle(); assert.equal(step().classList.contains('is-expanded'), true);
   await ui.refresh(); assert.equal(step().classList.contains('is-expanded'), true);
   button(step(), '查看提示词').click(); await settle();
   assert.equal(root.querySelectorAll('.run-record-actions button').length, 1);
   assert.ok([...root.querySelectorAll('.run-record-card')].every(card => !card.querySelector('button')));
-  button(root, '← 返回').click(); await settle(); assert.equal(step().classList.contains('is-expanded'), true);
+  button(root, '←').click(); await settle(); assert.equal(step().classList.contains('is-expanded'), true);
   button(step(), '收起').click(); assert.equal(step().classList.contains('is-expanded'), false);
 });
 
@@ -131,9 +131,9 @@ test('缺提示词的显式记录入口显示空页，列表返回保留筛选�
   await ui.refresh(); button(root, '下一页').click(); await settle();
   await ui.openGroup(detail.group.id);
   await ui.refresh();
-  button(root, '← 返回').click(); await settle();
+  button(root, '←').click(); await settle();
   assert.ok(button(root, '上一页')); const lists = calls.list;
-  await ui.openGroup(detail.group.id); button(root, '← 返回').click(); await settle(); assert.equal(calls.list, lists);
+  await ui.openGroup(detail.group.id); button(root, '←').click(); await settle(); assert.equal(calls.list, lists);
   // 明确的消息入口可由外层初始路由传入，空内容不导致渲染异常。
   const empty = createTaskHistory({ document: dom.window.document, source, initialView: { groupId: detail.group.id, stepId: detail.steps[0].id, record: 'prompt' } });
   t.after(() => empty.dispose()); await empty.ready;

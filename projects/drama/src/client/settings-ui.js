@@ -2,12 +2,14 @@ import { element } from "./panel-dom.js";
 
 export function renderSettings(root, { busy = false, settings, saveSettings, back }) {
   const page = element("section", "", "settings-page"),
-    backButton = element("button", "← 返回"),
+    backButton = element("button", "←", "back"),
     group = element("section", "", "settings-group"),
     language = element("select"),
     label = element("label", "生成语言", "settings-option"),
     message = element("p", "", "error settings-error");
   backButton.type = "button";
+  backButton.setAttribute("aria-label", "返回上一页");
+  backButton.title = "返回上一页";
   backButton.onclick = back;
   message.setAttribute("role", "status");
   language.name = "output_language";
@@ -34,7 +36,9 @@ export function renderSettings(root, { busy = false, settings, saveSettings, bac
   };
   label.append(language);
   group.append(element("h3", "语言"), label, message);
-  page.append(backButton, element("h2", "设置"), group);
+  const heading = element("div", "", "settings-heading");
+  heading.append(backButton, element("h2", "设置"));
+  page.append(heading, group);
   root.append(page);
   return page;
 }

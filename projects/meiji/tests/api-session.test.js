@@ -216,15 +216,15 @@ describe("api-session", () => {
         assert.match(response.headers.get('content-type'),/javascript/,url.pathname);
         const source = await response.text();
         for (const [,path] of source.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*)['"]([^'"]+)['"]/g)) {
-          assert.ok(path.startsWith('.') || path.startsWith('/plugins/meiji/') || path.startsWith('/plugins/drama/'),`非浏览器依赖 ${path}`);
+          assert.ok(path.startsWith('.') || path.startsWith('/plugins/meiji/'),`非浏览器依赖 ${path}`);
           await visit(new URL(path,url));
         }
       }
       await visit(new URL('/plugins/meiji/client/workbench.js',base));
       assert.ok(visited.has('/plugins/meiji/shared/prompt-models/storyboard.js'));
       for (const name of ['project-forms', 'project-detail', 'settings-ui', 'panel-dom'])
-        assert.ok(visited.has(`/plugins/drama/src/client/${name}.js`));
-      const styles = await fetch(new URL('/plugins/drama/src/client/project-ui.css', base));
+        assert.ok(visited.has(`/plugins/meiji/client/${name}.js`));
+      const styles = await fetch(new URL('/plugins/meiji/client/project-ui.css', base));
       assert.equal(styles.status, 200);
       assert.match(styles.headers.get('content-type'), /css/);
       assert.match(await styles.text(), /settings-option/);

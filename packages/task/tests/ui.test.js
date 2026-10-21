@@ -44,7 +44,7 @@ test('公共历史只有节点类型/状态筛选，全路径可查看组、步�
   root.querySelector('[aria-label="复制全部提示词"]').click(); await settle();
   assert.match(copies[0], /1\. developer:\n规则原文/);
   assert.match(copies[0], /\{\{literal\}\}/);
-  findButton(root, '← 返回').click(); await settle();
+  findButton(root, '←').click(); await settle();
   findButton(root, '查看 HTTP').click(); await settle();
   assert.match(root.textContent, /request-body/);
   findButton(root, '返回').click(); await settle();
@@ -67,6 +67,11 @@ test('筛选、分页由公共数据源处理，失败重试保留当前查询�
   findButton(root, '下一页').click(); await settle(); assert.equal(filters.at(-1).offset, 20);
   const select = root.querySelector('[aria-label="节点类型"]'); select.value = 'custom'; select.dispatchEvent(new dom.window.Event('change')); await settle();
   assert.deepEqual(filters.at(-1), { status: '', node_type: 'custom', offset: 0, limit: 20 });
+  const count = filters.length;
+  assert.equal(root.querySelector('.task-history-header').lastElementChild.textContent, '刷新');
+  findButton(root, '刷新').click(); await settle();
+  assert.equal(filters.length, count + 1);
+  assert.equal(filters.at(-1).node_type, 'custom');
   fail = true; await ui.refresh(); assert.match(root.textContent, /暂时不可用/);
   findButton(root, '重新加载').click(); await settle(); assert.equal(filters.at(-1).node_type, 'custom');
 });
