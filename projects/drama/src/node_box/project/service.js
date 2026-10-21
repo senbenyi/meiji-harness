@@ -8,7 +8,8 @@ import { CreateProjectExecutor } from './executor.js'
 import { projectInfo } from './create_project.js'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { createWriteQueue } from '../../project_runtime/write_queue.js'
-import { scriptFingerprint, expireScriptDependents } from '../script_revision/state.js'
+import { digest, scriptFingerprint, expireScriptDependents } from '../script_revision/state.js'
+import { waitBoxTask } from '../../node_runtime/box_report.js'
 
 /** 会话与面板共用项目服务：绑定、事件和创建/编辑/删除共享串行队列。 */
 export class ProjectService extends EventEmitter {
@@ -88,7 +89,7 @@ export class ProjectService extends EventEmitter {
   }
 
   /** 编辑走同一串行队列，绑定与旧值在服务端核对，创建请求快照保持原样。 */
-  edit(command, { sessionId, projectId }) {
+  edit(command, { sessionId, projectId, operationGroupId }) {
     return this.writes.run(async () => {
       const state = await this.#readBindings()
       if (!/^p_[a-f0-9-]{36}$/i.test(projectId || '') || state.sessions[sessionId] !== projectId)
@@ -96,7 +97,7 @@ export class ProjectService extends EventEmitter {
       if (Object.values(state.requests).some(row => row.project_id === projectId && row.deleted_at))
         throw Object.assign(new Error('项目已删除'), { code: 'PROJECT_DELETED' })
       const manager = await ProjectManager.open(join(this.root, 'projects', projectId, 'project.json'))
-      if (command.kind !== 'node_opinion' && this.activeExecution(projectId)) throw Object.assign(new Error('剧本任务正在执行，请结束后再修改资料或规则'), { code: 'PROJECT_ACTIVE' })
+      if (command.kind !== 'node_opinion' && this.activeExecution(projectId, undefined, operationGroupId)) throw Object.assign(new Error('项目任务正在执行，请结束后再修改资料或规则'), { code: 'PROJECT_ACTIVE' })
       const previous = manager.read(), next = editProject(previous, command)
       if (scriptFingerprint(previous) !== scriptFingerprint(next) && previous.script_revision.output.body) {
         next.script_revision.node_state = new NodeStateModel({ ...next.script_revision.node_state, status: 'expired', reason: '剧本资料或规则已变化，需重新优化' }).toJSON()
@@ -148,17 +149,88 @@ export class ProjectService extends EventEmitter {
     })
   }
 
-  create(input, { sessionId, requestId }) {
+  enableTaskRecords(records) {
+    if (this.recordsEnabled) return
+    this.records = records
+    records.tasks.register('project', {
+      label: '项目管理',
+      plan: task => [{ kind: task.action, name: task.action === 'create' ? '创建项目与工作区' : '修改项目上游资料', executor: 'program' }],
+      execute: async ctx => {
+        const m = ctx.task.metadata
+        ctx.signal.throwIfAborted()
+        if (ctx.task.action === 'create') {
+          const created = await this.writes.run(() => this.#creator.execute(m.info, { sessionId: m.source_session_id, requestId: m.request_id }))
+          return { result: { created } }
+        }
+        await this.edit(m.command, { sessionId: m.session_id, projectId: m.project_id, operationGroupId: ctx.task.group_id })
+        return { result: { changed: true, parent_group_id: m.parent_group_id } }
+      },
+    })
+    this.recordsEnabled = true
+  }
+
+  create(input, { sessionId, requestId, source = 'api', goal = '创建项目' }) {
     if (typeof sessionId !== 'string' || !sessionId || typeof requestId !== 'string' || !requestId)
       return Promise.reject(new TypeError('需提供会话ID和请求ID'))
     const info = projectInfo(input)
-    return this.writes.run(() => this.#creator.execute(info, { sessionId, requestId }))
+    if (!this.recordsEnabled) return this.writes.run(() => this.#creator.execute(info, { sessionId, requestId }))
+    const prepared = this.writes.run(async () => {
+      const state = await this.#readBindings(), key = JSON.stringify([sessionId, requestId])
+      let row = state.requests[key]
+      if (row?.deleted_at) throw Object.assign(new Error('项目已删除，请使用新的创建请求'), { code: 'PROJECT_DELETED' })
+      if (row && JSON.stringify(row.info) !== JSON.stringify(info)) throw new Error('同一请求ID不能用于不同项目资料')
+      if (!row) row = state.requests[key] = { project_id: `p_${randomUUID()}`, info }
+      row.pending_session_id ??= row.session_id || `session-${randomUUID()}`
+      await this.#saveBindings(state)
+      let attempt = 0, id, old
+      do {
+        id = digest(['project', sessionId, requestId, attempt++])
+        old = this.records.tasks.detail(this.records.scope, id)
+        if (old && ['queued', 'running', 'completed'].includes(old.status)) return id
+      } while (old)
+      this.records.tasks.submit(this.records.scope, {
+        group: { id, name: '创建项目', source, metadata: { notify_main: true } },
+        tasks: [{ node_type: 'project', action: 'create', name: '创建项目', metadata: {
+          project_id: row.project_id, source_session_id: sessionId, target_session_id: row.pending_session_id,
+          request_id: requestId, info, goal, attempt,
+        } }],
+      })
+      return id
+    })
+    return prepared.then(async id => {
+      this.records.tasks.start(this.records.scope)
+      const report = await waitBoxTask(this.records, id)
+      if (report.status !== 'completed') throw new Error(report.reason || '创建项目失败')
+      return { ...report.result, group_id: id, report }
+    })
+  }
+
+  async editUpstream(command, { sessionId, requestId, reportId, signal }) {
+    const previous = this.records.tasks.detail(this.records.scope, reportId)
+    if (!previous || previous.tasks[0].metadata.session_id !== sessionId || previous.status !== 'rejected'
+      || previous.steps.findLast(step => step.result?.review)?.result.review.status !== 'upstream_issue')
+      throw Object.assign(new Error('需提供当前会话的上游问题报告'), { code: 'PROJECT_SCOPE' })
+    if (!['basic_info', 'import_script'].includes(command?.kind)) throw new TypeError('只允许修复项目基本资料或导入用户提供的原稿')
+    const projectId = previous.tasks[0].metadata.project_id
+    const id = digest(['project-edit', sessionId, requestId])
+    await this.writes.run(async () => {
+      if (!this.records.tasks.detail(this.records.scope, id)) this.records.tasks.submit(this.records.scope, {
+        group: { id, name: '修复项目上游资料', source: 'conversation', metadata: { parent_group_id: reportId } },
+        tasks: [{ node_type: 'project', action: 'edit', name: '修复项目资料', metadata: {
+          project_id: projectId, session_id: sessionId, parent_group_id: reportId,
+          command, goal: previous.tasks[0].metadata.goal || previous.tasks[0].metadata.instruction,
+        } }],
+      })
+    })
+    this.records.tasks.start(this.records.scope)
+    return waitBoxTask(this.records, id, signal)
   }
 
   /** 跨盒子的活动任务查询，用于项目写入保护和面板状态投影。 */
-  activeExecution(projectId, nodeType) {
+  activeExecution(projectId, nodeType, excludeGroupId) {
     if (!this.records) return null
     for (const { group, tasks } of this.records.tasks.activeGroups(this.records.scope)) {
+      if (group.id === excludeGroupId) continue
       const task = tasks.find(task => (!nodeType || task.node_type === nodeType)
         && (task.metadata.project_id ?? group.metadata.project_id) === projectId
         && ['queued', 'running'].includes(task.task_status))

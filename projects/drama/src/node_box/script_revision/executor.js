@@ -3,7 +3,7 @@ import { composeNodePrompt } from '../../node_runtime/node_prompt_composer.js'
 import { parseNodeOutput } from '../../node_runtime/output_response_parser.js'
 import { digest, scriptFingerprint } from './state.js'
 
-const step = (kind, round = 0) => ({ kind, round, name: { generate: '生成优化剧本', revise: '按意见修订剧本', review: '剧本本地审核', project_review: '主Agent项目审核' }[kind], executor: 'ai' })
+const step = (kind, round = 0) => ({ kind, round, name: { generate: '生成优化剧本', revise: '按意见修订剧本', review: '剧本本地审核' }[kind], executor: 'ai' })
 const issueReason = review => review.issues.map(issue => `${issue.location}：${issue.reason}；${issue.suggestion}`).join('\n')
 
 /** 无会话历史、无工具权限的独立模型worker；每次调用为独立可追踪步骤。 */
@@ -25,7 +25,7 @@ export class ScriptRevisionExecutor {
     const generated = previousResults.findLast(row => ['generate', 'revise'].includes(row.kind))
     const expectedOutput = generated ? digest(generated.result.output) : metadata.output_hash
     if (digest(project.script_revision.output) !== expectedOutput) throw new Error('优化稿已被其他操作修改，请重新提交')
-    const config = await this.models.read(), kind = ctx.step.kind, action = kind === 'project_review' ? 'review' : kind
+    const config = await this.models.read(), kind = ctx.step.kind, action = kind
     const lastReview = previousResults.findLast(row => row.result?.review)
     const input = {
       original_script: project.basic_info.original_script,
@@ -37,8 +37,7 @@ export class ScriptRevisionExecutor {
       ...(kind === 'revise' && lastReview ? { review_issues: lastReview.result.review.issues } : {}),
     }
     const prompt = composeNodePrompt({ nodeType: 'script_revision', action, rules: project.script_revision.rules, input, goal: metadata.instruction })
-    if (kind === 'project_review') prompt.messages.unshift({ role: 'system', content: '你是主Agent的项目审核。仅核对当前目标、本次候选、实际引用的原始剧本和本节点规则。返回规定的四种审核结论之一，不读取或推测其他节点，不修改规则。' })
-    const model = kind === 'project_review' ? config.session.model : config.text.model
+    const model = config.text.model
     ctx.recordPrompt({ model, messages: prompt.messages, input })
     const record = async (transfer, options) => {
       transfer.title = `剧本优化 · ${ctx.step.name}`
@@ -60,7 +59,6 @@ export class ScriptRevisionExecutor {
     }
     const review = output
     if (review.status === 'passed') {
-      if (kind === 'review') return { result: { review }, nextSteps: [step('project_review', ctx.step.round)] }
       await this.projects.saveScriptCandidate(ctx, project.script_revision.output, { expectedOutput, passed: true })
       return { result: { review } }
     }
