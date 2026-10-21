@@ -7,7 +7,7 @@ import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { TaskGroupModel, TaskModel, StepModel } from '@agent-modules/task/models'
 import { createRecordService } from '../src/records/service.js'
-import { serveRecordRoute } from '../src/http/record_routes.js'
+import { serveRecordRoute } from '../src/harness_server/record_routes.js'
 
 test('节点公共历史只返回当前项目/节点，HTTP从步骤关联，拒绝跨节点详情', async t => {
   const root=await mkdtemp(join(tmpdir(),'drama-node-records-')),records=createRecordService(root),project=`p_${randomUUID()}`

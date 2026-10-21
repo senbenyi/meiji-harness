@@ -5,7 +5,7 @@ import { createModelRecorder } from '@agent-modules/http-client/model-records'
 import { HttpRecords } from '@agent-modules/http-client/records'
 import { TaskManager } from '@agent-modules/task'
 import { SQLiteTaskStore } from '@agent-modules/task/sqlite'
-import { nodeDefinitions } from '../project/node_definitions.js'
+import { nodeDefinitions } from '../node_runtime/node_definition_registry.js'
 
 const labels = { script_revision: '剧本优化', story_segments: '故事分段', character_extraction: '人物提取', scene_extraction: '场景提取', costume_image: '定妆照', scene_image: '场景图', shot_design: '镜头设计', video_prompt: '视频提示词', clip_video: '分片视频', clip_composition: '分片编排', merge_video: '合片' }
 export const historyNodeTypes = [...Object.keys(nodeDefinitions).filter(key => !key.startsWith('$')), 'clip_composition', 'clip_video', 'merge_video'].map(type => ({ type, label: labels[type] || type }))

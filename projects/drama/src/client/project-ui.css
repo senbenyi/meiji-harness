@@ -164,3 +164,12 @@ header,main,[role=status]{padding:16px}header{display:flex;align-items:center;ju
 .project-overview .title-with-edit>.project-delete:hover{border-color:#b36c75;background:#27191c;color:#f0b8be}
 .project-overview .title-with-edit>.project-delete:disabled{opacity:.5;cursor:wait}
 .project-delete-error:empty{display:none}
+
+.original-script-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.original-script-heading h3{margin:0;min-width:0}
+.original-script-heading .script-view{flex:none;padding:3px 8px;min-height:28px;font-size:12px;line-height:20px;border:1px solid #343a44;border-radius:6px;background:none;color:#b3bac5}
+.original-script-heading .script-view:hover{color:#fff;border-color:#626b79}
+:is(.project-overview,.project-script-page) .script-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden;max-height:7.2em;white-space:pre-wrap;overflow-wrap:anywhere}
+.project-script-page .original-script-full{white-space:pre-wrap;overflow-wrap:anywhere;max-height:none;overflow:visible}
+
+.script-execution-status{font-size:11px;line-height:20px;color:#e8c58c}

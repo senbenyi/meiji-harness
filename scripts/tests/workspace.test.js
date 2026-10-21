@@ -53,7 +53,9 @@ test('工作区包通过本地源码链接，业务模块能够导入', async ()
   }
   for (const project of plugins) {
     assert.equal(typeof (await import(pathToFileURL(join(root, 'projects', project, 'index.js')))).apply, 'function');
-    assert.equal(typeof (await import(pathToFileURL(join(root, 'projects', project, 'session.js')))).apply, 'function');
+    const manifest = JSON.parse(await readFile(join(root, 'projects', project, 'package.json'), 'utf8'));
+    assert.equal(typeof manifest.exports?.['./session'], 'string');
+    assert.equal(typeof (await import(pathToFileURL(join(root, 'projects', project, manifest.exports['./session'])))).apply, 'function');
   }
 });
 

@@ -15,8 +15,7 @@
     "manager",
     "store",
     "ui",
-    "examples",
-    "README.md"
+    "examples"
   ],
   "scripts": {
     "test": "node --test tests/*.test.js",

@@ -265,3 +265,40 @@ for (const backend of ['memory', 'sqlite']) {
     } finally { await manager.dispose(); store.close(); }
   });
 }
+
+test('动态追加步骤保持同一任务，每次调用独立记录，无固定轮数', async () => {
+  const manager = new TaskManager({ nodes: { revise: {
+    plan: () => [{ kind: 'review', round: 0 }],
+    execute: async ctx => {
+      ctx.recordPrompt({ model: 'test', messages: [{ role: 'user', content: String(ctx.step.round) }] });
+      const transfer = { method: 'POST', path: '/test' }, id = ctx.recordHttp(transfer);
+      assert.equal(typeof id, 'string');
+      return { result: ctx.step.round, nextSteps: ctx.step.round < 5 ? [{ kind: 'review', round: ctx.step.round + 1 }] : [] };
+    },
+  } } });
+  const group = manager.submit('s', { tasks: [{ node_type: 'revise' }] }); await manager.idle('s');
+  const detail = manager.detail('s', group.group.id);
+  assert.equal(detail.status, 'completed'); assert.equal(detail.steps.length, 6);
+  assert.deepEqual(detail.steps.map(step => step.seq), [1,2,3,4,5,6]);
+  assert.equal(new Set(detail.steps.map(step => step.prompt.id)).size, 6);
+  await manager.dispose();
+});
+
+test('SQLite动态步骤重开保留，非法追加失败不污染历史，取消后不执行后续步骤', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'task-dynamic-')), file = join(directory, 'tasks.sqlite')
+  const store = new SQLiteTaskStore(file), manager = new TaskManager({ store, autoStart: false })
+  try {
+    manager.register('dynamic', { plan: () => [{ kind: 'generate' }], execute: async ctx => ({ result: ctx.step.seq, nextSteps: ctx.step.seq < 5 ? [{ kind: 'review' }] : [] }) })
+    const group = manager.submit('s', { tasks: [{ node_type: 'dynamic' }] }); manager.start('s'); await manager.idle('s')
+    assert.equal(manager.detail('s', group.group.id).steps.length, 5)
+    const reopened = new SQLiteTaskStore(file)
+    assert.equal(reopened.detail('s', group.group.id).status, 'completed'); assert.equal(reopened.detail('s', group.group.id).steps.length, 5); reopened.close()
+    manager.register('bad', { plan: () => [{ kind: 'generate' }], execute: async () => ({ nextSteps: [{ kind: '' }] }) })
+    const bad = manager.submit('s', { tasks: [{ node_type: 'bad' }] }); manager.start('s'); await manager.idle('s')
+    assert.equal(manager.detail('s', bad.group.id).status, 'failed'); assert.equal(manager.detail('s', bad.group.id).steps.length, 1)
+    let calls = 0
+    manager.register('cancel-next', { plan: () => [{ kind: 'generate' }], execute: async ctx => { calls++; manager.cancel('s', ctx.task.group_id); return { nextSteps: [{ kind: 'review' }] } } })
+    const cancelled = manager.submit('s', { tasks: [{ node_type: 'cancel-next' }] }); manager.start('s'); await manager.idle('s')
+    assert.equal(manager.detail('s', cancelled.group.id).status, 'cancelled'); assert.equal(calls, 1); assert.equal(manager.detail('s', cancelled.group.id).steps.length, 1)
+  } finally { await manager.dispose(); store.close(); rmSync(directory, { recursive: true, force: true }) }
+});

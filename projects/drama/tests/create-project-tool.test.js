@@ -4,9 +4,13 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { OptimizeScriptTool } from '../src/tools/optimize_script_tool.js'
+import { ScriptRevisionService } from '../src/node_box/script_revision/service.js'
+import { createRecordService } from '../src/records/service.js'
 import { CreateProjectTool } from '../src/tools/creat_project_tool.js'
-import { ProjectManager } from '../src/project/project_manager.js'
-import { apply as registerSession } from '../session.js'
+import { ProjectService } from '../src/node_box/project/service.js'
+import { ProjectManager } from '../src/project_runtime/project_manager.js'
+import { apply as registerSession } from '../src/session/index.js'
 
 const source = () => `session-${randomUUID()}`
 async function fixture(t) {
@@ -23,14 +27,20 @@ async function fixture(t) {
     },
     sessionController: { async create(request) { const sessionId = request.sessionId || source(); sessions.push({ sessionId, ...request }); return { sessionId } } },
   }
-  return { root, controllers, workspaces, sessions, tool: new CreateProjectTool({ root, ...controllers }) }
+  const tool = new ProjectService({ root, ...controllers })
+  tool.createProjectTool = new CreateProjectTool({ projects: tool })
+  tool.records = createRecordService(root)
+  t.after(() => tool.records.dispose())
+  tool.optimizeScriptTool = new OptimizeScriptTool({ scriptRevision: new ScriptRevisionService({ projects: tool, records: tool.records, models: { read: async () => ({}) } }) })
+  return { root, controllers, workspaces, sessions, tool }
 }
 
 test('会话注册的创建工具保存 Model/JSON、独立工作区与项目会话，事件仅在落盘后发布', async t => {
   const { tool, root, workspaces, sessions } = await fixture(t)
-  let registered
-  registerSession({ drama: tool, systemPrompt: { getSectionOrder: () => 10200, section: () => () => {} }, tools: { register(value) { registered = value; return () => {} } }, effect(fn) { fn() } })
-  assert.equal(registered.name, 'drama-create-project')
+  const registeredTools = []
+  registerSession({ drama: tool, systemPrompt: { getSectionOrder: () => 10200, section: () => () => {} }, tools: { register(value) { registeredTools.push(value); return () => {} } }, effect(fn) { fn() } })
+  const registered = registeredTools.find(tool => tool.name === 'drama-create-project')
+  assert.ok(registered)
   const events = []
   tool.on('created', event => events.push(event))
   const id = source()
@@ -51,7 +61,7 @@ test('会话注册的创建工具保存 Model/JSON、独立工作区与项目会
   assert.equal(sessions[0].agentPreset, 'standard')
   assert.equal(events[0].source_session_id, id)
   assert.deepEqual((await tool.snapshot(result.session_id)).project, project)
-  const restarted = new CreateProjectTool({ root, workspaceController: {}, sessionController: {} })
+  const restarted = new ProjectService({ root, workspaceController: {}, sessionController: {} })
   assert.deepEqual(await restarted.snapshot(result.session_id), await tool.snapshot(result.session_id))
 })
 
@@ -60,7 +70,7 @@ test('并发重复调用及重启重试只创建一次；不同会话项目和�
   const input = { name: 'A' }, context = { sessionId: source(), requestId: 'one' }
   const [a, b] = await Promise.all([tool.create(input, context), tool.create(input, context)])
   assert.deepEqual(a, b)
-  const restarted = new CreateProjectTool({ root, ...controllers })
+  const restarted = new ProjectService({ root, ...controllers })
   assert.deepEqual(await restarted.create(input, context), a)
   assert.equal(workspaces.length, 1); assert.equal(sessions.length, 1)
   const c = await restarted.create({ name: 'B' }, { sessionId: source(), requestId: 'two' })
@@ -98,7 +108,7 @@ test('拒绝空名称、未知字段及脱离会话调用', async t => {
   const context = { sessionId: source(), requestId: 'bad' }
   assert.throws(() => tool.create({ name: ' ' }, context), /项目名称/)
   assert.throws(() => tool.create({ name: 'A', id: 'fake' }, context), /字段 id/)
-  await assert.rejects(tool.execute({ name: 'A' }, {}), /Harness 会话/)
+  await assert.rejects(tool.createProjectTool.execute({ name: 'A' }, {}), /Harness 会话/)
   assert.deepEqual(await tool.snapshot('__proto__'), { project: null })
 })
 
@@ -111,7 +121,7 @@ test('无工作区会话幂等创建，不登记项目/工作区，重启和失�
   await assert.rejects(tool.startSession(requestId), /暂时不可用/)
   const state = JSON.parse(await readFile(join(root, 'bindings.json')))
   controllers.sessionController.create = create
-  const restarted = new CreateProjectTool({ root, ...controllers })
+  const restarted = new ProjectService({ root, ...controllers })
   const [a, b] = await Promise.all([restarted.startSession(requestId), restarted.startSession(requestId)])
   assert.deepEqual(a, b)
   assert.equal(a.session_id, state.draft_requests[requestId])
@@ -134,8 +144,30 @@ test('项目会话创建失败后重试复用预先保存的会话ID', async t =
   controllers.sessionController.create = async request => { reserved = request.sessionId; throw new Error('会话失败') }
   await assert.rejects(tool.create({ name: '恢复会话' }, context), /会话失败/)
   controllers.sessionController.create = create
-  const restarted = new CreateProjectTool({ root, ...controllers })
+  const restarted = new ProjectService({ root, ...controllers })
   const result = await restarted.create({ name: '恢复会话' }, context)
   assert.equal(result.session_id, reserved)
   assert.equal(workspaces.length, 1)
+})
+
+test('Tool仅委托项目服务并转换宿主上下文，返回和异常原样传递', async () => {
+  const calls = [], args = { name: '边界测试' }, result = { project_id: 'p-test', session_id: 'target' }
+  const tool = new CreateProjectTool({ projects: { async create(...values) { calls.push(values); return result } } })
+  assert.equal(typeof tool.create, 'undefined'); assert.equal(typeof tool.snapshot, 'undefined'); assert.equal(typeof tool.on, 'undefined')
+  await assert.rejects(tool.execute(args, {}), /Harness 会话/); assert.equal(calls.length, 0)
+  assert.deepEqual(JSON.parse(await tool.execute(args, { callId: 'call-1', agent: { session: { id: 'source' } } })), result)
+  assert.equal(calls[0][0], args); assert.deepEqual(calls[0][1], { sessionId: 'source', requestId: 'call-1' })
+  const failure = new Error('业务失败')
+  const failed = new CreateProjectTool({ projects: { async create() { throw failure } } })
+  await assert.rejects(failed.execute(args, { callId: 'call', agent: { session: { id: 'source' } } }), error => error === failure)
+})
+
+test('AI Tool和UI服务入口并发共用执行器与队列，重复请求只有一份项目/工作区/会话', async t => {
+  const { tool, workspaces, sessions } = await fixture(t), sessionId = source(), args = { name: '共同入口' }
+  const [ui, ai] = await Promise.all([
+    tool.create(args, { sessionId, requestId: 'shared' }),
+    tool.createProjectTool.execute(args, { callId: 'shared', agent: { session: { id: sessionId } } }),
+  ])
+  assert.deepEqual(JSON.parse(ai), ui); assert.equal(workspaces.length, 1); assert.equal(sessions.length, 1)
+  assert.equal((await tool.snapshot(ui.session_id)).project.basic_info.name, '共同入口')
 })

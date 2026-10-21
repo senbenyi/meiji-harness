@@ -34,7 +34,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
   nav.append(library, settings)
   header.append(heading, nav)
   root.append(header, content, status)
-  let session, stream, version = 0, disposed = false, switching = null, project = null, page = 'home', modelSettings = null, modelOptions = null, settingsTicket = 0
+  let session, stream, version = 0, disposed = false, switching = null, project = null, scriptExecution = null, page = 'home', modelSettings = null, modelOptions = null, settingsTicket = 0
   let settingsReturnPage = 'home', disposeLibrary, recordView
   const libraryState = { tab: 'projects', category: 'characters' }
   let projectView, projectViewId, sessionReady = false, eventCursor = null
@@ -145,12 +145,18 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       content.append(empty)
       return
     }
-    if (projectView) { projectView.update(project); return }
+    if (projectView) { projectView.update(project, { scriptExecution }); return }
     const ownerSession = session, projectId = project.basic_info.id
     projectViewId = projectId
     if (!projectStates.has(projectId)) projectStates.set(projectId, {})
-    projectView = createProjectView(content, { project, request: path => request(path, undefined, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
+    projectView = createProjectView(content, { project, scriptExecution, request: path => request(path, undefined, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
       refresh: () => { void refresh().catch(report) },
+      optimize: async (instruction, requestId) => {
+        if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
+        return request('script-optimization', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
+          body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction }),
+        }, ownerSession)
+      },
       remove: async () => {
         if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
         await request('project', {
@@ -189,6 +195,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     status.textContent = ''
     sessionReady = true
     project = snapshot.project
+    scriptExecution = snapshot.script_execution || null
     if (!['settings', 'library', 'http', 'tasks'].includes(page)) page = project ? 'project' : 'home'
     if (recordView && ['http', 'tasks'].includes(page)) await recordView.refresh()
     else paint()

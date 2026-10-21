@@ -6,10 +6,10 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 import { JSDOM } from 'jsdom'
-import { CreateProjectTool } from '../src/tools/creat_project_tool.js'
-import { createProjectHttpHandler } from '../src/http/project_routes.js'
-import { createProject } from '../src/project/create_project.js'
-import { editProject } from '../src/project/edit_project.js'
+import { ProjectService } from '../src/node_box/project/service.js'
+import { createProjectHttpHandler } from '../src/harness_server/project_routes.js'
+import { createProject } from '../src/node_box/project/create_project.js'
+import { editProject } from '../src/node_box/project/edit_project.js'
 import { createProjectView } from '../src/client/project-overview.js'
 import { mount } from '../src/client/workbench.js'
 
@@ -32,7 +32,7 @@ test('编辑白名单、旧值冲突与规则只允许剧本补充，不改输�
 test('真实HTTP保存、会话绑定、并发冲突、工作区改名失败及创建重试', async t => {
   const root = await mkdtemp(join(tmpdir(),'drama-edit-')), renamed=[]
   let failRename=false
-  const tool = new CreateProjectTool({root,
+  const tool = new ProjectService({root,
     workspaceController:{create:async()=>({workspace:{workspaceId:randomUUID()}}),rename:async row=>{if(failRename)throw new Error('rename failed');renamed.push(row.title)}},
     sessionController:{create:async row=>({sessionId:row.sessionId||`session-${randomUUID()}`})},
   })
@@ -79,7 +79,7 @@ test('详情只显示剧本，完整输出、编辑失败保留表单、规则�
   project.script_revision.node_state.status='generated'
   const root=document.querySelector('main'), view=createProjectView(root,{project,dialogRoot:document.querySelector('#root'),save:async value=>{command=value;if(fail)throw new Error('保存失败');project=editProject(project,value);return project}})
   assert.equal(root.querySelectorAll('[data-section]').length,2)
-  assert.equal(root.querySelector('.original-script button'),null)
+  assert.equal(root.querySelector('.original-script button').textContent,'查看剧本')
   assert.equal(root.querySelector('img'),null)
   assert.doesNotMatch(root.textContent,/不展示剧集|人物提取|选集/)
   root.querySelector('[aria-label="编辑基本信息"]').click()
@@ -153,4 +153,28 @@ test('相同项目的SSE快照不销毁正在加载的素材选择器', async t 
   assert.equal(root.querySelector('.script-picker').hidden,false)
   assert.equal(root.querySelector('.script-picker option:last-child').textContent,'素材剧本')
   view.dispose()
+})
+
+
+test('原稿与优化稿概要使用预览，详情完整只读、可返回，更新保持详情模式，空原稿无查看入口', async t => {
+  const dom=new JSDOM('<main/>'),previous=globalThis.document;globalThis.document=dom.window.document
+  t.after(()=>{globalThis.document=previous;dom.window.close()})
+  const project=await createProject({name:'预览项目',original_script:'第一行\n第二行\n第三行<img src=x>'})
+  project.script_revision.output={body:'优化第一行\n优化第二行\n优化第三行',summary:'详细摘要',estimated_duration_seconds:180}
+  const root=document.querySelector('main'),state={},view=createProjectView(root,{project,state})
+  t.after(()=>view.dispose())
+  assert.equal(root.querySelectorAll('.script-preview').length,2)
+  assert.equal(root.querySelector('.original-script-heading button').textContent,'查看剧本')
+  root.querySelector('.original-script-heading button').click()
+  assert.equal(state.mode,'original-script');assert.equal(root.querySelector('.original-script-full').textContent,project.basic_info.original_script)
+  assert.equal(root.querySelector('img'),null);assert.equal(root.querySelector('textarea'),null);assert.equal(root.querySelector('.script-preview'),null)
+  const next=structuredClone(project);next.basic_info.original_script+='\n更新正文';view.update(next)
+  assert.equal(state.mode,'original-script');assert.ok(root.textContent.includes('更新正文'))
+  root.querySelector('[aria-label="返回项目概要"]').click()
+  root.querySelector('[aria-label="打开剧本详情"]').click()
+  assert.equal(state.mode,'script');assert.ok(root.textContent.includes(project.script_revision.output.body));assert.ok(root.textContent.includes('详细摘要'));assert.equal(root.querySelector('.script-preview'),null)
+  root.querySelector('[aria-label="返回项目概要"]').click()
+  const empty=structuredClone(next);empty.basic_info.original_script='';view.update(empty)
+  assert.equal(root.querySelector('.original-script-heading button'),null)
+  assert.ok(root.textContent.includes('尚未导入原始剧本'))
 })

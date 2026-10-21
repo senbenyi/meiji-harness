@@ -1,7 +1,6 @@
-import { SettingsModel } from '@agent-modules/setting'
 import { join } from 'node:path'
-import { createSettingsStore } from '@agent-modules/setting/store'
-import { modelClient } from '@agent-modules/http-client'
+import { createSettingsService } from '@agent-modules/setting/service'
+import { createConfiguredModelClient } from '@agent-modules/http-client/configured-client'
 
 const gpt = { value: 'codex-gpt', label: 'GPT' }
 export const modelOptions = {
@@ -16,30 +15,14 @@ export const settingsSpec = {
 }
 
 export function createModelSettings(root, { onSessionModel, baseUrl = process.env.DRAMA_MODEL_BASE_URL || 'http://127.0.0.1:11435/v1' } = {}) {
-  const store = createSettingsStore(join(root, 'models.json'), { spec: settingsSpec, defaults: { baseUrl } })
-  return {
-    read: () => store.read(),
-    async save(patch) {
-      for (const key of Object.keys(patch))
-        if (!['output_language', ...Object.keys(modelOptions)].includes(key)) throw new TypeError('未知设置字段：' + key)
-      if (patch.session && onSessionModel) {
-        const current = await store.read()
-        const selection = new SettingsModel({ ...current, ...patch }, settingsSpec).toJSON()
-        await onSessionModel({ ...current, ...selection })
-      }
-      return store.write(patch)
+  const settings = createSettingsService({
+    file: join(root, 'models.json'), spec: settingsSpec, defaults: { baseUrl },
+    beforeSave: async ({ patch, next }) => {
+      if (Object.hasOwn(patch, 'session') && onSessionModel) await onSessionModel(next)
     },
-    async complete(options) {
-      const config = await store.read()
-      return modelClient.complete({ ...options, baseUrl: config.baseUrl, model: config.text.model })
-    },
-    async generateImage(options) {
-      const config = await store.read()
-      return modelClient.generateImage({ ...options, baseUrl: config.baseUrl, model: config.image.model })
-    },
-    async generateVideo(options) {
-      const config = await store.read()
-      return modelClient.generateVideo({ ...options, baseUrl: config.baseUrl, model: config.video.model })
-    },
-  }
+  })
+  const client = createConfiguredModelClient({ settings,
+    methods: { complete: 'text', generateImage: 'image', generateVideo: 'video' },
+  })
+  return { ...settings, ...client }
 }

@@ -6,13 +6,13 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { JSDOM } from 'jsdom'
-import { CreateProjectTool } from '../src/tools/creat_project_tool.js'
-import { createProjectHttpHandler } from '../src/http/project_routes.js'
+import { ProjectService } from '../src/node_box/project/service.js'
+import { createProjectHttpHandler } from '../src/harness_server/project_routes.js'
 import { mount } from '../src/client/workbench.js'
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'drama-http-'))
-  const tool = new CreateProjectTool({ root,
+  const tool = new ProjectService({ root,
     workspaceController: { create: async () => ({ workspace: { workspaceId: randomUUID() } }), rename: async () => {} },
     sessionController: { create: async request => ({ sessionId: request.sessionId || `session-${randomUUID()}` }) },
   })

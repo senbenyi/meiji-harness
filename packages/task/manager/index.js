@@ -134,12 +134,16 @@ export class TaskManager {
     await Promise.all(entries.map(([, entry]) => entry.promise));
     // store 生命周期由接入方管理，允许新管理器用同一存储恢复排队任务。
   }
-  #stepRecord(scope, taskId, stepId, change) {
-    this.store.transaction(scope, snapshot => {
+  #stepRecord(scope, taskId, stepId, change, nextSteps = []) {
+    return this.store.transaction(scope, snapshot => {
       const task = snapshot.tasks.find(t => t.id === taskId), step = snapshot.steps.find(st => st.id === stepId);
       if (task?.task_status !== 'running' || step?.step_status !== 'running') throw closedStep();
-      change(step);
-    }, { taskId });
+      const result = change(step);
+      let seq = Math.max(...snapshot.steps.filter(row => row.task_id === taskId).map(row => row.seq));
+      for (const fields of nextSteps) snapshot.steps.push(new StepModel({ ...fields, task_id: taskId, seq: ++seq,
+        step_status: 'ready', prompt: null, http: [], result: null, started_at: null, ended_at: null }).toJSON());
+      return result;
+    }, { taskId, extendSteps: nextSteps.length > 0 });
   }
   #context(scope, task, step, signal) {
     const transfers = new WeakMap();
@@ -156,7 +160,7 @@ export class TaskManager {
       },
       recordHttp: (transfer, { drop = false } = {}) => {
         record(transfer, 'transfer');
-        this.#stepRecord(scope, task.id, step.id, saved => {
+        return this.#stepRecord(scope, task.id, step.id, saved => {
           let binding = transfers.get(transfer);
           if (!binding) { binding = { id: createId(), prompt_id: saved.prompt?.id || null }; transfers.set(transfer, binding); }
           const index = saved.http.findIndex(row => row.id === binding.id);
@@ -164,6 +168,7 @@ export class TaskManager {
           // HTTP 回调可能包含未设置的可选字段；记录使用实际可序列化值。
           const row = { ...JSON.parse(JSON.stringify(transfer)), ...binding };
           if (index < 0) saved.http.push(row); else saved.http[index] = row;
+          return binding.id;
         });
       },
     };
@@ -212,9 +217,10 @@ export class TaskManager {
         if (!claimed) continue;
         task.task_status = 'running';
         if (!node) throw new Error(`节点类型未注册：${task.node_type}`);
-        const steps = this.store.read(scope, { taskId: task.id }).steps.filter(st => st.task_id === task.id).sort((a, b) => a.seq - b.seq);
         let rejected = false;
-        for (const step of steps) {
+        while (true) {
+          const step = this.store.read(scope, { taskId: task.id }).steps.filter(st => st.task_id === task.id && st.step_status === 'ready').sort((a, b) => a.seq - b.seq)[0];
+          if (!step) break;
           signal.throwIfAborted();
           this.store.transaction(scope, snapshot => {
             const saved = snapshot.steps.find(st => st.id === step.id);
@@ -223,14 +229,15 @@ export class TaskManager {
           const outcome = await node.execute(this.#context(scope, task, step, signal));
           signal.throwIfAborted();
           record(outcome ?? {}, 'outcome');
-          for (const key of Object.keys(outcome ?? {})) if (!['status', 'result', 'reason'].includes(key)) invalid(`outcome.${key}`, '未知执行结果字段');
-          const { status = 'done', result = null, reason = '' } = outcome || {};
+          for (const key of Object.keys(outcome ?? {})) if (!['status', 'result', 'reason', 'nextSteps'].includes(key)) invalid(`outcome.${key}`, '未知执行结果字段');
+          const { status = 'done', result = null, reason = '', nextSteps = [] } = outcome || {};
+          if (!Array.isArray(nextSteps) || (status === 'rejected' && nextSteps.length)) invalid('outcome.nextSteps', '需为步骤数组，拒绝结果不允许追加步骤');
           if (!['done', 'rejected', 'skipped'].includes(status)) invalid('outcome.status', '需为 done/rejected/skipped');
           text(reason, 'outcome.reason');
           if (status === 'rejected' && !reason.trim()) invalid('outcome.reason', '未通过必须有原因');
           this.#stepRecord(scope, task.id, step.id, saved => {
             saved.result = structuredClone(result); saved.step_status = status; saved.error_reason = reason; saved.ended_at = now();
-          });
+          }, nextSteps);
           if (status === 'rejected') { this.#finish(scope, task.id, 'rejected', reason); rejected = true; break; }
         }
         if (!rejected) this.#finish(scope, task.id, 'completed', '', node);

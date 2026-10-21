@@ -29,7 +29,18 @@ if [[ ! -f "$PLUGIN/package.json" ]]; then
 fi
 
 # bundle 和预设补丁由插件源码维护，配置脚本只链接，不覆盖它们。
-[[ -f "$PLUGIN/cordis.patch.yml" && -f "$PLUGIN/session.js" ]] || { echo "缺少项目预设入口" >&2; exit 1; }
+[[ -f "$PLUGIN/cordis.patch.yml" ]] || { echo "缺少项目预设补丁" >&2; exit 1; }
+node - "$PLUGIN" <<'NODE'
+const fs = require('node:fs')
+const path = require('node:path')
+const directory = process.argv[2]
+const project = JSON.parse(fs.readFileSync(path.join(directory, 'package.json'), 'utf8'))
+const entry = project.exports?.['./session']
+if (typeof entry !== 'string' || !entry.startsWith('./') || !fs.existsSync(path.resolve(directory, entry)) || !fs.statSync(path.resolve(directory, entry)).isFile()) {
+  console.error('缺少项目预设入口：请在package.json的exports["./session"]声明文件')
+  process.exit(1)
+}
+NODE
 
 if [[ ! -f "$REPO/node_modules/.package-lock.json" ]]; then
   echo "安装 Agent Harness 工作区依赖"

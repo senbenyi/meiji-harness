@@ -12,8 +12,8 @@ const editIcon = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path 
 const button = (label, action, name) => { const node = element('button', label); node.type = 'button'; node.onclick = action; if (name) node.setAttribute('aria-label', name); return node }
 
 /** meiji风格的基本资料/剧本视图；state由外层保存，所有写入通过save回调。 */
-export function createProjectView(root, { project: initialProject, save, refresh, request, remove, confirmDelete = message => root.ownerDocument.defaultView.confirm(message), dialogRoot = root, state = {} } = {}) {
-  let project = initialProject, disposed = false, recordView, disposeImport
+export function createProjectView(root, { project: initialProject, save, refresh, request, remove, optimize, scriptExecution: initialExecution = null, confirmDelete = message => root.ownerDocument.defaultView.confirm(message), dialogRoot = root, state = {} } = {}) {
+  let project = initialProject, execution = initialExecution, disposed = false, recordView, disposeImport
   state.mode ||= 'overview'
   const ownedDialogs = new Set()
   const go = mode => { state.mode = mode; paint() }
@@ -64,6 +64,24 @@ export function createProjectView(root, { project: initialProject, save, refresh
     const view = element('section', '', state.mode === 'overview' ? 'project-overview overview-page' : 'project-script-page')
     root.append(view)
     const nodeCard = () => scriptNodeCard(project.script_revision, {
+      preview: state.mode === 'overview',
+      canOptimize: !!project.basic_info.original_script.trim(), busy: !!execution || !!state.submittingOptimization,
+      executionStatus: execution?.status === 'queued' ? '等待执行' : execution ? '正在执行' : '',
+      executionError: state.optimizationError || '',
+      runOptimization: optimize ? async instruction => {
+        state.optimizationError = ''; state.submittingOptimization = true
+        if (!state.optimizationRequest || state.optimizationRequest.instruction !== instruction)
+          state.optimizationRequest = { instruction, id: root.ownerDocument.defaultView.crypto.randomUUID() }
+        paint()
+        try {
+          const result = await optimize(instruction, state.optimizationRequest.id)
+          if (disposed) return
+          execution = { group_id: result.group_id, status: result.status }
+          state.optimizationRequest = null
+          refresh?.()
+        } catch (error) { state.optimizationError = error.message; throw error }
+        finally { state.submittingOptimization = false; if (!disposed) paint() }
+      } : undefined,
       openRules: project.script_revision?.rules ? openRules : undefined,
       openTasks: request ? () => openRecords('tasks') : undefined,
       openHttp: request ? () => openRecords('http') : undefined,
@@ -71,6 +89,11 @@ export function createProjectView(root, { project: initialProject, save, refresh
       setOpinionDraft: value => { state.opinionDraft = value },
       saveOpinion: (value, previousValue) => persist({ kind: 'node_opinion', value, previousValue }),
     })
+    if (state.mode === 'original-script') {
+      backHeader(view, '原始剧本', '返回项目概要', () => go('overview'))
+      view.append(element('p', project.basic_info.original_script || '尚未导入原始剧本', 'prompt original-script-full'))
+      return
+    }
     if (state.mode === 'script') {
       backHeader(view, '剧本详情', '返回项目概要', () => go('overview'))
       view.append(nodeCard())
@@ -93,7 +116,7 @@ export function createProjectView(root, { project: initialProject, save, refresh
       heading.append(control)
     }
     view.append(heading, deleteError)
-    const basic = renderProjectDetails(view, project.basic_info)
+    const basic = renderProjectDetails(view, project.basic_info, { onViewScript: () => go('original-script') })
     const previousScript = project.basic_info.original_script
     disposeImport = scriptImport(basic, { importScript: value => persist({ kind: 'import_script', value, previousValue: previousScript }),
       listScripts: request ? async () => (await request('library')).assets : undefined,
@@ -106,7 +129,7 @@ export function createProjectView(root, { project: initialProject, save, refresh
     view.append(script)
   }
   paint()
-  return { get isShowingRecords() { return ['tasks', 'http'].includes(state.mode) }, update(next) { if (disposed) return; const unchanged = JSON.stringify(project) === JSON.stringify(next); project = next; if (!unchanged && !['rules', 'tasks', 'http'].includes(state.mode)) paint() }, dispose() {
+  return { get isShowingRecords() { return ['tasks', 'http'].includes(state.mode) }, update(next, { scriptExecution = execution } = {}) { if (disposed) return; const unchanged = JSON.stringify(project) === JSON.stringify(next) && JSON.stringify(execution) === JSON.stringify(scriptExecution); project = next; execution = scriptExecution; if (!unchanged && !['rules', 'tasks', 'http'].includes(state.mode)) paint() }, dispose() {
     if (disposed) return
     disposed = true
     recordView?.dispose()

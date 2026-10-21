@@ -74,7 +74,13 @@ export class TaskStore {
         if (value?.then) throw new TypeError('task 事务回调必须同步；异步执行放在事务之外');
         const next = validateSnapshot(draft, before);
         if (!selection.append && (selection.taskId || selection.groupId || selection.groupIds || selection.activeOnly)) {
-          for (const key of collections) if (next[key].length !== before[key].length) invalid(key, '局部事务不允许添加记录');
+          for (const key of collections) if (next[key].length !== before[key].length) {
+            const priorIds = new Set(before.steps.map(step => step.id));
+            const extension = key === 'steps' && selection.extendSteps === true && selection.taskId
+              && next.steps.length > before.steps.length
+              && next.steps.filter(step => !priorIds.has(step.id)).every(step => step.task_id === selection.taskId);
+            if (!extension) invalid(key, '局部事务不允许添加记录');
+          }
         }
         this.write(scope, next, before);
         return structuredClone(value);

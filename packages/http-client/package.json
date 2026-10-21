@@ -8,11 +8,11 @@
     "./records": "./src/records.js",
     "./model-parameters": "./src/llm-server/params.js",
     "./ui": "./ui/index.js",
-    "./model-records": "./src/model-records.js"
+    "./model-records": "./src/model-records.js",
+    "./configured-client": "./src/configured-client.js"
   },
   "files": [
     "src",
-    "README.md",
     "ui"
   ],
   "scripts": {

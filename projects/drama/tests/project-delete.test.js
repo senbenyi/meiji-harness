@@ -6,15 +6,20 @@ import { join } from 'node:path'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { JSDOM } from 'jsdom'
-import { CreateProjectTool } from '../src/tools/creat_project_tool.js'
-import { createProjectHttpHandler } from '../src/http/project_routes.js'
+import { ProjectService } from '../src/node_box/project/service.js'
+import { ScriptRevisionService } from '../src/node_box/script_revision/service.js'
+import { createRecordService } from '../src/records/service.js'
+import { createProjectHttpHandler } from '../src/harness_server/project_routes.js'
 import { createProjectView } from '../src/client/project-overview.js'
-import { createProject } from '../src/project/create_project.js'
+import { createProject } from '../src/node_box/project/create_project.js'
 
 async function fixture(t) {
   const root=await mkdtemp(join(tmpdir(),'drama-delete-')),workspaces=[],deletedWorkspaces=[],registered=new Set()
   const controllers={workspaceController:{create:async()=>{const workspaceId=randomUUID();workspaces.push(workspaceId);registered.add(workspaceId);return {workspace:{workspaceId}}},rename:async()=>{},delete:async({workspaceId})=>{deletedWorkspaces.push(workspaceId);if(!registered.delete(workspaceId))throw Object.assign(new Error('不存在'),{code:'workspace/not-found'});return {deleted:true}}},sessionController:{create:async row=>({sessionId:row.sessionId||`session-${randomUUID()}`})}}
-  const tool=new CreateProjectTool({root,...controllers}),handler=createProjectHttpHandler(tool,{authorize:req=>req.headers['x-test-user']?null:401}),server=createServer(handler)
+  const tool=new ProjectService({root,...controllers})
+  tool.records=createRecordService(root)
+  const scriptRevision=new ScriptRevisionService({projects:tool,records:tool.records,models:{read:async()=>({})}})
+  const handler=createProjectHttpHandler(tool,{authorize:req=>req.headers['x-test-user']?null:401,scriptRevision}),server=createServer(handler)
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve))
   t.after(async()=>{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await handler.dispose();await rm(root,{recursive:true,force:true})})
   const base=`http://127.0.0.1:${server.address().port}`
@@ -35,7 +40,6 @@ test('删除HTTP鉴权/绑定/活动任务保护，原子标记、列表/快照�
   assert.equal((await request(path,{method:'DELETE',headers:{'X-Drama-Request':'1'},body:'{'})).status,422)
   assert.equal((await request(path,{method:'DELETE',headers:{'X-Drama-Request':'1'},body:' '.repeat(5000)})).status,413)
   const records=tool.records
-  records.tasks.register('script_revision',{plan:()=>[{kind:'generate'}],execute:async()=>{}})
   const active=records.tasks.submit(records.scope,{group:{metadata:{project_id:a.project_id}},tasks:[{node_type:'script_revision'}]})
   records.tasks.submit(records.scope,{group:{metadata:{project_id:b.project_id}},tasks:[{node_type:'script_revision'}]})
   assert.equal((await remove(a)).status,409)
@@ -59,7 +63,7 @@ test('删除HTTP鉴权/绑定/活动任务保护，原子标记、列表/快照�
   assert.ok(row.deleted_at);assert.equal(bindings.sessions[a.session_id],a.project_id)
   assert.equal((await remove(a)).status,200)
   assert.equal((await request(path,{method:'PATCH',headers:{'X-Drama-Request':'1'},body:JSON.stringify({project_id:a.project_id,command:{kind:'basic_info',values:{name:'恢复'},previous:{name:'项目A'}}})})).status,410)
-  const reopened=new CreateProjectTool({root,...controllers})
+  const reopened=new ProjectService({root,...controllers})
   assert.deepEqual(await reopened.snapshot(a.session_id),{project:null})
   await assert.rejects(reopened.create({name:'项目A',original_script:'原稿A'},{sessionId:'source-a',requestId:'a'}),{code:'PROJECT_DELETED'})
   assert.equal(workspaces.length,2)
@@ -109,7 +113,7 @@ test('工作区删除失败不标记项目，重启后重试、重复删除及�
   controllers.workspaceController.delete=originalDelete
   // 模拟宿主删除后，进程在bindings落盘前中断。
   await originalDelete({workspaceId:result.workspace.id})
-  const reopened=new CreateProjectTool({root,...controllers})
+  const reopened=new ProjectService({root,...controllers})
   assert.equal((await reopened.remove(context)).deleted,true)
   assert.deepEqual(await reopened.snapshot(result.session_id),{project:null})
   assert.equal((await reopened.remove(context)).deleted,true)

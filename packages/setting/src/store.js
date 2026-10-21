@@ -38,11 +38,13 @@ export function createSettingsStore(file, { spec, defaults = {} } = {}) {
     async read() {
       return normalize(await readRaw(file, defaults), spec)
     },
-    async write(value) {
+    async write(value, { beforeWrite } = {}) {
       const patch = structuredClone(documentOf(value))
       const pending = writes.get(file) || Promise.resolve()
       const operation = pending.catch(() => {}).then(async () => {
-        const next = normalize({ ...await readRaw(file, defaults), ...patch }, spec)
+        const current = await readRaw(file, defaults)
+        const next = normalize({ ...current, ...patch }, spec)
+        if (beforeWrite) await beforeWrite({ current: structuredClone(current), next: structuredClone(next), patch: structuredClone(patch) })
         await mkdir(dirname(file), { recursive: true })
         const temporary = `${file}.${randomUUID()}.tmp`
         try {

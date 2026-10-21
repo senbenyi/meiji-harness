@@ -1,6 +1,6 @@
 import { element } from './panel-dom.js'
 
-export function renderProjectDetails(root, info) {
+export function renderProjectDetails(root, info, { onViewScript } = {}) {
   const section = element('section', '', 'overview-card')
   section.dataset.section = 'basic_info'
   for (const [label, value] of [
@@ -14,7 +14,13 @@ export function renderProjectDetails(root, info) {
     section.append(line)
   }
   const original = element('div', '', 'original-script')
-  original.append(element('h3', '原始剧本'), element('p', info.original_script || '尚未导入原始剧本', 'prompt full'))
+  const heading = element('div', '', 'original-script-heading')
+  heading.append(element('h3', '原始剧本'))
+  if (info.original_script?.trim() && onViewScript) {
+    const view = element('button', '查看剧本', 'script-view')
+    view.type = 'button'; view.onclick = onViewScript; heading.append(view)
+  }
+  original.append(heading, element('p', info.original_script || '尚未导入原始剧本', 'prompt script-preview'))
   section.append(original)
   root.append(section)
   return section

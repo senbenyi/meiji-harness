@@ -103,6 +103,8 @@ try {
     assert.equal(model.session.model, 'remote');
     assert.deepEqual(new SettingsModel(JSON.parse(JSON.stringify(model)), spec).toJSON(), model.toJSON());
     const { createSettingsStore } = await import('@agent-modules/setting/store');
+    const { createSettingsService } = await import('@agent-modules/setting/service');
+    const { createConfiguredModelClient } = await import('@agent-modules/http-client/configured-client');
     const { renderSettingsPanel } = await import('@agent-modules/setting/ui');
     const { mkdtemp, rm } = await import('node:fs/promises');
     const { tmpdir } = await import('node:os');
@@ -113,6 +115,12 @@ try {
       const store = createSettingsStore(join(dir, 'settings.json'), { spec, defaults: {} });
       const saved = await store.write({});
       assert.equal(saved.session.model, 'remote');
+      const service = createSettingsService({ file: join(dir, 'service.json'), spec, defaults: { baseUrl: 'http://local' } });
+      await service.save({ session: { model: 'remote' } });
+      const calls = createConfiguredModelClient({ settings: service, methods: { complete: 'session' },
+        client: { complete: async options => options } });
+      assert.equal((await calls.complete()).model, 'remote');
+      assert.equal((await calls.complete()).baseUrl, 'http://local');
       const dom = new JSDOM('<main></main>');
       const panel = renderSettingsPanel(spec, { document: dom.window.document, store });
       await panel.ready;

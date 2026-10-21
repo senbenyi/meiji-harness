@@ -32,7 +32,7 @@ try {
   for (const name of ['http-client', 'prompt-composer', 'setting', 'task']) {
     assert.equal(await realpath(join(copy, 'node_modules/@agent-modules', name)), await realpath(join(copy, 'packages', name)));
   }
-  run(process.execPath, ['--input-type=module', '-e', `await import('./projects/${copiedProject}/index.js'); await import('./projects/${copiedProject}/session.js');`]);
+  run(process.execPath, ['--input-type=module', '-e', `await import('./projects/${copiedProject}/index.js'); await import('./projects/${copiedProject}/' + ${JSON.stringify(project.exports['./session'])});`]);
   const selected = run('bash', ['-c', 'source scripts/project-path.sh; select_project "$PWD" "$1"', 'select', copiedProject]);
   assert.equal(selected.trim(), copiedProject);
   run(process.execPath, ['--test', 'scripts/tests/workspace.test.js']);
