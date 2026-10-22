@@ -1,6 +1,7 @@
 import { element } from './panel-dom.js'
 import { detailsDialog } from './project-forms.js'
 import { renderProjectDetails } from './project-detail.js'
+import { renderProjectProduction } from './project-production.js'
 import { scriptNodeCard, backHeader } from './project-node.js'
 import { scriptImport } from './script-import.js'
 import { createTaskHistory } from '@agent-modules/task/ui'
@@ -32,19 +33,19 @@ export function createProjectView(root, { project: initialProject, save, refresh
     const previous = Object.fromEntries(['name', 'aspect_ratio', 'creative_requirements', 'reference_episode_duration_seconds'].map(key => [key, project.basic_info[key]]))
     edit('编辑项目', previous, values => ({ kind: 'basic_info', values, previous }))
   }
-  const openRules = () => { state.ruleReturn = state.mode; go('rules') }
-  const openRecords = mode => { state.recordReturn = state.mode; go(mode) }
+  const openRules = (type = 'script_revision', title = '剧本优化') => { state.ruleReturn = state.mode; state.ruleNodeType = type; state.ruleNodeTitle = title; go('rules') }
+  const openRecords = (mode, type = 'script_revision', title = '剧本优化') => { state.recordReturn = state.mode; state.recordNodeType = type; state.recordNodeTitle = title; go(mode) }
   function paint() {
     if (disposed) return
     recordView?.dispose(); recordView = null
     disposeImport?.(); disposeImport = null
     root.replaceChildren()
     if (state.mode === 'tasks' || state.mode === 'http') {
-      const projectId = project.basic_info.id
-      const read = (path, filter = {}) => request(`${path}?${new URLSearchParams({ ...filter, project_id: projectId, node_type: 'script_revision' })}`)
-      const onBack = () => go(state.recordReturn === 'script' ? 'script' : 'overview')
-      recordView = state.mode === 'tasks' ? createTaskHistory({ document: root.ownerDocument, title: '剧本优化 · 任务记录', onBack,
-        nodeTypes: [{ type: 'script_revision', label: '剧本优化' }], initialView: { node_type: 'script_revision' }, source: {
+      const projectId = project.basic_info.id, nodeType = state.recordNodeType || 'script_revision', nodeTitle = state.recordNodeTitle || '剧本优化'
+      const read = (path, filter = {}) => request(`${path}?${new URLSearchParams({ ...filter, project_id: projectId, node_type: nodeType })}`)
+      const onBack = () => go(['script', 'production'].includes(state.recordReturn) ? state.recordReturn : 'overview')
+      recordView = state.mode === 'tasks' ? createTaskHistory({ document: root.ownerDocument, title: `${nodeTitle} · 任务记录`, onBack,
+        nodeTypes: [{ type: nodeType, label: nodeTitle }], initialView: { node_type: nodeType }, source: {
           history: filter => read('task-history', filter), detail: async id => (await read('task-history', { id })).detail,
         } }) : createHttpHistory({ document: root.ownerDocument, onBack, source: {
           list: async filter => (await read('http-records', filter)).records, read: async id => (await read('http-records', { id })).record,
@@ -53,16 +54,24 @@ export function createProjectView(root, { project: initialProject, save, refresh
       return
     }
     if (state.mode === 'rules') {
-      if (!project.script_revision?.rules) { go('overview'); return }
-      root.append(renderRulesPanel(project.script_revision.rules, { title: '剧本优化规则', document: root.ownerDocument,
-        baseLabel: '基础规则', ruleNote: '这里展示项目内保存的规则。各动作的补充规则独立保存。',
-        onBack: () => go(state.ruleReturn === 'script' ? 'script' : 'overview'),
-        onSave: change => persist({ kind: 'rules', node_type: 'script_revision', ...change }),
+      const nodeType = state.ruleNodeType || 'script_revision', nodeTitle = state.ruleNodeTitle || '剧本优化'
+      if (!project[nodeType]?.rules) { go(state.ruleReturn || 'overview'); return }
+      root.append(renderRulesPanel(project[nodeType].rules, { title: `${nodeTitle}规则`, document: root.ownerDocument,
+        baseLabel: '基础规则', ruleNote: nodeType === 'script_revision' ? '这里展示项目内保存的规则。各动作的补充规则独立保存。' : '这里展示项目内保存的规则，当前仅供查看。',
+        onBack: () => go(['script', 'production'].includes(state.ruleReturn) ? state.ruleReturn : 'overview'),
+        onSave: nodeType === 'script_revision' ? change => persist({ kind: 'rules', node_type: nodeType, ...change }) : undefined,
       }))
       return
     }
     const view = element('section', '', state.mode === 'overview' ? 'project-overview overview-page' : 'project-script-page')
     root.append(view)
+    if (state.mode === 'production') {
+      renderProjectProduction(view, project, { state, onBack: () => go('overview'),
+        openTasks: request ? (type, title) => openRecords('tasks', type, title) : undefined, openRules,
+        saveOpinion: save ? (type, value, previousValue) => persist({ kind: 'node_opinion', node_type: type, value, previousValue }) : undefined,
+      })
+      return
+    }
     const nodeCard = () => scriptNodeCard(project.script_revision, {
       preview: state.mode === 'overview',
       canOptimize: !!project.basic_info.original_script.trim(), busy: !!execution || !!state.submittingOptimization,
@@ -82,7 +91,7 @@ export function createProjectView(root, { project: initialProject, save, refresh
         } catch (error) { state.optimizationError = error.message; throw error }
         finally { state.submittingOptimization = false; if (!disposed) paint() }
       } : undefined,
-      openRules: project.script_revision?.rules ? openRules : undefined,
+      openRules: project.script_revision?.rules ? () => openRules() : undefined,
       openTasks: request ? () => openRecords('tasks') : undefined,
       openHttp: request ? () => openRecords('http') : undefined,
       opinionDraft: state.opinionDraft ?? project.script_revision.opinion,
@@ -116,6 +125,9 @@ export function createProjectView(root, { project: initialProject, save, refresh
       control.className = 'project-delete'
       heading.append(control)
     }
+    const next = button('下一步', () => go('production'))
+    next.className = 'project-next'
+    heading.append(next)
     view.append(heading, deleteError)
     const basic = renderProjectDetails(view, project.basic_info, { onViewScript: () => go('original-script') })
     const previousScript = project.basic_info.original_script

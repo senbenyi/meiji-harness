@@ -107,6 +107,7 @@
     }
   },
   "story_segments": {
+    "opinion": "（本节点本次执行意见；面板编辑后按需保存，未保存时缺省为空。）",
     "output": {
       "segments": [
         {
@@ -140,6 +141,7 @@
     }
   },
   "character_extraction": {
+    "opinion": "（本节点本次执行意见；面板编辑后按需保存，未保存时缺省为空。）",
     "output": {
       "characters": [
         {
@@ -248,6 +250,7 @@
     ]
   },
   "scene_extraction": {
+    "opinion": "（本节点本次执行意见；面板编辑后按需保存，未保存时缺省为空。）",
     "output": {
       "scenes": [
         {
@@ -286,6 +289,7 @@
     ]
   },
   "shot_design": {
+    "opinion": "（本节点本次执行意见；面板编辑后按需保存，未保存时缺省为空。）",
     "output": {
       "shots": [
         {
@@ -380,6 +384,7 @@
     }
   },
   "video_prompt": {
+    "opinion": "（本节点本次执行意见；面板编辑后按需保存，未保存时缺省为空。）",
     "output": {
       "items": [
         {

@@ -3,6 +3,7 @@ import { projectInfo } from './create_project.js'
 
 const editable = ['name', 'aspect_ratio', 'creative_requirements', 'reference_episode_duration_seconds']
 const nodes = ['script_revision']
+const opinionNodes = ['script_revision', 'story_segments', 'character_extraction', 'scene_extraction', 'shot_design', 'video_prompt']
 const invalid = message => { throw new TypeError(message) }
 const conflict = () => { throw Object.assign(new Error('资料已被修改，请刷新后重新编辑'), { code: 'EDIT_CONFLICT' }) }
 function object(value, allowed) {
@@ -32,8 +33,10 @@ export function editProject(project, command) {
     next.basic_info.original_script_summary = ''
   } else if (command.kind === 'node_opinion') {
     text(command.value); text(command.previousValue)
-    if (project.script_revision.opinion !== command.previousValue) conflict()
-    next.script_revision.opinion = command.value
+    const type = command.node_type ?? 'script_revision'
+    if (!opinionNodes.includes(type) || !next[type]) invalid('意见节点不存在')
+    if ((project[type].opinion ?? '') !== command.previousValue) conflict()
+    next[type].opinion = command.value
   } else if (command.kind === 'rules') {
     if (!nodes.includes(command.node_type) || !next[command.node_type]?.rules) invalid('规则节点不存在')
     if (!['generate', 'review', 'revise'].includes(command.action) || command.field !== 'supplement') invalid('只允许保存本动作的补充规则')

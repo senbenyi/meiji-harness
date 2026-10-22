@@ -173,3 +173,35 @@ header,main,[role=status]{padding:16px}header{display:flex;align-items:center;ju
 .project-script-page .original-script-full{white-space:pre-wrap;overflow-wrap:anywhere;max-height:none;overflow:visible}
 
 .script-execution-status{font-size:11px;line-height:20px;color:#e8c58c}
+
+/* 制作阶段栏复制自meiji/client/panel-styles.css，在drama独立维护。 */
+.project-overview .title-with-edit{gap:10px}
+.project-overview .title-with-edit>.project-next{flex:none;padding:3px 10px;min-height:28px;font-size:12px;line-height:20px;border:1px solid #8d7756;border-radius:6px;background:#292319;color:#f1d4a5;white-space:nowrap}
+.project-overview .title-with-edit>.project-next:hover{background:#3b3020;border-color:#dfc196}
+.project-overview .title-with-edit>.project-next:last-child:not(.project-delete+button){margin-left:auto}
+.project-production>.episode-bar{margin:0 0 16px}
+.project-production>.stage-overview{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0;margin:0 0 20px;padding:0;border-bottom:1px solid #383a41;scrollbar-width:thin;scrollbar-color:#665b48 transparent}
+.project-production>.stage-overview .stage{flex:1 0 auto;text-align:center;white-space:nowrap;font-size:12px;line-height:18px;font-weight:600;padding:10px 12px;border-radius:0;border:0;border-bottom:2px solid transparent;background:none;color:#9b9fab}
+.project-production>.stage-overview .stage[aria-current=step]{background:none;color:#dfc196;border-bottom-color:#dfc196}
+.project-production :is(.stage,.episode-back):focus-visible,.project-overview .project-next:focus-visible{outline:2px solid #dfc196;outline-offset:-2px}
+.project-production .session-body{padding:0;min-width:0}
+.project-production .production-section+.production-section{margin-top:24px}
+.project-production .production-section>.section-head{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.project-production .production-section h3{margin:0;font-size:15px;font-weight:600}
+.project-production .production-count{font-size:12px;color:#a5a7af}
+.project-production .production-empty{margin:0;padding:36px 16px;text-align:center;border:1px dashed #33363d;border-radius:10px;font-size:13px;color:#9397a2}
+.project-production .production-card{margin:0 0 12px;padding:16px;border:1px solid #34363d;border-radius:10px;background:#101114}
+.project-production .production-card h4{margin:0 0 10px;font-size:14px;font-weight:600;color:#eee}
+.project-production .production-text{margin:0;font-size:13px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;color:#c8cbd3}
+.project-production .production-meta{margin:0 0 8px;font-size:12px;color:#9397a2;overflow-wrap:anywhere}
+
+/* 制作节点复用剧本操作区，标题状态与工具行遵守同一布局。 */
+.project-production .production-section.script-node{margin-top:0}
+.project-production .production-section.script-node>.section-head{justify-content:flex-start;margin:0}
+.project-production .production-count{margin-left:auto}
+.project-production .production-section>.production-empty,.project-production .production-section>.production-card{margin-top:16px}
+.project-production .script-node .node-ui-failure:empty{display:none}
+
+/* AI生成与修改使用相同的亮金色操作样式。 */
+.project-script-page.project-production .script-node .node-ui-execution>button{border-color:#373e49;background:#242a33;color:#e8c58c}
+.project-script-page.project-production .script-node .node-ui-execution>button:disabled{background:#1b1f27;border-color:#303640;color:#e8c58c}

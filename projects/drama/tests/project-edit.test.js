@@ -60,6 +60,12 @@ test('真实HTTP保存、会话绑定、并发冲突、工作区改名失败及�
   assert.deepEqual(snapshot.project.script_revision,originalNode)
   assert.equal((await patch({kind:'node_opinion',value:'保留人物关系',previousValue:''})).status,200)
   assert.equal((await tool.snapshot(result.session_id)).project.script_revision.opinion,'保留人物关系')
+  assert.equal((await patch({kind:'node_opinion',node_type:'story_segments',value:'按因果分段',previousValue:''})).status,200)
+  assert.equal((await patch({kind:'node_opinion',node_type:'story_segments',value:'覆盖',previousValue:''})).status,409)
+  snapshot = await tool.snapshot(result.session_id)
+  assert.equal(snapshot.project.story_segments.opinion,'按因果分段')
+  assert.equal(snapshot.project.script_revision.opinion,'保留人物关系')
+  assert.equal(snapshot.project.character_extraction.opinion,undefined)
   await tool.create({name:'原名'},{sessionId:'source',requestId:'create'})
   assert.equal(renamed.at(-1),'新名')
   failRename=true
@@ -177,4 +183,19 @@ test('原稿与优化稿概要使用预览，详情完整只读、可返回，�
   const empty=structuredClone(next);empty.basic_info.original_script='';view.update(empty)
   assert.equal(root.querySelector('.original-script-heading button'),null)
   assert.ok(root.textContent.includes('尚未导入原始剧本'))
+})
+
+
+test('节点执行意见只保存指定AI节点，未知/程序节点拒绝，输出与规则不变', async () => {
+  const project=await createProject({name:'节点意见'})
+  for(const type of ['story_segments','character_extraction','scene_extraction','shot_design','video_prompt']){
+    const next=editProject(project,{kind:'node_opinion',node_type:type,value:'本节点意见',previousValue:''})
+    assert.equal(next[type].opinion,'本节点意见')
+    assert.deepEqual(next[type].output,project[type].output)
+    assert.deepEqual(next[type].rules,project[type].rules)
+    assert.equal(next.script_revision.opinion,'')
+    assert.throws(()=>editProject(next,{kind:'node_opinion',node_type:type,value:'覆盖',previousValue:''}),/已被修改/)
+  }
+  for(const type of ['videos','clip_arrangement','episodes','basic_info','__proto__','missing'])
+    assert.throws(()=>editProject(project,{kind:'node_opinion',node_type:type,value:'意见',previousValue:''}),/节点不存在/)
 })
