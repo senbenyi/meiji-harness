@@ -172,11 +172,12 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
         if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
         const result = await request('project', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
-          body: JSON.stringify({ project_id: projectId, command }),
+          body: JSON.stringify({ project_id: projectId, command, ...(command.kind === 'import_script' ? { request_id: crypto.randomUUID() } : {}) }),
         }, ownerSession)
         if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) return
         version++
         project = result.project
+        if (result.warning) status.textContent = result.warning
         return project
       },
     })

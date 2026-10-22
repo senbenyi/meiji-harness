@@ -1,3 +1,4 @@
+import { extractOriginalSummary } from './summary_extractor.js'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
@@ -46,5 +47,55 @@ export class CreateProjectExecutor {
     const result = { project_id: row.project_id, session_id: row.session_id, workspace: row.workspace }
     this.onCreated({ source_session_id: sourceSessionId, ...result })
     return result
+  }
+}
+
+
+/** 项目盒子任务执行器：一次受理一个Task，步骤定义及记录上下文都在执行层。 */
+export class ProjectExecutor {
+  constructor({ records, models, create, edit, snapshot, saveSummary }) {
+    Object.assign(this, { records, models, create, edit, snapshot, saveSummary })
+    records.tasks.register('project', {
+      label: '项目管理',
+      plan: task => this.plan(task),
+      execute: ctx => this.execute(ctx),
+    })
+  }
+
+  plan(task) {
+    return [{ kind: task.action, name: task.action === 'create' ? '创建项目与工作区'
+      : task.action === 'import_script' ? '保存原始剧本' : '修改项目上游资料', executor: 'program' }]
+  }
+
+  async execute(ctx) {
+    const m = ctx.task.metadata
+    ctx.signal.throwIfAborted()
+    if (ctx.step.kind === 'extract_summary') return this.summarizeOriginal(ctx)
+    const originalScript = m.info?.original_script ?? (m.command?.kind === 'import_script' ? m.command.value : '')
+    const nextSteps = this.models() && originalScript.trim()
+      ? [{ kind: 'extract_summary', name: '提取原始剧本摘要', executor: 'ai' }] : []
+    if (ctx.task.action === 'create') {
+      const created = await this.create(m.info, { sessionId: m.source_session_id, requestId: m.request_id })
+      return { result: { created }, nextSteps }
+    }
+    await this.edit(m.command, { sessionId: m.session_id, projectId: m.project_id, operationGroupId: ctx.task.group_id })
+    return { result: { changed: true, parent_group_id: m.parent_group_id ?? null }, nextSteps }
+  }
+
+  async summarizeOriginal(ctx) {
+    const m = ctx.task.metadata
+    const sessionId = m.target_session_id || m.session_id
+    const originalScript = m.info?.original_script ?? m.command.value
+    try {
+      const current = (await this.snapshot(sessionId)).project
+      if (!current || current.basic_info.id !== m.project_id || current.basic_info.original_script !== originalScript) throw new Error('原稿已变化，摘要未写入')
+      const summary = await extractOriginalSummary(ctx, { originalScript, models: this.models(), records: this.records })
+      await this.saveSummary({ sessionId, projectId: m.project_id, originalScript, summary, signal: ctx.signal })
+      return { result: { original_script_summary: summary, changed: true, reference: '#/basic_info/original_script_summary' } }
+    } catch (error) {
+      ctx.signal.throwIfAborted()
+      // 展示摘要失败只返回警告，不撤回已保存的项目或原稿。
+      return { result: { summary_error: `原稿已保存，摘要未生成：${error.message}` } }
+    }
   }
 }

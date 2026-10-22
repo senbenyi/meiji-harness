@@ -1,4 +1,5 @@
 import { projectFields } from '../node_box/project/create_project.js'
+import { latestUserGoal } from '../session/planning_context.js'
 
 /** AI接口适配：只声明工具协议并把宿主调用上下文交给项目服务。 */
 export class CreateProjectTool {
@@ -14,6 +15,6 @@ export class CreateProjectTool {
   async execute(args, exec) {
     const sessionId = exec?.agent?.session?.id
     if (!sessionId) throw new Error('必须从 Harness 会话调用')
-    return JSON.stringify(await this.projects.create(args, { sessionId, requestId: exec.callId }))
+    return JSON.stringify(await this.projects.create(args, { sessionId, requestId: exec.callId, source: 'conversation', goal: latestUserGoal(exec.agent) }))
   }
 }

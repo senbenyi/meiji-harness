@@ -22,13 +22,14 @@ export function editProject(project, command) {
       if (!Object.hasOwn(command.previous, key) || command.previous[key] !== project.basic_info[key]) conflict()
       next.basic_info[key] = value
     }
-    const { id, ...info } = next.basic_info
-    next.basic_info = { id, ...projectInfo(info) }
+    const { id, original_script_summary, ...info } = next.basic_info
+    next.basic_info = { id, ...projectInfo(info), ...(original_script_summary === undefined ? {} : { original_script_summary }) }
   } else if (command.kind === 'import_script') {
     text(command.value); text(command.previousValue)
     if (!command.value.trim()) invalid('剧本不能为空')
     if (project.basic_info.original_script !== command.previousValue) conflict()
     next.basic_info.original_script = command.value
+    next.basic_info.original_script_summary = ''
   } else if (command.kind === 'node_opinion') {
     text(command.value); text(command.previousValue)
     if (project.script_revision.opinion !== command.previousValue) conflict()

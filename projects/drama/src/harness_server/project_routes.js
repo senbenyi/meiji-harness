@@ -21,6 +21,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
   tool.on?.('updated', forgetCreation)
   const records = tool.records || createRecordService(tool.root)
   tool.records = records
+  tool.enableTaskRecords?.(records)
   const library = createLibraryHttpHandler(tool, json)
   const handler = async (req, res) => {
     const url = new URL(req.url, 'http://localhost')
@@ -105,8 +106,8 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
           if (size > 2 * 1024 * 1024) return json(res, 413, { message: '项目资料过大' })
           chunks.push(chunk)
         }
-        const { project_id, command } = JSON.parse(Buffer.concat(chunks).toString())
-        return json(res, 200, await tool.edit(command, { sessionId, projectId: project_id }))
+        const { project_id, command, request_id } = JSON.parse(Buffer.concat(chunks).toString())
+        return json(res, 200, await tool.edit(command, { sessionId, projectId: project_id, ...(command.kind === 'import_script' ? { requestId: request_id, source: 'ui' } : {}) }))
       }
       if (url.pathname === '/api/drama/projects' && req.method === 'POST') {
         if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
@@ -118,7 +119,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
           chunks.push(chunk)
         }
         const { fields, request_id } = JSON.parse(Buffer.concat(chunks).toString())
-        return json(res, 200, await tool.create(fields.basic_info, { sessionId, requestId: request_id }))
+        return json(res, 200, await tool.create(fields.basic_info, { sessionId, requestId: request_id, source: 'ui' }))
       }
       if (url.pathname === '/api/drama/events' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' })

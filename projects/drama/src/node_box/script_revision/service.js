@@ -18,26 +18,7 @@ export class ScriptRevisionService {
     this.executor = new ScriptRevisionExecutor({
       projects: {
         snapshot: sessionId => projects.snapshot(sessionId),
-        async changeRules(patch, { sessionId, requestId, reportId, approval, signal }) {
-    if (approval !== 'allowed-once') throw new Error('修改规则尚未获得用户授权')
-    const previous = this.records.tasks.detail(this.records.scope, reportId)
-    if (!previous || previous.tasks[0].metadata.session_id !== sessionId || boxReport(previous).decision !== 'rule_conflict')
-      throw Object.assign(new Error('需提供当前会话的规则冲突报告'), { code: 'PROJECT_SCOPE' })
-    const id = digest(['script-rules', sessionId, requestId])
-    await this.projects.writes.run(async () => {
-      if (!this.records.tasks.detail(this.records.scope, id)) this.records.tasks.submit(this.records.scope, {
-        group: { id, name: '修改剧本规则', source: 'conversation', metadata: { parent_group_id: reportId } },
-        tasks: [{ node_type: 'script_rules', action: 'change_rules', name: '修改剧本规则', metadata: {
-          project_id: previous.tasks[0].metadata.project_id, session_id: sessionId,
-          patch, approval, parent_group_id: reportId, goal: previous.tasks[0].metadata.goal,
-        } }],
-      })
-    })
-    this.records.tasks.start(this.records.scope)
-    return waitBoxTask(this.records, id, signal)
-  }
-
-  saveScriptCandidate: (...args) => this.saveScriptCandidate(...args),
+        saveScriptCandidate: (...args) => this.saveScriptCandidate(...args),
       },
       records, models,
     })
@@ -90,7 +71,7 @@ export class ScriptRevisionService {
       notify()
       return { project_id: projectId, group_id: id, status: 'queued' }
     })
-    return run.then(result => { this.records.tasks.start(this.records.scope); return result })
+    return run.then(async result => { if (source === 'ui') await this.projects.showPanelTaskStart?.(result.group_id); this.records.tasks.start(this.records.scope); return result })
   }
 
   async waitScriptOptimization(groupId, sessionId, signal) {
@@ -98,6 +79,26 @@ export class ScriptRevisionService {
     if (!detail || detail.tasks[0].metadata.session_id !== sessionId) throw Object.assign(new Error('任务不属于当前会话'), { code: 'PROJECT_SCOPE' })
     return waitBoxTask(this.records, groupId, signal)
   }
+
+  async changeRules(patch, { sessionId, requestId, reportId, approval, signal }) {
+    if (approval !== 'allowed-once') throw new Error('修改规则尚未获得用户授权')
+    const previous = this.records.tasks.detail(this.records.scope, reportId)
+    if (!previous || previous.tasks[0].metadata.session_id !== sessionId || boxReport(previous).decision !== 'rule_conflict')
+      throw Object.assign(new Error('需提供当前会话的规则冲突报告'), { code: 'PROJECT_SCOPE' })
+    const id = digest(['script-rules', sessionId, requestId])
+    await this.projects.writes.run(async () => {
+      if (!this.records.tasks.detail(this.records.scope, id)) this.records.tasks.submit(this.records.scope, {
+        group: { id, name: '修改剧本规则', source: 'conversation', metadata: { parent_group_id: reportId } },
+        tasks: [{ node_type: 'script_rules', action: 'change_rules', name: '修改剧本规则', metadata: {
+          project_id: previous.tasks[0].metadata.project_id, session_id: sessionId,
+          patch, approval, parent_group_id: reportId, goal: previous.tasks[0].metadata.goal,
+        } }],
+      })
+    })
+    this.records.tasks.start(this.records.scope)
+    return waitBoxTask(this.records, id, signal)
+  }
+
 
   saveScriptCandidate(ctx, output, { expectedOutput, passed = false, reason = '' }) {
     const run = this.projects.writes.run(async () => {

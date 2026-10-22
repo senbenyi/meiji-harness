@@ -27,7 +27,7 @@ export function projectInfo(input) {
 
 /** 空项目沿用运行时节点定义和公共规则/状态 Model，不读取开发文档模板。 */
 export async function createProject(input, id = `p_${randomUUID()}`) {
-  const project = { basic_info: { id, ...projectInfo(input) } }
+  const project = { basic_info: { id, ...projectInfo(input), original_script_summary: '' } }
   for (const type of ['script_revision', 'story_segments', 'character_extraction', 'scene_extraction', 'shot_design', 'video_prompt'])
     project[type] = await createNode(type)
   project.clip_arrangement = { clips: [], node_state: new NodeStateModel().toJSON() }

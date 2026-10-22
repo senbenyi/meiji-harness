@@ -22,6 +22,8 @@ export function boxReport(detail) {
   const review = detail.steps.findLast(step => step.result?.review)?.result.review
   const candidate = detail.steps.findLast(step => step.result?.output)?.result.output
   const created = detail.steps.findLast(step => step.result?.created)?.result.created
+  const originalSummary = detail.steps.findLast(step => step.result?.original_script_summary)?.result.original_script_summary
+  const warning = detail.steps.findLast(step => step.result?.summary_error)?.result.summary_error
   const changed = detail.steps.findLast(step => step.result?.changed)?.result
   const decision = detail.status === 'completed' ? 'passed'
     : detail.status === 'cancelled' ? 'cancelled'
@@ -37,6 +39,8 @@ export function boxReport(detail) {
     related_nodes: decision === 'upstream_issue' ? ['project'] : decision === 'rule_conflict' ? [task.node_type] : [],
     saved: Boolean(created || candidate || changed), result_reference: created ? '#/basic_info' : candidate ? '#/script_revision/output' : changed?.reference || null,
     ...(created ? { result: created } : {}),
+    ...(originalSummary ? { summary: originalSummary } : {}),
+    ...(warning ? { warning } : {}),
     ...(candidate ? { summary: candidate.summary, estimated_duration_seconds: candidate.estimated_duration_seconds,
       review_packet: { goal: metadata.goal || metadata.instruction, instruction: metadata.instruction,
         ...structuredClone(metadata.input_snapshot || {}), candidate: structuredClone(candidate) } } : {}),

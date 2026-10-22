@@ -22,3 +22,9 @@
 - `src/project_runtime/` 是整个项目共用的运行基础层，区别于业务盒子 `src/node_box/project/`；输出结构展开及规则引用渲染位于 `src/node_runtime/output_contract_renderer.js`。公共 `./project` 导出和实际项目数据存储路径不因源码目录改名而改变。
 
 - 节点共用运行机制统一在 `src/node_runtime/`，职责与文件名见 `docs/开发方向.md` 的“节点运行层”；`node_initializer.js`初始化空节点，`output_response_parser.js`解析校验实际响应，`output_contract_renderer.js`选择/展开输出结构并渲染规则。`src/node_runtime/node_prompt_composer.js`继续负责提示词组装，不将这些机制复制到盒子或公共包。
+
+- 面板任务只向已有会话展示两条独立消息，点击与结果各有ID、不互相关联，当前通过command事件写入、不触发模型推理；空会话的实际聊天展示仍受宿主限制、未验收通过；成功/取消不唤醒AI，失败才发送来源为drama-box-report的规划消息。不创建任务专用或失败兜底会话，详情见开发方向“面板任务与会话交接”。创建项目和无工作区开始会话仍保留必要的会话创建入口。
+
+- 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；保存basic_info.original_script_summary，失败仅警告、不撤回主操作。优化稿继续随正文返回output.summary，不新增摘要调用。
+
+- 盒子执行边界：Service创建/提交Task并返回结果；Executor注册节点、声明/追加Step并使用执行上下文记录提示词和调用；公共TaskManager统一写状态、时间与步骤结果，双方不直接写任务数据库。一次业务盒子执行一个Task，内部修订追加Step，重新派发才新建Task；TaskGroup只是任务组织容器。项目盒子的ProjectExecutor与创建程序子执行器位于project/executor.js，Service仅提供受理及数据读写能力。

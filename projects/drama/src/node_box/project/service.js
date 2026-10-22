@@ -4,7 +4,7 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
-import { CreateProjectExecutor } from './executor.js'
+import { CreateProjectExecutor, ProjectExecutor } from './executor.js'
 import { projectInfo } from './create_project.js'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { createWriteQueue } from '../../project_runtime/write_queue.js'
@@ -89,7 +89,9 @@ export class ProjectService extends EventEmitter {
   }
 
   /** 编辑走同一串行队列，绑定与旧值在服务端核对，创建请求快照保持原样。 */
-  edit(command, { sessionId, projectId, operationGroupId }) {
+  edit(command, { sessionId, projectId, operationGroupId, requestId, source = 'api' }) {
+    if (command?.kind === 'import_script' && this.summaryModels && this.recordsEnabled && !operationGroupId)
+      return this.importScript(command, { sessionId, projectId, requestId, source })
     return this.writes.run(async () => {
       const state = await this.#readBindings()
       if (!/^p_[a-f0-9-]{36}$/i.test(projectId || '') || state.sessions[sessionId] !== projectId)
@@ -149,22 +151,59 @@ export class ProjectService extends EventEmitter {
     })
   }
 
+  /** 根插件显式配置模型；纯存储组件不会隐式访问模型服务。 */
+  configureOriginalSummary(models) { this.summaryModels = models }
+
+  async importScript(command, { sessionId, projectId, requestId = randomUUID(), source }) {
+    const id = digest(['project-import', sessionId, requestId])
+    await this.writes.run(async () => {
+      const snapshot = await this.snapshot(sessionId)
+      if (!snapshot.project || snapshot.project.basic_info.id !== projectId) throw Object.assign(new Error('当前会话未绑定此项目'), { code: 'PROJECT_SCOPE' })
+      const old = this.records.tasks.detail(this.records.scope, id)
+      if (old) {
+        if (JSON.stringify(old.tasks[0].metadata.command) !== JSON.stringify(command)) throw new Error('同一请求ID不能用于不同导入内容')
+        return
+      }
+      if (this.activeExecution(projectId)) throw Object.assign(new Error('项目任务正在执行，请结束后再导入'), { code: 'PROJECT_ACTIVE' })
+      editProject(snapshot.project, command)
+      this.records.tasks.submit(this.records.scope, {
+        group: { id, name: '导入原始剧本', source, metadata: { notify_main: source === 'ui' } },
+        tasks: [{ node_type: 'project', action: 'import_script', name: '导入原始剧本', metadata: {
+          project_id: projectId, session_id: sessionId, command: structuredClone(command), goal: '导入原始剧本并提取展示摘要',
+        } }],
+      })
+    })
+    if (source === 'ui') await this.showPanelTaskStart?.(id)
+    this.records.tasks.start(this.records.scope)
+    const report = await waitBoxTask(this.records, id)
+    if (report.status !== 'completed') throw new Error(report.reason || '剧本导入失败')
+    return { ...(await this.snapshot(sessionId)), group_id: id, report, ...(report.warning ? { warning: report.warning } : {}) }
+  }
+
+  /** 仅提供数据提交能力；步骤编排与模型调用由Executor负责。 */
+  saveOriginalSummary({ sessionId, projectId, originalScript, summary, signal }) {
+    return this.writes.run(async () => {
+      signal.throwIfAborted()
+      const snapshot = await this.snapshot(sessionId)
+      if (!snapshot.project || snapshot.project.basic_info.id !== projectId) throw new Error('项目已删除或会话归属改变')
+      const manager = await ProjectManager.open(join(this.root, 'projects', projectId, 'project.json'))
+      if (manager.read().basic_info.original_script !== originalScript) throw new Error('原稿已变化，摘要未写入')
+      manager.change(project => { project.basic_info.original_script_summary = summary })
+      await manager.model.update()
+      this.emit('updated', { project_id: projectId, session_ids: [sessionId] })
+    })
+  }
+
   enableTaskRecords(records) {
     if (this.recordsEnabled) return
     this.records = records
-    records.tasks.register('project', {
-      label: '项目管理',
-      plan: task => [{ kind: task.action, name: task.action === 'create' ? '创建项目与工作区' : '修改项目上游资料', executor: 'program' }],
-      execute: async ctx => {
-        const m = ctx.task.metadata
-        ctx.signal.throwIfAborted()
-        if (ctx.task.action === 'create') {
-          const created = await this.writes.run(() => this.#creator.execute(m.info, { sessionId: m.source_session_id, requestId: m.request_id }))
-          return { result: { created } }
-        }
-        await this.edit(m.command, { sessionId: m.session_id, projectId: m.project_id, operationGroupId: ctx.task.group_id })
-        return { result: { changed: true, parent_group_id: m.parent_group_id } }
-      },
+    this.executor = new ProjectExecutor({
+      records,
+      models: () => this.summaryModels,
+      create: (info, context) => this.writes.run(() => this.#creator.execute(info, context)),
+      edit: (command, context) => this.edit(command, context),
+      snapshot: sessionId => this.snapshot(sessionId),
+      saveSummary: input => this.saveOriginalSummary(input),
     })
     this.recordsEnabled = true
   }
@@ -198,10 +237,11 @@ export class ProjectService extends EventEmitter {
       return id
     })
     return prepared.then(async id => {
+      if (source === 'ui') await this.showPanelTaskStart?.(id)
       this.records.tasks.start(this.records.scope)
       const report = await waitBoxTask(this.records, id)
       if (report.status !== 'completed') throw new Error(report.reason || '创建项目失败')
-      return { ...report.result, group_id: id, report }
+      return { ...report.result, group_id: id, report, ...(report.warning ? { warning: report.warning } : {}) }
     })
   }
 

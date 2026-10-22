@@ -1,0 +1,250 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtemp, rm, readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
+import { createServer } from 'node:http'
+import { ProjectService } from '../src/node_box/project/service.js'
+import { ScriptRevisionService } from '../src/node_box/script_revision/service.js'
+import { createRecordService } from '../src/records/service.js'
+import { CreateProjectTool } from '../src/tools/creat_project_tool.js'
+import { OptimizeScriptTool } from '../src/tools/optimize_script_tool.js'
+import { PlanningContextTool, ChangeRulesTool, UpdateProjectTool } from '../src/tools/planning_tools.js'
+import { ReportDispatcher, createMainAgentDelivery } from '../src/session/report_dispatcher.js'
+import { createPanelTaskDisplay } from '../src/session/panel_task_messages.js'
+import { boxReport, waitBoxTask } from '../src/node_runtime/box_report.js'
+import { planningContext } from '../src/session/planning_context.js'
+
+const candidate = { body: '候选正文', summary: '候选摘要', estimated_duration_seconds: 180 }
+const issue = status => ({ status, issues: [{ location: 'basic_info.reference_episode_duration_seconds', reason: '存在需要修复的依据', suggestion: '按用户要求修复，保留原始目标' }] })
+
+async function fixture(t, kind = 'rule') {
+  const root = await mkdtemp(join(tmpdir(), 'drama-main-planning-')), calls = []
+  const server = createServer(async (req, res) => {
+    const chunks = []; for await (const chunk of req) chunks.push(chunk)
+    const body = JSON.parse(Buffer.concat(chunks)), system = body.messages.find(message => message.role === 'system').content
+    const action = system.match(/动作：(\w+)/)[1], input = JSON.parse(body.messages.find(message => message.role === 'user').content.split('# 本次资料\n')[1])
+    calls.push({ action, body })
+    const passed = kind === 'pass' || (kind === 'rule' ? system.includes('冲突修复已授权') : input.reference_episode_duration_seconds === 190)
+    const output = action === 'review' ? passed ? { status: 'passed', issues: [] } : issue(kind === 'rule' ? 'rule_conflict' : 'upstream_issue') : candidate
+    res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) }, finish_reason: 'stop' }] }))
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const projects = new ProjectService({ root, workspaceController: { create: async () => ({ workspace: { workspaceId: randomUUID() } }), rename: async () => {} }, sessionController: { create: async ({ sessionId }) => ({ sessionId }) } })
+  const records = createRecordService(root), models = { read: async () => ({ baseUrl: `http://127.0.0.1:${server.address().port}/v1`, text: { model: 'writer' }, output_language: 'zh-CN' }) }
+  projects.records = records
+  const scripts = new ScriptRevisionService({ projects, records, models })
+  t.after(async () => { await records.dispose(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) })
+  const create = new CreateProjectTool({ projects })
+  const created = JSON.parse(await create.execute({ name: '主Agent规划', original_script: '用户原稿' }, { callId: 'create', agent: { session: { id: 'source', snapshotEvents: () => [{ type: 'user/message', data: { source: { kind: 'user' }, content: [{ type: 'text', text: '创建项目并按我的要求优化' }] } }] } } }))
+  const exec = { callId: 'optimize', agent: { session: { id: created.session_id } } }
+  const optimize = new OptimizeScriptTool({ scriptRevision: scripts })
+  const report = JSON.parse(await optimize.execute({ instruction: '保留原始目标' }, exec))
+  return { root, projects, records, scripts, calls, created, exec, optimize, report }
+}
+
+test('创建记录程序任务并交接真实目标；规则冲突报告→原生授权→保存规则→关联新任务', async t => {
+  const f = await fixture(t), { report, exec } = f
+  assert.equal(f.created.report.goal, '创建项目并按我的要求优化')
+  assert.equal(report.decision, 'rule_conflict'); assert.equal(report.saved, true)
+  assert.equal(report.review_packet.original_script, '用户原稿')
+  assert.equal(f.calls.length, 2)
+  const reader = new PlanningContextTool({ projects: f.projects, records: f.records })
+  const context = JSON.parse(await reader.execute({ report_id: report.report_id }, exec))
+  assert.deepEqual(context.executable_boxes, ['project', 'script_revision'])
+  const originalRule = context.script_revision.rules.rules.review.base
+  const changer = new ChangeRulesTool({ projects: f.projects, records: f.records, scriptRevision: f.scripts })
+  const approvals = []
+  exec.agent.ctx = { approval: { request: async request => { approvals.push(request); return 'allowed-once' } } }
+  exec.callId = 'change-rule'
+  const changed = JSON.parse(await changer.execute({ report_id: report.report_id, action: 'review', field: 'base', previous_value: originalRule, value: originalRule + '\n冲突修复已授权' }, exec))
+  assert.equal(changed.status, 'completed'); assert.equal(changed.parent_group_id, report.group_id)
+  assert.match(approvals[0].reason, /原规则：[\s\S]*新规则：/)
+  const file = join(f.root, 'projects', report.project_id, 'project.json'), saved = JSON.parse(await readFile(file))
+  assert.match(saved.script_revision.rules.rules.review.base, /冲突修复已授权/)
+  assert.equal(saved.script_revision.node_state.status, 'expired')
+  exec.callId = 'retry'
+  const completed = JSON.parse(await f.optimize.execute({ instruction: '按原目标继续', retry_of: report.group_id }, exec))
+  assert.equal(completed.status, 'completed'); assert.notEqual(completed.group_id, report.group_id)
+  assert.equal(completed.parent_group_id, report.group_id); assert.equal(completed.goal, '保留原始目标')
+  assert.equal(f.records.tasks.detail('drama', report.group_id).status, 'rejected')
+  assert.equal(f.records.tasks.detail('drama', report.group_id).tasks[0].metadata.input_snapshot.rules.rules.review.base, originalRule)
+  assert.equal(f.calls.length, 4)
+})
+
+test('拒绝授权、无授权服务调用及跨会话不能改规则；未修复不能盲目重试', async t => {
+  const f = await fixture(t), before = (await f.projects.snapshot(f.exec.agent.session.id)).project
+  const patch = { action: 'review', field: 'base', previous_value: before.script_revision.rules.rules.review.base, value: '新规则' }
+  const tool = new ChangeRulesTool({ projects: f.projects, records: f.records, scriptRevision: f.scripts })
+  f.exec.agent.ctx = { approval: { request: async () => 'rejected' } }
+  const rejected = JSON.parse(await tool.execute({ report_id: f.report.report_id, ...patch }, f.exec))
+  assert.equal(rejected.saved, false)
+  assert.deepEqual((await f.projects.snapshot(f.exec.agent.session.id)).project, before)
+  await assert.rejects(f.scripts.changeRules(patch, { sessionId: f.exec.agent.session.id, requestId: 'bad', reportId: f.report.report_id }), /授权/)
+  await assert.rejects(tool.execute({ report_id: f.report.report_id, ...patch }, { agent: { session: { id: 'source' } } }), /没有项目|当前项目会话/)
+  await assert.rejects(f.optimize.execute({ instruction: '重试', retry_of: f.report.group_id }, { ...f.exec, callId: 'unchanged' }), /尚未变化/)
+})
+
+test('上游报告→修改项目资料任务→过期事实→重派原目标，旧报告不变', async t => {
+  const f = await fixture(t, 'upstream'), tool = new UpdateProjectTool({ projects: f.projects })
+  assert.equal(f.report.decision, 'upstream_issue'); assert.deepEqual(f.report.related_nodes, ['project'])
+  const modified = JSON.parse(await tool.execute({ report_id: f.report.report_id, command: { kind: 'basic_info',
+    values: { reference_episode_duration_seconds: 190 }, previous: { reference_episode_duration_seconds: 180 } } }, { ...f.exec, callId: 'upstream' }))
+  assert.equal(modified.status, 'completed'); assert.equal(modified.parent_group_id, f.report.group_id)
+  const context = await planningContext(f.projects, f.records, { sessionId: f.exec.agent.session.id, reportId: f.report.group_id })
+  assert.equal(context.dependencies.find(row => row.node_type === 'script_revision').state, 'expired')
+  const retry = JSON.parse(await f.optimize.execute({ instruction: '继续原目标', retry_of: f.report.group_id }, { ...f.exec, callId: 'retry-upstream' }))
+  assert.equal(retry.status, 'completed'); assert.equal(retry.goal, '保留原始目标')
+  assert.equal(f.report.review_packet.reference_episode_duration_seconds, 180)
+  assert.equal((await f.projects.snapshot(f.exec.agent.session.id)).project.basic_info.reference_episode_duration_seconds, 190)
+})
+
+test('授权期间规则被修改时拒绝旧值覆盖，失败保留新规则', async t => {
+  const f = await fixture(t), id = f.exec.agent.session.id, old = (await f.projects.snapshot(id)).project.script_revision.rules.rules.review.base
+  const tool = new ChangeRulesTool({ projects: f.projects, records: f.records, scriptRevision: f.scripts })
+  f.exec.agent.ctx = { approval: { request: async () => {
+    await f.projects.edit({ kind: 'rules', node_type: 'script_revision', action: 'review', field: 'supplement', value: '用户新意见', previousValue: '' }, { sessionId: id, projectId: f.report.project_id })
+    return 'allowed-once'
+  } } }
+  // 同字段CAS测试：先用已有项目写入口更新补充规则，再提交旧补充值。
+  const report = JSON.parse(await tool.execute({ report_id: f.report.report_id, action: 'review', field: 'supplement', previous_value: '', value: 'AI建议' }, { ...f.exec, callId: 'conflict' }))
+  assert.equal(report.status, 'failed'); assert.match(report.reason, /规则已变化/)
+  const rules = (await f.projects.snapshot(id)).project.script_revision.rules.rules.review
+  assert.equal(rules.supplement, '用户新意见'); assert.equal(rules.base, old)
+})
+
+test('面板与新项目报告持久投递，重开不重复，会话Tool报告不另发通知', async t => {
+  const f = await fixture(t, 'pass'), delivered = []
+  let dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver: async report => delivered.push(report) })
+  await dispatcher.flush(); assert.equal(delivered.length, 1); assert.equal(delivered[0].session_id, f.created.session_id)
+  const accepted = await f.scripts.optimizeScript({ instruction: '面板任务' }, { sessionId: f.created.session_id, requestId: 'ui', source: 'ui' })
+  await f.scripts.waitScriptOptimization(accepted.group_id, f.created.session_id)
+  await dispatcher.flush(); await dispatcher.dispose()
+  assert.equal(delivered.length, 1)
+  dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver: async report => delivered.push(report) })
+  await dispatcher.flush(); await dispatcher.dispose(); assert.equal(delivered.length, 1)
+  const ledger = JSON.parse(await readFile(join(f.root, 'main-agent-deliveries.json')))
+  assert.ok(ledger[accepted.group_id].delivered)
+})
+
+test('投递失败重开重试；Harness消息标记业务来源，宿主已收取但账本未写也不重复', async t => {
+  const f = await fixture(t, 'pass'), messages = []
+  let dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver: async () => { throw new Error('宿主暂不可用') } })
+  await dispatcher.flush(); await dispatcher.dispose()
+  assert.equal(JSON.parse(await readFile(join(f.root, 'main-agent-deliveries.json')))[f.created.group_id].delivered, false)
+  const agent = { session: { snapshotEvents: () => [] }, inbox: { nextTurn: messages, nextStep: [] }, followup: message => messages.push(message) }
+  f.projects.applyMainAgent = async () => {}
+  const deliver = createMainAgentDelivery({ agents: { get: () => agent } }, f.projects)
+  dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver })
+  await dispatcher.flush(); await dispatcher.dispose()
+  assert.equal(messages.length, 1); assert.equal(messages[0].source.kind, 'drama-box-report'); assert.notEqual(messages[0].source.kind, 'user')
+  await deliver(f.created.report); assert.equal(messages.length, 1)
+})
+
+for (const kind of ['upstream', 'rule']) test(`面板${kind}问题向项目已有空会话追加消息，关联消息ID，不创建会话`, async t => {
+  const f = await fixture(t, kind), messages = [], events = [], selected = []
+  f.projects.sessionController.create = async () => { assert.fail('任务交接不得创建会话') }
+  f.projects.applyMainAgent = async sessionId => selected.push(sessionId)
+  const agent = { session: { snapshotEvents: () => events }, inbox: { nextTurn: messages, nextStep: [] }, followup: message => messages.push(message) }
+  const deliver = createMainAgentDelivery({ agents: { get: id => id === f.created.session_id ? agent : null } }, f.projects)
+  const panel = await f.scripts.optimizeScript({ instruction: '按面板要求优化' }, { sessionId: f.created.session_id, requestId: 'panel-problem', source: 'ui' })
+  const report = await f.scripts.waitScriptOptimization(panel.group_id, f.created.session_id)
+  assert.equal(report.decision, kind === 'upstream' ? 'upstream_issue' : 'rule_conflict')
+  const dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver })
+  await dispatcher.flush(); await dispatcher.dispose()
+  const message = messages.find(message => message.content[0].text.includes(panel.group_id))
+  assert.ok(message); assert.equal(message.source.kind, 'drama-box-report')
+  assert.match(message.content[0].text, /按面板要求优化/)
+  assert.ok(selected.every(id => id === f.created.session_id))
+  const ledger = JSON.parse(await readFile(join(f.root, 'main-agent-deliveries.json')))
+  assert.equal(ledger[panel.group_id].message_id, message.id)
+  assert.equal(ledger[panel.group_id].session_id, f.created.session_id)
+  assert.equal(ledger[panel.group_id].task_id, report.task_id)
+  assert.equal(ledger[panel.group_id].report_id, panel.group_id)
+  // 消息已进入宿主持久历史，收件箱已清空时同样去重。
+  events.push({ type: 'user/message', data: message }); messages.splice(messages.indexOf(message), 1)
+  const receipt = await deliver(report)
+  assert.equal(receipt.message_id, message.id)
+  assert.ok(!messages.some(item => item.id === message.id))
+  const restarted = new ReportDispatcher({ root: f.root, records: f.records, deliver })
+  await restarted.flush(); await restarted.dispose()
+  assert.ok(!messages.some(item => item.id === message.id))
+})
+
+test('缺少会话、错误归属、删除项目和Agent不可用均不兜底创建会话', async t => {
+  const f = await fixture(t), messages = []
+  f.projects.sessionController.create = async () => { assert.fail('失败不得创建替代会话') }
+  f.projects.applyMainAgent = async () => {}
+  const agent = { session: { snapshotEvents: () => [] }, followup: message => messages.push(message) }
+  const deliver = createMainAgentDelivery({ agents: { get: () => agent } }, f.projects)
+  await assert.rejects(deliver({ ...f.report, session_id: null }), /缺少项目关联会话/)
+  await assert.rejects(deliver({ ...f.report, session_id: 'source' }), /项目已删除或会话归属改变/)
+  const unavailable = createMainAgentDelivery({ agents: { get: () => null } }, f.projects)
+  await assert.rejects(unavailable(f.report), /主Agent当前不可用/)
+  f.projects.workspaceController.delete = async () => {}
+  await f.projects.remove({ sessionId: f.created.session_id, projectId: f.report.project_id })
+  await assert.rejects(deliver(f.report), /项目已删除或会话归属改变/)
+  assert.deepEqual(messages, [])
+})
+
+
+for (const kind of ['pass', 'upstream', 'rule']) test(`面板${kind}：开始和结果独立展示，仅失败唤醒模型`, async t => {
+  const f = await fixture(t, kind), events = [], followups = [], order = []
+  f.projects.sessionController.create = async () => { assert.fail('面板展示不创建会话') }
+  const agent = { session: {
+    snapshotEvents: () => events,
+    append: async (type, data) => { events.push({ type, data }); order.push(type) },
+  }, inbox: { nextTurn: followups, nextStep: [] }, followup: message => { followups.push(message); order.push('followup') } }
+  const ctx = { sessionController: { resolveAgent: async id => { assert.equal(id, f.created.session_id); return { agent } } }, agents: { get: () => agent } }
+  f.projects.applyMainAgent = async () => {}
+  const display = createPanelTaskDisplay(ctx, f.projects)
+  const dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver: createMainAgentDelivery(ctx, f.projects), display })
+  await dispatcher.flush() // 会话创建项目后的目标交接不属于本次面板操作。
+  followups.length = 0; order.length = 0
+  f.projects.showPanelTaskStart = async id => {
+    assert.equal(f.calls.length, 2, '开始展示必须先于本次盒子调用')
+    const detail = f.records.tasks.detail(f.records.scope, id)
+    await display(boxReport(detail), 'start', detail.tasks[0].name)
+  }
+  const accepted = await f.scripts.optimizeScript({ instruction: '本次面板要求' }, { sessionId: f.created.session_id, requestId: 'display', source: 'ui' })
+  await f.scripts.waitScriptOptimization(accepted.group_id, f.created.session_id)
+  await dispatcher.flush(); await dispatcher.dispose()
+  const starts = events.filter(event => event.type === 'command/run')
+  const results = events.filter(event => event.type === 'command/done')
+  assert.equal(starts.length, 2); assert.equal(results.length, 2)
+  assert.notEqual(starts[0].data.commandId, starts[1].data.commandId)
+  assert.match(results[0].data.text, /面板操作/); assert.match(results[1].data.text, /本次面板要求/)
+  assert.ok(!events.some(event => event.type === 'user/message' || event.type === 'assistant/message'))
+  assert.equal(followups.length, kind === 'pass' ? 0 : 1)
+  assert.equal(f.calls.length, 4, '展示不增加盒子模型请求')
+  if (kind !== 'pass') assert.equal(order.at(-1), 'followup', '先展示失败结果再交给主Agent')
+})
+
+test('用户取消的面板任务只展示取消结果，不唤醒主Agent', async t => {
+  const f = await fixture(t, 'pass'), displayed = [], delivered = []
+  const id = 'panel-cancelled'
+  f.records.tasks.submit(f.records.scope, { group: { id, name: '取消测试', source: 'ui', metadata: { notify_main: true } },
+    tasks: [{ node_type: 'script_revision', action: 'generate', name: '剧本优化', metadata: { session_id: f.created.session_id, project_id: f.created.project_id } }] })
+  f.records.tasks.cancel(f.records.scope, id, '用户取消')
+  const dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver: async report => delivered.push(report), display: async report => displayed.push(report) })
+  await dispatcher.flush(); await dispatcher.dispose()
+  assert.equal(displayed[0].status, 'cancelled')
+  assert.ok(!delivered.some(report => report.group_id === id))
+})
+
+
+test('面板执行异常先展示失败结果，再发送规划报告', async t => {
+  const f = await fixture(t, 'pass'), order = []
+  f.records.tasks.register('broken_panel', { label: '异常测试', plan: () => [{ kind: 'run', name: '程序操作', executor: 'program' }], execute: async () => { throw new Error('执行器异常依据') } })
+  const id = 'panel-failed'
+  f.records.tasks.submit(f.records.scope, { group: { id, name: '异常测试', source: 'ui', metadata: { notify_main: true } },
+    tasks: [{ node_type: 'broken_panel', action: 'run', name: '异常测试', metadata: { session_id: f.created.session_id, project_id: f.created.project_id, goal: '原目标' } }] })
+  f.records.tasks.start(f.records.scope)
+  const report = await waitBoxTask(f.records, id)
+  assert.equal(report.status, 'failed')
+  const dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver: async report => { if (report.group_id === id) order.push('model') },
+    display: async report => { assert.match(report.reason, /执行器异常依据/); order.push('display') } })
+  await dispatcher.flush(); await dispatcher.dispose()
+  assert.deepEqual(order, ['display', 'model'])
+})

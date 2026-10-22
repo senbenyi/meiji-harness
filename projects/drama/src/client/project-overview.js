@@ -91,6 +91,7 @@ export function createProjectView(root, { project: initialProject, save, refresh
     })
     if (state.mode === 'original-script') {
       backHeader(view, '原始剧本', '返回项目概要', () => go('overview'))
+      if (project.basic_info.original_script_summary) view.append(element('p', project.basic_info.original_script_summary, 'summary'))
       view.append(element('p', project.basic_info.original_script || '尚未导入原始剧本', 'prompt original-script-full'))
       return
     }

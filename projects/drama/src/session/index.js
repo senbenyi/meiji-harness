@@ -1,10 +1,15 @@
 /** 为宿主自带模式提供共享业务工具和指导，不覆盖模式自身的身份及能力。 */
+import { planningGuidance } from './planning_guidance.js'
 export const name = 'drama-session'
 export const inject = ['drama', 'tools', 'systemPrompt']
 
 export function apply(ctx) {
   ctx.effect(() => ctx.tools.register(ctx.drama.createProjectTool), 'drama: create project tool')
   ctx.effect(() => ctx.tools.register(ctx.drama.optimizeScriptTool), 'drama: optimize script tool')
+  for (const tool of ctx.drama.planningTools || []) ctx.effect(() => ctx.tools.register(tool), `drama: ${tool.name}`)
+  ctx.effect(() => ctx.systemPrompt.section({ name: 'drama:box-planning',
+    order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_SUFFIX'), text: planningGuidance,
+  }), 'drama: box planning guidance')
   ctx.effect(() => ctx.systemPrompt.section({
     name: 'drama:project-creation',
     order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_SUFFIX'),

@@ -48,18 +48,18 @@ async function run(f, instruction = '人物改为缓慢转身') {
   return f.scriptRevision.waitScriptOptimization(result.group_id, f.context.sessionId)
 }
 
-test('优化生成/本地审核/主Agent审核真实模拟HTTP，字段保存且记录关联、幂等、源会话隔离', async t => {
+test('优化生成/本地审核真实模拟HTTP并返回主Agent报告，字段保存且记录关联、幂等、源会话隔离', async t => {
   const f = await fixture(t, call => call.action === 'generate' ? candidate() : passed)
   const tool = new OptimizeScriptTool({ scriptRevision: f.scriptRevision })
   const result = JSON.parse(await tool.execute({ instruction: '人物改为缓慢转身' }, { callId: 'optimize', agent: { session: { id: f.context.sessionId } } }))
   assert.equal(result.status, 'completed'); assert.equal(result.summary, '剧情摘要')
   const project = (await f.projects.snapshot(f.context.sessionId)).project
   assert.equal(project.basic_info.original_script, '原稿：主角走进房间。'); assert.deepEqual(project.script_revision.output, candidate()); assert.equal(project.script_revision.node_state.status, 'generated')
-  assert.deepEqual(f.calls.map(call => [call.action, call.model]), [['generate','writer-test'],['review','writer-test'],['project_review','main-test']])
+  assert.deepEqual(f.calls.map(call => [call.action, call.model]), [['generate','writer-test'],['review','writer-test']])
   assert.ok(f.calls.every(call => JSON.stringify(call.messages).includes('人物改为缓慢转身')))
   assert.ok(f.calls.every(call => !JSON.stringify(call.messages).includes('character_extraction')))
   const detail = f.projects.records.tasks.detail('drama', result.group_id)
-  assert.equal(detail.steps.length, 3)
+  assert.equal(detail.steps.length, 2)
   for (const step of detail.steps) {
     assert.ok(step.prompt.id); assert.equal(step.http.length, 1)
     assert.equal(step.http[0].prompt_id, step.prompt.id)
@@ -67,7 +67,7 @@ test('优化生成/本地审核/主Agent审核真实模拟HTTP，字段保存且
     assert.ok(row); assert.equal(row.ok, true); assert.equal(row.params.model, step.prompt.model)
     assert.deepEqual(row.params.messages, step.prompt.messages)
   }
-  const again = await run(f); assert.equal(again.group_id, result.group_id); assert.equal(f.calls.length, 3)
+  const again = await run(f); assert.equal(again.group_id, result.group_id); assert.equal(f.calls.length, 2)
   await assert.rejects(f.scriptRevision.optimizeScript({ instruction: '不同要求' }, f.context), /同一请求/)
   await assert.rejects(f.scriptRevision.optimizeScript({ instruction: '修改' }, { ...f.context, sessionId: 'source' }), { code: 'PROJECT_SCOPE' })
   const reopened = createRecordService(f.root)
@@ -83,9 +83,13 @@ test('已有优化稿按意见修订，本地与项目审核内容问题自动�
   const result = await run(f)
   assert.equal(result.status, 'completed'); assert.equal(generation, 3)
   const detail = f.projects.records.tasks.detail('drama', result.group_id)
-  assert.deepEqual(detail.steps.map(s => s.kind), ['generate','review','revise','review','revise','review','project_review'])
+  assert.equal(detail.tasks.length, 1)
+  assert.ok(detail.steps.every(step => step.task_id === result.task_id))
+  assert.deepEqual(detail.steps.map(s => s.kind), ['generate','review','revise','review','revise','review'])
   f.context.requestId = 'next'
   const next = await run(f, '继续优化对白')
+  assert.notEqual(next.task_id, result.task_id)
+  assert.equal(f.projects.records.tasks.detail('drama', result.group_id).steps.length, 6)
   assert.equal(f.projects.records.tasks.detail('drama', next.group_id).steps[0].kind, 'revise')
 })
 
@@ -111,8 +115,8 @@ test('面板harness-http与会话Tool并发提交同一优化请求，仅执行�
   release()
   const result = JSON.parse(await conversation)
   assert.equal(result.group_id, accepted.group_id); assert.equal(result.status, 'completed')
-  assert.deepEqual(f.calls.map(call => call.action), ['generate', 'review', 'project_review'])
-  assert.equal(f.projects.records.tasks.store.read('drama').groups.length, 1)
+  assert.deepEqual(f.calls.map(call => call.action), ['generate', 'review'])
+  assert.equal(f.projects.records.tasks.store.read('drama').tasks.filter(task => task.node_type === 'script_revision').length, 1)
 })
 
 for (const status of ['rule_conflict','upstream_issue','repeated']) test('审核停止：' + status + '，保存候选且不改规则/上游', async t => {
@@ -175,16 +179,16 @@ test('页面按意见改编使用当前输入和稳定请求ID，执行状态禁
   view.update(project, { scriptExecution: null }); assert.equal(root.querySelector('.node-ui-execution button').disabled, false)
 })
 
-test('项目审核内容问题回到修订，支持超过三轮修改；项目审核规则冲突停止', async t => {
+test('本地内容问题支持超过三轮修改；规则冲突结束盒子并交还报告', async t => {
   let generation = 0, main = 0
   const f = await fixture(t, call => {
     if (['generate','revise'].includes(call.action)) return candidate('版本' + (++generation))
-    if (call.action === 'project_review') return ++main < 5 ? issue() : passed
+    if (call.action === 'review') return ++main < 5 ? issue() : passed
     return passed
   })
   assert.equal((await run(f)).status, 'completed'); assert.equal(generation, 5)
-  const stopped = await fixture(t, call => call.action === 'generate' ? candidate() : call.action === 'project_review' ? issue('rule_conflict') : passed)
-  assert.equal((await run(stopped)).status, 'rejected'); assert.equal(stopped.calls.length, 3)
+  const stopped = await fixture(t, call => call.action === 'generate' ? candidate() : call.action === 'review' ? issue('rule_conflict') : passed)
+  assert.equal((await run(stopped)).status, 'rejected'); assert.equal(stopped.calls.length, 2)
 })
 
 test('执行期间外部原稿变化拒绝晚结果覆盖；中断任务重开恢复为失败，不自动重放', async t => {
