@@ -3,7 +3,7 @@ import { element } from './panel-dom.js'
 // 从本项目已复制的meiji创建弹窗提取导入控件，原文只通过导入更新，无文本编辑器。
 export function scriptImport(root, { importScript, listScripts, readScript } = {}) {
   const group = element('div', '', 'project-script-import'), row = element('div', '', 'workflow-generation-row'),
-    imp = element('button', '导入剧本', 'script-import'), choose = element('button', '从素材库导入', 'script-choose'),
+    imp = element('button', '本地导入', 'script-import'), choose = element('button', '素材库导入', 'script-choose'),
     file = element('input'), picker = element('select', '', 'script-picker'), error = element('p', '', 'error')
   let ticket = 0, disposed = false, busy = false
   file.type = 'file'; file.accept = '.txt,.text,.md'; file.hidden = true; file.setAttribute('aria-label', '导入项目剧本文件')
@@ -22,7 +22,7 @@ export function scriptImport(root, { importScript, listScripts, readScript } = {
       const body = await selected.text()
       if (!active(n)) return
       if (!body.trim()) throw Error('剧本不能为空')
-      await importScript(body)
+      await importScript(body, selected.name)
     } catch (failure) { if (active(n)) error.textContent = failure.message }
     finally { if (active(n)) { file.value = ''; setBusy(false) } }
   }
@@ -47,10 +47,10 @@ export function scriptImport(root, { importScript, listScripts, readScript } = {
     try {
       setBusy(true); error.textContent = ''
       const body = await readScript(id)
-      if (active(n)) await importScript(body)
+      if (active(n)) await importScript(body, picker.selectedOptions[0].textContent)
     } catch (failure) { if (active(n)) error.textContent = failure.message }
     finally { if (active(n)) setBusy(false) }
   }
-  row.append(imp, choose); group.append(row, file, picker, error); root.append(group)
+  row.append(imp, choose); group.append(row, file, picker, error); root.insertBefore(group, root.querySelector(':scope > .script-view'))
   return () => { disposed = true; ticket++ }
 }

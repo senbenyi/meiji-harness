@@ -17,6 +17,12 @@
 :host{font:14px/1.6 system-ui,sans-serif;color:#fff;--meiji-panel-width:min(400px,44vw)}
 header,main,[role=status]{padding:16px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #383a41}h2{font-size:18px;margin:0}h3{font-size:15px}button,input,select,textarea{font:inherit;box-sizing:border-box}button{padding:7px 12px;background:#292c34;color:#eee;border:1px solid #444852;border-radius:7px;cursor:pointer}button:disabled{opacity:.5;cursor:default}form label{display:block;margin-top:12px}form input,form select,form textarea{display:block;width:100%;padding:8px;background:#17191f;color:#eee;border:1px solid #444852;border-radius:6px}form textarea{min-height:100px}.meta{color:#a0a3ad}.overview-card{padding:14px;border:1px solid #383a41;border-radius:10px}.panel-dialog-overlay{position:fixed;inset:0 0 0 auto;width:var(--meiji-panel-width,400px);background:#0009}dialog.panel-dialog{position:fixed;top:50%;left:auto;right:calc(var(--meiji-panel-width,400px) / 2);transform:translate(50%,-50%);margin:0;width:480px;max-width:calc(var(--meiji-panel-width,400px) - 24px);max-height:calc(100dvh - 32px);box-sizing:border-box}
 
+.library-heading{display:flex;align-items:center;min-height:36px;margin-bottom:12px}
+.library-heading .back{display:inline-flex;align-items:center;justify-content:center;width:36px;min-width:36px;height:36px;padding:0;border:1px solid #444;border-radius:7px;font-size:20px;color:#fff;background:#000;transition:border-color .15s ease,transform .15s ease}
+.library-heading .back:hover{border-color:#fff}
+.library-heading .back:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.library-heading .back:active{transform:translateY(1px)}
+@media(prefers-reduced-motion:reduce){.library-heading .back{transition:none}}
 .library-tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding:2px}
 .library-tabs button{flex:1;min-width:max-content;background:transparent;border-color:#383838;color:#fff}
 .library-tabs [aria-selected=true]{background:#292929;border-color:#fff}
@@ -103,7 +109,6 @@ header,main,[role=status]{padding:16px}header{display:flex;align-items:center;ju
 :is(.project-overview,.project-script-page) .node-ui-reason.is-clamped{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 :is(.project-overview,.project-script-page) .node-ui-reason-toggle{margin-top:4px;padding:2px 8px;font-size:12px}
 .project-info-line,.original-script .prompt{overflow-wrap:anywhere;white-space:pre-wrap}
-.project-overview .script-title-arrow{border:0;background:none;padding:0 4px;font-size:22px;flex:none}
 :is(.project-overview,.project-script-page) .section-titles{display:flex;align-items:center;flex-wrap:wrap}
 :is(.project-overview,.project-script-page) .prompt{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7}
 :is(.project-overview,.project-script-page) .node-ui-opinion{display:block;padding:8px;background:#17191f;color:#fff;border:1px solid #444852;border-radius:6px;font:inherit}
@@ -165,10 +170,10 @@ header,main,[role=status]{padding:16px}header{display:flex;align-items:center;ju
 .project-overview .title-with-edit>.project-delete:disabled{opacity:.5;cursor:wait}
 .project-delete-error:empty{display:none}
 
-.original-script-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.original-script-heading{display:flex;align-items:center;gap:8px}
 .original-script-heading h3{margin:0;min-width:0}
-.original-script-heading .script-view{flex:none;padding:3px 8px;min-height:28px;font-size:12px;line-height:20px;border:1px solid #343a44;border-radius:6px;background:none;color:#b3bac5}
-.original-script-heading .script-view:hover{color:#fff;border-color:#626b79}
+.original-script-heading .script-view,.project-overview .script-node>.section-head>.script-view{flex:none;padding:3px 8px;min-height:28px;font-size:12px;line-height:20px;border:1px solid #343a44;border-radius:6px;background:none;color:#b3bac5}
+.original-script-heading .script-view:hover,.project-overview .script-node>.section-head>.script-view:hover{color:#fff;border-color:#626b79}
 :is(.project-overview,.project-script-page) .script-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden;max-height:7.2em;white-space:pre-wrap;overflow-wrap:anywhere}
 .project-script-page .original-script-full{white-space:pre-wrap;overflow-wrap:anywhere;max-height:none;overflow:visible}
 
@@ -205,3 +210,27 @@ header,main,[role=status]{padding:16px}header{display:flex;align-items:center;ju
 /* AI生成与修改使用相同的亮金色操作样式。 */
 .project-script-page.project-production .script-node .node-ui-execution>button{border-color:#373e49;background:#242a33;color:#e8c58c}
 .project-script-page.project-production .script-node .node-ui-execution>button:disabled{background:#1b1f27;border-color:#303640;color:#e8c58c}
+
+/* 待审核数据提示与执行步骤文字使用黄色。 */
+:is(.project-overview,.project-script-page) .script-node[data-status=pending_review] .node-data-tag,.script-node .node-ui-step{color:#e8c58c}
+.script-node .node-ui-step{margin:0;padding:0;font-size:12px;white-space:pre-wrap}
+.script-node .node-ui-reason{white-space:pre-wrap}
+
+/* 节点状态与执行步骤分开；操作按钮执行中保持原文案并置灰。 */
+.script-node .node-ui-step.is-rejected{color:#f2a8a8}
+:is(.project-overview,.project-script-page) .script-node[data-business=script_revision] .node-ui-execution>button:first-child:disabled{background:#1b1f27;border-color:#303640;color:#686f7c;cursor:not-allowed}
+
+/* 仅活动步骤显示加载圆环，颜色跟随步骤文字。 */
+.script-node .node-ui-step[role=status]::before{content:'';display:inline-block;width:12px;height:12px;box-sizing:border-box;margin-right:7px;vertical-align:-2px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:drama-step-spin .8s linear infinite}
+@keyframes drama-step-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.script-node .node-ui-step[role=status]::before{animation:none}}
+
+.original-script-heading .script-view{margin-left:auto}
+.original-summary-loading{display:inline-block;flex:none;box-sizing:border-box;width:12px;height:12px;padding:0;border:1.5px solid #e8c58c;border-right-color:transparent;border-radius:50%;animation:drama-step-spin .8s linear infinite}
+.original-script-summary{margin:10px 0 0;color:#b7bdc8}
+@media(prefers-reduced-motion:reduce){.original-summary-loading{animation:none}}
+
+/* 标题与查看同排，导入操作独占下一行，随后展示摘要。 */
+.original-script-heading{flex-wrap:wrap;row-gap:0}
+.original-script-heading>.project-script-import{display:block;flex-basis:100%;min-width:0;order:1}
+.original-script-heading .script-picker,.original-script-heading .error{flex-basis:100%}

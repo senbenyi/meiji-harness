@@ -1,28 +1,34 @@
 {
-  "$comment": "开发文档：AI字段由src/node_box/<节点名>/definition.js维护，经src/node_runtime/node_definition_registry.js汇总，提示词组装、空节点初始化和响应校验均使用运行时定义。本文件不被运行时读取；下面的字段解释和样例仅用于开发阅读，修改运行时Model后同步维护。\n\n本次明确AI结果边界：六类文本AI节点仅将AI返回内容保存于output，文档output叶子使用string/number加字段解释标注类型。规则和状态在output外。人物输出在character_extraction.output.characters，人工参考图和照片节点在character_extraction.assets，按character_id关联；场景输出在scene_extraction.output.scenes，图片节点在scene_extraction.assets，按scene_id关联。图片节点的address由媒体接口适配器保存，不是语言模型JSON返回字段。video_prompt.output只保存clip_id及选定模式的prompt，引用既有视频模式定义的prompt部分；视频接口请求结构、参数及程序节点完全保留。项目实例保存真实字段值，不保存这些类型说明或$defs。\n\n本文件为目标项目结构说明，非运行时项目实例。所有有序集合均以数组顺序表示排列及播放顺序。枚举字段的示例值在括号内列出完整取值及含义，实际保存和请求仅使用选中的枚举值；模型相关参数以项目约定和所选模型支持能力为准。$defs和$ref仅复用字段定义，实际AI节点各自保存独立规则与状态。story_segments为一次性生成全部故事分段的AI节点，仅包含output、rules、node_state三个字段；output.segments保存完整故事分段数组，生成、审核与修订均以完整分段集合为单位，单个故事段保存内容，规则和状态统一归属story_segments节点。镜头与生成分片拆开：项目顶层shot_design、clip_arrangement、video_prompt依次为镜头设计、分片编排、视频提示词生成三个独立节点，替代旧分片内的镜头设计、分镜和文本提示词流程。shot_design与video_prompt为AI节点，clip_arrangement为程序节点，无AI规则。镜头shots按数组顺序排列，一个shot为单一背景区域内的连续摄影，不限制4–15秒；同一场景资产中的大厅、门口等独立背景区域分别建立shot，可共用scene_id。本区域内的走动、景别或构图变化可保留在同一shot。previous_shot_connection仅取opening、continuous、cut：opening用于整段内容首镜，独立建立起始视听状态；continuous用于延续前镜时间、动作或空间移动，首节拍承接前镜实际结束状态；cut用于直接进入另一事件、地点或时刻，首节拍建立新的起始状态并交代声音接续。continuous表示叙事与动作连续，两个shot之间仍按切镜设计。beats至少一项，每项包含duration_seconds、action、camera、scene_changes、effects、audio六个字段。action保存人物及背景群体的行动、表情、反应、入离场、移动、朝向与目光变化、动作速度和互动密度；camera保存景别、构图、焦点及连续运镜的发展；scene_changes保存本阶段需独立追踪的环境变化及持久状态，继承scene开场基准及此前节拍累积状态，普通动作的直接结果随action表达；effects保存特效触发动作、可见过程、强度与消散或持续状态，持久环境变化由scene_changes说明；audio保存对白旁白原文、说话人、发声方式、环境声、动作音效及配乐的开始、持续、变化与结束，逐字保留原话和标点。动作作为时间主线，摄影、场景变化、特效与声音以具体动作或阶段关联，明确先后与同步关系；各字段继承此前有效状态，本阶段没有新增内容时填空字符串。节拍按行动、反应或视听阶段划分，不按说话人机械拆分；快速接话、打断或同时发声可在同一节拍描述，人物切换和摄影连续转向可换节拍但不代表切镜。简单镜头一个节拍，复杂镜头多个。镜头时长由节拍相加，不重复保存。clip_arrangement.clips按sources顺序引用shot_id及镜头内start_beat、end_beat节拍序号；序号从1开始，起止均包含，每个source引用连续完整节拍，分片duration_seconds由sources所选全部节拍的duration_seconds相加计算并保存，必须为4–15整数秒。所有镜头节拍按叙事顺序完整覆盖一次，保留正常播放速度。短镜头可合并、长镜头可跨分片，合并还需考虑场景、参考素材和复杂度，无法合规编排时报告原因。切分点必须落在节拍结束处，并检查后续余量，使每片均为4–15秒；现有节拍无法合规编排时，调整节拍设计或报告原因。示例16秒镜头拆成两个8秒分片；同一shot跨分片保持摄影连续，长镜头无缝效果仍需生成后检查。分片clips保存id、duration_seconds、mode、sources，以数组顺序排序，衔接依据来自镜头首节拍和此前节拍累积状态；生成video_prompt时读取来源镜头公共资料、关联资产、所选节拍及起始前的有效状态。video_prompt.output.items与分片以clip_id一一关联，规则和状态归属生成节点；videos按clip_id关联分片，episodes按clip_ids合片。人物资产记录中的costume_images[i]与该人物output资料中的costumes[i]按位置一一对应，costume_id等于该服装ID；服装增删重排时同步调整两个数组。没有服装目录时costumes为空，保留一张costume_id为空的定妆照，不编造服装。 人物不设默认服装或默认定妆照。后续节点选用人物定妆照时，必须显式使用character_id与costume_id定位该人物assets记录的costume_images对应项，不按默认值或数组首项自动选图；视频编排按明确选择保存参考素材。无服装目录时，显式指定character_id并令costume_id为空，定位该人物唯一的未绑定服装定妆照。可见人物仍允许不绑定并按文字推断；已明确选择的图片不可被其他服装图片自动替代。 视频生成节点的地址、实际时长和keyframes均平铺保存，不设result包装。关键帧为按视频时间升序排列的图片地址数组，必须包含实际最后一帧；需要尾帧时取最后一项，不再保存重复的tail_frame_address，也不建立独立尾帧提取节点。 分片编排时确定mode，完整枚举为文生、首尾帧、多模态；按明确选用的素材与开场接续方式选择。视频提示词统一保存于顶层video_prompt节点，与videos生成结果分开。video_prompt.output.items每项保存clip_id，并按分片类型仅保存对应的一个字段：文生使用text_to_video.prompt引用#/$defs/text_to_video/prompt，多模态使用multimodal.prompt引用#/$defs/multimodal/prompt，首尾帧使用first_last_frame.prompt引用#/$defs/first_last_frame/prompt；这些AI输出引用仅选择已有结构的prompt部分，视频接口请求仍使用原完整定义，由程序执行；示例中的不同字段表示类型选择，实际每项仅使用所选类型的字段。mode仅保存于clip_arrangement.clips中，三个引用结构依据关联分片的mode选择；发送接口请求时从分片读取mode并组装请求体。三个引用定义为独立结构，不混合不同模式的字段。多模态prompt按subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music六段顺序拼接；文生prompt按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接；首尾帧prompt将instruction置于首行，再按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接。各命名段按字段名、换行及内容组织，段间空一行。图片以带MIME前缀的完整Base64字符串保存，图片节点提供裸Base64时补齐MIME前缀；视频与音频参考使用接口支持的HTTPS地址、mm_file://地址或对应媒体Base64 data URL。首尾帧结构中first_frame必填，last_frame仅在有明确目标尾帧时保存；实际生成后视频尾帧仍由keyframes最后一项提供。分片类型为首尾帧且已选择前片尾帧时，video_prompt在前片有效实际尾帧可用后填入first_frame，保留本片既定类型及节拍开场设计。文生结构使用纯文字，多模态结构保存images、videos、audios参考，首尾帧结构保存first_frame与可选last_frame。业务人物、服装等ID用于资料关联，接口正文使用对应外观与素材标签；模型由本地服务配置。 镜头scene平铺保存三个字符串字段：scene_id绑定场景资产，state保存开场环境状态与光照，spatial_setup保存本镜使用的地标、通道及互动轴线。characters保存人物开场在场、站位、朝向和目光状态；首节拍camera建立初始景别、主体、前中后景与视觉焦点，后续camera描述摄影变化；所有节拍继承项目风格，信息、情绪和节奏落实到节拍的动作、摄影及声音中；剧情依据通过story_segment_id和key_anchor_ids关联story_segments.output.segments中的上游故事段及其锚点，具体过程统一由beats展开。动态发展按职责写入beats对应字段，镜头外层提供各节拍共用的身份、剧情关联、与前镜的衔接类型、场景和人物初始资料；beats保存实际拍摄的动作、摄影、环境变化、特效与声音。初始资料作为节拍起点，后续节拍承接已发生变化后的最新状态。首节拍与后续节拍按发生顺序明确承接前镜及本镜已有状态；需要结尾交接摘要时，从开场状态和全部节拍累积结果提取并核对。镜头characters统一保存主要人物、后景关系人物和背景群体，允许人物与服装ID为空；有服装目录且绑定人物时明确选择该人物服装。对白及旁白原文在镜头设计内仅保存于对应beats.audio。环境声、动作音效和配乐从开始出现的节拍写入audio，明确持续范围、变化与结束；贯穿全镜的声音在首节拍建立，后续节拍继承有效声音状态并记录变化。原话按发声进程展开，已说完的原话保持在原节拍。最终提示词按来源范围展开原话、发声方式与声音时序，保留完整性；需要对白清单时从节拍提取，不另维护副本。",
+  "$comment": "开发文档：AI字段由src/node_box/<节点名>/definition.js维护，经src/node_runtime/node_definition_registry.js汇总，提示词组装、空节点初始化和响应校验均使用运行时定义。本文件不被运行时读取；下面的字段解释和样例仅用于开发阅读，描述目标结构；不表示运行时Model已完成迁移，实施时需同步节点定义、读写和调用方。\n\n本次统一节点边界：业务内容直接保存在所属节点，不再使用output包装。basic_info保存项目元数据、原稿路径、当前工作剧本、摘要及预估时长；create_project_node和script_revision_node分别引用node_state，独立记录创建与剧本优化状态，二者共享actual_script这份当前工作正文。其他节点将opinion、rules及状态集中于node_state，不在业务字段旁重复保存。人物输出在character_extraction.characters，人工参考图和照片节点在character_extraction.assets，按character_id关联；场景输出在scene_extraction.scenes，图片节点在scene_extraction.assets，按scene_id关联。图片节点的address由媒体接口适配器保存，不是语言模型JSON返回字段。video_prompt.items只保存clip_id及选定模式的prompt，引用既有视频模式定义的prompt部分；视频接口请求结构、参数及程序节点保留。项目实例保存真实字段值，不保存这些类型说明或$defs。\n\n本文件为目标项目结构说明，非运行时项目实例。所有有序集合均以数组顺序表示排列及播放顺序。枚举字段的示例值在括号内列出完整取值及含义，实际保存和请求仅使用选中的枚举值；模型相关参数以项目约定和所选模型支持能力为准。$defs和$ref仅复用字段定义，实际节点各自保存独立状态；AI节点的规则位于node_state.rules。node_state.type实际保存数字：创建项目、分片编排、视频接口执行及合片节点为0；剧本优化、故事分段、人物提取、场景提取、镜头设计、视频提示词及人物/场景图片生成节点为1。程序节点不执行AI规则，node_state.opinion保存空字符串、rules保存空对象；共享定义中的三动作规则适用于AI节点，未启用的动作不新增执行步骤。story_segments为一次性生成全部故事分段的AI节点，仅包含segments和node_state两个字段；segments保存完整故事分段数组，生成、审核与修订均以完整分段集合为单位，单个故事段保存内容，规则和状态统一归属story_segments.node_state。镜头与生成分片拆开：项目顶层shot_design、clip_arrangement、video_prompt依次为镜头设计、分片编排、视频提示词生成三个独立节点，替代旧分片内的镜头设计、分镜和文本提示词流程。shot_design与video_prompt为AI节点，clip_arrangement为程序节点，无AI规则。镜头shots按数组顺序排列，一个shot为单一背景区域内的连续摄影，不限制4–15秒；同一场景资产中的大厅、门口等独立背景区域分别建立shot，可共用scene_id。本区域内的走动、景别或构图变化可保留在同一shot。previous_shot_connection仅取opening、continuous、cut：opening用于整段内容首镜，独立建立起始视听状态；continuous用于延续前镜时间、动作或空间移动，首节拍承接前镜实际结束状态；cut用于直接进入另一事件、地点或时刻，首节拍建立新的起始状态并交代声音接续。continuous表示叙事与动作连续，两个shot之间仍按切镜设计。beats至少一项，每项包含duration_seconds、action、camera、scene_changes、effects、audio六个字段。action保存人物及背景群体的行动、表情、反应、入离场、移动、朝向与目光变化、动作速度和互动密度；camera保存景别、构图、焦点及连续运镜的发展；scene_changes保存本阶段需独立追踪的环境变化及持久状态，继承scene开场基准及此前节拍累积状态，普通动作的直接结果随action表达；effects保存特效触发动作、可见过程、强度与消散或持续状态，持久环境变化由scene_changes说明；audio保存对白旁白原文、说话人、发声方式、环境声、动作音效及配乐的开始、持续、变化与结束，逐字保留原话和标点。动作作为时间主线，摄影、场景变化、特效与声音以具体动作或阶段关联，明确先后与同步关系；各字段继承此前有效状态，本阶段没有新增内容时填空字符串。节拍按行动、反应或视听阶段划分，不按说话人机械拆分；快速接话、打断或同时发声可在同一节拍描述，人物切换和摄影连续转向可换节拍但不代表切镜。简单镜头一个节拍，复杂镜头多个。镜头时长由节拍相加，不重复保存。clip_arrangement.clips按sources顺序引用shot_id及镜头内start_beat、end_beat节拍序号；序号从1开始，起止均包含，每个source引用连续完整节拍，分片duration_seconds由sources所选全部节拍的duration_seconds相加计算并保存，必须为4–15整数秒。所有镜头节拍按叙事顺序完整覆盖一次，保留正常播放速度。短镜头可合并、长镜头可跨分片，合并还需考虑场景、参考素材和复杂度，无法合规编排时报告原因。切分点必须落在节拍结束处，并检查后续余量，使每片均为4–15秒；现有节拍无法合规编排时，调整节拍设计或报告原因。示例16秒镜头拆成两个8秒分片；同一shot跨分片保持摄影连续，长镜头无缝效果仍需生成后检查。分片clips保存id、duration_seconds、mode、sources，以数组顺序排序，衔接依据来自镜头首节拍和此前节拍累积状态；生成video_prompt时读取来源镜头公共资料、关联资产、所选节拍及起始前的有效状态。video_prompt.items与分片以clip_id一一关联，规则和状态归属生成节点；videos按clip_id关联分片，episodes按clip_ids合片。人物资产记录中的costume_images[i]与该人物characters资料中的costumes[i]按位置一一对应，costume_id等于该服装ID；服装增删重排时同步调整两个数组。没有服装目录时costumes为空，保留一张costume_id为空的定妆照，不编造服装。 人物不设默认服装或默认定妆照。后续节点选用人物定妆照时，必须显式使用character_id与costume_id定位该人物assets记录的costume_images对应项，不按默认值或数组首项自动选图；视频编排按明确选择保存参考素材。无服装目录时，显式指定character_id并令costume_id为空，定位该人物唯一的未绑定服装定妆照。可见人物仍允许不绑定并按文字推断；已明确选择的图片不可被其他服装图片自动替代。 视频生成节点的地址、实际时长和keyframes均平铺保存，不设result包装。关键帧为按视频时间升序排列的图片地址数组，必须包含实际最后一帧；需要尾帧时取最后一项，不再保存重复的tail_frame_address，也不建立独立尾帧提取节点。 分片编排时确定mode，完整枚举为文生、首尾帧、多模态；按明确选用的素材与开场接续方式选择。视频提示词统一保存于顶层video_prompt节点，与videos生成结果分开。video_prompt.items每项保存clip_id，并按分片类型仅保存对应的一个字段：文生使用text_to_video.prompt引用#/$defs/text_to_video/prompt，多模态使用multimodal.prompt引用#/$defs/multimodal/prompt，首尾帧使用first_last_frame.prompt引用#/$defs/first_last_frame/prompt；这些AI输出引用仅选择已有结构的prompt部分，视频接口请求仍使用原完整定义，由程序执行；示例中的不同字段表示类型选择，实际每项仅使用所选类型的字段。mode仅保存于clip_arrangement.clips中，三个引用结构依据关联分片的mode选择；发送接口请求时从分片读取mode并组装请求体。三个引用定义为独立结构，不混合不同模式的字段。多模态prompt按subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music六段顺序拼接；文生prompt按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接；首尾帧prompt将instruction置于首行，再按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接。各命名段按字段名、换行及内容组织，段间空一行。图片以带MIME前缀的完整Base64字符串保存，图片节点提供裸Base64时补齐MIME前缀；视频与音频参考使用接口支持的HTTPS地址、mm_file://地址或对应媒体Base64 data URL。首尾帧结构中first_frame必填，last_frame仅在有明确目标尾帧时保存；实际生成后视频尾帧仍由keyframes最后一项提供。分片类型为首尾帧且已选择前片尾帧时，video_prompt在前片有效实际尾帧可用后填入first_frame，保留本片既定类型及节拍开场设计。文生结构使用纯文字，多模态结构保存images、videos、audios参考，首尾帧结构保存first_frame与可选last_frame。业务人物、服装等ID用于资料关联，接口正文使用对应外观与素材标签；模型由本地服务配置。 镜头scene平铺保存三个字符串字段：scene_id绑定场景资产，state保存开场环境状态与光照，spatial_setup保存本镜使用的地标、通道及互动轴线。characters保存人物开场在场、站位、朝向和目光状态；首节拍camera建立初始景别、主体、前中后景与视觉焦点，后续camera描述摄影变化；所有节拍继承项目风格，信息、情绪和节奏落实到节拍的动作、摄影及声音中；剧情依据通过story_segment_id和key_anchor_ids关联story_segments.segments中的上游故事段及其锚点，具体过程统一由beats展开。动态发展按职责写入beats对应字段，镜头外层提供各节拍共用的身份、剧情关联、与前镜的衔接类型、场景和人物初始资料；beats保存实际拍摄的动作、摄影、环境变化、特效与声音。初始资料作为节拍起点，后续节拍承接已发生变化后的最新状态。首节拍与后续节拍按发生顺序明确承接前镜及本镜已有状态；需要结尾交接摘要时，从开场状态和全部节拍累积结果提取并核对。镜头characters统一保存主要人物、后景关系人物和背景群体，允许人物与服装ID为空；有服装目录且绑定人物时明确选择该人物服装。对白及旁白原文在镜头设计内仅保存于对应beats.audio。环境声、动作音效和配乐从开始出现的节拍写入audio，明确持续范围、变化与结束；贯穿全镜的声音在首节拍建立，后续节拍继承有效声音状态并记录变化。原话按发声进程展开，已说完的原话保持在原节拍。最终提示词按来源范围展开原话、发声方式与声音时序，保留完整性；需要对白清单时从节拍提取，不另维护副本。\n\n节点轮询与结束摘要：node_state.status和reason描述当前内容，last_execution只保存最近一次已结束执行的摘要；从未结束过执行时last_execution实际保存null。活动任务的排队、运行、步骤进度由任务系统按项目及节点路径查询，轻量node-states轮询接口返回内容状态、活动任务摘要及last_execution，不返回整套rules或完整业务正文；project接口仍用于完整加载与SSE刷新。新任务开始时保留上一份结束摘要，面板可同时展示当前执行进度与上次停止原因；活动任务已结束而摘要尚未同步时，以该Task的终态为依据，不将旧摘要误认为本次结果。结束摘要以任务系统终态为唯一事实来源，由节点运行层统一投影和幂等落盘，Service和Executor不分别维护任务状态；进程中断后读取时按Task终态恢复摘要。任务终态与项目JSON分属不同存储；任务终态提交后投影摘要，读取时以Task事实补齐尚未落盘的摘要，重复处理同一Task保持幂等。stop_code与执行结果对应：completed对应completed；request_failed、execution_error对应failed；cancelled对应cancelled；其余代码对应rejected。只有Task已真正结束才更新last_execution，单次审核问题或自动重试中的请求错误不提前发布停止结论。生成失败、取消或业务未通过时保留此前已确认的业务结果和依赖指纹，内容仍有效则保持generated，已过期则保持expired；首次执行无可用结果且业务未通过时才置rejected，请求异常或取消且从无结果时保持empty。结果因后续上游修改过期时只改内容状态和reason，不改最近执行的成功结论。写入结果及摘要前按当前受理的Task身份核对，旧任务迟到回调不得覆盖新任务的结果或摘要；不同任务对basic_info.actual_script的更新还需核对共同正文版本，避免创建任务与优化任务互相覆盖。\n\n当前工作稿提交：创建/导入将正文写入basic_info.actual_script；摘要提取只更新basic_info.summary和estimated_duration_seconds。剧本优化AI返回actual_script、summary、estimated_duration_seconds三个字段，候选仅保留在Task步骤，审核通过后才整体提交到basic_info，未通过、取消和请求失败均保留先前工作结果。script_revision_node.status描述优化结果状态，导入正文不代表已完成优化。原始文件名从original_script_file_path末段获取，不重复保存。运行时契约定义使用output作为Schema容器，项目实例不保存output包装。",
   "$defs": {
-    "rules": {
-      "supports_supplement": "true（布尔值，实际保存为 boolean。结构与公共 RulesModel 一致。为 true 时，该动作的 supplement 参与执行、展示和依赖指纹；为 false 时保留 supplement 文本但不参与。）",
+    "node_state": {
+      "type": "number（枚举：0为程序节点，1为AI节点；按节点职责固定，实际保存数字。）",
+      "opinion": "string（人工对本节点本次执行的意见；未填写时为空字符串。与业务未通过原因及执行失败说明分别保存。）",
+      "status": "string（内容状态枚举：empty为尚无结果，generated为已有通过校验且依赖有效的结果，rejected为首次生成或当前无可用结果时业务未通过，expired为已有结果因依赖变化而过期。排队、运行、取消或执行异常不直接改变已有内容状态；是否仍可用同时核对dependency_hash。）",
+      "reason": "string（当前内容状态的说明；rejected时记录无可用结果的业务原因，expired时记录依赖变化等过期原因，empty或generated时为空字符串。只随内容状态更新，不保存最近执行停止原因。）",
+      "last_execution": {
+        "task_id": "string（本节点最近一次已结束执行对应的Task ID，用于查询详细步骤和调用记录；实际归属按项目、节点路径及Task ID共同定位。）",
+        "status": "string（执行结果枚举：completed为成功完成，rejected为业务未通过，failed为请求或程序执行失败，cancelled为用户取消。仅记录终态，不保存排队和运行进度。）",
+        "stop_code": "string（停止原因枚举：completed为成功完成；revision_limit_reached为达到修订次数上限仍未通过；content_issue为确认的本节点内容问题；rule_conflict为规则冲突；upstream_issue为上游资料问题；validation_failed为程序校验或业务条件拦截；request_failed为llm-http或service-http请求失败；execution_error为程序执行异常；cancelled为用户取消。completed对应completed；request_failed、execution_error对应failed；cancelled对应cancelled；其余代码对应rejected。不能仅因审核未通过就推断模型能力不足。）",
+        "message": "string（面向面板与主Agent的具体停止说明，包含实际问题及必要定位信息；所有终态均填写，成功也说明完成内容。用于展示，不通过解析文字判断原因；不自动作为下一次AI改写意见。）",
+        "finished_at": "string（本次执行结束时间，使用带时区的ISO 8601格式，由任务系统统一写入。）"
+      },
+      "dependency_hash": "string（生成时的有效输入指纹；AI节点还包含项目内实际参与执行的node_state.rules各动作base与supplement，程序节点不包含AI规则。依赖变化后用于判断结果是否过期。）",
       "rules": {
         "generate": {
           "base": "（本动作基础规则，实际保存为 string。盒子第一次建立时用代码默认写入项目；之后执行、展示和依赖指纹都读项目内这份文本，调用 RulesModel.resolve 时把已保存的 base 作为 currentBase，代码更新不覆盖项目。生成、审核、修订三份互不引用。未启用的动作不因此新增执行步骤。）",
-          "supplement": "（本动作补充规则，实际保存为 string。是否参与执行由 supports_supplement 决定。三份互不引用。修改须经人工授权后写入项目。）"
+          "supplement": "（本动作补充规则，实际保存为 string。是否参与执行由 node_state.supports_supplement 决定。三份互不引用。修改须经人工授权后写入项目。）"
         },
         "review": {
           "base": "（本动作基础规则，实际保存为 string。盒子第一次建立时用代码默认写入项目；之后执行、展示和依赖指纹都读项目内这份文本，调用 RulesModel.resolve 时把已保存的 base 作为 currentBase，代码更新不覆盖项目。生成、审核、修订三份互不引用。未启用的动作不因此新增执行步骤。）",
-          "supplement": "（本动作补充规则，实际保存为 string。是否参与执行由 supports_supplement 决定。三份互不引用。修改须经人工授权后写入项目。）"
+          "supplement": "（本动作补充规则，实际保存为 string。是否参与执行由 node_state.supports_supplement 决定。三份互不引用。修改须经人工授权后写入项目。）"
         },
         "revise": {
           "base": "（本动作基础规则，实际保存为 string。盒子第一次建立时用代码默认写入项目；之后执行、展示和依赖指纹都读项目内这份文本，调用 RulesModel.resolve 时把已保存的 base 作为 currentBase，代码更新不覆盖项目。生成、审核、修订三份互不引用。未启用的动作不因此新增执行步骤。）",
-          "supplement": "（本动作补充规则，实际保存为 string。是否参与执行由 supports_supplement 决定。三份互不引用。修改须经人工授权后写入项目。）"
+          "supplement": "（本动作补充规则，实际保存为 string。是否参与执行由 node_state.supports_supplement 决定。三份互不引用。修改须经人工授权后写入项目。）"
         }
-      }
-    },
-    "node_state": {
-      "status": "empty（枚举：empty为空、generated为已生成、rejected为未通过、expired为已过期；任务排队与运行状态由任务系统管理。）",
-      "reason": "（业务未通过或过期原因；业务问题进入未通过，不作为HTTP/网络失败。）",
-      "fail_message": "（HTTP、网络等执行失败说明，不作为AI改写意见。）",
-      "dependency_hash": "（生成时的有效输入，以及项目内参与执行的 base 与 supplement 的依赖指纹；上游或这些规则变化后用于判断结果是否过期。）"
+      },
+      "supports_supplement": "boolean（AI节点是否启用补充规则；沿用节点默认能力并保存于项目，程序节点固定false。）"
     },
     "multimodal": {
       "prompt": {
@@ -87,126 +93,81 @@
     "name": "（项目名称；本文件为新版项目目标结构及字段说明。）",
     "creation_mode": "剧本（枚举：剧本、自由创作；剧本为导入剧本创作，自由创作为按创作要求生成内容。）",
     "aspect_ratio": "9:16（项目画幅；枚举：21:9、16:9、4:3、1:1、3:4、9:16。）",
-    "creative_requirements": "（全项目创作要求。）",
     "reference_episode_duration_seconds": 180,
-    "original_script": "（原始剧本独立保存；故事解析可同时核对原稿与当前优化稿。）",
-    "original_script_summary": "string（原始剧本的展示摘要；创建有原稿或导入原稿后由项目盒子一次提取，无审核；无原稿或提取失败为空，不与优化稿摘要混用。）"
-  },
-  "script_revision": {
-    "output": {
-      "body": "string（当前最终优化正文；每次优化返回并覆盖，不保存版本号、更新时间、修改历史或历史正文。）",
-      "estimated_duration_seconds": "number（单位秒；完整优化剧本的预估总时长，每次优化随正文一起返回并覆盖。）",
-      "summary": "string（优化后剧本的剧情摘要；string类型，每次优化随正文一起返回并覆盖。）"
-    },
-    "opinion": "（人工对剧本的优化意见。）",
-    "rules": {
-      "$ref": "#/$defs/rules"
-    },
-    "node_state": {
+    "original_script_file_path": "string（项目沙盒内原始文件的相对路径；无原稿时为空字符串，仅用于原稿查看与追溯。）",
+    "estimated_duration_seconds": "number（当前完整工作剧本的预估总时长，单位秒；随actual_script更新，未生成或未估算时为0。）",
+    "actual_script": "string（当前工作剧本完整正文；导入或生成后写入，优化成功后更新，后续生产节点统一读取此字段；尚无正文时为空字符串。）",
+    "create_project_node": {
       "$ref": "#/$defs/node_state"
-    }
+    },
+    "script_revision_node": {
+      "$ref": "#/$defs/node_state"
+    },
+    "summary": "string（当前工作剧本摘要；随actual_script和预估时长一起更新，尚未提取时为空字符串。）"
   },
   "story_segments": {
-    "opinion": "（本节点本次执行意见；面板编辑后按需保存，未保存时缺省为空。）",
-    "output": {
-      "segments": [
-        {
-          "id": "string（segment_001）",
-          "title": "string（故事段标题。）",
-          "body": "string（完整剧情正文、原对白及重要描述；按有因果的故事推进拆段，不是事件摘要。）",
-          "world_background": "string（与本段有关的世界观、时代背景和影响剧情的重要设定；不另设全剧共用资料对象。）",
-          "key_anchors": [
-            {
-              "id": "string（anchor_001）",
-              "content": "string（本段必须表达的事实、态度、程度、情绪、世界观信息或伏笔。）",
-              "expression": "string（以画面、对白、动作、声音或其组合落实的要求；明确原话与画面文字仍逐字保留。）"
-            }
-          ],
-          "characters_and_groups": "string（参与人物、背景群体、在场状态及各自作用；不重复保存完整人物资产。）",
-          "scene_and_space": "string（所在场景、初始分布、建筑区域及行动关系；稳定布局由场景资产提供。）",
-          "emotion_and_rhythm": "string（情绪起止、压力积累、转折、释放及观看期待。）",
-          "duration_seconds": "number（正常表演预估时长，单位秒，大于0；实际按内容估计。）",
-          "continuity": {
-            "opening": "string（承接前段的事实和初始状态。）",
-            "ending": "string（本段结果、待续事项及后段承接。）"
+    "segments": [
+      {
+        "id": "string（segment_001）",
+        "title": "string（故事段标题。）",
+        "body": "string（完整剧情正文、原对白及重要描述；按有因果的故事推进拆段，不是事件摘要。）",
+        "world_background": "string（与本段有关的世界观、时代背景和影响剧情的重要设定；不另设全剧共用资料对象。）",
+        "key_anchors": [
+          {
+            "id": "string（anchor_001）",
+            "content": "string（本段必须表达的事实、态度、程度、情绪、世界观信息或伏笔。）",
+            "expression": "string（以画面、对白、动作、声音或其组合落实的要求；明确原话与画面文字仍逐字保留。）"
           }
+        ],
+        "characters_and_groups": "string（参与人物、背景群体、在场状态及各自作用；不重复保存完整人物资产。）",
+        "scene_and_space": "string（所在场景、初始分布、建筑区域及行动关系；稳定布局由场景资产提供。）",
+        "emotion_and_rhythm": "string（情绪起止、压力积累、转折、释放及观看期待。）",
+        "duration_seconds": "number（正常表演预估时长，单位秒，大于0；实际按内容估计。）",
+        "continuity": {
+          "opening": "string（承接前段的事实和初始状态。）",
+          "ending": "string（本段结果、待续事项及后段承接。）"
         }
-      ]
-    },
-    "rules": {
-      "$ref": "#/$defs/rules"
-    },
+      }
+    ],
     "node_state": {
       "$ref": "#/$defs/node_state"
     }
   },
   "character_extraction": {
-    "opinion": "（本节点本次执行意见；面板编辑后按需保存，未保存时缺省为空。）",
-    "output": {
-      "characters": [
-        {
-          "id": "string（character_001）",
-          "name": "string（角色甲（人物名称示例。）",
-          "social_role": "string（身份、职位或社会角色。）",
-          "age_range": "string（有依据的年龄段，不推算精确年龄。）",
-          "nationality": "string（国籍或所属族群。）",
-          "gender": "string（性别。）",
-          "era": "string（所属时代。）",
-          "height": "string（身高。）",
-          "body_type": "string（体型。）",
-          "facial_features": "string（面部特征。）",
-          "hairstyle": "string（发型。）",
-          "voice": "string（稳定声线特征；具体台词与发声时序写入分镜。）",
-          "relationships": "string（人物之间已确认的稳定关系。）",
-          "signature_props": [
-            {
-              "id": "string（prop_001）",
-              "name": "string（人物道具名称。）",
-              "description": "string（道具完整描述，包含有依据的外观、材质、颜色及特征；当前实际持有、使用及归属按剧情和最近状态确定，不因人物资料列有道具就默认一直持有。）"
-            }
-          ],
-          "immutable_traits": [
-            "string（明确不可改变的人物特征。）"
-          ],
-          "costumes": [
-            {
-              "id": "string（costume_001）",
-              "name": "string（常服（服装名称示例。）",
-              "description": "string（服装完整外观描述，统一写款式、颜色、材质、纹理与有依据的细节；未明确的内容不编造。人物道具保存在人物signature_props，不写入服装字段。）"
-            }
-          ]
-        },
-        {
-          "id": "string（character_002）",
-          "name": "string（角色乙（无明确服装目录的示例。）",
-          "social_role": "string（身份、职位或社会角色。）",
-          "age_range": "string（有依据的年龄段，不推算精确年龄。）",
-          "nationality": "string（国籍或所属族群。）",
-          "gender": "string（性别。）",
-          "era": "string（所属时代。）",
-          "height": "string（身高。）",
-          "body_type": "string（体型。）",
-          "facial_features": "string（面部特征。）",
-          "hairstyle": "string（发型。）",
-          "voice": "string（稳定声线特征；具体台词与发声时序写入分镜。）",
-          "relationships": "string（人物之间已确认的稳定关系。）",
-          "signature_props": [
-            {
-              "id": "string（prop_002）",
-              "name": "string（人物道具名称。）",
-              "description": "string（道具完整描述，包含有依据的外观、材质、颜色及特征；当前实际持有、使用及归属按剧情和最近状态确定，不因人物资料列有道具就默认一直持有。）"
-            }
-          ],
-          "immutable_traits": [
-            "string（明确不可改变的人物特征。）"
-          ],
-          "costumes": []
-        }
-      ]
-    },
-    "rules": {
-      "$ref": "#/$defs/rules"
-    },
+    "characters": [
+      {
+        "id": "string（character_001）",
+        "name": "string（角色甲（人物名称示例。）",
+        "social_role": "string（身份、职位或社会角色。）",
+        "age_range": "string（有依据的年龄段，不推算精确年龄。）",
+        "nationality": "string（国籍或所属族群。）",
+        "gender": "string（性别。）",
+        "era": "string（所属时代。）",
+        "height": "string（身高。）",
+        "body_type": "string（体型。）",
+        "facial_features": "string（面部特征。）",
+        "hairstyle": "string（发型。）",
+        "voice": "string（稳定声线特征；具体台词与发声时序写入分镜。）",
+        "relationships": "string（人物之间已确认的稳定关系。）",
+        "signature_props": [
+          {
+            "id": "string（prop_001）",
+            "name": "string（人物道具名称。）",
+            "description": "string（道具完整描述，包含有依据的外观、材质、颜色及特征；当前实际持有、使用及归属按剧情和最近状态确定，不因人物资料列有道具就默认一直持有。）"
+          }
+        ],
+        "immutable_traits": [
+          "string（明确不可改变的人物特征。）"
+        ],
+        "costumes": [
+          {
+            "id": "string（costume_001）",
+            "name": "string（常服（服装名称示例。）",
+            "description": "string（服装完整外观描述，统一写款式、颜色、材质、纹理与有依据的细节；未明确的内容不编造。人物道具保存在人物signature_props，不写入服装字段。）"
+          }
+        ]
+      }
+    ],
     "node_state": {
       "$ref": "#/$defs/node_state"
     },
@@ -220,27 +181,6 @@
             "reference_image": "（单张明确参考图片的Base64字符串；无参考图时为空字符串。不使用数组，不包含address、role或其他字段。）",
             "aspect_ratio": "9:16（继承项目画幅；项目比例枚举：21:9、16:9、4:3、1:1、3:4、9:16；实际请求按所选图片模型支持能力编排。）",
             "address": "（生成或导入并确认有效的结果图地址；支持预览及点击放大。）",
-            "rules": {
-              "$ref": "#/$defs/rules"
-            },
-            "node_state": {
-              "$ref": "#/$defs/node_state"
-            }
-          }
-        ]
-      },
-      {
-        "character_id": "character_002",
-        "reference_image": "（用户提供的单张人物原始参考图片Base64字符串；没有时为空字符串。）",
-        "costume_images": [
-          {
-            "costume_id": "",
-            "reference_image": "（单张明确参考图片的Base64字符串；无参考图时为空字符串。不使用数组，不包含address、role或其他字段。）",
-            "aspect_ratio": "9:16（继承项目画幅；项目比例枚举：21:9、16:9、4:3、1:1、3:4、9:16；实际请求按所选图片模型支持能力编排。）",
-            "address": "（生成或导入并确认有效的结果图地址；支持预览及点击放大。）",
-            "rules": {
-              "$ref": "#/$defs/rules"
-            },
             "node_state": {
               "$ref": "#/$defs/node_state"
             }
@@ -250,24 +190,18 @@
     ]
   },
   "scene_extraction": {
-    "opinion": "（本节点本次执行意见；面板编辑后按需保存，未保存时缺省为空。）",
-    "output": {
-      "scenes": [
-        {
-          "id": "string（scene_001）",
-          "name": "string（场景名称。）",
-          "description": "string（地点身份、时代与空间风格。）",
-          "layout": "string（权威固定布局与建筑相对关系，不因机位变化改动。）",
-          "materials": "string（主要材质及色彩。）",
-          "lighting": "string（基础光源与光照；剧情中昼夜或天气变化由分片和Shot状态描述。）",
-          "entrances_and_routes": "string（出入口、区域连通关系及可通行路径。）",
-          "fixed_landmarks": "string（跨镜复用的固定参照及其名称。）"
-        }
-      ]
-    },
-    "rules": {
-      "$ref": "#/$defs/rules"
-    },
+    "scenes": [
+      {
+        "id": "string（scene_001）",
+        "name": "string（场景名称。）",
+        "description": "string（地点身份、时代与空间风格。）",
+        "layout": "string（权威固定布局与建筑相对关系，不因机位变化改动。）",
+        "materials": "string（主要材质及色彩。）",
+        "lighting": "string（基础光源与光照；剧情中昼夜或天气变化由分片和Shot状态描述。）",
+        "entrances_and_routes": "string（出入口、区域连通关系及可通行路径。）",
+        "fixed_landmarks": "string（跨镜复用的固定参照及其名称。）"
+      }
+    ],
     "node_state": {
       "$ref": "#/$defs/node_state"
     },
@@ -278,9 +212,6 @@
           "reference_image": "（单张明确参考图片的Base64字符串；无参考图时为空字符串。不使用数组，不包含address、role或其他字段。）",
           "aspect_ratio": "9:16（继承项目画幅；项目比例枚举：21:9、16:9、4:3、1:1、3:4、9:16；实际请求按所选图片模型支持能力编排。）",
           "address": "（生成或导入并确认有效的结果图地址；支持预览及点击放大。）",
-          "rules": {
-            "$ref": "#/$defs/rules"
-          },
           "node_state": {
             "$ref": "#/$defs/node_state"
           }
@@ -289,65 +220,59 @@
     ]
   },
   "shot_design": {
-    "opinion": "（本节点本次执行意见；面板编辑后按需保存，未保存时缺省为空。）",
-    "output": {
-      "shots": [
-        {
-          "id": "string（shot_001）",
-          "previous_shot_connection": "string（opening（枚举：opening为整段内容首镜，独立建立起始视听状态；continuous为延续前镜时间、动作或空间移动，首节拍承接前镜实际结束状态，镜头之间仍按切镜设计；cut为直接进入另一事件、地点或时刻，首节拍建立新状态并交代声音接续。）",
-          "story_segment_id": "string（segment_001）",
-          "title": "string（镜头标题；每个shot在单一背景区域内连续摄影，跨背景区域另建shot；时长依据表演需要，不按接口时长拆镜。）",
-          "key_anchor_ids": [
-            "string（anchor_001）"
-          ],
-          "scene": {
-            "scene_id": "string（scene_001）",
-            "state": "string（本镜开场的昼夜、天气、损坏状态，以及具体光源、照射方向和明暗关系，继承场景资产的环境与基础光照；后续需独立追踪的环境及光照变化写入beats.scene_changes。）",
-            "spatial_setup": "string（本镜唯一背景区域使用的地标、空间关系、入口出口、通道与开场人物互动轴线，完整布局引用场景资产；同一场景资产中的大厅、门口等独立背景区域分别建立shot，可共用scene_id。人物具体站位由characters.position说明，摄影观察侧由beats.camera说明，本区域内人物移动写入beats.action。）"
+    "shots": [
+      {
+        "id": "string（shot_001）",
+        "previous_shot_connection": "string（opening（枚举：opening为整段内容首镜，独立建立起始视听状态；continuous为延续前镜时间、动作或空间移动，首节拍承接前镜实际结束状态，镜头之间仍按切镜设计；cut为直接进入另一事件、地点或时刻，首节拍建立新状态并交代声音接续。）",
+        "story_segment_id": "string（segment_001）",
+        "title": "string（镜头标题；每个shot在单一背景区域内连续摄影，跨背景区域另建shot；时长依据表演需要，不按接口时长拆镜。）",
+        "key_anchor_ids": [
+          "string（anchor_001）"
+        ],
+        "scene": {
+          "scene_id": "string（scene_001）",
+          "state": "string（本镜开场的昼夜、天气、损坏状态，以及具体光源、照射方向和明暗关系，继承场景资产的环境与基础光照；后续需独立追踪的环境及光照变化写入beats.scene_changes。）",
+          "spatial_setup": "string（本镜唯一背景区域使用的地标、空间关系、入口出口、通道与开场人物互动轴线，完整布局引用场景资产；同一场景资产中的大厅、门口等独立背景区域分别建立shot，可共用scene_id。人物具体站位由characters.position说明，摄影观察侧由beats.camera说明，本区域内人物移动写入beats.action。）"
+        },
+        "characters": [
+          {
+            "character_id": "string（character_001）",
+            "costume_id": "string（costume_001）",
+            "name": "string（角色甲（未绑定人物填写剧本姓名或称谓；群体使用明确群体名称。）",
+            "presence": "string（本镜主要人物、后景关系人物及背景群体的开场在场与入画状态；画外在场者明确在场状态，群体注明开场规模。人物行动及入离场过程写入beats.action，摄影引起的可见范围变化写入beats.camera。）",
+            "position": "string（人物或群体开场相对地标和其他人物的位置、距离、分布及遮挡，以场景空间为准；后续移动写入beats.action。）",
+            "facing": "string（开场身体朝向的具体人物、区域或地标；后续转身写入beats.action。）",
+            "gaze_target": "string（开场目光对象，与身体朝向分别交代；后续目光变化写入beats.action。）"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": "number（正常表演预估时长，单位秒，大于0；实际按内容估计。）",
+            "action": "string（首节拍按previous_shot_connection设计：opening建立起始姿态、持物与行动；continuous承接前镜实际结束的姿态、持物及动作进度；cut按本镜剧情建立新的起始状态。人物及背景群体从开场状态开始的行动、表情、反应、移动、入离场、朝向与目光变化、速度和互动密度，以及普通动作的直接结果，明确先后及同步关系。示例：A将牌放到桌面，B随后摸牌并看向手牌。）",
+            "camera": "string（首节拍建立初始景别、主体、前中后景与视觉焦点，continuous时明确人物入画方向、空间方位及与前镜的视觉接续；opening或cut时建立本镜构图，并描述本阶段连续运镜；后续节拍承接有效摄影状态并描述变化。示例：双人中景，A与B位于桌子两侧，桌面在前景、窗户在后景，焦点随B摸牌移向B。）",
+            "scene_changes": "string（首节拍以本镜scene为环境基准，有跨镜延续的环境变化时写明对应状态。本阶段需要独立追踪的天气、光照、建筑及物件环境状态变化，承接scene开场基准和此前节拍累积状态；普通动作的直接结果由action表达。特效造成的持久环境变化在此说明，如墙体留下破口、灯具熄灭；无新增环境变化时填空字符串。）",
+            "effects": "string（首节拍有前镜延续的特效时，承接其实际进度与强度。本阶段特效的触发动作、可见过程、表现强度及消散或持续状态；造成的持久环境变化由scene_changes说明，无特效时填空字符串。）",
+            "audio": "string（本阶段对白与旁白原文、说话人、发声方式，以及环境声、动作音效和配乐的开始、持续、变化与结束，关联具体动作；首节拍按衔接关系建立开场声音：continuous承接前镜仍有效的声音与发声进度，opening或cut明确本镜声音及有剧情依据的跨镜延续，后续节拍继承有效状态。示例：窗外雨声贯穿本镜；A落牌后画内说：‘到你了。’落牌声与牌接触桌面同步并在本阶段结束。）"
           },
-          "characters": [
-            {
-              "character_id": "string（character_001）",
-              "costume_id": "string（costume_001）",
-              "name": "string（角色甲（未绑定人物填写剧本姓名或称谓；群体使用明确群体名称。）",
-              "presence": "string（本镜主要人物、后景关系人物及背景群体的开场在场与入画状态；画外在场者明确在场状态，群体注明开场规模。人物行动及入离场过程写入beats.action，摄影引起的可见范围变化写入beats.camera。）",
-              "position": "string（人物或群体开场相对地标和其他人物的位置、距离、分布及遮挡，以场景空间为准；后续移动写入beats.action。）",
-              "facing": "string（开场身体朝向的具体人物、区域或地标；后续转身写入beats.action。）",
-              "gaze_target": "string（开场目光对象，与身体朝向分别交代；后续目光变化写入beats.action。）"
-            }
-          ],
-          "beats": [
-            {
-              "duration_seconds": "number（正常表演预估时长，单位秒，大于0；实际按内容估计。）",
-              "action": "string（首节拍按previous_shot_connection设计：opening建立起始姿态、持物与行动；continuous承接前镜实际结束的姿态、持物及动作进度；cut按本镜剧情建立新的起始状态。人物及背景群体从开场状态开始的行动、表情、反应、移动、入离场、朝向与目光变化、速度和互动密度，以及普通动作的直接结果，明确先后及同步关系。示例：A将牌放到桌面，B随后摸牌并看向手牌。）",
-              "camera": "string（首节拍建立初始景别、主体、前中后景与视觉焦点，continuous时明确人物入画方向、空间方位及与前镜的视觉接续；opening或cut时建立本镜构图，并描述本阶段连续运镜；后续节拍承接有效摄影状态并描述变化。示例：双人中景，A与B位于桌子两侧，桌面在前景、窗户在后景，焦点随B摸牌移向B。）",
-              "scene_changes": "string（首节拍以本镜scene为环境基准，有跨镜延续的环境变化时写明对应状态。本阶段需要独立追踪的天气、光照、建筑及物件环境状态变化，承接scene开场基准和此前节拍累积状态；普通动作的直接结果由action表达。特效造成的持久环境变化在此说明，如墙体留下破口、灯具熄灭；无新增环境变化时填空字符串。）",
-              "effects": "string（首节拍有前镜延续的特效时，承接其实际进度与强度。本阶段特效的触发动作、可见过程、表现强度及消散或持续状态；造成的持久环境变化由scene_changes说明，无特效时填空字符串。）",
-              "audio": "string（本阶段对白与旁白原文、说话人、发声方式，以及环境声、动作音效和配乐的开始、持续、变化与结束，关联具体动作；首节拍按衔接关系建立开场声音：continuous承接前镜仍有效的声音与发声进度，opening或cut明确本镜声音及有剧情依据的跨镜延续，后续节拍继承有效状态。示例：窗外雨声贯穿本镜；A落牌后画内说：‘到你了。’落牌声与牌接触桌面同步并在本阶段结束。）"
-            },
-            {
-              "duration_seconds": "number（正常表演预估时长，单位秒，大于0；实际按内容估计。）",
-              "action": "string（B严肃思考，目光在手牌间移动；节拍结束时仍保持思考姿态。）",
-              "camera": "string（摄影连续缓慢推近至B面部特写，节拍结束时停在该构图。）",
-              "scene_changes": "string（）",
-              "effects": "string（）",
-              "audio": "string（B开始思考时画内说：‘我想想。’对白在本节拍内结束；窗外短暂传来一声鸟鸣并在本节拍内结束，承接首节拍持续的雨声。）"
-            },
-            {
-              "duration_seconds": "number（正常表演预估时长，单位秒，大于0；实际按内容估计。）",
-              "action": "string（B继续观察手牌，随后决定出牌，抽出一张牌放到桌面，结束时手停在落牌位置。）",
-              "camera": "string（承接B思考中的面部特写，在B决定出牌并抽出牌时连续下移至手部与桌面，保持至落牌结束。）",
-              "scene_changes": "string（）",
-              "effects": "string（）",
-              "audio": "string（B决定出牌时画内说：‘就这张。’落牌声与牌接触桌面同步；本节拍结束时对白和落牌声均已结束，承接首节拍持续的雨声。）"
-            }
-          ]
-        }
-      ]
-    },
-    "rules": {
-      "$ref": "#/$defs/rules"
-    },
+          {
+            "duration_seconds": "number（正常表演预估时长，单位秒，大于0；实际按内容估计。）",
+            "action": "string（B严肃思考，目光在手牌间移动；节拍结束时仍保持思考姿态。）",
+            "camera": "string（摄影连续缓慢推近至B面部特写，节拍结束时停在该构图。）",
+            "scene_changes": "string（）",
+            "effects": "string（）",
+            "audio": "string（B开始思考时画内说：‘我想想。’对白在本节拍内结束；窗外短暂传来一声鸟鸣并在本节拍内结束，承接首节拍持续的雨声。）"
+          },
+          {
+            "duration_seconds": "number（正常表演预估时长，单位秒，大于0；实际按内容估计。）",
+            "action": "string（B继续观察手牌，随后决定出牌，抽出一张牌放到桌面，结束时手停在落牌位置。）",
+            "camera": "string（承接B思考中的面部特写，在B决定出牌并抽出牌时连续下移至手部与桌面，保持至落牌结束。）",
+            "scene_changes": "string（）",
+            "effects": "string（）",
+            "audio": "string（B决定出牌时画内说：‘就这张。’落牌声与牌接触桌面同步；本节拍结束时对白和落牌声均已结束，承接首节拍持续的雨声。）"
+          }
+        ]
+      }
+    ],
     "node_state": {
       "$ref": "#/$defs/node_state"
     }
@@ -384,38 +309,32 @@
     }
   },
   "video_prompt": {
-    "opinion": "（本节点本次执行意见；面板编辑后按需保存，未保存时缺省为空。）",
-    "output": {
-      "items": [
-        {
-          "clip_id": "string（关联clip_arrangement.clips中的id；保持分片顺序，每项仅选与该clip既定mode对应的一个模式字段。）",
-          "text_to_video": {
-            "prompt": {
-              "$ref": "#/$defs/text_to_video/prompt"
-            }
-          }
-        },
-        {
-          "clip_id": "string（关联clip_arrangement.clips中的id；保持分片顺序，每项仅选与该clip既定mode对应的一个模式字段。）",
-          "multimodal": {
-            "prompt": {
-              "$ref": "#/$defs/multimodal/prompt"
-            }
-          }
-        },
-        {
-          "clip_id": "string（关联clip_arrangement.clips中的id；保持分片顺序，每项仅选与该clip既定mode对应的一个模式字段。）",
-          "first_last_frame": {
-            "prompt": {
-              "$ref": "#/$defs/first_last_frame/prompt"
-            }
+    "items": [
+      {
+        "clip_id": "string（关联clip_arrangement.clips中的id；保持分片顺序，每项仅选与该clip既定mode对应的一个模式字段。）",
+        "text_to_video": {
+          "prompt": {
+            "$ref": "#/$defs/text_to_video/prompt"
           }
         }
-      ]
-    },
-    "rules": {
-      "$ref": "#/$defs/rules"
-    },
+      },
+      {
+        "clip_id": "string（关联clip_arrangement.clips中的id；保持分片顺序，每项仅选与该clip既定mode对应的一个模式字段。）",
+        "multimodal": {
+          "prompt": {
+            "$ref": "#/$defs/multimodal/prompt"
+          }
+        }
+      },
+      {
+        "clip_id": "string（关联clip_arrangement.clips中的id；保持分片顺序，每项仅选与该clip既定mode对应的一个模式字段。）",
+        "first_last_frame": {
+          "prompt": {
+            "$ref": "#/$defs/first_last_frame/prompt"
+          }
+        }
+      }
+    ],
     "node_state": {
       "$ref": "#/$defs/node_state"
     }

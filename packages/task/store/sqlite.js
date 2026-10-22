@@ -82,8 +82,16 @@ export class SQLiteTaskStore extends TaskStore {
     text(scope, 'scope', true);
     return this.#statement("SELECT COALESCE(MAX(json_extract(data,'$.queue_order')),0) AS n FROM agent_tasks WHERE scope=?").get(scope).n;
   }
-  history(scope, { status = '', node_type = '', offset = 0, limit = 50 } = {}) {
+  history(scope, { status = '', node_type = '', offset = 0, limit = 50, unit = 'group' } = {}) {
     text(scope, 'scope', true); validatePagination(offset, limit);
+    if (unit === 'task') {
+      const where = "FROM agent_tasks WHERE scope=? AND (?='' OR json_extract(data,'$.task_status')=?) AND (?='' OR json_extract(data,'$.node_type')=?)";
+      const params = [scope, status, status, node_type, node_type];
+      const total = this.#statement(`SELECT COUNT(*) AS n ${where}`).get(...params).n;
+      const tasks = this.#statement(`SELECT data ${where} ORDER BY json_extract(data,'$.queue_order') DESC,rowid ASC LIMIT ? OFFSET ?`)
+        .all(...params, limit, offset).map(row => JSON.parse(row.data));
+      return { tasks, total, offset, limit };
+    }
     // 与groupSummary一致：按组内顺序选首个失败/拒绝/取消，再考虑running/queued。
     const query = `WITH summaries AS (
       SELECT g.id,g.rowid AS ordinal,

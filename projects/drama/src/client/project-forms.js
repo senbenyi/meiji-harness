@@ -31,8 +31,8 @@ export function projectDialog(root, save, { listScripts, readScript } = {}) {
   }
   const scriptGroup = element("div", "", "create-script-fields"),
     row = element("div", "", "workflow-generation-row"),
-    imp = element("button", "导入剧本", "script-import"),
-    choose = element("button", "从素材库导入", "script-choose"),
+    imp = element("button", "本地导入", "script-import"),
+    choose = element("button", "素材库导入", "script-choose"),
     clear = element("button", "移除剧本", "script-clear"),
     file = element("input"),
     picker = element("select", "", "script-picker"),
@@ -63,16 +63,6 @@ export function projectDialog(root, save, { listScripts, readScript } = {}) {
     aspect.append(o);
   }
   aspect.value = "9:16";
-  const premiseGroup = element("div", "", "create-premise-fields"),
-    label = element("label", "AI 创作方向（必填）"),
-    premise = element("textarea");
-  label.htmlFor = "project-premise";
-  premise.id = "project-premise";
-  premise.name = "premise";
-  premise.maxLength = 1000;
-  premise.placeholder = "填写题材、人物、核心冲突与故事方向，最多1000字";
-  premiseGroup.append(label, premise);
-  form.append(premiseGroup);
   const error = element("div", "", "error");
   error.setAttribute("role", "alert");
   const footer = element("footer", "", "footer"),
@@ -87,14 +77,15 @@ export function projectDialog(root, save, { listScripts, readScript } = {}) {
     head,
     element(
       "p",
-      "选择创作模式，填写标题和画幅。自由模式填写创作方向，剧本模式导入剧本。",
+      "选择创作模式，填写标题和画幅；剧本模式需要导入剧本。",
     ),
     form,
   );
-  let text = "",
+  let filename = '', text = "",
     ticket = 0;
   const active = () => dialog.isConnected;
-  const set = (filename, body) => {
+  const set = (providedName, body) => {
+    filename = providedName;
     text = body;
     selected.textContent = filename;
     clear.hidden = !body;
@@ -102,9 +93,6 @@ export function projectDialog(root, save, { listScripts, readScript } = {}) {
   };
   mode.onchange = () => {
     scriptGroup.hidden = mode.value !== "script";
-    premiseGroup.hidden = mode.value !== "free";
-    premise.required = mode.value === "free";
-    premise.disabled = mode.value !== "free";
   };
   mode.onchange();
   clear.onclick = () => {
@@ -119,6 +107,7 @@ export function projectDialog(root, save, { listScripts, readScript } = {}) {
     try {
       const f = file.files?.[0];
       if (!f) return;
+      if (!/\.(txt|text|md)$/i.test(f.name)) throw Error("请选择TXT或Markdown剧本");
       if (f.size > 1024 * 1024) throw Error("剧本不能超过1MB");
       const body = await f.text();
       if (active() && n === ticket) set(f.name, body);
@@ -162,17 +151,13 @@ export function projectDialog(root, save, { listScripts, readScript } = {}) {
       error.textContent = "请导入或选择剧本";
       return;
     }
-    if (mode.value === "free" && !premise.value.trim()) {
-      error.textContent = "请填写 AI 创作方向";
-      return;
-    }
     submit.disabled = true;
     try {
       await save({ basic_info: {
         name: name.value.trim(),
         creation_mode: mode.value === 'script' ? '剧本' : '自由创作',
         aspect_ratio: aspect.value,
-        creative_requirements: mode.value === 'free' ? premise.value.trim() : '',
+        original_script_filename: mode.value === 'script' ? filename : '',
         original_script: mode.value === 'script' ? text : '',
       } });
       dialog.close();
@@ -219,7 +204,6 @@ export function detailsDialog(
         {
           name: "短剧标题",
           aspect_ratio: "画幅",
-          creative_requirements: "创作要求",
           duration_seconds: "本集时长（秒）",
           episode_requirements: "本集要求（选填）",
           reference_episode_duration_seconds: "参考单集时长（秒）",
@@ -229,7 +213,7 @@ export function detailsDialog(
       input = element(
         key === "aspect_ratio"
           ? "select"
-          : ["episode_requirements", "plot", "creative_requirements"].includes(key)
+          : ["episode_requirements", "plot"].includes(key)
             ? "textarea"
             : "input",
       );

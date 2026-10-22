@@ -19,10 +19,10 @@ test('打开项目后，改数据留在内存，update 才写入本地 JSON', as
     const before = await readFile(file, 'utf8')
     const saved = manager.change((project) => {
       project.basic_info.name = '新名称'
-      project.story_segments = { output: { segments: [{ id: 'segment_001' }] } }
+      project.story_segments = { segments: [{ id: 'segment_001' }] }
     })
     assert.equal(saved.basic_info.name, '新名称')
-    assert.equal(manager.read().story_segments.output.segments[0].id, 'segment_001')
+    assert.equal(manager.read().story_segments.segments[0].id, 'segment_001')
     assert.equal(await readFile(file, 'utf8'), before)
     await manager.model.update()
     assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), manager.read())

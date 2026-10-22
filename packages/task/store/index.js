@@ -93,9 +93,14 @@ export class TaskStore {
   hasGroup(scope, id) { return this.read(scope, { groupId: id, steps: false }).groups.some(group => group.id === id); }
   taskGroupId(scope, id) { return this.read(scope, { steps: false }).tasks.find(task => task.id === id)?.group_id || null; }
   queueTail(scope) { return this.read(scope, { steps: false }).tasks.reduce((max, task) => Math.max(max, task.queue_order), 0); }
-  history(scope, { status = '', node_type = '', offset = 0, limit = 50 } = {}) {
+  history(scope, { status = '', node_type = '', offset = 0, limit = 50, unit = 'group' } = {}) {
     validatePagination(offset, limit);
     const snapshot = this.read(scope, { steps: false });
+    if (unit === 'task') {
+      const tasks = snapshot.tasks.filter(task => (!status || task.task_status === status) && (!node_type || task.node_type === node_type))
+        .sort((a, b) => b.queue_order - a.queue_order);
+      return { tasks: tasks.slice(offset, offset + limit), total: tasks.length, offset, limit };
+    }
     const members = new Map();
     for (const task of snapshot.tasks) {
       if (!members.has(task.group_id)) members.set(task.group_id, []);

@@ -24,8 +24,9 @@ function initialValue(schema) {
 export async function createNode(nodeType, { rules, definition = nodeDefinitions } = {}) {
   const { schema } = nodeContract(nodeType, 'generate', definition)
   const savedRules = rules ?? JSON.parse(await readFile(new URL(`../../skills/${nodeType}.json`, import.meta.url), 'utf8'))
-  const result = { ...structuredClone(definition[nodeType].initial ?? {}), rules: new RulesModel(savedRules).toJSON(), node_state: new NodeStateModel().toJSON() }
-  if (schema.type !== 'image') result.output = initialValue(schema)
+  const model = new RulesModel(savedRules).toJSON()
+  const result = { ...structuredClone(definition[nodeType].initial ?? {}), node_state: new NodeStateModel({ type: 1, supports_supplement: model.supports_supplement, rules: model.rules }).toJSON() }
+  if (schema.type !== 'image') Object.assign(result, initialValue(schema))
   return result
 }
 

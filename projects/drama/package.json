@@ -18,7 +18,8 @@
     "@agent-modules/prompt-composer": "0.1.0",
     "@agent-modules/task": "0.1.0",
     "@agent-modules/http-client": "0.1.0",
-    "@agent-modules/setting": "0.1.0"
+    "@agent-modules/setting": "0.1.0",
+    "@agent-modules/ui": "0.1.0"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"

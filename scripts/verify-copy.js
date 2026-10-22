@@ -29,7 +29,7 @@ try {
   // 项目清单变化后由 npm 更新锁文件；随后验证干净安装。
   run('npm', ['install', '--package-lock-only', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
   run('npm', ['ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
-  for (const name of ['http-client', 'prompt-composer', 'setting', 'task']) {
+  for (const name of ['http-client', 'prompt-composer', 'setting', 'task', 'ui']) {
     assert.equal(await realpath(join(copy, 'node_modules/@agent-modules', name)), await realpath(join(copy, 'packages', name)));
   }
   run(process.execPath, ['--input-type=module', '-e', `await import('./projects/${copiedProject}/index.js'); await import('./projects/${copiedProject}/' + ${JSON.stringify(project.exports['./session'])});`]);

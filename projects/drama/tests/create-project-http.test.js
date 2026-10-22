@@ -70,6 +70,11 @@ test('UI收到会话工具创建事件后重新读取JSON快照、刷新项目�
   root.querySelector('.settings-page button').click()
   assert.ok(root.querySelector('.home-empty'))
   root.querySelector('button.library').click()
+  const libraryBack = root.querySelector('.library-heading .back')
+  assert.equal(libraryBack.getAttribute('aria-label'), '返回上一页')
+  libraryBack.click()
+  assert.ok(root.querySelector('.home-empty'))
+  root.querySelector('button.library').click()
   await root.querySelector('button.settings').onclick()
   const back = root.querySelector('.settings-page .back')
   assert.equal(back.getAttribute('aria-label'), '返回上一页')
@@ -91,6 +96,9 @@ test('UI收到会话工具创建事件后重新读取JSON快照、刷新项目�
   await projectUi.refresh()
   assert.equal(root.querySelector('h2').textContent, '界面刷新')
   assert.match(root.textContent, /原始剧本/)
+  root.querySelector('button.library').click()
+  root.querySelector('.library-heading .back').click()
+  assert.equal(root.querySelector('h2').textContent, '界面刷新')
 })
 
 
@@ -149,13 +157,16 @@ test('片库HTTP独立于会话，剧本持久化导入并用于项目创建', a
   const { asset } = await imported.json()
   const body = await (await request('/api/drama/library/scripts/' + asset.id)).json()
   assert.equal(body.body, '第一幕\n人物出场。')
-  const result = await tool.create({ name: '素材项目', original_script: body.body }, { sessionId: 'source', requestId: 'library' })
+  const result = await tool.create({ name: '素材项目', original_script: body.body, original_script_filename:'素材剧本.txt' }, { sessionId: 'source', requestId: 'library' })
   const library = await (await request('/api/drama/library')).json()
   assert.equal(library.assets[0].originalName, '素材剧本.txt')
   assert.equal('body' in library.assets[0], false)
   assert.equal(library.projects[0].name, '素材项目')
   assert.equal(library.projects[0].session_id, result.session_id)
-  assert.equal((await tool.snapshot(result.session_id)).project.basic_info.original_script, body.body)
+  const original = await (await request('/api/drama/original-script?session_id='+result.session_id)).json()
+  assert.deepEqual(original,{body:body.body,originalName:'素材剧本.txt'})
+  assert.equal((await request('/api/drama/original-script?session_id=unknown')).status,422)
+  assert.equal((await tool.snapshot(result.session_id)).project.basic_info.actual_script, body.body)
   assert.equal((await request('/api/drama/library/scripts/..%2Fbindings.json')).status, 422)
   assert.equal((await request('/api/drama/library/scripts', { ...options, body: JSON.stringify({ originalName: 'bad.exe', body: 'bad' }) })).status, 422)
 })
@@ -188,14 +199,14 @@ test('顶部标题及加号始终可创建，片库双层tab与素材剧本正�
   root.querySelector('header .create-project').click()
   const dialog = root.querySelector('#create-project')
   assert.equal(dialog.querySelector('.script-choose').hidden, false)
-  assert.equal(dialog.querySelector('.script-choose').textContent, '从素材库导入')
+  assert.equal(dialog.querySelector('.script-choose').textContent, '素材库导入')
   await dialog.querySelector('.script-choose').onclick()
   dialog.querySelector('.script-picker').value = asset.id
   await dialog.querySelector('.script-picker').onchange()
   assert.equal(dialog.querySelector('#title').value, '复用剧本')
   await dialog.querySelector('form').onsubmit({ preventDefault() {} })
   assert.ok(selected)
-  assert.equal((await tool.snapshot(selected)).project.basic_info.original_script, '素材库中的剧本正文')
+  assert.equal((await tool.snapshot(selected)).project.basic_info.actual_script, '素材库中的剧本正文')
   assert.equal(root.querySelector('header .brand').textContent, '短剧制作')
 })
 
@@ -218,15 +229,19 @@ test('记录接口认证、独立持久化、任务详情与公共浏览器模�
   tool.records.tasks.start(tool.records.scope); await tool.records.tasks.idle(tool.records.scope)
   const history = await (await request('/api/drama/task-history')).json()
   assert.equal(history.total, 1); assert.ok(history.nodeTypes.some(row => row.label === '剧本优化'))
+  const taskHistory = await (await request('/api/drama/task-history?unit=task&status=completed&node_type=test')).json()
+  assert.equal(taskHistory.total,1);assert.equal(taskHistory.tasks[0].id,group.tasks[0].id)
+  assert.equal(Object.hasOwn(taskHistory,'groups'),false)
   const detail = (await (await request(`/api/drama/task-history?id=${group.group.id}`)).json()).detail
   assert.equal(detail.steps[0].http[0].body, 'task response')
-  for (const path of ['task/index.js', 'task/styles.js', 'http-client/index.js', 'http-client/styles.js']) {
+  for (const path of ['ui/index.js', 'task/index.js', 'task/styles.js', 'http-client/index.js', 'http-client/styles.js']) {
     const response = await request('/plugins/drama/packages/' + path); assert.equal(response.status, 200)
     assert.doesNotMatch(await response.text(), /from '@agent-modules\//)
   }
   assert.equal((await request('/plugins/drama/packages/missing.js')).status, 404)
   const source = await (await request('/plugins/drama/src/client/workbench.js')).text()
   assert.match(source, /from '\/plugins\/drama\/packages\/task\/index.js'/)
+  assert.ok(source.includes("from '/plugins/drama/packages/ui/index.js'"))
   const { createRecordService } = await import('../src/records/service.js')
   const reopened = createRecordService(tool.root)
   assert.equal(reopened.http.read(transfer.id).response.result, 'saved')
@@ -256,4 +271,69 @@ test('释放SSE期间的项目创建通知在恢复连接后补发，不跨会�
     const text=new TextDecoder().decode((await response.body.getReader().read()).value)
     assert.match(text,/refresh/);assert.doesNotMatch(text,/created/);stop.abort()
   }
+})
+
+test('刷新恢复同工作区另一会话时，面板读写项目及SSE同步，其他工作区和同名项目隔离', async t => {
+  const {tool,request}=await fixture(t)
+  const first=await tool.create({name:'月界旅行',original_script:'原稿正文'},{sessionId:'source',requestId:'workspace-a'})
+  const second=await tool.create({name:'月界旅行'},{sessionId:'other-source',requestId:'workspace-b'})
+  const sibling='session-workspace-sibling',foreign='session-workspace-foreign'
+  const workspaces=[{...first.workspace,sessionIds:[first.session_id,sibling]},{...second.workspace,sessionIds:[second.session_id,foreign]}]
+  tool.workspaceForSession=id=>workspaces.find(row=>row.sessionIds.includes(id))
+  const snapshot=await (await request(`/api/drama/project?session_id=${sibling}`)).json()
+  assert.equal(snapshot.project.basic_info.id,first.project_id)
+  assert.equal(snapshot.session_id,sibling)
+  assert.deepEqual(await tool.snapshot('unrelated'),{project:null})
+  assert.equal((await tool.snapshot(foreign)).project.basic_info.id,second.project_id)
+  const original=await (await request(`/api/drama/original-script?session_id=${sibling}`)).json()
+  assert.equal(original.body,'原稿正文')
+  const options={method:'PATCH',headers:{'X-Drama-Request':'1'},body:JSON.stringify({project_id:first.project_id,command:{kind:'node_opinion',value:'调整节奏',previousValue:''}})}
+  assert.equal((await request(`/api/drama/project?session_id=${foreign}`,options)).status,403)
+  assert.equal((await request(`/api/drama/project?session_id=${sibling}`,options)).status,200)
+  assert.equal((await tool.snapshot(first.session_id)).project.basic_info.script_revision_node.opinion,'调整节奏')
+  const dom=new JSDOM('<main/>'),previous=globalThis.document;globalThis.document=dom.window.document
+  let stream
+  class Events{constructor(){stream=this}close(){}}
+  const ui=mount(document.querySelector('main'),{getSessionId:()=>sibling,fetcher:request,Events})
+  t.after(()=>{ui.dispose();globalThis.document=previous;dom.window.close()})
+  await ui.refresh()
+  assert.equal(document.querySelector('h2').textContent,'月界旅行')
+  assert.ok(stream)
+  const abort=new AbortController();t.after(()=>abort.abort())
+  const response=await request(`/api/drama/events?session_id=${sibling}`,{signal:abort.signal})
+  const reader=response.body.getReader();await reader.read()
+  tool.emit('updated',{project_id:first.project_id,session_ids:[first.session_id]})
+  assert.match(new TextDecoder().decode((await reader.read()).value),/updated/)
+  abort.abort()
+  const state={sessions:{},requests:{pending:{project_id:first.project_id,workspace:first.workspace}}}
+  assert.equal(tool.projectIdForSession(state,sibling),null,'未完成创建不能按工作区关联')
+  state.requests.pending.session_id=first.session_id
+  assert.equal(tool.projectIdForSession(state,sibling),first.project_id)
+  state.requests.pending.deleted_at='deleted'
+  assert.equal(tool.projectIdForSession(state,sibling),null)
+  state.requests.pending.deleted_at=null;state.requests.pending.workspace={...first.workspace,id:'different-workspace'}
+  assert.equal(tool.projectIdForSession(state,sibling),null,'工作区ID与路径必须同时匹配')
+})
+
+test('切换会话后旧快照迟到不覆盖新工作区项目', async t => {
+  const {createProject}=await import('../src/node_box/project/create_project.js')
+  const a=await createProject({name:'旧工作区'}),b=await createProject({name:'月界旅行'})
+  const dom=new JSDOM('<main/>'),previous=globalThis.document;globalThis.document=dom.window.document
+  let selected='old',follow,release
+  const gate=new Promise(resolve=>{release=resolve})
+  const interval=globalThis.setInterval
+  globalThis.setInterval=(callback,delay)=>{follow=callback;return interval(callback,delay)}
+  class Events{close(){}}
+  let ui
+  try{ui=mount(document.querySelector('main'),{getSessionId:()=>selected,Events,fetcher:async url=>{
+    const id=new URL(url,'http://localhost').searchParams.get('session_id')
+    if(id==='old')await gate
+    return{ok:true,json:async()=>({project:id==='old'?a:b})}
+  }})}finally{globalThis.setInterval=interval}
+  t.after(()=>{release();ui.dispose();globalThis.document=previous;dom.window.close()})
+  selected='new';follow()
+  await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(document.querySelector('h2').textContent,'月界旅行')
+  release();await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(document.querySelector('h2').textContent,'月界旅行')
 })

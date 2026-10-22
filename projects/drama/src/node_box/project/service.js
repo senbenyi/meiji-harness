@@ -1,3 +1,7 @@
+import { applyExecutionStates, projectExecutions, stateSummary } from '../../node_runtime/execution_state.js'
+import { nodeState } from '../../node_runtime/node_state.js'
+import { scriptOutput, originalFilename, scriptSummary } from '../../node_runtime/node_state.js'
+import { saveProjectScript, readProjectScript } from './script_files.js'
 import { editProject } from './edit_project.js'
 import { EventEmitter } from 'node:events'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
@@ -14,13 +18,15 @@ import { waitBoxTask } from '../../node_runtime/box_report.js'
 /** 会话与面板共用项目服务：绑定、事件和创建/编辑/删除共享串行队列。 */
 export class ProjectService extends EventEmitter {
   #creator
+  #taskWatches = new Map()
 
-  constructor({ root, workspaceController, sessionController }) {
+  constructor({ root, workspaceController, sessionController, workspaceForSession }) {
     super()
     this.writes = createWriteQueue()
     this.root = root
     this.workspaceController = workspaceController
     this.sessionController = sessionController
+    this.workspaceForSession = workspaceForSession
     this.#creator = new CreateProjectExecutor({
       root, workspaceController, sessionController,
       readBindings: () => this.#readBindings(),
@@ -78,14 +84,55 @@ export class ProjectService extends EventEmitter {
     }))
   }
 
+  /** 宿主刷新可恢复同工作区的另一会话；以真实成员及已完成项目登记解析，不按名称匹配。 */
+  projectIdForSession(state, sessionId) {
+    if (Object.hasOwn(state.sessions, sessionId)) return state.sessions[sessionId]
+    const workspace = this.workspaceForSession?.(sessionId)
+    if (!workspace) return null
+    const row = Object.values(state.requests).find(row => row.session_id && !row.deleted_at
+      && row.workspace?.id === workspace.id && row.workspace.path === workspace.path
+      && workspace.path === join(this.root, 'projects', row.project_id))
+    return row?.project_id || null
+  }
+
+  sessionInProject(sessionId, projectId) {
+    return this.workspaceForSession?.(sessionId)?.path === join(this.root, 'projects', projectId)
+  }
+
   async snapshot(sessionId) {
     const state = await this.#readBindings()
-    const id = Object.hasOwn(state.sessions, sessionId) ? state.sessions[sessionId] : null
+    const id = this.projectIdForSession(state, sessionId)
     if (!id) return { project: null }
     const request = Object.values(state.requests).find(row => row.project_id === id)
     if (request?.deleted_at) return { project: null }
     const manager = await ProjectManager.open(join(this.root, 'projects', id, 'project.json'))
-    return { project: manager.read(), session_id: request.session_id, workspace: request.workspace }
+    const active = this.activeExecution(id, 'project')
+    const project = manager.read(), projected = applyExecutionStates(structuredClone(project), projectExecutions(this.records, id))
+    if (this.recordsEnabled && JSON.stringify(project) !== JSON.stringify(projected))
+      void this.syncExecutionStates().catch(error => this.emit('execution-state-error', error))
+    return { project: projected, session_id: sessionId, workspace: request.workspace,
+      original_summary_execution: active?.step?.kind === 'extract_summary' ? active : null }
+  }
+
+  async nodeStates(sessionId) {
+    const { project } = await this.snapshot(sessionId)
+    if (!project) return { project_id: null, nodes: {} }
+    const types = ['project', 'script_revision', 'story_segments', 'character_extraction', 'scene_extraction', 'shot_design', 'clip_arrangement', 'video_prompt']
+    const nodes = Object.fromEntries(types.map(type => [type, { ...stateSummary(nodeState(project, type)), active_execution: (() => { const active = this.activeExecution(project.basic_info.id, type); if (!active) return null; const { node_state_before, ...summary } = active; return summary })() }]))
+    const visit = (value, path) => {
+      if (!value || typeof value !== 'object') return
+      if (value.node_state) nodes[path] = { ...stateSummary(value.node_state), active_execution: null }
+      for (const [key, child] of Object.entries(value)) if (!['node_state', 'rules'].includes(key) && child && typeof child === 'object') visit(child, `${path}/${key}`)
+    }
+    for (const type of ['character_extraction', 'scene_extraction']) visit(project[type].assets, `/${type}/assets`)
+    for (const type of ['videos', 'episodes']) visit(project[type], `/${type}`)
+    return { project_id: project.basic_info.id, nodes }
+  }
+
+  async readOriginalScript(sessionId) {
+    const { project } = await this.snapshot(sessionId)
+    if (!project?.basic_info.original_script_file_path) throw new Error('尚未导入原始剧本')
+    return { body: await readProjectScript(this.root, project.basic_info.id, project.basic_info.original_script_file_path), originalName: originalFilename(project.basic_info) }
   }
 
   /** 编辑走同一串行队列，绑定与旧值在服务端核对，创建请求快照保持原样。 */
@@ -94,15 +141,19 @@ export class ProjectService extends EventEmitter {
       return this.importScript(command, { sessionId, projectId, requestId, source })
     return this.writes.run(async () => {
       const state = await this.#readBindings()
-      if (!/^p_[a-f0-9-]{36}$/i.test(projectId || '') || state.sessions[sessionId] !== projectId)
+      if (!/^p_[a-f0-9-]{36}$/i.test(projectId || '') || this.projectIdForSession(state, sessionId) !== projectId)
         throw Object.assign(new Error('当前会话未绑定此项目'), { code: 'PROJECT_SCOPE' })
       if (Object.values(state.requests).some(row => row.project_id === projectId && row.deleted_at))
         throw Object.assign(new Error('项目已删除'), { code: 'PROJECT_DELETED' })
       const manager = await ProjectManager.open(join(this.root, 'projects', projectId, 'project.json'))
       if (command.kind !== 'node_opinion' && this.activeExecution(projectId, undefined, operationGroupId)) throw Object.assign(new Error('项目任务正在执行，请结束后再修改资料或规则'), { code: 'PROJECT_ACTIVE' })
       const previous = manager.read(), next = editProject(previous, command)
-      if (scriptFingerprint(previous) !== scriptFingerprint(next) && previous.script_revision.output.body) {
-        next.script_revision.node_state = new NodeStateModel({ ...next.script_revision.node_state, status: 'expired', reason: '剧本资料或规则已变化，需重新优化' }).toJSON()
+      if (command.kind !== 'import_script' && scriptFingerprint(previous) !== scriptFingerprint(next) && previous.basic_info.actual_script) {
+        next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'expired', reason: '剧本资料或规则已变化，需重新优化' }).toJSON()
+        expireScriptDependents(next)
+      }
+      if (command.kind === 'import_script') {
+        await saveProjectScript(this.root, projectId, { body: command.value, originalName: originalFilename(next.basic_info) })
         expireScriptDependents(next)
       }
       if (JSON.stringify(next) === JSON.stringify(previous)) return { project: previous }
@@ -127,10 +178,11 @@ export class ProjectService extends EventEmitter {
   remove({ sessionId, projectId }) {
     return this.writes.run(async () => {
       const state = await this.#readBindings()
-      if (!/^p_[a-f0-9-]{36}$/i.test(projectId || '') || !Object.hasOwn(state.sessions, sessionId) || state.sessions[sessionId] !== projectId)
+      if (!/^p_[a-f0-9-]{36}$/i.test(projectId || '') || this.projectIdForSession(state, sessionId) !== projectId)
         throw Object.assign(new Error('当前会话未绑定此项目'), { code: 'PROJECT_SCOPE' })
       const rows = Object.values(state.requests).filter(row => row.project_id === projectId)
       if (!rows.length) throw Object.assign(new Error('项目不存在'), { code: 'ENOENT' })
+      const relatedSessions = [...new Set([sessionId, ...(this.workspaceForSession?.(sessionId)?.sessionIds || []), ...Object.keys(state.sessions).filter(id => state.sessions[id] === projectId)])]
       if (!rows.every(row => row.deleted_at)) {
         const active = this.records?.tasks.activeGroups(this.records.scope) || []
         if (active.some(({ group, tasks }) => tasks.some(task => ['queued', 'running'].includes(task.task_status) && (task.metadata.project_id ?? group.metadata.project_id) === projectId)))
@@ -146,7 +198,7 @@ export class ProjectService extends EventEmitter {
         for (const row of rows) row.deleted_at = deletedAt
         await this.#saveBindings(state)
       }
-      this.emit('updated', { project_id: projectId, deleted: true, session_ids: Object.keys(state.sessions).filter(id => state.sessions[id] === projectId) })
+      this.emit('updated', { project_id: projectId, deleted: true, session_ids: relatedSessions })
       return { deleted: true, project_id: projectId }
     })
   }
@@ -174,21 +226,27 @@ export class ProjectService extends EventEmitter {
       })
     })
     if (source === 'ui') await this.showPanelTaskStart?.(id)
+    this.watchProjectTask(id)
     this.records.tasks.start(this.records.scope)
     const report = await waitBoxTask(this.records, id)
+    await this.writes.run(() => {})
     if (report.status !== 'completed') throw new Error(report.reason || '剧本导入失败')
     return { ...(await this.snapshot(sessionId)), group_id: id, report, ...(report.warning ? { warning: report.warning } : {}) }
   }
 
   /** 仅提供数据提交能力；步骤编排与模型调用由Executor负责。 */
-  saveOriginalSummary({ sessionId, projectId, originalScript, summary, signal }) {
+  saveOriginalSummary({ sessionId, projectId, originalScript, output, expectedOutput, expectedScriptOutput, expectedSource, signal }) {
     return this.writes.run(async () => {
       signal.throwIfAborted()
       const snapshot = await this.snapshot(sessionId)
       if (!snapshot.project || snapshot.project.basic_info.id !== projectId) throw new Error('项目已删除或会话归属改变')
       const manager = await ProjectManager.open(join(this.root, 'projects', projectId, 'project.json'))
-      if (manager.read().basic_info.original_script !== originalScript) throw new Error('原稿已变化，摘要未写入')
-      manager.change(project => { project.basic_info.original_script_summary = summary })
+      if (manager.read().basic_info.original_script_file_path !== expectedSource || manager.read().basic_info.actual_script !== originalScript) throw new Error('原稿已变化，摘要未写入')
+      if (digest(scriptSummary(manager.read())) !== digest(expectedOutput) || digest(scriptOutput(manager.read())) !== digest(expectedScriptOutput)) throw new Error('项目摘要或预估时长已变化，拒绝覆盖较新结果')
+      signal.throwIfAborted()
+      manager.change(project => {
+        Object.assign(project.basic_info, structuredClone(output))
+      })
       await manager.model.update()
       this.emit('updated', { project_id: projectId, session_ids: [sessionId] })
     })
@@ -206,6 +264,80 @@ export class ProjectService extends EventEmitter {
       saveSummary: input => this.saveOriginalSummary(input),
     })
     this.recordsEnabled = true
+    const dispose = records.dispose.bind(records)
+    records.dispose = async () => {
+      await records.tasks.dispose()
+      this.executionUnsubscribe?.()
+      await this.writes.run(() => {})
+      await dispose()
+    }
+    this.executionUnsubscribe = records.tasks.store.subscribe(scope => {
+      if (scope !== records.scope) return
+      // 只有Task终态集合变化才落盘，步骤/HTTP进度不重复扫描项目文件。
+      const terminal = records.tasks.store.read(scope, { steps: false }).tasks.filter(task => !['queued', 'running'].includes(task.task_status))
+      const signature = JSON.stringify(terminal.map(task => [task.id, task.task_status, task.ended_at]))
+      if (signature === this.executionSignature) return
+      this.executionSignature = signature
+      void this.syncExecutionStates().catch(error => this.emit('execution-state-error', error))
+    })
+  }
+
+  syncExecutionStates() {
+    const records = this.records
+    return this.writes.run(async () => {
+      const bindings = await this.#readBindings()
+      const ids = new Set(Object.values(bindings.requests).filter(row => !row.deleted_at).map(row => row.project_id))
+      for (const id of ids) {
+        let manager
+        try { manager = await ProjectManager.open(join(this.root, 'projects', id, 'project.json')) }
+        catch (error) { if (error.code === 'INVALID_PROJECT') continue; throw error }
+        const previous = manager.read()
+        const next = applyExecutionStates(structuredClone(previous), projectExecutions(records, id))
+        if (JSON.stringify(previous) === JSON.stringify(next)) continue
+        manager.change(project => Object.assign(project, next))
+        await manager.model.update()
+        this.emit('updated', { project_id: id, session_ids: Object.keys(bindings.sessions).filter(session => bindings.sessions[session] === id) })
+      }
+    })
+  }
+
+
+  /** 摘要步骤与Task终态都推送，避免失败/取消后面板一直loading。 */
+  watchProjectTask(id) {
+    if (this.#taskWatches.has(id)) return
+    let last = ''
+    const notify = () => {
+      const detail = this.records.tasks.detail(this.records.scope, id)
+      const task = detail?.tasks[0]
+      if (!task) return
+      const signature = JSON.stringify([task.task_status, detail.steps.map(step => [step.id, step.step_status])])
+      if (signature !== last) {
+        last = signature
+        const m = task.metadata
+        if (task.action !== 'create' || detail.steps.some(step => step.result?.created))
+          this.emit('updated', { project_id: m.project_id, session_ids: [m.session_id, m.target_session_id, m.source_session_id].filter(Boolean) })
+      }
+      if (!['queued', 'running'].includes(task.task_status)) { unsubscribe(); this.#taskWatches.delete(id) }
+    }
+    const unsubscribe = this.records.tasks.store.subscribe(scope => { if (scope === this.records.scope) notify() })
+    this.#taskWatches.set(id, unsubscribe)
+    notify()
+  }
+
+  /** 面板只等待创建里程碑，不等待同一Task里的摘要；不提前标记Task完成。 */
+  waitProjectCreated(id) {
+    return new Promise((resolve, reject) => {
+      const check = () => {
+        const detail = this.records.tasks.detail(this.records.scope, id)
+        const created = detail?.steps.find(step => step.kind === 'create' && step.step_status === 'done')?.result?.created
+        if (created) { unsubscribe(); resolve({ ...created, group_id: id, status: detail.status }); return }
+        if (!detail || !['queued', 'running'].includes(detail.status)) {
+          unsubscribe(); reject(new Error(detail?.reason || '创建项目失败'))
+        }
+      }
+      const unsubscribe = this.records.tasks.store.subscribe(scope => { if (scope === this.records.scope) check() })
+      check()
+    })
   }
 
   create(input, { sessionId, requestId, source = 'api', goal = '创建项目' }) {
@@ -238,8 +370,11 @@ export class ProjectService extends EventEmitter {
     })
     return prepared.then(async id => {
       if (source === 'ui') await this.showPanelTaskStart?.(id)
+      this.watchProjectTask(id)
       this.records.tasks.start(this.records.scope)
+      if (source === 'ui') return this.waitProjectCreated(id)
       const report = await waitBoxTask(this.records, id)
+    await this.writes.run(() => {})
       if (report.status !== 'completed') throw new Error(report.reason || '创建项目失败')
       return { ...report.result, group_id: id, report, ...(report.warning ? { warning: report.warning } : {}) }
     })
@@ -262,6 +397,7 @@ export class ProjectService extends EventEmitter {
         } }],
       })
     })
+    this.watchProjectTask(id)
     this.records.tasks.start(this.records.scope)
     return waitBoxTask(this.records, id, signal)
   }
@@ -274,7 +410,17 @@ export class ProjectService extends EventEmitter {
       const task = tasks.find(task => (!nodeType || task.node_type === nodeType)
         && (task.metadata.project_id ?? group.metadata.project_id) === projectId
         && ['queued', 'running'].includes(task.task_status))
-      if (task) return { group_id: group.id, status: task.task_status }
+      if (task) {
+        const detail = this.records.tasks.detail(this.records.scope, group.id)
+        const steps = detail.steps.filter(step => step.task_id === task.id).sort((a, b) => a.seq - b.seq)
+        const current = steps.find(step => step.step_status === 'running') || steps.find(step => step.step_status === 'ready')
+        const review = steps.findLast(step => step.step_status === 'done' && step.result?.review)
+        return { group_id: group.id, task_id: task.id, status: task.task_status,
+          step: current ? { id: current.id, kind: current.kind, name: current.name, status: current.step_status } : null,
+          review_issues: review?.result.review.issues || [],
+          node_state_before: task.metadata.node_state_before || null,
+        }
+      }
     }
     return null
   }

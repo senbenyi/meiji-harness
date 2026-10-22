@@ -1,3 +1,4 @@
+import { scriptOutput, nodeRules } from '../../node_runtime/node_state.js'
 import { modelClient } from '@agent-modules/http-client'
 import { composeNodePrompt } from '../../node_runtime/node_prompt_composer.js'
 import { parseNodeOutput } from '../../node_runtime/output_response_parser.js'
@@ -8,8 +9,8 @@ const issueReason = review => review.issues.map(issue => `${issue.location}：${
 
 /** 无会话历史、无工具权限的独立模型worker；每次调用为独立可追踪步骤。 */
 export class ScriptRevisionExecutor {
-  constructor({ projects, records, models }) {
-    Object.assign(this, { projects, records, models })
+  constructor({ projects, records, models, getMaxRevisionRounds }) {
+    Object.assign(this, { projects, records, models, getMaxRevisionRounds })
     records.tasks.register('script_revision', {
       label: '剧本优化', plan: task => [step(task.action === 'revise' ? 'revise' : 'generate')],
       execute: ctx => this.execute(ctx),
@@ -23,20 +24,18 @@ export class ScriptRevisionExecutor {
     if (!project || project.basic_info.id !== metadata.project_id) throw new Error('项目已删除或会话归属已改变')
     if (scriptFingerprint(project) !== metadata.input_hash) throw new Error('剧本资料或规则已变化，请重新提交')
     const generated = previousResults.findLast(row => ['generate', 'revise'].includes(row.kind))
-    const expectedOutput = generated ? digest(generated.result.output) : metadata.output_hash
-    if (digest(project.script_revision.output) !== expectedOutput) throw new Error('优化稿已被其他操作修改，请重新提交')
+    const expectedOutput = metadata.output_hash
+    if (digest(scriptOutput(project)) !== expectedOutput) throw new Error('优化稿已被其他操作修改，请重新提交')
     const config = await this.models.read(), kind = ctx.step.kind, action = kind
     const lastReview = previousResults.findLast(row => row.result?.review)
+    const savedInput = metadata.input_snapshot
     const input = {
-      original_script: project.basic_info.original_script,
-      current_script: project.script_revision.output.body ? project.script_revision.output : null,
-      creative_requirements: project.basic_info.creative_requirements,
-      reference_episode_duration_seconds: project.basic_info.reference_episode_duration_seconds,
-      output_language: metadata.language,
-      instruction: metadata.instruction,
+      current_script: generated ? generated.result.output : savedInput.current_script,
+      output_language: savedInput.output_language,
+      instruction: savedInput.instruction,
       ...(kind === 'revise' && lastReview ? { review_issues: lastReview.result.review.issues } : {}),
     }
-    const prompt = composeNodePrompt({ nodeType: 'script_revision', action, rules: project.script_revision.rules, input, goal: metadata.instruction })
+    const prompt = composeNodePrompt({ nodeType: 'script_revision', action, rules: nodeRules(project.basic_info.script_revision_node), input, goal: metadata.instruction })
     const model = config.text.model
     ctx.recordPrompt({ model, messages: prompt.messages, input })
     const record = async (transfer, options) => {
@@ -54,19 +53,20 @@ export class ScriptRevisionExecutor {
     signal.throwIfAborted()
     const output = parseNodeOutput('script_revision', action, response)
     if (kind === 'generate' || kind === 'revise') {
-      await this.projects.saveScriptCandidate(ctx, output, { expectedOutput, reason: '候选已保存，等待审核' })
       return { result: { output }, nextSteps: [step('review', ctx.step.round)] }
     }
     const review = output
     if (review.status === 'passed') {
-      await this.projects.saveScriptCandidate(ctx, project.script_revision.output, { expectedOutput, passed: true })
+      await this.projects.saveScriptCandidate(ctx, generated.result.output, { expectedOutput, passed: true })
       return { result: { review } }
     }
-    const signature = digest({ input: metadata.input_hash, candidate: expectedOutput, issues: [...review.issues].sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), status: review.status })
+    const signature = digest({ input: metadata.input_hash, candidate: digest(generated.result.output), issues: [...review.issues].sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), status: review.status })
     const repeated = previousResults.some(row => row.result?.signature === signature)
-    const reason = repeated ? '相同内容与规则下重复出现相同审核问题，已停止修订。\n' + issueReason(review) : issueReason(review)
-    await this.projects.saveScriptCandidate(ctx, project.script_revision.output, { expectedOutput, reason })
-    if (review.status !== 'content_issue' || repeated) return { status: 'rejected', reason, result: { review, signature } }
+    const limit = this.getMaxRevisionRounds()
+    const exhausted = ctx.step.round >= limit
+    const reason = (repeated ? '相同内容与规则下重复出现相同审核问题，已停止修订。\n'
+      : exhausted && review.status === 'content_issue' ? `已达到最大修订轮次（${limit}轮），仍未通过审核。\n` : '') + issueReason(review)
+    if (review.status !== 'content_issue' || repeated || exhausted) return { status: 'rejected', reason, result: { review, signature, stop_code: exhausted && review.status === 'content_issue' ? 'revision_limit_reached' : review.status } }
     return { result: { review, signature }, nextSteps: [step('revise', ctx.step.round + 1)] }
   }
 }

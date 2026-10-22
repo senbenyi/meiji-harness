@@ -1,3 +1,4 @@
+import { scriptOutput, nodeRules, nodeState } from '../node_runtime/node_state.js'
 import { boxReport } from '../node_runtime/box_report.js'
 
 const dependencies = {
@@ -13,7 +14,7 @@ const dependencies = {
 export function dependencyFacts(project) {
   return Object.entries(dependencies).map(([node_type, upstream]) => ({ node_type, upstream,
     executable: ['project', 'script_revision'].includes(node_type),
-    state: node_type === 'project' ? 'ready' : project[node_type]?.node_state?.status || 'empty',
+    state: node_type === 'project' ? 'ready' : nodeState(project, node_type)?.status || 'empty',
   }))
 }
 
@@ -29,8 +30,8 @@ export async function planningContext(projects, records, { sessionId, reportId }
   }
   return { project_id: project.basic_info.id, report, dependencies: dependencyFacts(project),
     project: { basic_info: project.basic_info },
-    script_revision: { output: project.script_revision.output, rules: project.script_revision.rules,
-      node_state: project.script_revision.node_state, opinion: project.script_revision.opinion },
+    script_revision: { output: scriptOutput(project), rules: nodeRules(project.basic_info.script_revision_node),
+      node_state: project.basic_info.script_revision_node, opinion: project.basic_info.script_revision_node.opinion },
     executable_boxes: ['project', 'script_revision'],
   }
 }

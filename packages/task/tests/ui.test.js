@@ -19,7 +19,7 @@ async function fixture() {
   return { manager, row };
 }
 
-test('公共历史只有节点类型/状态筛选，全路径可查看组、步骤、提示词、HTTP并复制实际原文', async t => {
+test('公共历史只有节点类型/状态筛选，全路径可查看任务、步骤、提示词、HTTP并复制实际原文', async t => {
   const { manager, row } = await fixture();
   const dom = new JSDOM('<main></main>');
   const copies = [];
@@ -33,9 +33,10 @@ test('公共历史只有节点类型/状态筛选，全路径可查看组、步�
   assert.deepEqual([...root.querySelectorAll('select')].map(node => node.getAttribute('aria-label')), ['节点类型', '任务状态']);
   assert.match(root.textContent, /业务提供的节点/);
   assert.doesNotMatch(root.textContent, /按选集筛选|全部剧集/);
-  findButton(root, '示例任务组').click(); await settle();
-  assert.match(root.textContent, new RegExp(row.group.id));
-  findButton(root, '查看步骤').click(); await settle();
+  findButton(root, '任务名称').click(); await settle();
+  assert.match(root.textContent, new RegExp(row.tasks[0].id));
+  assert.equal(findButton(root, '查看步骤'), undefined);
+  findButton(root, '展开').click(); await settle();
   assert.match(root.textContent, /结果原文/);
   findButton(root, '查看提示词').click(); await settle();
   assert.match(root.textContent, /1\. developer/);
@@ -59,14 +60,14 @@ test('筛选、分页由公共数据源处理，失败重试保留当前查询�
   const source = { history: async filter => {
     filters.push(filter);
     if (fail) { fail = false; throw Error('暂时不可用'); }
-    return { groups: [], total: 45, offset: filter.offset, limit: filter.limit };
+    return { tasks: [], total: 45, offset: filter.offset, limit: filter.limit };
   }, detail: () => null };
   const ui = createTaskHistory({ document: dom.window.document, source, nodeTypes: [{ type: 'custom', label: '自定义' }], pageSize: 20 });
   t.after(() => { ui.dispose(); dom.window.close(); }); await ui.ready;
   const root = ui.element.shadowRoot;
   findButton(root, '下一页').click(); await settle(); assert.equal(filters.at(-1).offset, 20);
   const select = root.querySelector('[aria-label="节点类型"]'); select.value = 'custom'; select.dispatchEvent(new dom.window.Event('change')); await settle();
-  assert.deepEqual(filters.at(-1), { status: '', node_type: 'custom', offset: 0, limit: 20 });
+  assert.deepEqual(filters.at(-1), { unit: 'task', status: '', node_type: 'custom', offset: 0, limit: 20 });
   const count = filters.length;
   assert.equal(root.querySelector('.task-history-header').lastElementChild.textContent, '刷新');
   findButton(root, '刷新').click(); await settle();
@@ -79,15 +80,15 @@ test('筛选、分页由公共数据源处理，失败重试保留当前查询�
 test('刷新拒绝晚到响应，dispose 取消订阅且拒绝后续异步绘制', async t => {
   const dom = new JSDOM(); let resolveOld; let calls = 0, unsubscribed = false;
   const ui = createTaskHistory({ document: dom.window.document, source: {
-    history: () => ++calls === 1 ? new Promise(resolve => { resolveOld = resolve; }) : { groups: [], total: 2, offset: 0, limit: 20 },
+    history: () => ++calls === 1 ? new Promise(resolve => { resolveOld = resolve; }) : { tasks: [], total: 2, offset: 0, limit: 20 },
     detail: () => null,
     subscribe: () => () => { unsubscribed = true; },
   } });
   t.after(() => dom.window.close());
   await ui.refresh();
-  resolveOld({ groups: [], total: 99, offset: 0, limit: 20 }); await ui.ready;
-  assert.match(ui.element.shadowRoot.textContent, /2 个任务组/);
-  assert.doesNotMatch(ui.element.shadowRoot.textContent, /99 个任务组/);
+  resolveOld({ tasks: [], total: 99, offset: 0, limit: 20 }); await ui.ready;
+  assert.match(ui.element.shadowRoot.textContent, /2 个任务/);
+  assert.doesNotMatch(ui.element.shadowRoot.textContent, /99 个任务/);
   ui.dispose(); await ui.refresh(); assert.equal(calls, 2); assert.equal(unsubscribed, true);
 });
 
@@ -97,9 +98,9 @@ test('剪贴板失败可重试，多实例不共享筛选与导航状态', async
   const other = createTaskHistory({ document: dom.window.document, source: manager.historySource('scope') });
   t.after(async () => { ui.dispose(); other.dispose(); dom.window.close(); await manager.dispose(); });
   await Promise.all([ui.ready, other.ready]);
-  const root = ui.element.shadowRoot, copy = root.querySelector('[aria-label="复制任务组 ID"]');
+  const root = ui.element.shadowRoot, copy = root.querySelector('[aria-label="复制任务 ID"]');
   copy.click(); await settle(); assert.equal(copy.textContent, '复制失败，重试');
   fail = false; copy.click(); await settle(); assert.equal(copy.textContent, '已复制');
-  findButton(root, '示例任务组').click(); await settle();
+  findButton(root, '任务名称').click(); await settle();
   assert.ok(other.element.shadowRoot.querySelector('[aria-label="节点类型"]'));
 });

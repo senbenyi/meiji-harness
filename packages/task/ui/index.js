@@ -3,8 +3,9 @@ const statuses = { queued: '排队中', running: '执行中', completed: '已完
 const asText = value => typeof value === 'string' ? value : JSON.stringify(value ?? null, null, 2);
 import { styles } from './styles.js';
 
-/** source 提供 history(filter)、detail(groupId) 及可选 subscribe；不绑定 URL 或业务项目。 */
-export function createTaskHistory({ source, nodeTypes = [], title = '任务历史', onBack, copyText,
+/** source 提供 history(filter)、detail(groupId) 及可选 subscribe；不绑定 URL 或业务项目。
+ * presentation.inputDependencies/taskOutput(task, steps) 从本任务历史投影输入/交付结果，返回JSON数据。 */
+export function createTaskHistory({ source, nodeTypes = [], title = '任务历史', onBack, copyText, onNotify,
   document = globalThis.document, pageSize = 20, initialView = {}, presentation = {} } = {}) {
   if (!source || typeof source.history !== 'function' || typeof source.detail !== 'function') throw new TypeError('需提供 history/detail 数据源');
   if (!document?.createElement) throw new TypeError('任务历史需要浏览器 document');
@@ -40,8 +41,8 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
     const node = button('复制', async event => {
       event.stopPropagation();
       node.disabled = true;
-      try { await write(read()); node.textContent = '已复制'; notice.textContent = `${label}已复制`; }
-      catch { node.textContent = '复制失败，重试'; notice.textContent = `${label}复制失败，请重试`; }
+      try { await write(read()); node.textContent = '已复制'; onNotify?.(`${label}已复制`, { kind: 'success' }); }
+      catch { node.textContent = '复制失败，重试'; onNotify?.(`${label}复制失败，请重试`, { kind: 'error' }); }
       finally { node.disabled = false; }
     }, `复制${label}`);
     node.className = 'copy'; return node;
@@ -57,7 +58,7 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
     row.append(element('h4', label), copy(label, () => asText(value)));
     node.append(row, element('pre', asText(value))); return node;
   };
-  const header = (label, back) => {
+  const header = (label, back, taskStatus) => {
     disposeHttp?.(); disposeHttp = null;
     const node = element('header', '', 'task-history-header');
     if (back) {
@@ -65,19 +66,26 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
     }
     const heading = element('h2', label); heading.title = label;
     const reload = button('刷新', () => refresh({ reload: true })); reload.className = 'task-history-refresh';
-    node.append(heading, reload); page.replaceChildren(node, notice); notice.textContent = '';
+    node.append(heading); if (taskStatus) node.append(status(taskStatus)); node.append(reload); page.replaceChildren(node, notice); notice.textContent = '';
   };
-  const metadata = value => {
+  const metadata = (value, label = '任务执行信息') => {
     const node = element('details', '', 'metadata muted');
-    node.append(element('summary', '业务附加信息'), element('pre', asText(value))); return node;
+    node.append(element('summary', label), element('pre', asText(value))); return node;
   };
-  const showGroup = groupId => {
-    state.groupId = groupId; state.taskId = null; state.stepId = null; state.record = null; loadedGroup = null; return refresh();
+  const jsonRecord = (label, value, className, open = false) => {
+    const node = element('details', '', `metadata muted ${className}`);
+    const heading = element('summary', '', 'run-record-head');
+    heading.append(element('span', label), copy(label, () => JSON.stringify(value, null, 2)));
+    node.open = open;
+    node.append(heading, element('pre', JSON.stringify(value, null, 2)));
+    return node;
+  };
+  const showGroup = (groupId, taskId = null) => {
+    state.groupId = groupId; state.taskId = taskId; state.stepId = null; state.record = null; loadedGroup = null; return refresh();
   };
   const showList = () => { state.groupId = null; state.taskId = null; state.stepId = null; state.record = null; loadedGroup = null; return refresh(); };
   const groupBack = () => { state.stepId = null; state.record = null; return refresh(); };
   const stepBack = () => { state.record = null; if (recordParent === 'group') state.stepId = null; return refresh(); };
-  const showStep = stepId => { state.stepId = stepId; state.record = null; return refresh(); };
   const showRecord = (stepId, kind) => { recordParent = state.stepId ? 'step' : 'group'; state.stepId = stepId; state.record = kind; state.httpIndex = 0; state.httpTab = 'request'; return refresh(); };
   const reasonBlock = value => {
     const block = element('div', '', 'run-step-error');
@@ -98,25 +106,23 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
     };
     filter('node_type', '节点类型', [['', '全部节点类型'], ...nodeTypes.map(node => [node.type, node.label])]);
     filter('status', '任务状态', [['', '全部状态'], ...['queued', 'running', 'completed', 'rejected', 'failed', 'cancelled'].map(key => [key, statuses[key]])]);
-    page.append(filters, element('p', `${data.total} 个任务组`, 'muted'));
+    page.append(filters, element('p', `${data.total} 个任务`, 'muted'));
     const list = element('div', '', 'task-history-list');
     page.append(list);
-    if (!data.groups.length) page.append(element('p', '暂无任务记录', 'muted'));
-    for (const row of data.groups) {
+    if (!data.tasks.length) page.append(element('p', '暂无任务记录', 'muted'));
+    for (const task of data.tasks) {
       const node = element('article', '', 'task-history-item run-list-row'), heading = element('div', '', 'run-list-heading');
+      const open = () => showGroup(task.group_id, task.id);
       node.tabIndex = 0; node.setAttribute('role', 'button');
-      node.setAttribute('aria-label', `查看${row.group.name}组内任务步骤详情`);
-      node.onclick = event => { if (!event.target.closest('button')) showGroup(row.group.id); };
+      node.setAttribute('aria-label', `查看任务：${taskName(task)}`);
+      node.onclick = event => { if (!event.target.closest('button')) open(); };
       node.onkeydown = event => {
-        if (event.target === node && ['Enter', ' '].includes(event.key)) { event.preventDefault(); showGroup(row.group.id); }
+        if (event.target === node && ['Enter', ' '].includes(event.key)) { event.preventDefault(); open(); }
       };
-      heading.append(button(row.group.name, () => showGroup(row.group.id), `查看任务组：${row.group.name}`), status(row.status));
-      const progress = element('progress'); progress.max = row.total_tasks || 1; progress.value = row.completed_tasks;
-      progress.setAttribute('aria-label', '组内任务进度');
-      const current = row.tasks.find(t => t.task_status === 'running') || row.tasks.find(t => t.task_status === 'queued');
-      node.append(heading, identity('任务组', row.group.id), element('p', `${sourceName(row.group.source)} · ${row.group.created_at || ''}`, 'meta'),
-        element('p', `任务完成 ${row.completed_tasks}/${row.total_tasks}${current ? ` · 当前：${taskName(current)}` : ''}`, 'meta'),
-        element('p', row.reason || '', 'error'), progress);
+      heading.append(button(taskName(task), open, `打开任务：${taskName(task)}`), status(task.task_status));
+      const type = nodeTypes.find(node => node.type === task.node_type)?.label || task.node_type;
+      node.append(heading, identity('任务', task.id), element('p', `类型：${type}`, 'meta'),
+        element('p', `${sourceName(task.source)} · ${task.created_at || ''}`, 'meta'), element('p', task.end_reason || '', 'error'));
       list.append(node);
     }
     const paging = element('div', '', 'actions');
@@ -155,42 +161,56 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
     const result = card('步骤结果', step.result); result.classList.add('run-step-result');
     result.querySelector('button').textContent = '复制结果';
     body.append(result, recordLinks(step));
-    const actions = element('div', '', 'run-record-links');
-    actions.append(button('查看步骤', () => showStep(step.id), `查看步骤：${step.name}`));
-    body.append(actions); node.append(summary, body); return node;
+    node.append(summary, body); return node;
+  }
+  function inputDependencies(task, steps) {
+    const value = presentation.inputDependencies?.(task, steps) ?? task.metadata?.input_dependencies
+      ?? steps.find(step => step.prompt?.input != null)?.prompt.input ?? null;
+    return jsonRecord('输入依赖', value, 'run-input-dependencies');
   }
   function renderDetail(data) {
     const step = state.stepId && data.steps.find(row => row.id === state.stepId);
     if (state.stepId && !step) throw new Error('步骤不存在');
+    if (step) {
+      if (state.taskId && state.taskId !== step.task_id) throw new Error('步骤不属于当前任务');
+      state.taskId = step.task_id;
+    }
     if (state.record) return renderRecord(step);
     if (step) {
       const task = data.tasks.find(t => t.id === step.task_id), verdict = diagnosis(step, task);
       header(`${taskName(task)} · 第 ${step.seq} 步 ${stepName(step, task)}`, groupBack);
       page.append(identity('步骤', step.id), status(verdict.rejected ? 'rejected' : step.step_status), element('p', `${step.started_at || '未开始'} → ${step.ended_at || '未结束'}`, 'muted'));
       if (verdict.reason) page.append(reasonBlock(reasonText(verdict.rejected ? '未通过原因' : step.step_status === 'failed' ? '失败原因' : '原因', verdict.reason, verdict.type)));
-      page.append(card('步骤结果', step.result), metadata(step.metadata));
+      page.append(card('步骤结果', step.result), metadata(step.metadata, '步骤执行信息'));
       page.append(recordLinks(step)); return;
     }
-    header('任务组详情', showList);
-    const groupHead = element('div', '', 'run-group-head run-list-heading');
-    groupHead.append(element('strong', data.group.name), status(data.status));
-    page.append(groupHead, identity('任务组', data.group.id), element('p', `任务完成 ${data.completed_tasks}/${data.total_tasks}`, 'meta'), metadata(data.group.metadata));
-    for (const task of data.tasks) {
-      const node = element('section'), row = element('div', '', 'run-task-head run-list-heading');
-      row.dataset.taskId = task.id; row.classList.toggle('is-target', state.taskId === task.id);
-      row.append(element('h3', `${task.group_seq}. ${taskName(task)}`), status(task.task_status));
-      node.append(row, identity('任务', task.id), element('p', `${sourceName(task.source)} · ${task.created_at || ''}`, 'meta'));
+    const task = data.tasks.find(task => task.id === state.taskId) || (!state.taskId ? data.tasks[0] : null);
+    if (!task) throw new Error('任务不存在');
+    state.taskId = task.id;
+    header(taskName(task), showList, task.task_status);
+    {
+      const node = element('section', '', 'run-task-card');
+      node.dataset.taskId = task.id;
+      const type = nodeTypes.find(node => node.type === task.node_type)?.label || task.node_type;
+      node.append(identity('任务', task.id), element('p', `类型：${type}`, 'meta'),
+        element('p', `${sourceName(task.source)} · ${task.created_at || ''}`, 'meta'));
       if (task.end_reason) {
         const latestReview = data.steps.filter(st => st.task_id === task.id && st.kind === 'review' && diagnosis(st, task).type).sort((a, b) => b.seq - a.seq)[0];
         node.append(reasonBlock(reasonText(task.task_status === 'failed' ? '失败原因' : task.task_status === 'rejected' ? '未通过原因' : '原因', task.end_reason,
           task.task_status === 'rejected' && latestReview ? diagnosis(latestReview, task).type : '')));
       }
       const list = element('ol', '', 'run-step-list');
-      for (const step of data.steps.filter(st => st.task_id === task.id).sort((a, b) => a.seq - b.seq)) list.append(stepCard(step, task));
-      node.append(list, metadata(task.metadata));
+      const steps = data.steps.filter(st => st.task_id === task.id).sort((a, b) => a.seq - b.seq);
+      node.append(inputDependencies(task, steps));
+      for (const step of steps) list.append(stepCard(step, task));
+      const output = { status: task.task_status, reason: task.end_reason || '',
+        ...presentation.taskOutput?.(task, steps),
+      };
+      if (!Object.hasOwn(output, 'result')) output.result = null;
+      node.append(list, jsonRecord('任务输出', output, 'run-task-output', true));
       page.append(node);
     }
-    root.querySelector('.is-target')?.scrollIntoView?.({ block: 'nearest' });
+
   }
   function renderRecord(step) {
     const task = loadedGroup.tasks.find(t => t.id === step.task_id);
@@ -226,19 +246,19 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
         if (!groupId) throw new Error('任务不存在');
         state.groupId = groupId;
       }
-      const filter = { status: state.status, node_type: state.node_type, offset: state.offset, limit: pageSize };
+      const filter = { unit: 'task', status: state.status, node_type: state.node_type, offset: state.offset, limit: pageSize };
       const key = JSON.stringify(filter);
       fallback = state.groupId ? details.get(state.groupId) : pages.get(key);
       if (!reload && fallback && !dirty.has(state.groupId)) {
         if (state.groupId) { loadedGroup = fallback; renderDetail(fallback); } else renderList(fallback);
         return;
       }
-      header(state.groupId ? '任务组详情' : title, state.groupId || state.taskId ? showList : onBack);
+      header(state.groupId ? '任务详情' : title, state.groupId || state.taskId ? showList : onBack);
       page.append(element('p', '正在读取…', 'muted'));
       const data = state.groupId ? await source.detail(state.groupId)
         : await source.history(filter);
       if (disposed || token !== epoch) return;
-      if (!data) throw new Error('任务组不存在');
+      if (!data) throw new Error('任务不存在');
       if (state.groupId) { loadedGroup = data; details.set(state.groupId, data); dirty.delete(state.groupId); renderDetail(data); }
       else { pages.set(key, data); renderList(data); }
     } catch (error) {

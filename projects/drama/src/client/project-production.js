@@ -82,7 +82,7 @@ export function renderProjectProduction(root, project, { state, onBack, openTask
     head.append(element('h3', title), element('span', rows.length ? `${rows.length} 项` : statusLabels[node?.node_state?.status] || '未生成', 'production-count'))
     section.dataset.nodeType = nodeType
     section.append(head)
-    const ai = !!node?.rules
+    const ai = node?.node_state?.type === 1
     section.classList.add('script-node')
     section.dataset.status = node?.node_state?.status || 'empty'
     const tag = element('span', statusLabels[node?.node_state?.status] || '未生成', 'node-data-tag')
@@ -110,9 +110,9 @@ export function renderProjectProduction(root, project, { state, onBack, openTask
       state.nodeOpinions ||= {}
       const input = element('input', '', 'node-ui-opinion'), error = element('p', '', 'error node-ui-failure')
       input.placeholder = '本次执行意见'; input.setAttribute('aria-label', `${title}本次执行意见`)
-      input.value = state.nodeOpinions[nodeType] ?? node.opinion ?? ''; input.readOnly = !saveOpinion
+      input.value = state.nodeOpinions[nodeType] ?? node.node_state.opinion ?? ''; input.readOnly = !saveOpinion
       error.setAttribute('role', 'status')
-      let saved = node.opinion ?? '', chain = Promise.resolve()
+      let saved = node.node_state.opinion ?? '', chain = Promise.resolve()
       input.oninput = () => { state.nodeOpinions[nodeType] = input.value }
       input.onblur = () => {
         const value = input.value
@@ -125,6 +125,11 @@ export function renderProjectProduction(root, project, { state, onBack, openTask
         })
       }
       ui.append(input, error)
+    }
+    if (node?.node_state?.last_execution) {
+      const last = node.node_state.last_execution
+      const notice = element('p', `上次执行：${last.message}`, 'node-last-execution')
+      notice.dataset.stopCode = last.stop_code; ui.append(notice)
     }
     section.append(ui)
     if (!rows.length) section.append(element('p', `暂无${title}`, 'production-empty'))
@@ -151,7 +156,7 @@ export function renderProjectProduction(root, project, { state, onBack, openTask
     body.replaceChildren()
     const [key, title, field] = stages.find(([key]) => key === state.productionTab)
     const node = project[key]
-    cards(title, field ? node?.output?.[field] || [] : node || [], node, key === 'videos' ? 'clip_video' : key === 'episodes' ? 'merge_video' : key)
+    cards(title, field ? node?.[field] || [] : node || [], node, key === 'videos' ? 'clip_video' : key === 'episodes' ? 'merge_video' : key)
     if (key === 'shot_design') cards('分片编排', project.clip_arrangement?.clips || [], project.clip_arrangement, 'clip_composition')
   }
   paint()

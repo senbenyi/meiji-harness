@@ -1,3 +1,4 @@
+import { scriptOutput, nodeRules } from '../src/node_runtime/node_state.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, cp, symlink, rm, readFile, writeFile } from 'node:fs/promises'
@@ -6,7 +7,7 @@ import { join, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { nodeDefinitions, createNode, composeNodePrompt, validateNodeOutput, parseNodeOutput, ProjectManager } from '../src/index.js'
 
-const script = { body: '完整剧本', estimated_duration_seconds: 30, summary: '当前摘要' }
+const script = { actual_script: '完整剧本', estimated_duration_seconds: 30, summary: '当前摘要' }
 const issue = { location: 'body', reason: '当前事实冲突', suggestion: '按依据修正' }
 const names = ['script_revision', 'story_segments', 'character_extraction', 'scene_extraction', 'shot_design', 'video_prompt', 'costume_image', 'scene_image']
 
@@ -23,14 +24,15 @@ function sample(schema) {
 
 test('初始化基于运行时字段，共用公共规则和状态，实例相互隔离', async () => {
   const first = await createNode('script_revision'), second = await createNode('script_revision')
-  assert.deepEqual(first.output, { body: '', estimated_duration_seconds: 0, summary: '' })
-  assert.equal(first.opinion, '')
+  assert.deepEqual({actual_script:first.actual_script,summary:first.summary,estimated_duration_seconds:first.estimated_duration_seconds}, { actual_script: '', estimated_duration_seconds: 0, summary: '' })
+  assert.equal(Object.hasOwn(first,'output'),false)
+  assert.equal(first.node_state.opinion, '')
   assert.equal(first.node_state.status, 'empty')
-  first.output.body = '局部修改'; first.rules.rules.generate.supplement = '局部补充'
-  assert.equal(second.output.body, '')
-  assert.equal(second.rules.rules.generate.supplement, '')
+  first.actual_script = '局部修改'; first.node_state.rules.generate.supplement = '局部补充'
+  assert.equal(second.actual_script, '')
+  assert.equal(second.node_state.rules.generate.supplement, '')
   assert.deepEqual((await createNode('character_extraction')).assets, [])
-  assert.deepEqual((await createNode('scene_extraction')).output, { scenes: [] })
+  assert.deepEqual((await createNode('scene_extraction')).scenes, [])
   const image = await createNode('costume_image')
   assert.equal(image.output, undefined); assert.equal(image.address, '')
   await assert.rejects(createNode('video_generation'), { code: 'INVALID_NODE_OUTPUT' })
@@ -39,12 +41,12 @@ test('初始化基于运行时字段，共用公共规则和状态，实例相�
 test('同一Model定义新增字段后，初始化、编排和校验一起更新', async () => {
   const definition = structuredClone(nodeDefinitions)
   const node = await createNode('script_revision')
-  const before = composeNodePrompt({ nodeType: 'script_revision', action: 'generate', rules: node.rules, input: { script: '原文' }, definition })
+  const before = composeNodePrompt({ nodeType: 'script_revision', action: 'generate', rules: nodeRules(node.node_state), input: { script: '原文' }, definition })
   definition.script_revision.output.properties.revision_note = { type: 'string', description: '本次修改范围' }
   definition.script_revision.output.required.push('revision_note')
   const afterNode = await createNode('script_revision', { definition })
-  assert.equal(afterNode.output.revision_note, '')
-  const after = composeNodePrompt({ nodeType: 'script_revision', action: 'generate', rules: node.rules, input: { script: '原文' }, definition })
+  assert.equal(afterNode.revision_note, '')
+  const after = composeNodePrompt({ nodeType: 'script_revision', action: 'generate', rules: nodeRules(node.node_state), input: { script: '原文' }, definition })
   assert.doesNotMatch(before.system, /revision_note/)
   assert.match(after.system, /revision_note/)
   assert.throws(() => validateNodeOutput('script_revision', 'generate', script, { definition }), { code: 'INVALID_NODE_OUTPUT', path: 'output.revision_note' })
@@ -55,7 +57,7 @@ test('8节点24动作按本次资料编排，契约只注入一次，不重复�
   for (const nodeType of names) {
     const node = await createNode(nodeType)
     for (const action of ['generate', 'review', 'revise']) {
-      const result = composeNodePrompt({ nodeType, action, rules: node.rules, goal: '当前目标', input: { content: '{{literal}}' } })
+      const result = composeNodePrompt({ nodeType, action, rules: nodeRules(node.node_state), goal: '当前目标', input: { content: '{{literal}}' } })
       assert.equal(result.messages.length, 2)
       assert.ok(result.system.includes(nodeType))
       assert.ok(!result.system.includes('{{output:'))
@@ -68,18 +70,18 @@ test('8节点24动作按本次资料编排，契约只注入一次，不重复�
 
 test('补充规则不改变结构契约，跨节点/跨动作引用明确拒绝', async () => {
   const node = await createNode('script_revision')
-  node.rules.rules.generate.supplement = '保留 {{literal}}'
-  const result = composeNodePrompt({ nodeType: 'script_revision', action: 'generate', rules: node.rules, input: {} })
+  node.node_state.rules.generate.supplement = '保留 {{literal}}'
+  const result = composeNodePrompt({ nodeType: 'script_revision', action: 'generate', rules: nodeRules(node.node_state), input: {} })
   assert.match(result.system, /保留 \{\{literal\}\}/)
   assert.match(result.system, /业务规则不能改写输出结构/)
-  node.rules.rules.generate.supplement = '{{output:#/$defs/review_output}}'
-  assert.throws(() => composeNodePrompt({ nodeType: 'script_revision', action: 'generate', rules: node.rules, input: {} }), /输出契约不一致/)
+  node.node_state.rules.generate.supplement = '{{output:#/$defs/review_output}}'
+  assert.throws(() => composeNodePrompt({ nodeType: 'script_revision', action: 'generate', rules: nodeRules(node.node_state), input: {} }), /输出契约不一致/)
 })
 
 test('解析校验拒绝缺失、额外、错误类型、非有限数字及非法JSON', () => {
   const parsed = parseNodeOutput('script_revision', 'generate', JSON.stringify(script))
-  assert.deepEqual(parsed, script); parsed.body = '副本'; assert.equal(script.body, '完整剧本')
-  for (const value of [{ body: '不完整' }, { ...script, extra: '' }, { ...script, estimated_duration_seconds: '30' }, { ...script, estimated_duration_seconds: 0 }, { ...script, estimated_duration_seconds: Infinity }, { ...script, body: '' }]) {
+  assert.deepEqual(parsed, script); parsed.actual_script = '副本'; assert.equal(script.actual_script, '完整剧本')
+  for (const value of [{ actual_script: '不完整' }, { ...script, extra: '' }, { ...script, estimated_duration_seconds: '30' }, { ...script, estimated_duration_seconds: 0 }, { ...script, estimated_duration_seconds: Infinity }, { ...script, actual_script: '' }]) {
     assert.throws(() => validateNodeOutput('script_revision', 'revise', value), { code: 'INVALID_NODE_OUTPUT' })
   }
   assert.throws(() => parseNodeOutput('script_revision', 'generate', '```json\n{}\n```'), { code: 'INVALID_NODE_OUTPUT' })
@@ -121,7 +123,7 @@ test('无docs目录仍能初始化、组装和校验', async () => {
     await cp(new URL('../src/', import.meta.url), join(dir, 'src'), { recursive: true })
     await cp(new URL('../skills/', import.meta.url), join(dir, 'skills'), { recursive: true })
     await symlink(resolve(new URL('../../../node_modules', import.meta.url).pathname), join(dir, 'node_modules'), 'dir')
-    const code = `import {createNode,composeNodePrompt,parseNodeOutput} from './src/index.js'; const n=await createNode('script_revision'); composeNodePrompt({nodeType:'script_revision',action:'generate',rules:n.rules,input:{}}); parseNodeOutput('script_revision','generate',${JSON.stringify(JSON.stringify(script))}); console.log('ok');`
+    const code = `import {createNode,composeNodePrompt,parseNodeOutput} from './src/index.js'; const n=await createNode('script_revision'); composeNodePrompt({nodeType:'script_revision',action:'generate',rules:{supports_supplement:n.node_state.supports_supplement,rules:n.node_state.rules},input:{}}); parseNodeOutput('script_revision','generate',${JSON.stringify(JSON.stringify(script))}); console.log('ok');`
     assert.equal(execFileSync(process.execPath, ['--input-type=module', '-e', code], { cwd: dir, encoding: 'utf8' }).trim(), 'ok')
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
@@ -130,13 +132,13 @@ test('校验后写入项目，保留人工输入，未校验结果不自动落�
   const dir = await mkdtemp(join(tmpdir(), 'drama-node-save-'))
   try {
     const file = join(dir, 'project.json'), node = await createNode('script_revision')
-    node.opinion = '人工意见'; await writeFile(file, JSON.stringify({ script_revision: node }))
+    node.node_state.opinion = '人工意见'; await writeFile(file, JSON.stringify({ basic_info: { actual_script: '', summary: '', estimated_duration_seconds: 0, script_revision_node: node.node_state } }))
     const manager = await ProjectManager.open(file)
     const output = parseNodeOutput('script_revision', 'revise', script)
-    manager.change(draft => { draft.script_revision.output = output })
+    manager.change(draft => { Object.assign(draft.basic_info, output) })
     await manager.model.update()
     const saved = JSON.parse(await readFile(file, 'utf8'))
-    assert.equal(saved.script_revision.opinion, '人工意见')
-    assert.deepEqual(saved.script_revision.output, script)
+    assert.equal(saved.basic_info.script_revision_node.opinion, '人工意见')
+    assert.deepEqual(scriptOutput(saved), script)
   } finally { await rm(dir, { recursive: true, force: true }) }
 })

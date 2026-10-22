@@ -3,10 +3,11 @@ import { NodeStateModel } from '@agent-modules/task/models'
 
 export const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export const scriptFingerprint = project => digest({
-  original: project.basic_info.original_script,
-  requirements: project.basic_info.creative_requirements,
-  duration: project.basic_info.reference_episode_duration_seconds,
-  rules: project.script_revision.rules,
+  original: project.basic_info.original_script_file_path,
+  rules: Object.fromEntries(Object.entries(project.basic_info.script_revision_node.rules).map(([action, rule]) => [action, {
+    base: rule.base, supplement: project.basic_info.script_revision_node.supports_supplement ? rule.supplement : '',
+  }])),
+  supports_supplement: project.basic_info.script_revision_node.supports_supplement,
 })
 export function expireScriptDependents(project) {
   const visit = value => {

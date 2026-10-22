@@ -10,7 +10,7 @@ const temp = await mkdtemp(join(tmpdir(), 'agent-modules-install-'));
 const run = (command, args, cwd) => execFileSync(command, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 try {
   const archives = [];
-  for (const name of ['http-client', 'prompt-composer', 'setting', 'task']) {
+  for (const name of ['http-client', 'prompt-composer', 'setting', 'ui', 'task']) {
     const result = JSON.parse(run('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', temp], join(root, 'packages', name)));
     assert.ok(result[0].files.every(file => !file.path.includes('elysium/')), '公共包不应包含旧网关兼容文件');
     archives.push(join(temp, result[0].filename));
@@ -37,6 +37,7 @@ try {
   `], taskOnly);
   await writeFile(join(temp, 'package.json'), JSON.stringify({ name: 'independent-agent-check', private: true, type: 'module' }));
   run('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', ...archives], temp);
+  run(process.execPath, ['--input-type=module', '-e', "const ui = await import('@agent-modules/ui'); if (typeof ui.showToast !== 'function') throw Error('toast export missing');"], temp);
   // 确认加载安装后的包，而非开发工作区的符号链接。
   const installed = await realpath(join(temp, 'node_modules/@agent-modules/http-client'));
   assert.ok(installed.startsWith(await realpath(temp)));
@@ -128,7 +129,7 @@ try {
       dom.window.close();
     } finally { await rm(dir, { recursive: true, force: true }); }
   `], temp);
-  console.log('四个 npm tarball 已在隔离目录离线安装并运行，未引用原工作区源码。');
+  console.log('五个 npm tarball 已在隔离目录离线安装并运行，未引用原工作区源码。');
 } finally {
   await rm(temp, { recursive: true, force: true });
 }

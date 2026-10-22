@@ -1,3 +1,5 @@
+import { showToast } from '@agent-modules/ui'
+import { taskHistoryPresentation } from './task-presentation.js'
 import { element } from './panel-dom.js'
 import { detailsDialog } from './project-forms.js'
 import { renderProjectDetails } from './project-detail.js'
@@ -13,8 +15,9 @@ const editIcon = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path 
 const button = (label, action, name) => { const node = element('button', label); node.type = 'button'; node.onclick = action; if (name) node.setAttribute('aria-label', name); return node }
 
 /** meiji风格的基本资料/剧本视图；state由外层保存，所有写入通过save回调。 */
-export function createProjectView(root, { project: initialProject, save, refresh, request, remove, optimize, scriptExecution: initialExecution = null, confirmDelete = message => root.ownerDocument.defaultView.confirm(message), dialogRoot = root, state = {} } = {}) {
-  let project = initialProject, execution = initialExecution, disposed = false, recordView, disposeImport
+export function createProjectView(root, { project: initialProject, save, refresh, request, remove, optimize, scriptExecution: initialExecution = null, summaryExecution: initialSummaryExecution = null, confirmDelete = message => root.ownerDocument.defaultView.confirm(message), dialogRoot = root, state = {} } = {}) {
+  let sourceRead = 0
+  let project = initialProject, execution = initialExecution, summaryExecution = initialSummaryExecution, disposed = false, recordView, disposeImport
   state.mode ||= 'overview'
   const ownedDialogs = new Set()
   const go = mode => { state.mode = mode; paint() }
@@ -30,7 +33,7 @@ export function createProjectView(root, { project: initialProject, save, refresh
     dialog.addEventListener('close', () => ownedDialogs.delete(dialog), { once: true })
   }
   const editBasic = () => {
-    const previous = Object.fromEntries(['name', 'aspect_ratio', 'creative_requirements', 'reference_episode_duration_seconds'].map(key => [key, project.basic_info[key]]))
+    const previous = Object.fromEntries(['name', 'aspect_ratio', 'reference_episode_duration_seconds'].map(key => [key, project.basic_info[key]]))
     edit('编辑项目', previous, values => ({ kind: 'basic_info', values, previous }))
   }
   const openRules = (type = 'script_revision', title = '剧本优化') => { state.ruleReturn = state.mode; state.ruleNodeType = type; state.ruleNodeTitle = title; go('rules') }
@@ -44,7 +47,7 @@ export function createProjectView(root, { project: initialProject, save, refresh
       const projectId = project.basic_info.id, nodeType = state.recordNodeType || 'script_revision', nodeTitle = state.recordNodeTitle || '剧本优化'
       const read = (path, filter = {}) => request(`${path}?${new URLSearchParams({ ...filter, project_id: projectId, node_type: nodeType })}`)
       const onBack = () => go(['script', 'production'].includes(state.recordReturn) ? state.recordReturn : 'overview')
-      recordView = state.mode === 'tasks' ? createTaskHistory({ document: root.ownerDocument, title: `${nodeTitle} · 任务记录`, onBack,
+      recordView = state.mode === 'tasks' ? createTaskHistory({ document: root.ownerDocument, onNotify: (message, options) => showToast(message, { ...options, document: root.ownerDocument }), presentation: taskHistoryPresentation, title: `${nodeTitle} · 任务记录`, onBack,
         nodeTypes: [{ type: nodeType, label: nodeTitle }], initialView: { node_type: nodeType }, source: {
           history: filter => read('task-history', filter), detail: async id => (await read('task-history', { id })).detail,
         } }) : createHttpHistory({ document: root.ownerDocument, onBack, source: {
@@ -55,8 +58,9 @@ export function createProjectView(root, { project: initialProject, save, refresh
     }
     if (state.mode === 'rules') {
       const nodeType = state.ruleNodeType || 'script_revision', nodeTitle = state.ruleNodeTitle || '剧本优化'
-      if (!project[nodeType]?.rules) { go(state.ruleReturn || 'overview'); return }
-      root.append(renderRulesPanel(project[nodeType].rules, { title: `${nodeTitle}规则`, document: root.ownerDocument,
+      if (!(nodeType === 'script_revision' ? project.basic_info.script_revision_node : project[nodeType]?.node_state)?.rules) { go(state.ruleReturn || 'overview'); return }
+      const ruleState = nodeType === 'script_revision' ? project.basic_info.script_revision_node : project[nodeType].node_state
+      root.append(renderRulesPanel({ supports_supplement: ruleState.supports_supplement, rules: ruleState.rules }, { title: `${nodeTitle}规则`, document: root.ownerDocument,
         baseLabel: '基础规则', ruleNote: nodeType === 'script_revision' ? '这里展示项目内保存的规则。各动作的补充规则独立保存。' : '这里展示项目内保存的规则，当前仅供查看。',
         onBack: () => go(['script', 'production'].includes(state.ruleReturn) ? state.ruleReturn : 'overview'),
         onSave: nodeType === 'script_revision' ? change => persist({ kind: 'rules', node_type: nodeType, ...change }) : undefined,
@@ -72,36 +76,42 @@ export function createProjectView(root, { project: initialProject, save, refresh
       })
       return
     }
-    const nodeCard = () => scriptNodeCard(project.script_revision, {
+    const nodeCard = () => scriptNodeCard({ ...project.basic_info, node_state: project.basic_info.script_revision_node }, {
       preview: state.mode === 'overview',
-      canOptimize: !!project.basic_info.original_script.trim(), busy: !!execution || !!state.submittingOptimization,
-      executionStatus: execution?.status === 'queued' ? '等待执行' : execution ? '正在执行' : '',
+      canOptimize: !!project.basic_info.actual_script.trim(), busy: !!execution || !!state.submittingOptimization,
+      executionStep: execution?.status === 'running' ? execution.step : null, reviewIssues: execution?.review_issues || [],
+      displayNodeState: execution?.node_state_before || (state.submittingOptimization ? state.optimizationNodeState : null),
       executionError: state.optimizationError || '',
       runOptimization: optimize ? async instruction => {
-        state.optimizationError = ''; state.submittingOptimization = true
+        state.optimizationError = ''; state.optimizationNodeState = structuredClone(project.basic_info.script_revision_node); state.submittingOptimization = true
         if (!state.optimizationRequest || state.optimizationRequest.instruction !== instruction)
           state.optimizationRequest = { instruction, id: root.ownerDocument.defaultView.crypto.randomUUID() }
         paint()
         try {
           const result = await optimize(instruction, state.optimizationRequest.id)
           if (disposed) return
-          execution = { group_id: result.group_id, status: result.status }
+          execution = { group_id: result.group_id, status: result.status, node_state_before: state.optimizationNodeState }
           state.optimizationRequest = null
           refresh?.()
         } catch (error) { state.optimizationError = error.message; throw error }
         finally { state.submittingOptimization = false; if (!disposed) paint() }
       } : undefined,
-      openRules: project.script_revision?.rules ? () => openRules() : undefined,
+      openRules: project.basic_info.script_revision_node.rules ? () => openRules() : undefined,
       openTasks: request ? () => openRecords('tasks') : undefined,
       openHttp: request ? () => openRecords('http') : undefined,
-      opinionDraft: state.opinionDraft ?? project.script_revision.opinion,
+      opinionDraft: state.opinionDraft ?? project.basic_info.script_revision_node.opinion,
       setOpinionDraft: value => { state.opinionDraft = value },
       saveOpinion: (value, previousValue) => persist({ kind: 'node_opinion', value, previousValue }),
     })
     if (state.mode === 'original-script') {
       backHeader(view, '原始剧本', '返回项目概要', () => go('overview'))
-      if (project.basic_info.original_script_summary) view.append(element('p', project.basic_info.original_script_summary, 'summary'))
-      view.append(element('p', project.basic_info.original_script || '尚未导入原始剧本', 'prompt original-script-full'))
+      const body = element('p', project.basic_info.original_script_file_path ? '正在读取…' : '尚未导入原始剧本', 'prompt original-script-full')
+      view.append(body)
+      const ticket = ++sourceRead, reference = project.basic_info.original_script_file_path
+      if (reference && request) request('original-script').then(result => {
+        if (!disposed && ticket === sourceRead && state.mode === 'original-script' && project.basic_info.original_script_file_path === reference) body.textContent = result.body
+      }).catch(error => { if (!disposed && ticket === sourceRead && state.mode === 'original-script') body.textContent = error.message })
+      else if (reference) body.textContent = '请通过项目服务读取原始剧本'
       return
     }
     if (state.mode === 'script') {
@@ -129,20 +139,22 @@ export function createProjectView(root, { project: initialProject, save, refresh
     next.className = 'project-next'
     heading.append(next)
     view.append(heading, deleteError)
-    const basic = renderProjectDetails(view, project.basic_info, { onViewScript: () => go('original-script') })
-    const previousScript = project.basic_info.original_script
-    disposeImport = scriptImport(basic, { importScript: value => persist({ kind: 'import_script', value, previousValue: previousScript }),
+    const basic = renderProjectDetails(view, project.basic_info, { onViewScript: () => go('original-script'), summaryExecution })
+    const previousScript = project.basic_info.original_script_file_path
+    disposeImport = scriptImport(basic.querySelector('.original-script-heading'), { importScript: (value, originalName) => persist({ kind: 'import_script', value, originalName, previousValue: previousScript }),
       listScripts: request ? async () => (await request('library')).assets : undefined,
       readScript: request ? async id => (await request(`library/scripts/${encodeURIComponent(id)}`)).body : undefined,
     })
     const script = nodeCard()
     script.classList.add('overview-card')
-    const arrow = button('→', () => go('script'), '打开剧本详情'); arrow.className = 'script-title-arrow'
-    script.querySelector('.section-head').append(arrow)
+    const detail = button('查看剧本', () => go('script'), '查看优化剧本'); detail.className = 'script-view'
+    script.querySelector('.section-head').append(detail)
     view.append(script)
   }
   paint()
-  return { get isShowingRecords() { return ['tasks', 'http'].includes(state.mode) }, update(next, { scriptExecution = execution } = {}) { if (disposed) return; const unchanged = JSON.stringify(project) === JSON.stringify(next) && JSON.stringify(execution) === JSON.stringify(scriptExecution); project = next; execution = scriptExecution; if (!unchanged && !['rules', 'tasks', 'http'].includes(state.mode)) paint() }, dispose() {
+  return { get isShowingRecords() { return ['tasks', 'http'].includes(state.mode) }, update(next, { scriptExecution = execution, summaryExecution: nextSummaryExecution = summaryExecution } = {}) { if (disposed) return; const unchanged = JSON.stringify(project) === JSON.stringify(next) && JSON.stringify(execution) === JSON.stringify(scriptExecution) && JSON.stringify(summaryExecution) === JSON.stringify(nextSummaryExecution); if (next.basic_info.script_revision_node?.status === 'generated' && next.basic_info.script_revision_node.opinion === ''
+      && project.basic_info.script_revision_node.opinion && state.opinionDraft === project.basic_info.script_revision_node.opinion) state.opinionDraft = ''
+    project = next; execution = scriptExecution; summaryExecution = nextSummaryExecution; if (!unchanged && !['rules', 'tasks', 'http'].includes(state.mode)) paint() }, dispose() {
     if (disposed) return
     disposed = true
     recordView?.dispose()

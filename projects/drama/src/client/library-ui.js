@@ -32,8 +32,14 @@ function tabs(label, choices, changed) {
 }
 
 /** 片库状态由外层持有，重新进入时保留分类；销毁后忽略晚到的读取结果。 */
-export function renderLibrary(root, { state, request, openProject }) {
+export function renderLibrary(root, { state, request, openProject, back }) {
   let alive = true, data = null, failure = '', busy = false
+  const backButton = element('button', '←', 'back'), heading = element('div', '', 'library-heading')
+  backButton.type = 'button'
+  backButton.setAttribute('aria-label', '返回上一页')
+  backButton.title = '返回上一页'
+  backButton.onclick = () => back()
+  heading.append(backButton)
   const primary = tabs('片库分类', [['projects', '项目'], ['assets', '素材']], value => { state.tab = value; paint() })
   const secondary = tabs('素材分类', [['characters', '人物'], ['clothing', '衣服'], ['props', '道具'], ['scripts', '剧本']], value => { state.category = value; paint() })
   const projects = element('section', '', 'library-projects'), assets = element('section', '', 'library-assets')
@@ -71,7 +77,7 @@ export function renderLibrary(root, { state, request, openProject }) {
     finally { if (alive) { busy = false; file.value = ''; paint() } }
   }
   assets.append(secondary.nav, upload, file, rows)
-  root.replaceChildren(primary.nav, projects, assets, error)
+  root.replaceChildren(heading, primary.nav, projects, assets, error)
   const paint = () => {
     primary.select(state.tab)
     secondary.select(state.category)

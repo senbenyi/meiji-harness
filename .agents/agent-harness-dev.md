@@ -49,7 +49,7 @@
 ## 安装与验证
 
 - 在根执行 `npm ci`，仅维护根 package-lock.json；不提交项目子锁文件或 node_modules。
-- 业务依赖公共包的版本应与本工作区包匹配，npm 自动链接源码。公共包为 `@agent-modules/http-client`、`@agent-modules/prompt-composer`、`@agent-modules/setting`、`@agent-modules/task`。setting 只校验调用方提供的语言和模型目录；task 的节点类型和隔离 scope 由业务注册/传入，项目字段放 metadata。
+- 业务依赖公共包的版本应与本工作区包匹配，npm 自动链接源码。公共包为 `@agent-modules/http-client`、`@agent-modules/prompt-composer`、`@agent-modules/setting`、`@agent-modules/task`、`@agent-modules/ui`。ui 提供独立的通用toast等展示能力。setting 只校验调用方提供的语言和模型目录；task 的节点类型和隔离 scope 由业务注册/传入，项目字段放 metadata。
 - 根 `npm test` 运行工作区与工程测试；单包使用 `npm test --workspace <包名>`。
 - 工程调整还验证 `npm run verify:copy`；包 exports/分发调整验证 `npm run verify:install`。测试均使用模拟模型，真实模型调用单独记录。
 - 启动/重启用 `npm run configure -- <项目目录名>`、`npm run restart -- <项目目录名>`；唯一项目自动选择，多项目显式选择，或使用 AGENT_PROJECT。复制模板无需改根脚本。

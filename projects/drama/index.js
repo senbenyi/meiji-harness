@@ -14,13 +14,14 @@ import { createPanelTaskDisplay } from './src/session/panel_task_messages.js'
 import { ReportDispatcher, createMainAgentDelivery } from './src/session/report_dispatcher.js'
 
 export const name = 'drama'
-export const inject = ['webServer', 'connection', 'workspaceController', 'sessionController', 'settings', 'credentials', 'llm', 'agents']
+export const inject = ['webServer', 'connection', 'workspaceController', 'workspaceRegistry', 'sessionController', 'settings', 'credentials', 'llm', 'agents']
 
 export function apply(ctx) {
   const tool = new ProjectService({
     root: join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'storages', 'drama'),
     workspaceController: ctx.workspaceController,
     sessionController: ctx.sessionController,
+    workspaceForSession: sessionId => ctx.workspaceRegistry.list().find(workspace => workspace.sessionIds.includes(sessionId)),
   })
   tool.createProjectTool = new CreateProjectTool({ projects: tool })
   tool.models = createModelSettings(tool.root, { onSessionModel: config => configureMainAgent(ctx, config) })

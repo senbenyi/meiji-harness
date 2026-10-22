@@ -37,12 +37,12 @@ test('下一步进入当前项目七阶段，空模型可切换并返回原详�
 test('节点数据正确分区，模型更新不跳页，输出按纯文本展示且不修改模型', async t => {
   const { root, project, view } = await setup(t)
   const next = structuredClone(project)
-  next.story_segments.output.segments = [{ id:'seg_1', title:'重逢', body:'故事正文' }]
-  next.character_extraction.output.characters = [{ id:'char_1', name:'小雨', social_role:'学生', costumes:[{id:'costume_1',name:'校服',description:'蓝白色'}] }]
-  next.scene_extraction.output.scenes = [{ id:'scene_1',name:'车站',layout:'站台两侧' }]
-  next.shot_design.output.shots = [{ id:'shot_1',title:'镜头一',beats:[{action:'奔跑',audio:'等等！'}] }]
+  next.story_segments.segments = [{ id:'seg_1', title:'重逢', body:'故事正文' }]
+  next.character_extraction.characters = [{ id:'char_1', name:'小雨', social_role:'学生', costumes:[{id:'costume_1',name:'校服',description:'蓝白色'}] }]
+  next.scene_extraction.scenes = [{ id:'scene_1',name:'车站',layout:'站台两侧' }]
+  next.shot_design.shots = [{ id:'shot_1',title:'镜头一',beats:[{action:'奔跑',audio:'等等！'}] }]
   next.clip_arrangement.clips = [{id:'clip_1',duration_seconds:8,mode:'文生',sources:[{shot_id:'shot_1',start_beat:1,end_beat:1}]}]
-  next.video_prompt.output.items = [{clip_id:'clip_1',text_to_video:{prompt:{integrated_multimodal_description:'<img src=x onerror=alert(1)>奔跑'}}}]
+  next.video_prompt.items = [{clip_id:'clip_1',text_to_video:{prompt:{integrated_multimodal_description:'<img src=x onerror=alert(1)>奔跑'}}}]
   next.videos = [{clip_id:'clip_1',video_generation:{address:'/video.mp4',actual_duration_seconds:8}}]
   next.episodes = [{id:'ep_1',clip_ids:['clip_1'],actual_duration_seconds:8,address:'/episode.mp4'}]
   const unchanged = structuredClone(next)
@@ -84,7 +84,7 @@ test('键盘切换同步焦点与内容，重新挂载各项目独立保存自�
 
 test('AI节点历史和规则接入公共UI，过滤项目/节点并返回原tab及意见草稿', async t => {
   const paths=[]
-  const {root,state,project,window}=await setup(t,{request:async path=>{paths.push(path);return {groups:[],total:0}},save:async()=>{}})
+  const {root,state,project,window}=await setup(t,{request:async path=>{paths.push(path);return {tasks:[],total:0}},save:async()=>{}})
   tab(root,'角色').click()
   const input=root.querySelector('input');input.value='保持角色外貌';input.dispatchEvent(new window.Event('input'))
   const actions=root.querySelector('.node-ui-buttons')
@@ -102,7 +102,7 @@ test('AI节点历史和规则接入公共UI，过滤项目/节点并返回原tab
   root.querySelectorAll('.node-ui-records button')[1].click()
   panel=root.firstElementChild.shadowRoot
   assert.equal(panel.querySelector('h2').textContent,'角色规则')
-  assert.equal(panel.querySelector('[data-action=generate] .skill-text').textContent,project.character_extraction.rules.rules.generate.base)
+  assert.equal(panel.querySelector('[data-action=generate] .skill-text').textContent,project.character_extraction.node_state.rules.generate.base)
   assert.ok([...panel.querySelectorAll('textarea')].every(input=>input.readOnly))
   panel.querySelector('header button').click()
   assert.equal(state.mode,'production');assert.equal(root.querySelector('input').value,'保持角色外貌')
@@ -126,7 +126,7 @@ test('AI节点意见按目标保存，失败保留输入和可见错误，草稿
 
 test('程序节点只提供真实任务类型的历史入口，没有AI意见及规则', async t => {
   const paths=[]
-  const {root}=await setup(t,{request:async path=>{paths.push(path);return {groups:[],total:0}}})
+  const {root}=await setup(t,{request:async path=>{paths.push(path);return {tasks:[],total:0}}})
   for(const [name,type] of [['分镜','clip_composition'],['成片','clip_video'],['分集','merge_video']]){
     tab(root,name).click()
     const section=root.querySelector(`[data-node-type="${type}"]`)

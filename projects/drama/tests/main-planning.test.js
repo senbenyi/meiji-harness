@@ -16,8 +16,8 @@ import { createPanelTaskDisplay } from '../src/session/panel_task_messages.js'
 import { boxReport, waitBoxTask } from '../src/node_runtime/box_report.js'
 import { planningContext } from '../src/session/planning_context.js'
 
-const candidate = { body: '候选正文', summary: '候选摘要', estimated_duration_seconds: 180 }
-const issue = status => ({ status, issues: [{ location: 'basic_info.reference_episode_duration_seconds', reason: '存在需要修复的依据', suggestion: '按用户要求修复，保留原始目标' }] })
+const candidate = { actual_script: '候选正文', summary: '候选摘要', estimated_duration_seconds: 180 }
+const issue = status => ({ status, issues: [{ location: 'basic_info.original_script', reason: '存在需要修复的依据', suggestion: '按用户要求修复，保留原始目标' }] })
 
 async function fixture(t, kind = 'rule') {
   const root = await mkdtemp(join(tmpdir(), 'drama-main-planning-')), calls = []
@@ -26,8 +26,8 @@ async function fixture(t, kind = 'rule') {
     const body = JSON.parse(Buffer.concat(chunks)), system = body.messages.find(message => message.role === 'system').content
     const action = system.match(/动作：(\w+)/)[1], input = JSON.parse(body.messages.find(message => message.role === 'user').content.split('# 本次资料\n')[1])
     calls.push({ action, body })
-    const passed = kind === 'pass' || (kind === 'rule' ? system.includes('冲突修复已授权') : input.reference_episode_duration_seconds === 190)
-    const output = action === 'review' ? passed ? { status: 'passed', issues: [] } : issue(kind === 'rule' ? 'rule_conflict' : 'upstream_issue') : candidate
+    const passed = kind === 'pass' || (kind === 'rule' ? system.includes('冲突修复已授权') : input.current_script.actual_script === '修复后的原始剧本')
+    const output = action === 'review' ? passed ? { status: 'passed', issues: [] } : issue(kind === 'rule' ? 'rule_conflict' : 'upstream_issue') : {...candidate,...(input.current_script.actual_script==='修复后的原始剧本'?{actual_script:'修复后的原始剧本'}:{})}
     res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) }, finish_reason: 'stop' }] }))
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -47,8 +47,8 @@ async function fixture(t, kind = 'rule') {
 test('创建记录程序任务并交接真实目标；规则冲突报告→原生授权→保存规则→关联新任务', async t => {
   const f = await fixture(t), { report, exec } = f
   assert.equal(f.created.report.goal, '创建项目并按我的要求优化')
-  assert.equal(report.decision, 'rule_conflict'); assert.equal(report.saved, true)
-  assert.equal(report.review_packet.original_script, '用户原稿')
+  assert.equal(report.decision, 'rule_conflict'); assert.equal(report.saved, false)
+  assert.equal(report.review_packet.current_script.actual_script, '用户原稿')
   assert.equal(f.calls.length, 2)
   const reader = new PlanningContextTool({ projects: f.projects, records: f.records })
   const context = JSON.parse(await reader.execute({ report_id: report.report_id }, exec))
@@ -62,8 +62,8 @@ test('创建记录程序任务并交接真实目标；规则冲突报告→原�
   assert.equal(changed.status, 'completed'); assert.equal(changed.parent_group_id, report.group_id)
   assert.match(approvals[0].reason, /原规则：[\s\S]*新规则：/)
   const file = join(f.root, 'projects', report.project_id, 'project.json'), saved = JSON.parse(await readFile(file))
-  assert.match(saved.script_revision.rules.rules.review.base, /冲突修复已授权/)
-  assert.equal(saved.script_revision.node_state.status, 'expired')
+  assert.match(saved.basic_info.script_revision_node.rules.review.base, /冲突修复已授权/)
+  assert.equal(saved.basic_info.script_revision_node.status, 'expired')
   exec.callId = 'retry'
   const completed = JSON.parse(await f.optimize.execute({ instruction: '按原目标继续', retry_of: report.group_id }, exec))
   assert.equal(completed.status, 'completed'); assert.notEqual(completed.group_id, report.group_id)
@@ -75,7 +75,7 @@ test('创建记录程序任务并交接真实目标；规则冲突报告→原�
 
 test('拒绝授权、无授权服务调用及跨会话不能改规则；未修复不能盲目重试', async t => {
   const f = await fixture(t), before = (await f.projects.snapshot(f.exec.agent.session.id)).project
-  const patch = { action: 'review', field: 'base', previous_value: before.script_revision.rules.rules.review.base, value: '新规则' }
+  const patch = { action: 'review', field: 'base', previous_value: before.basic_info.script_revision_node.rules.review.base, value: '新规则' }
   const tool = new ChangeRulesTool({ projects: f.projects, records: f.records, scriptRevision: f.scripts })
   f.exec.agent.ctx = { approval: { request: async () => 'rejected' } }
   const rejected = JSON.parse(await tool.execute({ report_id: f.report.report_id, ...patch }, f.exec))
@@ -89,19 +89,19 @@ test('拒绝授权、无授权服务调用及跨会话不能改规则；未修�
 test('上游报告→修改项目资料任务→过期事实→重派原目标，旧报告不变', async t => {
   const f = await fixture(t, 'upstream'), tool = new UpdateProjectTool({ projects: f.projects })
   assert.equal(f.report.decision, 'upstream_issue'); assert.deepEqual(f.report.related_nodes, ['project'])
-  const modified = JSON.parse(await tool.execute({ report_id: f.report.report_id, command: { kind: 'basic_info',
-    values: { reference_episode_duration_seconds: 190 }, previous: { reference_episode_duration_seconds: 180 } } }, { ...f.exec, callId: 'upstream' }))
+  const modified = JSON.parse(await tool.execute({ report_id: f.report.report_id, command: { kind: 'import_script',value: '修复后的原始剧本',previousValue:(await f.projects.snapshot(f.exec.agent.session.id)).project.basic_info.original_script_file_path } }, { ...f.exec, callId: 'upstream' }))
   assert.equal(modified.status, 'completed'); assert.equal(modified.parent_group_id, f.report.group_id)
   const context = await planningContext(f.projects, f.records, { sessionId: f.exec.agent.session.id, reportId: f.report.group_id })
-  assert.equal(context.dependencies.find(row => row.node_type === 'script_revision').state, 'expired')
+  assert.equal(context.dependencies.find(row => row.node_type === 'script_revision').state, 'empty')
   const retry = JSON.parse(await f.optimize.execute({ instruction: '继续原目标', retry_of: f.report.group_id }, { ...f.exec, callId: 'retry-upstream' }))
   assert.equal(retry.status, 'completed'); assert.equal(retry.goal, '保留原始目标')
-  assert.equal(f.report.review_packet.reference_episode_duration_seconds, 180)
-  assert.equal((await f.projects.snapshot(f.exec.agent.session.id)).project.basic_info.reference_episode_duration_seconds, 190)
+  assert.equal(Object.hasOwn(f.report.review_packet,'reference_episode_duration_seconds'),false)
+  assert.notEqual(f.report.review_packet.current_script.actual_script,'修复后的原始剧本')
+  assert.equal((await f.projects.snapshot(f.exec.agent.session.id)).project.basic_info.actual_script, '修复后的原始剧本')
 })
 
 test('授权期间规则被修改时拒绝旧值覆盖，失败保留新规则', async t => {
-  const f = await fixture(t), id = f.exec.agent.session.id, old = (await f.projects.snapshot(id)).project.script_revision.rules.rules.review.base
+  const f = await fixture(t), id = f.exec.agent.session.id, old = (await f.projects.snapshot(id)).project.basic_info.script_revision_node.rules.review.base
   const tool = new ChangeRulesTool({ projects: f.projects, records: f.records, scriptRevision: f.scripts })
   f.exec.agent.ctx = { approval: { request: async () => {
     await f.projects.edit({ kind: 'rules', node_type: 'script_revision', action: 'review', field: 'supplement', value: '用户新意见', previousValue: '' }, { sessionId: id, projectId: f.report.project_id })
@@ -110,7 +110,7 @@ test('授权期间规则被修改时拒绝旧值覆盖，失败保留新规则',
   // 同字段CAS测试：先用已有项目写入口更新补充规则，再提交旧补充值。
   const report = JSON.parse(await tool.execute({ report_id: f.report.report_id, action: 'review', field: 'supplement', previous_value: '', value: 'AI建议' }, { ...f.exec, callId: 'conflict' }))
   assert.equal(report.status, 'failed'); assert.match(report.reason, /规则已变化/)
-  const rules = (await f.projects.snapshot(id)).project.script_revision.rules.rules.review
+  const rules = (await f.projects.snapshot(id)).project.basic_info.script_revision_node.rules.review
   assert.equal(rules.supplement, '用户新意见'); assert.equal(rules.base, old)
 })
 

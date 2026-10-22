@@ -1,3 +1,5 @@
+import { showToast } from '@agent-modules/ui'
+import { taskHistoryPresentation } from './task-presentation.js'
 import { createTaskHistory } from '@agent-modules/task/ui'
 import { createHttpHistory } from '@agent-modules/http-client/ui'
 import { element } from './panel-dom.js'
@@ -34,8 +36,8 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
   nav.append(library, settings)
   header.append(heading, nav)
   root.append(header, content, status)
-  let session, stream, version = 0, disposed = false, switching = null, project = null, scriptExecution = null, page = 'home', modelSettings = null, modelOptions = null, settingsTicket = 0
-  let settingsReturnPage = 'home', disposeLibrary, recordView
+  let session, stream, version = 0, disposed = false, switching = null, project = null, scriptExecution = null, summaryExecution = null, page = 'home', modelSettings = null, modelOptions = null, settingsTicket = 0
+  let settingsReturnPage = 'home', libraryReturnPage = 'home', disposeLibrary, recordView
   const libraryState = { tab: 'projects', category: 'characters' }
   let projectView, projectViewId, sessionReady = false, eventCursor = null
   const projectStates = new Map()
@@ -80,8 +82,8 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
         body: JSON.stringify({ fields, request_id: requestId }),
       })
       page = 'project'
+      if (result.session_id !== session) { activate(result.session_id); return }
       await refresh()
-      if (result.session_id !== session) activate(result.session_id)
     }, {
       listScripts: async () => (await request('library')).assets,
       readScript: async id => (await request(`library/scripts/${encodeURIComponent(id)}`)).body,
@@ -107,7 +109,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       } })
       else {
         const nodeTypes = []
-        recordView = createTaskHistory({ document: root.ownerDocument, onBack: back, nodeTypes, source: {
+        recordView = createTaskHistory({ document: root.ownerDocument, onNotify: (message, options) => showToast(message, { ...options, document: root.ownerDocument }), presentation: taskHistoryPresentation, onBack: back, nodeTypes, source: {
         history: async filter => { const data = await request(`task-history?${query(filter)}`); nodeTypes.splice(0, nodeTypes.length, ...data.nodeTypes); return data },
         detail: async id => (await request(`task-history?id=${encodeURIComponent(id)}`)).detail,
       } })
@@ -126,7 +128,10 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       return
     }
     if (page === 'library') {
-      disposeLibrary = renderLibrary(content, { state: libraryState, request, openProject: id => {
+      disposeLibrary = renderLibrary(content, { state: libraryState, request, back: () => {
+        page = ['settings', 'http', 'tasks'].includes(libraryReturnPage) ? libraryReturnPage : project ? 'project' : 'home'
+        paint()
+      }, openProject: id => {
         page = 'project'
         if (id === session) void refresh().catch(report)
         else activate(id)
@@ -145,11 +150,11 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       content.append(empty)
       return
     }
-    if (projectView) { projectView.update(project, { scriptExecution }); return }
+    if (projectView) { projectView.update(project, { scriptExecution, summaryExecution }); return }
     const ownerSession = session, projectId = project.basic_info.id
     projectViewId = projectId
     if (!projectStates.has(projectId)) projectStates.set(projectId, {})
-    projectView = createProjectView(content, { project, scriptExecution, request: path => request(path, undefined, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
+    projectView = createProjectView(content, { project, scriptExecution, summaryExecution, request: path => request(path, undefined, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
       refresh: () => { void refresh().catch(report) },
       optimize: async (instruction, requestId) => {
         if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
@@ -197,6 +202,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     sessionReady = true
     project = snapshot.project
     scriptExecution = snapshot.script_execution || null
+    summaryExecution = snapshot.original_summary_execution || null
     if (!['settings', 'library', 'http', 'tasks'].includes(page)) page = project ? 'project' : 'home'
     if (recordView && ['http', 'tasks'].includes(page)) await recordView.refresh()
     else paint()
@@ -226,6 +232,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     if (session === next) { syncEvents(); return }
     clearProject()
     project = null
+    scriptExecution = summaryExecution = null
     session = next
     sessionReady = false
     eventCursor = null
@@ -244,7 +251,11 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
   httpRecords.onclick = () => { page = 'http'; paint() }
   taskRecords.onclick = () => { page = 'tasks'; paint() }
   create.onclick = openCreate
-  library.onclick = () => { page = 'library'; paint() }
+  library.onclick = () => {
+    if (page !== 'library') libraryReturnPage = page
+    page = 'library'
+    paint()
+  }
   settings.onclick = async () => {
     if (page !== 'settings') settingsReturnPage = page
     page = 'settings'

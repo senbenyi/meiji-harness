@@ -35,7 +35,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         if (req.method !== 'GET') return json(res, 405, { message: '不支持的请求' })
         if (!/^[a-z-]+\.(js|css)$/.test(name)) return json(res, 404, { message: '文件不存在' })
         let bytes = await readFile(new URL(`../client/${name}`, import.meta.url))
-        if (name.endsWith('.js')) bytes = Buffer.from(bytes.toString().replaceAll("'@agent-modules/task/ui'", "'/plugins/drama/packages/task/index.js'").replaceAll("'@agent-modules/http-client/ui'", "'/plugins/drama/packages/http-client/index.js'").replaceAll("'@agent-modules/prompt-composer/ui'", "'/plugins/drama/packages/prompt-composer/ui/rules-panel.js'"))
+        if (name.endsWith('.js')) bytes = Buffer.from(bytes.toString().replaceAll("'@agent-modules/ui'", "'/plugins/drama/packages/ui/index.js'").replaceAll("'@agent-modules/task/ui'", "'/plugins/drama/packages/task/index.js'").replaceAll("'@agent-modules/http-client/ui'", "'/plugins/drama/packages/http-client/index.js'").replaceAll("'@agent-modules/prompt-composer/ui'", "'/plugins/drama/packages/prompt-composer/ui/rules-panel.js'"))
         res.writeHead(200, { 'Content-Type': name.endsWith('.css') ? 'text/css' : 'text/javascript', 'Cache-Control': 'no-store' })
         return res.end(bytes)
       }
@@ -73,6 +73,10 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
       }
       const sessionId = url.searchParams.get('session_id')
       if (!sessionId) return json(res, 400, { message: '需提供会话ID' })
+      if (url.pathname === '/api/drama/node-states' && req.method === 'GET')
+        return json(res, 200, await tool.nodeStates(sessionId))
+      if (url.pathname === '/api/drama/original-script' && req.method === 'GET')
+        return json(res, 200, await tool.readOriginalScript(sessionId))
       if (url.pathname === '/api/drama/project' && req.method === 'GET') {
         if (tool.applyMainAgent && /^session-[a-f0-9-]{36}$/i.test(sessionId)) await tool.applyMainAgent(sessionId)
         const snapshot = await tool.snapshot(sessionId)
@@ -127,7 +131,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         const created = event => {
           if (event.source_session_id === sessionId || event.session_id === sessionId) send({ type: 'created', ...event, cursor: creations.get(event.source_session_id)?.cursor })
         }
-        const updated = event => { if (event.session_ids.includes(sessionId)) send({ type: 'updated', project_id: event.project_id }) }
+        const updated = event => { if (event.session_ids.includes(sessionId) || tool.sessionInProject?.(sessionId, event.project_id)) send({ type: 'updated', project_id: event.project_id }) }
         tool.on('created', created)
         tool.on('updated', updated)
         send({ type: 'refresh', cursor })

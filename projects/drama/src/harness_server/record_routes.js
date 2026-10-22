@@ -1,6 +1,7 @@
 import { groupSummary } from '@agent-modules/task/models'
 import { readFile } from 'node:fs/promises'
 const assets = {
+  'ui/index.js': new URL('../../../../packages/ui/index.js', import.meta.url),
   'prompt-composer/ui/rules-panel.js': new URL('../../../../packages/prompt-composer/src/ui/rules-panel.js', import.meta.url),
   'prompt-composer/ui/rules-styles.js': new URL('../../../../packages/prompt-composer/src/ui/rules-styles.js', import.meta.url),
   'prompt-composer/rules-model.js': new URL('../../../../packages/prompt-composer/src/rules-model.js', import.meta.url),
@@ -42,7 +43,12 @@ export async function serveRecordRoute(req, res, url, records, json) {
         const detail = summary && { ...summary, steps: steps.filter(step => summary.tasks.some(task => task.id === step.task_id)) }
         return json(res, detail ? 200 : 404, detail ? { detail } : { message: '节点任务组不存在' })
       }
-      const status = url.searchParams.get('status'), filtered = summaries.filter(row => !status || row.status === status)
+      const status = url.searchParams.get('status')
+      if (url.searchParams.get('unit') === 'task') {
+        const filtered = tasks.filter(task => !status || task.task_status === status).sort((a, b) => b.queue_order - a.queue_order)
+        return json(res, 200, { tasks: filtered.slice(offset, offset + limit), total: filtered.length, offset, limit, nodeTypes: records.nodeTypes.filter(node => node.type === nodeType) })
+      }
+      const filtered = summaries.filter(row => !status || row.status === status)
       return json(res, 200, { groups: filtered.slice(offset, offset + limit), total: filtered.length, offset, limit, nodeTypes: records.nodeTypes.filter(node => node.type === nodeType) })
     }
     if (url.pathname === '/api/drama/http-records') {
@@ -65,6 +71,7 @@ export async function serveRecordRoute(req, res, url, records, json) {
     return json(res, 200, { ...records.tasks.history(records.scope, {
       offset: Number(url.searchParams.get('offset') || 0), limit: Number(url.searchParams.get('limit') || 20),
       status: url.searchParams.get('status') || '', node_type: url.searchParams.get('node_type') || '',
+      unit: url.searchParams.get('unit') || 'group',
     }), nodeTypes: records.nodeTypes })
   }
   return json(res, 404, { message: '端点不存在' })

@@ -20,7 +20,8 @@ export async function waitBoxTask(records, groupId, signal) {
 export function boxReport(detail) {
   const task = detail.tasks[0], metadata = task.metadata
   const review = detail.steps.findLast(step => step.result?.review)?.result.review
-  const candidate = detail.steps.findLast(step => step.result?.output)?.result.output
+  const candidate = task.node_type === 'script_revision' ? detail.steps.findLast(step => step.result?.output)?.result.output : null
+  const basicOutput = task.node_type === 'project' ? detail.steps.findLast(step => step.kind === 'extract_summary' && step.result?.output)?.result.output : null
   const created = detail.steps.findLast(step => step.result?.created)?.result.created
   const originalSummary = detail.steps.findLast(step => step.result?.original_script_summary)?.result.original_script_summary
   const warning = detail.steps.findLast(step => step.result?.summary_error)?.result.summary_error
@@ -37,9 +38,9 @@ export function boxReport(detail) {
     parent_group_id: metadata.parent_group_id || null,
     issues: structuredClone(review?.issues || []),
     related_nodes: decision === 'upstream_issue' ? ['project'] : decision === 'rule_conflict' ? [task.node_type] : [],
-    saved: Boolean(created || candidate || changed), result_reference: created ? '#/basic_info' : candidate ? '#/script_revision/output' : changed?.reference || null,
+    saved: Boolean(created || (candidate && detail.status === 'completed') || changed), result_reference: created ? '#/basic_info' : candidate && detail.status === 'completed' ? '#/basic_info/actual_script' : changed?.reference || null,
     ...(created ? { result: created } : {}),
-    ...(originalSummary ? { summary: originalSummary } : {}),
+    ...(basicOutput ? { summary: basicOutput.summary, estimated_duration_seconds: basicOutput.estimated_duration_seconds, output: basicOutput } : originalSummary ? { summary: originalSummary } : {}),
     ...(warning ? { warning } : {}),
     ...(candidate ? { summary: candidate.summary, estimated_duration_seconds: candidate.estimated_duration_seconds,
       review_packet: { goal: metadata.goal || metadata.instruction, instruction: metadata.instruction,

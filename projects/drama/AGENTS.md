@@ -25,6 +25,13 @@
 
 - 面板任务只向已有会话展示两条独立消息，点击与结果各有ID、不互相关联，当前通过command事件写入、不触发模型推理；空会话的实际聊天展示仍受宿主限制、未验收通过；成功/取消不唤醒AI，失败才发送来源为drama-box-report的规划消息。不创建任务专用或失败兜底会话，详情见开发方向“面板任务与会话交接”。创建项目和无工作区开始会话仍保留必要的会话创建入口。
 
-- 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；保存basic_info.original_script_summary，失败仅警告、不撤回主操作。优化稿继续随正文返回output.summary，不新增摘要调用。
+- 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；按project/definition.js契约保存basic_info.summary及estimated_duration_seconds，创建状态使用basic_info.create_project_node；失败仅警告、不撤回主操作。优化稿继续随正文返回摘要和估时，并在审核通过后同步到basic_info，不新增摘要调用。
 
 - 盒子执行边界：Service创建/提交Task并返回结果；Executor注册节点、声明/追加Step并使用执行上下文记录提示词和调用；公共TaskManager统一写状态、时间与步骤结果，双方不直接写任务数据库。一次业务盒子执行一个Task，内部修订追加Step，重新派发才新建Task；TaskGroup只是任务组织容器。项目盒子的ProjectExecutor与创建程序子执行器位于project/executor.js，Service仅提供受理及数据读写能力。
+
+- 原稿入库及沙盒来源文件由project/script_files.js维护；创建和导入保留原始文件名并自动入素材库，basic_info.original_script_file_path只保存沙盒相对路径，正文初始化basic_info.actual_script。后续生产和按意见优化统一使用当前工作正文，不回读原文件作为模型输入。原始查看由鉴权harness-http读取项目内文件，禁止任意路径读取。
+
+- 项目实例不保存output包装；AI意见、动作规则、补充能力集中于node_state.opinion/rules/supports_supplement。剧本优化状态在basic_info.script_revision_node，其余生产节点使用各自node_state；公共RulesModel通过node_runtime/node_state.js的nodeRules适配。
+- 优化候选只存Task步骤，审核通过才提交actual_script、summary、estimated_duration_seconds；失败/取消保留先前工作稿。last_execution以Task终态为事实，经node_runtime/execution_state.js统一投影并共用项目写队列落盘，读取时补齐遗漏摘要。轻量轮询接口为harness-http的/api/drama/node-states；完整加载仍使用project接口。
+
+- 会话项目归属由ProjectService.projectIdForSession统一判断：保留显式绑定；宿主刷新恢复同项目工作区另一会话时，基于workspaceRegistry公开成员关系和已完成项目登记的工作区ID/path解析，不按名称猜测，不关联未完成/删除项目。snapshot、编辑、删除、优化共用该判断，同工作区SSE更新亦可同步。

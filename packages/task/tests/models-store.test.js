@@ -22,7 +22,7 @@ test('四 Model 仅包含确认字段，业务 metadata 深拷贝，节点状态
   group.toJSON().metadata.nested.value = 3;
   assert.equal(group.metadata.nested.value, 1);
   assert.equal(Object.hasOwn(group, 'project_id'), false);
-  assert.deepEqual(new NodeStateModel().toJSON(), { status: 'empty', reason: '', dependency_hash: '' });
+  assert.deepEqual(new NodeStateModel().toJSON(), { type: 0, opinion: '', status: 'empty', reason: '', last_execution: null, dependency_hash: '', supports_supplement: false, rules: {} });
   for (const field of ['project_id', 'target_id', 'opinion', 'previous_node_state', 'input', 'business_type']) {
     assert.throws(() => new TaskModel({ group_id: 'g', node_type: 'n', [field]: 'x' }), { code: 'INVALID_TASK' });
   }
@@ -181,3 +181,34 @@ for (const kind of ['memory', 'sqlite']) {
     } finally { store.close(); }
   });
 }
+
+for (const kind of ['memory', 'sqlite']) test(`${kind}按Task筛选分页，不受同组其他任务状态影响，也不读步骤`, () => {
+  const store = kind === 'memory' ? new MemoryTaskStore() : new SQLiteTaskStore()
+  try {
+    const group = new TaskGroupModel().toJSON()
+    const tasks = ['completed','rejected','completed'].map((status,i)=>new TaskModel({group_id:group.id,group_seq:i+1,queue_order:i+1,node_type:i===2?'other':'custom',task_status:status}).toJSON())
+    store.transaction('s',state=>Object.assign(state,{groups:[group],tasks,steps:[]}))
+    if(kind==='sqlite')store.read=()=>{throw Error('任务分页不得全读scope或步骤')}
+    const rejected=store.history('s',{unit:'task',status:'rejected'})
+    assert.equal(rejected.total,1);assert.equal(rejected.tasks[0].id,tasks[1].id)
+    const completed=store.history('s',{unit:'task',status:'completed',node_type:'custom'})
+    assert.equal(completed.total,1);assert.equal(completed.tasks[0].id,tasks[0].id)
+    const page=store.history('s',{unit:'task',offset:1,limit:1})
+    assert.equal(page.total,3);assert.equal(page.tasks[0].id,tasks[1].id)
+    assert.equal(store.history('unrelated',{unit:'task'}).total,0)
+  } finally { store.close?.() }
+})
+
+test('节点结束摘要验证停止原因与终态对应，程序规则隔离，数据状态独立于执行失败', () => {
+  const summary = {task_id:'task',status:'failed',stop_code:'request_failed',message:'请求超时',finished_at:new Date().toISOString()};
+  const state = new NodeStateModel({status:'generated',last_execution:summary});
+  assert.equal(state.status,'generated');
+  summary.message='外部改写';assert.equal(state.last_execution.message,'请求超时');
+  for (const value of [
+    {...state.toJSON(),last_execution:{...state.last_execution,stop_code:'completed'}},
+    {...state.toJSON(),last_execution:{...state.last_execution,status:'running'}},
+    {...state.toJSON(),last_execution:{...state.last_execution,task_id:''}},
+    {...state.toJSON(),last_execution:{...state.last_execution,extra:true}},
+    {type:0,rules:{generate:{base:'规则',supplement:''}}}, {type:1,rules:{}},
+  ]) assert.throws(()=>new NodeStateModel(value),{code:'INVALID_TASK'});
+});

@@ -102,7 +102,28 @@ export class StepModel extends Model {
 export class NodeStateModel extends Model {
   constructor(input = {}) {
     super();
-    const v = fields(input, { status: 'empty', reason: '', dependency_hash: '' });
+    const v = fields(input, { type: 0, opinion: '', status: 'empty', reason: '', last_execution: null, dependency_hash: '', supports_supplement: false, rules: {} });
+    if (![0, 1].includes(v.type)) invalid('type', '需为0或1');
+    text(v.opinion, 'opinion'); record(v.rules, 'rules');
+    if (typeof v.supports_supplement !== 'boolean') invalid('supports_supplement', '需为布尔值');
+    if (v.type === 0 && (v.opinion || v.supports_supplement || Object.keys(v.rules).length)) invalid('type', '程序节点不保存AI意见或规则');
+    if (v.type === 1) {
+      for (const action of ['generate', 'review', 'revise']) {
+        record(v.rules[action], `rules.${action}`);
+        text(v.rules[action].base, `rules.${action}.base`); text(v.rules[action].supplement, `rules.${action}.supplement`);
+        if (Object.keys(v.rules[action]).some(key => !['base', 'supplement'].includes(key))) invalid('rules', '未知规则字段');
+      }
+      if (Object.keys(v.rules).some(key => !['generate', 'review', 'revise'].includes(key))) invalid('rules', '未知动作');
+    }
+    if (v.last_execution !== null) {
+      const e = v.last_execution;
+      record(e, 'last_execution');
+      if (Object.keys(e).sort().join(',') !== 'finished_at,message,status,stop_code,task_id') invalid('last_execution', '结束摘要字段不完整或包含未知字段');
+      text(e.task_id, 'last_execution.task_id', true); text(e.message, 'last_execution.message', true);
+      timestamp(e.finished_at, 'last_execution.finished_at');
+      const statuses = { completed: ['completed'], rejected: ['revision_limit_reached', 'content_issue', 'rule_conflict', 'upstream_issue', 'validation_failed'], failed: ['request_failed', 'execution_error'], cancelled: ['cancelled'] };
+      if (!statuses[e.status]?.includes(e.stop_code)) invalid('last_execution.stop_code', '与执行终态不一致');
+    }
     if (!NODE_STATUS.includes(v.status)) invalid('status', '未知节点数据状态');
     text(v.reason, 'reason'); text(v.dependency_hash, 'dependency_hash');
     if (['rejected', 'expired'].includes(v.status) !== Boolean(v.reason.trim())) invalid('reason', '与节点状态不一致');

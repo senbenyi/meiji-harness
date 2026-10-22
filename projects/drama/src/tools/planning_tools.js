@@ -27,7 +27,7 @@ export class UpdateProjectTool {
     this.projects = projects
     this.name = 'drama-update-project'
     this.description = '根据当前会话的upstream_issue报告修复项目资料。先读取规划上下文，带原值做冲突校验。只使用用户提供的资料；不要编造或擅自改写原始剧本。返回修改任务报告；成功后由主Agent决定是否重试原目标。'
-    const fields = { name: text, aspect_ratio: { type: 'string', enum: ['21:9','16:9','4:3','1:1','3:4','9:16'] }, creative_requirements: { type: 'string' }, reference_episode_duration_seconds: { type: 'integer', minimum: 1, maximum: 86400 } }
+    const fields = { name: text, aspect_ratio: { type: 'string', enum: ['21:9','16:9','4:3','1:1','3:4','9:16'] }, reference_episode_duration_seconds: { type: 'integer', minimum: 1, maximum: 86400 } }
     const info = { type: 'object', additionalProperties: false, properties: fields }
     this.parameters = { type: 'object', additionalProperties: false, properties: { report_id: text,
       command: { oneOf: [

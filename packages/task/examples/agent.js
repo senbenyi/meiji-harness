@@ -46,7 +46,7 @@ try {
   assert.equal(detail.steps[0].http[0].prompt_id, detail.steps[0].prompt.id);
   assert.equal(detail.steps[0].http[0].status, 200);
   assert.equal(store.database.prepare('SELECT body FROM results').get().body, '模拟模型结果');
-  assert.deepEqual(new NodeStateModel().toJSON(), { status: 'empty', reason: '', dependency_hash: '' });
+  assert.deepEqual(new NodeStateModel().toJSON(), { type: 0, opinion: '', status: 'empty', reason: '', last_execution: null, dependency_hash: '', supports_supplement: false, rules: {} });
   await manager.dispose(); manager = null; store.close(); store = new SQLiteTaskStore(file);
   assert.equal(store.detail('any-business-scope', group.group.id).steps[0].prompt.messages.length, 2);
   console.log('独立 task 接入通过：业务注册 → 调度 → 提示词 → 真实模拟 HTTP → 原子写回 → SQLite 重开。');

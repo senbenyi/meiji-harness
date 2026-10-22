@@ -17,7 +17,7 @@ test('全局/节点历史读取前释放SSE，后台不占连接、返回前台�
     if(url.includes('/task-history')||url.includes('/http-records')){
       assert.equal(connections.size,0,'读取历史前必须释放自己的实时连接')
       reads.push(url)
-      return {ok:true,json:async()=>url.includes('/task-history')?{groups:[],total:0,offset:0,limit:20,nodeTypes:[{type:'script_revision',label:'剧本优化'}]}:{records:[]}}
+      return {ok:true,json:async()=>url.includes('/task-history')?{tasks:[],total:0,offset:0,limit:20,nodeTypes:[{type:'script_revision',label:'剧本优化'}]}:{records:[]}}
     }
     return {ok:true,json:async()=>({project})}
   }})
