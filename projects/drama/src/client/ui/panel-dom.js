@@ -30,3 +30,11 @@ export function showPanelDialog(dialog) {
   }, { once: true })
   dialog.show()
 }
+
+export function backHeader(root, title, label, back) {
+  const bar = element('div', '', 'episode-bar'), b = element('button', '←')
+  b.type = 'button'; b.onclick = back; b.setAttribute('aria-label', label)
+  b.className = 'episode-back'
+  bar.append(b, element('h2', title)); root.append(bar)
+}
+

@@ -9,6 +9,7 @@ import { JSDOM } from 'jsdom'
 import { ProjectService } from '../src/node_box/project/service.js'
 import { createProjectHttpHandler } from '../src/harness_server/project_routes.js'
 import { mount } from '../src/client/workbench.js'
+import { clientAssets } from '../src/harness_server/client_assets.js'
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'drama-http-'))
@@ -25,10 +26,40 @@ async function fixture(t) {
   return { tool, request, base }
 }
 
+test('迁移后的浏览器入口：递归加载所有模块和样式，节点服务端源码不可访问', async t => {
+  const { request, base } = await fixture(t)
+  const pending = ['/plugins/drama/src/client/panel.js'], visited = new Set()
+  while (pending.length) {
+    const path = pending.pop()
+    if (visited.has(path)) continue
+    visited.add(path)
+    const response = await request(path)
+    assert.equal(response.status, 200, path)
+    assert.match(response.headers.get('content-type'), /text\/(javascript|css)/, path)
+    const source = await response.text()
+    if (!path.endsWith('.js')) continue
+    const imports = [...source.matchAll(/\b(?:from\s*|import\s*\(\s*)['"]([^'"]+)['"]/g)].map(match => match[1])
+    for (const specifier of imports) {
+      assert.ok(specifier.startsWith('.') || specifier.startsWith('/'), `浏览器依赖不能引用服务端或裸包：${path} → ${specifier}`)
+      pending.push(new URL(specifier, base + path).pathname)
+    }
+    for (const match of source.matchAll(/href="(\/plugins\/drama\/[^" ]+\.css)"/g)) pending.push(match[1])
+  }
+  for (const path of clientAssets.keys()) assert.ok(visited.has('/plugins/drama/src/' + path), `未被入口使用的资源：${path}`)
+  const nodePath = '/plugins/drama/src/node_box/project/ui/panel/index.js'
+  assert.equal((await fetch(base + nodePath)).status, 401)
+  assert.equal((await request(nodePath, { method: 'POST' })).status, 405)
+  for (const path of [
+    'node_box/project/service.js', 'node_box/script_revision/executor.js', 'node_box/story_segments/definition.js',
+    'node_box/project/ui/panel/missing.js', 'node_box/project/ui/panel/%2e%2e%2f%2e%2e%2fservice.js',
+    'client/project-forms.js', 'client/project-node.js', 'client/task-operation.js', 'client/project-ui.css',
+  ]) assert.equal((await request('/plugins/drama/src/' + path)).status, 404, path)
+})
+
 test('真实 HTTP：鉴权、UI模块、会话隔离快照及创建完成 SSE', async t => {
   const { tool, request, base } = await fixture(t)
   assert.equal((await fetch(base + '/api/drama/project?session_id=other')).status, 401)
-  for (const name of ['panel.js', 'workbench.js', 'project-ui.css'])
+  for (const name of ['panel.js', 'workbench.js', 'ui/project-ui.css'])
     assert.equal((await request('/plugins/drama/src/client/' + name)).status, 200)
   const id = `session-${randomUUID()}`
   const abort = new AbortController()
@@ -80,7 +111,7 @@ test('UI收到会话工具创建事件后重新读取JSON快照、刷新项目�
   assert.equal(back.getAttribute('aria-label'), '返回上一页')
   back.click()
   assert.equal(root.querySelector('h2'), null)
-  assert.equal(root.querySelector('[role=tab][aria-selected=true]').textContent, '项目')
+  assert.equal(root.querySelector('[role=tab][aria-selected=true]').textContent, '素材')
   ui.dispose()
   const refreshed = mount(root, { getSessionId: () => id, fetcher: request, Events, selectSession: value => { selected = value } })
   t.after(() => refreshed.dispose())
@@ -96,7 +127,16 @@ test('UI收到会话工具创建事件后重新读取JSON快照、刷新项目�
   await projectUi.refresh()
   assert.equal(root.querySelector('h2').textContent, '界面刷新')
   assert.match(root.textContent, /原始剧本/)
+  root.querySelector('[role=status]').textContent = '项目已删除'
   root.querySelector('button.library').click()
+  assert.equal(root.querySelector('[role=status]').textContent, '')
+  root.querySelector('#library-tab-projects').click()
+  for (let i = 0; i < 50 && !root.textContent.includes('界面刷新'); i++) await new Promise(resolve => setTimeout(resolve, 5))
+  const projectCard = [...root.querySelectorAll('.library-card')].find(card => card.textContent.includes('界面刷新'))
+  assert.equal(projectCard.querySelector('.library-delete').getAttribute('aria-label'), '删除项目 界面刷新')
+  dom.window.confirm = () => false
+  await projectCard.querySelector('.library-delete').onclick()
+  assert.match(root.textContent, /界面刷新/)
   root.querySelector('.library-heading .back').click()
   assert.equal(root.querySelector('h2').textContent, '界面刷新')
 })
@@ -169,6 +209,11 @@ test('片库HTTP独立于会话，剧本持久化导入并用于项目创建', a
   assert.equal((await tool.snapshot(result.session_id)).project.basic_info.actual_script, body.body)
   assert.equal((await request('/api/drama/library/scripts/..%2Fbindings.json')).status, 422)
   assert.equal((await request('/api/drama/library/scripts', { ...options, body: JSON.stringify({ originalName: 'bad.exe', body: 'bad' }) })).status, 422)
+  assert.equal((await request('/api/drama/library/scripts/' + asset.id, { method: 'DELETE' })).status, 403)
+  assert.equal((await request('/api/drama/library/scripts/' + asset.id, { method: 'DELETE', headers: { 'X-Drama-Request': '1' } })).status, 200)
+  assert.deepEqual((await (await request('/api/drama/library')).json()).assets, [])
+  assert.equal((await request('/api/drama/library/scripts/' + asset.id, { method: 'DELETE', headers: { 'X-Drama-Request': '1' } })).status, 404)
+  assert.equal((await tool.snapshot(result.session_id)).project.basic_info.actual_script, body.body)
 })
 
 test('顶部标题及加号始终可创建，片库双层tab与素材剧本正文导入', async t => {
@@ -185,13 +230,20 @@ test('顶部标题及加号始终可创建，片库双层tab与素材剧本正�
   t.after(() => ui.dispose())
   await ui.refresh()
   assert.equal(root.querySelector('header .brand').textContent, '短剧制作')
+  root.querySelector('[role=status]').textContent = '项目已删除'
   root.querySelector('button.library').click()
   assert.equal(root.querySelector('h2'), null)
-  assert.deepEqual([...root.querySelectorAll('[aria-label="片库分类"] button')].map(b => b.textContent), ['项目', '素材'])
-  root.querySelector('#library-tab-assets').click()
-  assert.deepEqual([...root.querySelectorAll('[aria-label="素材分类"] button')].map(b => b.textContent), ['人物', '衣服', '道具', '剧本'])
-  root.querySelector('#library-tab-scripts').click()
+  assert.equal(root.querySelector('[role=status]').textContent, '')
+  assert.deepEqual([...root.querySelectorAll('[aria-label="片库分类"] button')].map(b => b.textContent), ['素材', '项目'])
+  assert.equal(root.querySelector('#library-tab-assets').getAttribute('aria-selected'), 'true')
+  assert.deepEqual([...root.querySelectorAll('[aria-label="素材分类"] button')].map(b => b.textContent), ['剧本', '人物', '衣服', '道具'])
+  assert.equal(root.querySelector('#library-tab-scripts').getAttribute('aria-selected'), 'true')
   for (let i = 0; i < 50 && !root.textContent.includes('复用剧本.txt'); i++) await new Promise(r => setTimeout(r, 5))
+  assert.match(root.textContent, /复用剧本.txt/)
+  const scriptCard = [...root.querySelectorAll('.library-card')].find(card => card.textContent.includes('复用剧本.txt'))
+  assert.equal(scriptCard.querySelector('.library-delete').getAttribute('aria-label'), '删除素材 复用剧本.txt')
+  dom.window.confirm = () => false
+  await scriptCard.querySelector('.library-delete').onclick()
   assert.match(root.textContent, /复用剧本.txt/)
   await root.querySelector('button.settings').onclick()
   root.querySelector('.back').click()
@@ -336,4 +388,23 @@ test('切换会话后旧快照迟到不覆盖新工作区项目', async t => {
   assert.equal(document.querySelector('h2').textContent,'月界旅行')
   release();await new Promise(resolve=>setImmediate(resolve))
   assert.equal(document.querySelector('h2').textContent,'月界旅行')
+})
+
+test('任务消息harness-http端点要求鉴权及会话ID，只读取指定会话展示消息', async t => {
+  const { tool, request, base } = await fixture(t)
+  tool.readTaskMessages = async id => id === 'own' ? [{ id: 'message', title: '步骤结果' }] : []
+  assert.equal((await fetch(base + '/api/drama/task-messages?session_id=own')).status, 401)
+  assert.equal((await request('/api/drama/task-messages')).status, 400)
+  assert.deepEqual(await (await request('/api/drama/task-messages?session_id=own')).json(), { messages: [{ id: 'message', title: '步骤结果' }] })
+  assert.deepEqual(await (await request('/api/drama/task-messages?session_id=other')).json(), { messages: [] })
+})
+
+test('会话预载端点传递增量游标与pending组，拒绝非法游标并兼容旧模式', async t => {
+  const { tool, request } = await fixture(t)
+  let options
+  tool.readTaskMessages = async (id, input) => { assert.equal(id, 's'); options = input; return input.eager ? { messages: [], details: [{ id: 'new' }], cursor: 99 } : [] }
+  assert.deepEqual(await (await request('/api/drama/task-messages?session_id=s&eager=1&after=30&pending=g1,g2')).json(), { messages: [], details: [{ id: 'new' }], cursor: 99 })
+  assert.equal(options.after, 30); assert.deepEqual(options.pending, ['g1', 'g2'])
+  assert.equal((await request('/api/drama/task-messages?session_id=s&eager=1&after=invalid')).status, 400)
+  assert.deepEqual(await (await request('/api/drama/task-messages?session_id=s&compact=1')).json(), { messages: [] })
 })

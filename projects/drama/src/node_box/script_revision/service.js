@@ -75,7 +75,7 @@ export class ScriptRevisionService {
       const config = await this.scriptModels.read()
       const input = this.executionInput({ current_script: scriptOutput(project),
         instruction, output_language: config.output_language })
-      const metadata = { project_id: projectId, session_id: sessionId, instruction: instruction.trim(), request_id: requestId,
+      const metadata = { project_id: projectId, project_name: project.basic_info.name, session_id: sessionId, instruction: instruction.trim(), request_id: requestId,
         node_state_before: structuredClone(project.basic_info.script_revision_node),
         input_hash: scriptFingerprint(project), output_hash: digest(scriptOutput(project)), language: config.output_language,
         parent_group_id: retry_of || null, goal: parent?.tasks[0].metadata.goal || instruction.trim(),

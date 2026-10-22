@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { JSDOM } from 'jsdom'
 import { createModelSettings, modelOptions } from '../src/settings/model-settings.js'
-import { renderModelSettings } from '../src/client/settings-ui.js'
+import { renderModelSettings } from '../src/client/ui/settings-ui.js'
 import { createProjectHttpHandler } from '../src/harness_server/project_routes.js'
 import { createServer } from 'node:http'
 

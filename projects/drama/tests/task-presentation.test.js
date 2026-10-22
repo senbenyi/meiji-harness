@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {taskHistoryPresentation} from '../src/client/task-presentation.js'
+import {taskHistoryPresentation} from '../src/client/ui/task-presentation.js'
 import { JSDOM } from 'jsdom'
 import { createTaskHistory } from '@agent-modules/task/ui'
 import { styles } from '../../../packages/task/ui/styles.js'

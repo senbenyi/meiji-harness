@@ -93,14 +93,14 @@ test('刷新拒绝晚到响应，dispose 取消订阅且拒绝后续异步绘制
 });
 
 test('剪贴板失败可重试，多实例不共享筛选与导航状态', async t => {
-  const { manager } = await fixture(); const dom = new JSDOM(); let fail = true;
-  const ui = createTaskHistory({ document: dom.window.document, source: manager.historySource('scope'), copyText: async () => { if (fail) throw Error('denied'); } });
+  const { manager } = await fixture(); const dom = new JSDOM(); let fail = true; const notifications = [];
+  const ui = createTaskHistory({ document: dom.window.document, source: manager.historySource('scope'), copyText: async () => { if (fail) throw Error('denied'); }, onNotify: message => notifications.push(message) });
   const other = createTaskHistory({ document: dom.window.document, source: manager.historySource('scope') });
   t.after(async () => { ui.dispose(); other.dispose(); dom.window.close(); await manager.dispose(); });
   await Promise.all([ui.ready, other.ready]);
   const root = ui.element.shadowRoot, copy = root.querySelector('[aria-label="复制任务 ID"]');
-  copy.click(); await settle(); assert.equal(copy.textContent, '复制失败，重试');
-  fail = false; copy.click(); await settle(); assert.equal(copy.textContent, '已复制');
+  copy.click(); await settle(); assert.equal(copy.textContent, '复制'); assert.match(notifications.at(-1), /复制失败/);
+  fail = false; copy.click(); await settle(); assert.equal(copy.textContent, '复制'); assert.match(notifications.at(-1), /已复制/);
   findButton(root, '任务名称').click(); await settle();
   assert.ok(other.element.shadowRoot.querySelector('[aria-label="节点类型"]'));
 });

@@ -28,6 +28,16 @@ export function createLibraryStore(root) {
       if (row.category !== 'scripts') throw new TypeError('该素材不是剧本')
       return readFile(join(directory, id, 'content.txt'), 'utf8')
     },
+    async remove(id) {
+      let row
+      try { row = await metadata(id) }
+      catch (error) {
+        if (error.code === 'ENOENT') throw Object.assign(new TypeError('素材不存在'), { code: 'ENOENT' })
+        throw error
+      }
+      await rm(join(directory, row.id), { recursive: true })
+      return { id: row.id }
+    },
     async importScript({ originalName, body }) {
       if (typeof originalName !== 'string' || !/\.(txt|text|md)$/i.test(originalName) || originalName.length > 200 || /[\\/\x00-\x1f]/.test(originalName))
         throw new TypeError('请选择TXT或Markdown剧本文件')

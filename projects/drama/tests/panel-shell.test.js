@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
-import { createShell } from '../src/client/panel-shell.js'
+import { createShell } from '../src/client/ui/panel-shell.js'
 
 function fixture(t, width = 1440) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost' })

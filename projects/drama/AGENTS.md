@@ -15,7 +15,7 @@
 
 - `src/harness_server/` 只提供harness-http路由、认证、静态资源和SSE，不承载盒子业务。根插件组装项目管理、剧本优化服务及共享记录；不设顶层service转发层，也不保留旧目录代理。HTTP分类和记录归属统一遵守根开发指引的“HTTP术语与记录归属”。
 
-- 项目管理专属的输入字段、创建和编辑/导入校验分别在 `src/node_box/project/create_project.js`、`edit_project.js`。`src/project_runtime/`保留整个项目共享的Manager、Model和写入队列；其中 `project_manager.js`、`project_model.js` 不随盒子迁移。界面组件归 `src/client/`，服务端Schema和校验不当作UI迁入。
+- 项目管理专属的输入字段、创建和编辑/导入校验分别在 `src/node_box/project/create_project.js`、`edit_project.js`。`src/project_runtime/`保留整个项目共享的Manager、Model和写入队列；其中 `project_manager.js`、`project_model.js` 不随盒子迁移。节点专属界面归 `src/node_box/<节点>/ui/panel/`（右侧面板）与 `ui/conversation/`（会话）；公共组件、样式、全局片库/设置与历史适配归 `src/client/ui/`。`src/client/` 保留工作台、项目视图/阶段编排及会话挂载控制器。服务端Schema和校验不当作UI迁入。
 
 - 各AI节点的字段契约由 `src/node_box/<节点名>/definition.js` 独立维护；`src/node_runtime/node_definition_registry.js` 仅汇总，维持节点名和JSON Pointer。Schema工具在 `src/node_runtime/schema_builders.js`，通用审核与图片返回约定在 `shared_output_contracts.js`。定义文件只能依赖共享工具/契约，不导入汇总、Service或Executor；暂未实现的节点只有定义不代表可执行。
 
@@ -23,7 +23,7 @@
 
 - 节点共用运行机制统一在 `src/node_runtime/`，职责与文件名见 `docs/开发方向.md` 的“节点运行层”；`node_initializer.js`初始化空节点，`output_response_parser.js`解析校验实际响应，`output_contract_renderer.js`选择/展开输出结构并渲染规则。`src/node_runtime/node_prompt_composer.js`继续负责提示词组装，不将这些机制复制到盒子或公共包。
 
-- 面板任务只向已有会话展示两条独立消息，点击与结果各有ID、不互相关联，当前通过command事件写入、不触发模型推理；空会话的实际聊天展示仍受宿主限制、未验收通过；成功/取消不唤醒AI，失败才发送来源为drama-box-report的规划消息。不创建任务专用或失败兜底会话，详情见开发方向“面板任务与会话交接”。创建项目和无工作区开始会话仍保留必要的会话创建入口。
+- 盒子步骤结束后将完整结果写入任务固定所属会话，仅展示、不进入模型上下文。审核有问题显示红色“未通过”，保留每轮修改及复审；面板受理、各步骤和盒子终态各用稳定ID去重。面板操作统一展示请求、聚合执行组及最终保存结果，空/正常会话复用client/ui/task-operation组件；正常会话附加于对应原生command公开座位并仅隐藏本组原生展示，不伪造聊天轮次。盒子输入取metadata.input_snapshot，步骤输入取step.prompt.input；完整内容随会话首次加载预载，eager/after轮询只补新增详情及pending任务终态；展开优先同步使用缓存，compact消息列表不携带正文/规则/输出，历史不读取最新项目补造。展示和主Agent通知独立持久化与重试：成功/取消不唤醒AI，最终rejected/failed才发drama-box-report规划消息；中间审核失败仅展示。不创建任务专用或失败兜底会话；创建尚未产生项目会话时归来源会话，创建成功后归项目会话。详见开发方向“面板任务与会话交接”。
 
 - 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；按project/definition.js契约保存basic_info.summary及estimated_duration_seconds，创建状态使用basic_info.create_project_node；失败仅警告、不撤回主操作。优化稿继续随正文返回摘要和估时，并在审核通过后同步到basic_info，不新增摘要调用。
 
@@ -35,3 +35,7 @@
 - 优化候选只存Task步骤，审核通过才提交actual_script、summary、estimated_duration_seconds；失败/取消保留先前工作稿。last_execution以Task终态为事实，经node_runtime/execution_state.js统一投影并共用项目写队列落盘，读取时补齐遗漏摘要。轻量轮询接口为harness-http的/api/drama/node-states；完整加载仍使用project接口。
 
 - 会话项目归属由ProjectService.projectIdForSession统一判断：保留显式绑定；宿主刷新恢复同项目工作区另一会话时，基于workspaceRegistry公开成员关系和已完成项目登记的工作区ID/path解析，不按名称猜测，不关联未完成/删除项目。snapshot、编辑、删除、优化共用该判断，同工作区SSE更新亦可同步。
+
+- 删除项目完成后，使用项目请求行持久化的deleted_session_request_id接续startSession，创建/复用独立cwd且不关联任何项目或项目工作区的空会话。面板切换到返回会话；创建失败仍保留删除事实并提供同请求重试。删除失败不建会话；用户已切换时不抢切。旧会话、文件和执行记录保留。
+
+- 节点UI通过 `src/client/ui/node-registry.js` 注册 panel/conversation；业务输入、结果和操作归节点，共享时间线、审核状态、loading、折叠、复制及未知类型完整记录兜底归公共层。节点UI只能依赖浏览器可用代码，不导入Service、Executor或服务端定义。历史投影为各节点ui/conversation/history.js中的纯函数，经公共task-presentation适配供浏览器/会话记录复用。生产节点未接执行器时，展示已有数据不代表可执行；没有现成UI的图片节点不建空占位模块。浏览器资源在harness_server/client_assets.js逐文件登记，沿用鉴权，不开放node_box服务端源码。

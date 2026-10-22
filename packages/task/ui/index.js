@@ -40,10 +40,8 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
   const copy = (label, read) => {
     const node = button('复制', async event => {
       event.stopPropagation();
-      node.disabled = true;
-      try { await write(read()); node.textContent = '已复制'; onNotify?.(`${label}已复制`, { kind: 'success' }); }
-      catch { node.textContent = '复制失败，重试'; onNotify?.(`${label}复制失败，请重试`, { kind: 'error' }); }
-      finally { node.disabled = false; }
+      try { await write(read()); onNotify?.(`${label}已复制`, { kind: 'success' }); }
+      catch { onNotify?.(`${label}复制失败，请重试`, { kind: 'error' }); }
     }, `复制${label}`);
     node.className = 'copy'; return node;
   };
@@ -228,7 +226,7 @@ export function createTaskHistory({ source, nodeTypes = [], title = '任务历�
       return;
     }
     const body = element('div', '', 'http-details'); records.append(body);
-    disposeHttp = renderHttpDetails(body, { transfers: step.http || [], document, copyText: write,
+    disposeHttp = renderHttpDetails(body, { transfers: step.http || [], document, copyText: write, onNotify,
       initialIndex: state.httpIndex, initialTab: state.httpTab,
       onChange: ({ index, tab }) => { state.httpIndex = index; state.httpTab = tab; },
     });

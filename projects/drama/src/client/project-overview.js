@@ -1,14 +1,15 @@
+import { nodeUi } from './ui/node-registry.js'
 import { showToast } from '@agent-modules/ui'
-import { taskHistoryPresentation } from './task-presentation.js'
-import { element } from './panel-dom.js'
-import { detailsDialog } from './project-forms.js'
-import { renderProjectDetails } from './project-detail.js'
+import { taskHistoryPresentation } from './ui/task-presentation.js'
+import { element } from './ui/panel-dom.js'
 import { renderProjectProduction } from './project-production.js'
-import { scriptNodeCard, backHeader } from './project-node.js'
-import { scriptImport } from './script-import.js'
+import { backHeader } from './ui/panel-dom.js'
 import { createTaskHistory } from '@agent-modules/task/ui'
 import { createHttpHistory } from '@agent-modules/http-client/ui'
 import { renderRulesPanel } from '@agent-modules/prompt-composer/ui'
+
+const { detailsDialog, renderProjectDetails, scriptImport } = nodeUi('project').panel
+const { scriptNodeCard } = nodeUi('script_revision').panel
 
 // 标题、编辑图标和剧本卡片结构复制自meiji/client/project-ui.js，按drama模型独立维护。
 const editIcon = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.7 2.3 13.7 6.3 5.4 14.6H1.4v-4L9.7 2.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
@@ -47,10 +48,10 @@ export function createProjectView(root, { project: initialProject, save, refresh
       const projectId = project.basic_info.id, nodeType = state.recordNodeType || 'script_revision', nodeTitle = state.recordNodeTitle || '剧本优化'
       const read = (path, filter = {}) => request(`${path}?${new URLSearchParams({ ...filter, project_id: projectId, node_type: nodeType })}`)
       const onBack = () => go(['script', 'production'].includes(state.recordReturn) ? state.recordReturn : 'overview')
-      recordView = state.mode === 'tasks' ? createTaskHistory({ document: root.ownerDocument, onNotify: (message, options) => showToast(message, { ...options, document: root.ownerDocument }), presentation: taskHistoryPresentation, title: `${nodeTitle} · 任务记录`, onBack,
+      recordView = state.mode === 'tasks' ? createTaskHistory({ document: root.ownerDocument, onNotify: message => showToast(message), presentation: taskHistoryPresentation, title: `${nodeTitle} · 任务记录`, onBack,
         nodeTypes: [{ type: nodeType, label: nodeTitle }], initialView: { node_type: nodeType }, source: {
           history: filter => read('task-history', filter), detail: async id => (await read('task-history', { id })).detail,
-        } }) : createHttpHistory({ document: root.ownerDocument, onBack, source: {
+        } }) : createHttpHistory({ document: root.ownerDocument, onNotify: message => showToast(message), onBack, source: {
           list: async filter => (await read('http-records', filter)).records, read: async id => (await read('http-records', { id })).record,
         } })
       root.append(recordView.element)
@@ -60,7 +61,7 @@ export function createProjectView(root, { project: initialProject, save, refresh
       const nodeType = state.ruleNodeType || 'script_revision', nodeTitle = state.ruleNodeTitle || '剧本优化'
       if (!(nodeType === 'script_revision' ? project.basic_info.script_revision_node : project[nodeType]?.node_state)?.rules) { go(state.ruleReturn || 'overview'); return }
       const ruleState = nodeType === 'script_revision' ? project.basic_info.script_revision_node : project[nodeType].node_state
-      root.append(renderRulesPanel({ supports_supplement: ruleState.supports_supplement, rules: ruleState.rules }, { title: `${nodeTitle}规则`, document: root.ownerDocument,
+      root.append(renderRulesPanel({ supports_supplement: ruleState.supports_supplement, rules: ruleState.rules }, { title: `${nodeTitle}规则`, document: root.ownerDocument, onNotify: message => showToast(message),
         baseLabel: '基础规则', ruleNote: nodeType === 'script_revision' ? '这里展示项目内保存的规则。各动作的补充规则独立保存。' : '这里展示项目内保存的规则，当前仅供查看。',
         onBack: () => go(['script', 'production'].includes(state.ruleReturn) ? state.ruleReturn : 'overview'),
         onSave: nodeType === 'script_revision' ? change => persist({ kind: 'rules', node_type: nodeType, ...change }) : undefined,

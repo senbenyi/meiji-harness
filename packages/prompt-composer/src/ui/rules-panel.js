@@ -5,7 +5,7 @@ const ACTIONS = [['generate', '生成规则'], ['revise', '修订规则'], ['rev
 
 /** 原规则面板交互；保存通过回调提交，组件不隐式修改传入 Model。 */
 export function renderRulesPanel(model, {
-  title = '规则', currentBases, loadCurrentBases, onBack, copyText,
+  title = '规则', currentBases, loadCurrentBases, onBack, copyText, onNotify,
   onSave, onChange, opinion, onOpinionSave, baseLabel, ruleNote, document = globalThis.document,
 } = {}) {
   const data = model instanceof RulesModel ? model : new RulesModel(model);
@@ -45,13 +45,12 @@ export function renderRulesPanel(model, {
     card.dataset.field = field;
     const head = element('div', '', 'skill-rule-head');
     const copy = button('复制', async event => {
-      event.stopPropagation(); copy.disabled = true;
+      event.stopPropagation();
       try {
         const text = [...card.querySelectorAll('pre.skill-text, textarea')]
           .map(node => node.tagName === 'TEXTAREA' ? node.value : node.dataset.empty === 'true' ? '' : node.textContent).join('\n\n');
-        await write(text); copy.textContent = '已复制';
-      } catch { copy.textContent = '复制失败，重试'; }
-      finally { copy.disabled = false; }
+        await write(text); onNotify?.(`${label}已复制`, { kind: 'success' });
+      } catch { onNotify?.(`${label}复制失败，请重试`, { kind: 'error' }); }
     });
     copy.className = 'rules-copy'; copy.setAttribute('aria-label', `复制${label}`);
     copy.setAttribute('aria-live', 'polite');

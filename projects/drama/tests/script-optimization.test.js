@@ -360,20 +360,23 @@ test('提交前置时标题和按钮文案不变，执行中禁用守卫阻止�
 })
 
 test('复制原文紧邻查看规则，预览模式复制完整正文，空正文没有复制入口', async t=>{
-  const {scriptNodeCard}=await import('../src/client/project-node.js')
+  const {scriptNodeCard}=await import('../src/node_box/script_revision/ui/panel/index.js')
   const {createProject}=await import('../src/node_box/project/create_project.js')
   const dom=new JSDOM('<main/>'),old=globalThis.document;globalThis.document=dom.window.document
   t.after(()=>{globalThis.document=old;dom.window.close()})
   const project=await createProject({name:'复制位置'}),body='第一行\n第二行\n第三行\n第四行\n第五行：完整原文'
   Object.assign(project.basic_info,{actual_script:body,summary:'摘要',estimated_duration_seconds:20})
-  let copied=''
-  const card=scriptNodeCard({...project.basic_info,node_state:project.basic_info.script_revision_node},{preview:true,openTasks:()=>{},openRules:()=>{},copyText:async value=>{copied=value}})
+  let copied='',copies=0,fail=false
+  const card=scriptNodeCard({...project.basic_info,node_state:project.basic_info.script_revision_node},{preview:true,openTasks:()=>{},openRules:()=>{},copyText:async value=>{if(fail)throw Error('denied');copied=value;copies++}})
   document.querySelector('main').append(card)
   assert.deepEqual([...card.querySelectorAll('.node-ui-records button')].map(node=>node.textContent),['任务历史','查看规则','复制原文'])
   assert.equal(card.querySelectorAll('[aria-label="复制该卡片原文"]').length,1)
   assert.equal(card.querySelector('.node-result button'),null)
   const control=card.querySelector('.node-original-copy');await control.onclick()
-  assert.equal(copied,body);assert.equal(control.textContent,'已复制');assert.equal(control.disabled,false)
+  assert.equal(copied,body);assert.equal(control.textContent,'复制原文');assert.equal(control.disabled,false)
+  assert.equal(document.querySelector('.agent-ui-toast').textContent,'已复制')
+  await control.onclick();assert.equal(copies,2);assert.equal(control.textContent,'复制原文')
+  fail=true;await control.onclick();assert.equal(document.querySelector('.agent-ui-toast').textContent,'复制失败，请重试');assert.equal(control.disabled,false)
   project.basic_info.actual_script=''
   assert.equal(scriptNodeCard({...project.basic_info,node_state:project.basic_info.script_revision_node}).querySelector('.node-original-copy'),null)
 })

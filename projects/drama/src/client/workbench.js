@@ -1,12 +1,14 @@
 import { showToast } from '@agent-modules/ui'
-import { taskHistoryPresentation } from './task-presentation.js'
+import { taskHistoryPresentation } from './ui/task-presentation.js'
 import { createTaskHistory } from '@agent-modules/task/ui'
 import { createHttpHistory } from '@agent-modules/http-client/ui'
-import { element } from './panel-dom.js'
-import { projectDialog } from './project-forms.js'
-import { renderLibrary } from './library-ui.js'
+import { element } from './ui/panel-dom.js'
+import { nodeUi } from './ui/node-registry.js'
+import { renderLibrary } from './ui/library-ui.js'
 import { createProjectView } from './project-overview.js'
-import { renderSettings, renderModelSettings } from './settings-ui.js'
+import { renderSettings, renderModelSettings } from './ui/settings-ui.js'
+
+const { projectDialog } = nodeUi('project').panel
 
 export function currentSessionId() {
   try { return JSON.parse(localStorage.getItem('dsh.sessions.current'))?.sessionId || null }
@@ -36,9 +38,9 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
   nav.append(library, settings)
   header.append(heading, nav)
   root.append(header, content, status)
-  let session, stream, version = 0, disposed = false, switching = null, project = null, scriptExecution = null, summaryExecution = null, page = 'home', modelSettings = null, modelOptions = null, settingsTicket = 0
+  let session, stream, deletingSession = null, version = 0, disposed = false, switching = null, project = null, scriptExecution = null, summaryExecution = null, page = 'home', modelSettings = null, modelOptions = null, settingsTicket = 0
   let settingsReturnPage = 'home', libraryReturnPage = 'home', disposeLibrary, recordView
-  const libraryState = { tab: 'projects', category: 'characters' }
+  const libraryState = { tab: 'assets', category: 'scripts' }
   let projectView, projectViewId, sessionReady = false, eventCursor = null
   const projectStates = new Map()
   const clearProject = () => { projectView?.dispose(); projectView = null; projectViewId = null }
@@ -103,13 +105,13 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       content.replaceChildren()
       const back = () => { page = project ? 'project' : 'home'; paint() }
       const query = filter => new URLSearchParams(filter).toString()
-      if (page === 'http') recordView = createHttpHistory({ document: root.ownerDocument, onBack: back, source: {
+      if (page === 'http') recordView = createHttpHistory({ document: root.ownerDocument, onNotify: message => showToast(message), onBack: back, source: {
         list: async filter => (await request(`http-records?${query(filter)}`)).records,
         read: async id => (await request(`http-records?id=${encodeURIComponent(id)}`)).record,
       } })
       else {
         const nodeTypes = []
-        recordView = createTaskHistory({ document: root.ownerDocument, onNotify: (message, options) => showToast(message, { ...options, document: root.ownerDocument }), presentation: taskHistoryPresentation, onBack: back, nodeTypes, source: {
+        recordView = createTaskHistory({ document: root.ownerDocument, onNotify: message => showToast(message), presentation: taskHistoryPresentation, onBack: back, nodeTypes, source: {
         history: async filter => { const data = await request(`task-history?${query(filter)}`); nodeTypes.splice(0, nodeTypes.length, ...data.nodeTypes); return data },
         detail: async id => (await request(`task-history?id=${encodeURIComponent(id)}`)).detail,
       } })
@@ -128,6 +130,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       return
     }
     if (page === 'library') {
+      if (!status.querySelector('button') && status.textContent.includes('项目已删除')) status.replaceChildren()
       disposeLibrary = renderLibrary(content, { state: libraryState, request, back: () => {
         page = ['settings', 'http', 'tasks'].includes(libraryReturnPage) ? libraryReturnPage : project ? 'project' : 'home'
         paint()
@@ -135,6 +138,42 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
         page = 'project'
         if (id === session) void refresh().catch(report)
         else activate(id)
+      }, removeAsset: asset => request(`library/scripts/${encodeURIComponent(asset.id)}`, { method: 'DELETE', headers: { 'X-Drama-Request': '1' } }),
+      removeProject: async item => {
+        const ownerSession = item.session_id
+        const current = session === ownerSession || project?.basic_info.id === item.id
+        if (current) { deletingSession = session; version++; stream?.close(); stream = null }
+        let deleted
+        try {
+          deleted = await request('project', {
+            method: 'DELETE', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
+            body: JSON.stringify({ project_id: item.id }),
+          }, ownerSession)
+        } catch (error) {
+          if (current && deletingSession === session) { deletingSession = null; syncEvents() }
+          throw error
+        }
+        if (!current || disposed || (session !== ownerSession && project?.basic_info.id !== item.id)) return
+        project = null
+        projectStates.delete(item.id)
+        clearProject()
+        if (page === 'project') page = 'home'
+        paint()
+        if (deleted.session_id && (session === ownerSession || getSessionId() === ownerSession)) { activate(deleted.session_id); return }
+        if (session !== ownerSession) return
+        const message = element('span', deleted.session_error || '创建空会话失败。'), retry = element('button', '重试创建空会话')
+        retry.type = 'button'
+        retry.onclick = async () => {
+          if (disposed || session !== ownerSession || getSessionId() !== ownerSession) return
+          retry.disabled = true
+          try {
+            const next = await request('sessions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
+              body: JSON.stringify({ request_id: deleted.session_request_id }) }, ownerSession)
+            if (!disposed && session === ownerSession && getSessionId() === ownerSession) activate(next.session_id)
+          } catch (error) { if (!disposed && session === ownerSession && getSessionId() === ownerSession) message.textContent = `创建空会话失败：${error.message}` }
+          finally { retry.disabled = false }
+        }
+        status.replaceChildren(message, retry)
       } })
       return
     }
@@ -163,15 +202,33 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
         }, ownerSession)
       },
       remove: async () => {
-        if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
-        await request('project', {
+        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
+        deletingSession = ownerSession; version++; stream?.close(); stream = null
+        let deleted
+        try { deleted = await request('project', {
           method: 'DELETE', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
           body: JSON.stringify({ project_id: projectId }),
-        }, ownerSession)
-        if (disposed || session !== ownerSession) return
+        }, ownerSession) }
+        catch (error) { if (deletingSession === ownerSession) { deletingSession = null; syncEvents() }
+          throw error }
+        if (disposed || session !== ownerSession || getSessionId() !== ownerSession) return
         version++; project = null; projectStates.delete(projectId)
         if (page === 'project') page = 'home'
-        clearProject(); paint(); status.textContent = '项目已删除'
+        clearProject(); paint()
+        if (deleted.session_id) { status.textContent = '项目已删除，正在切换到空会话…'; activate(deleted.session_id); return }
+        const message = element('span', deleted.session_error || '项目已删除，创建空会话失败。'), retry = element('button', '重试创建空会话')
+        retry.type = 'button'
+        retry.onclick = async () => {
+          if (disposed || session !== ownerSession || getSessionId() !== ownerSession) return
+          retry.disabled = true
+          try {
+            const next = await request('sessions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
+              body: JSON.stringify({ request_id: deleted.session_request_id }) }, ownerSession)
+            if (!disposed && session === ownerSession && getSessionId() === ownerSession) activate(next.session_id)
+          } catch (error) { if (!disposed && session === ownerSession && getSessionId() === ownerSession) message.textContent = `项目已删除，创建空会话失败：${error.message}` }
+          finally { retry.disabled = false }
+        }
+        status.replaceChildren(message, retry)
       },
       save: async command => {
         if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
@@ -210,7 +267,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
   }
   const syncEvents = () => {
     const viewingRecords = page === 'http' || page === 'tasks' || projectView?.isShowingRecords
-    if (disposed || !session || root.ownerDocument.visibilityState === 'hidden' || viewingRecords) {
+    if (disposed || !session || deletingSession === session || root.ownerDocument.visibilityState === 'hidden' || viewingRecords) {
       stream?.close(); stream = null
       return
     }
@@ -231,6 +288,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     const next = getSessionId()
     if (session === next) { syncEvents(); return }
     clearProject()
+    deletingSession = null
     project = null
     scriptExecution = summaryExecution = null
     session = next

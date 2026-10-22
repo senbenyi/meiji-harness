@@ -210,15 +210,18 @@ test('任务输出回调只收到本任务步骤，所有终态保留原因，�
 
 
 test('复制结果通过通知回调反馈，不在页面留下固定提示；失败仍可重试',async t=>{
-  const detail=data(),messages=[]
+  const detail=data(),messages=[],pending=[]
   let fail=false
-  const {ui,root}=mount(t,detail,{copyText:async()=>{if(fail)throw Error('拒绝')},onNotify:(message,options)=>messages.push({message,...options})})
+  const {ui,root}=mount(t,detail,{copyText:()=>{if(fail)throw Error('拒绝');return new Promise(resolve=>pending.push(resolve))},onNotify:(message,options)=>messages.push({message,...options})})
   await ui.ready;await ui.openGroup(detail.group.id)
   const copy=root.querySelector('.run-task-output button')
-  copy.click();await settle()
+  copy.click();copy.click()
+  assert.equal(copy.disabled,false);assert.equal(copy.textContent,'复制');assert.equal(pending.length,2)
+  pending.forEach(resolve=>resolve());await settle()
+  assert.equal(messages.length,2)
   assert.deepEqual(messages.at(-1),{message:'任务输出已复制',kind:'success'})
   assert.equal(root.querySelector('.notice').textContent,'')
   fail=true;copy.click();await settle()
   assert.deepEqual(messages.at(-1),{message:'任务输出复制失败，请重试',kind:'error'})
-  assert.equal(root.querySelector('.notice').textContent,'');assert.equal(copy.disabled,false)
+  assert.equal(root.querySelector('.notice').textContent,'');assert.equal(copy.disabled,false);assert.equal(copy.textContent,'复制')
 })

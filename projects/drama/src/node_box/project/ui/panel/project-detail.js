@@ -1,4 +1,4 @@
-import { element } from './panel-dom.js'
+import { element } from '../../../../client/ui/panel-dom.js'
 
 export function renderProjectDetails(root, info, { onViewScript, summaryExecution = null } = {}) {
   const section = element('section', '', 'overview-card')

@@ -212,9 +212,12 @@ for (const kind of ['pass', 'upstream', 'rule']) test(`面板${kind}：开始和
   await dispatcher.flush(); await dispatcher.dispose()
   const starts = events.filter(event => event.type === 'command/run')
   const results = events.filter(event => event.type === 'command/done')
-  assert.equal(starts.length, 2); assert.equal(results.length, 2)
+  assert.equal(starts.length, 4); assert.equal(results.length, 4)
+  const cards = starts.map(event => JSON.parse(event.data.args))
+  assert.deepEqual(cards.map(card => card.phase), ['start', 'step', 'step', 'result'])
+  assert.equal(cards[2].status, kind === 'pass' ? 'done' : 'rejected')
   assert.notEqual(starts[0].data.commandId, starts[1].data.commandId)
-  assert.match(results[0].data.text, /面板操作/); assert.match(results[1].data.text, /本次面板要求/)
+  assert.match(results[0].data.text, /已受理/); assert.match(results.at(-1).data.text, /本次面板要求/)
   assert.ok(!events.some(event => event.type === 'user/message' || event.type === 'assistant/message'))
   assert.equal(followups.length, kind === 'pass' ? 0 : 1)
   assert.equal(f.calls.length, 4, '展示不增加盒子模型请求')
@@ -247,4 +250,102 @@ test('面板执行异常先展示失败结果，再发送规划报告', async t 
     display: async report => { assert.match(report.reason, /执行器异常依据/); order.push('display') } })
   await dispatcher.flush(); await dispatcher.dispose()
   assert.deepEqual(order, ['display', 'model'])
+})
+
+test('步骤结束即展示，盒子仍运行时不通知；自动修订每轮独立，重开不会补写已展示步骤', async t => {
+  const f = await fixture(t, 'pass'), shown = [], notifications = []
+  let release, waiting
+  const reached = new Promise(resolve => { waiting = resolve })
+  const gate = new Promise(resolve => { release = resolve })
+  const dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver: async report => notifications.push(report), display: async (report, phase, name, step) => shown.push({ report, phase, step }) })
+  await dispatcher.flush(); notifications.length = 0
+  f.records.tasks.register('step_demo', { label: '步骤测试', plan: () => [
+    { kind: 'review', name: '审核', round: 1, executor: 'ai' },
+    { kind: 'revise', name: '修改', round: 1, executor: 'ai' },
+    { kind: 'review', name: '复审', round: 2, executor: 'ai' },
+  ], execute: async ctx => {
+    if (ctx.step.kind === 'revise') { waiting(); await gate }
+    return { result: ctx.step.kind === 'review' ? { review: { status: ctx.step.round === 1 ? 'content_issue' : 'passed', issues: [] } } : { output: '修订正文' } }
+  } })
+  const id = 'live-step-demo'
+  f.records.tasks.submit(f.records.scope, { group: { id, source: 'ui', metadata: { notify_main: true } }, tasks: [{ node_type: 'step_demo', name: '步骤测试', action: 'generate', metadata: { session_id: f.created.session_id, project_id: f.created.project_id } }] })
+  f.records.tasks.start(f.records.scope)
+  await reached; await dispatcher.flush()
+  assert.equal(f.records.tasks.detail(f.records.scope, id).status, 'running')
+  assert.equal(shown.filter(item => item.phase === 'step').length, 1)
+  assert.equal(notifications.length, 0)
+  release(); await waitBoxTask(f.records, id); await dispatcher.flush()
+  assert.deepEqual(shown.filter(item => item.phase === 'step').map(item => [item.step.kind, item.step.round]), [['review', 1], ['revise', 1], ['review', 2]])
+  assert.match(shown.find(item => item.phase === 'result').report.stopped_at, /复审/)
+  assert.equal(notifications.length, 0)
+  await dispatcher.dispose()
+  const count = shown.length
+  const restarted = new ReportDispatcher({ root: f.root, records: f.records, deliver: async () => assert.fail('成功不通知'), display: async () => shown.push('duplicate') })
+  await restarted.flush(); await restarted.dispose()
+  assert.equal(shown.length, count)
+})
+
+test('展示与通知独立投递和重试：展示失败仍通知，通知失败不重复已展示结果', async t => {
+  const f = await fixture(t, 'pass'), delivered = [], displayed = [], errors = []
+  const id = 'independent-failure'
+  let failDisplay = true, failDelivery = false
+  const dispatcher = new ReportDispatcher({ root: f.root, records: f.records,
+    display: async (report, phase) => { if (report.group_id === id && failDisplay) throw new Error('展示暂不可用'); displayed.push(phase) },
+    deliver: async report => { if (report.group_id === id) { if (failDelivery) throw new Error('通知暂不可用'); delivered.push(report.group_id) } }, onError: error => errors.push(error.message) })
+  await dispatcher.flush()
+  f.records.tasks.register('independent', { label: '异常', plan: () => [{ kind: 'run', name: '失败步骤', executor: 'program' }], execute: async () => { throw new Error('执行异常') } })
+  f.records.tasks.submit(f.records.scope, { group: { id, source: 'ui', metadata: { notify_main: true } }, tasks: [{ node_type: 'independent', action: 'run', name: '异常', metadata: { session_id: f.created.session_id, project_id: f.created.project_id } }] })
+  f.records.tasks.start(f.records.scope); await waitBoxTask(f.records, id); await dispatcher.flush()
+  assert.deepEqual(delivered, [id]); assert.ok(errors.includes('展示暂不可用'))
+  failDisplay = false; await dispatcher.flush()
+  assert.deepEqual(delivered, [id]); assert.deepEqual(displayed, ['start', 'step', 'result'])
+  await dispatcher.dispose()
+  // 模拟通知尚未持久投递、展示已完成的恢复状态。
+  const path = join(f.root, 'main-agent-deliveries.json'), ledger = JSON.parse(await readFile(path))
+  ledger[id].delivered = false; ledger[id].notification = { delivered: false }
+  await (await import('node:fs/promises')).writeFile(path, JSON.stringify(ledger))
+  failDelivery = true
+  const resumed = new ReportDispatcher({ root: f.root, records: f.records,
+    display: async () => assert.fail('已展示结果不重复'), deliver: async report => { if (report.group_id === id) { if (failDelivery) throw new Error('通知暂不可用'); delivered.push(id) } } })
+  await resumed.flush(); failDelivery = false; await resumed.flush(); await resumed.dispose()
+  assert.deepEqual(delivered, [id, id])
+})
+
+test('创建尚未建立新会话就失败时，来源会话主Agent能收到原目标和停止原因', async t => {
+  const f = await fixture(t, 'pass'), messages = []
+  const agent = { session: { snapshotEvents: () => [] }, followup: message => messages.push(message) }
+  f.projects.applyMainAgent = async id => assert.equal(id, 'source')
+  const deliver = createMainAgentDelivery({ agents: { get: id => id === 'source' ? agent : null } }, f.projects)
+  await deliver({ ...f.report, node_type: 'project', action: 'create', session_id: 'source', source_session_id: 'source', project_id: 'new-not-created', status: 'failed', reason: '工作区名称重复' })
+  assert.equal(messages.length, 1); assert.match(messages[0].content[0].text, /工作区名称重复/)
+})
+
+test('会话展示读取当次盒子/步骤输入，历史项目改变不污染；轮询不携带完整正文、规则或输出', async t => {
+  const f = await fixture(t, 'pass'), events = []
+  const agent = { session: { snapshotEvents: () => events, append: async (type, data) => events.push({ type, data }) } }
+  const display = createPanelTaskDisplay({ sessionController: { resolveAgent: async () => ({ agent }) } }, f.projects)
+  await f.projects.edit({ kind: 'import_script', value: '本次优化前工作稿', previousValue: (await f.projects.snapshot(f.created.session_id)).project.basic_info.original_script_file_path }, { sessionId: f.created.session_id, projectId: f.created.project_id })
+  const accepted = await f.scripts.optimizeScript({ instruction: '完善基地细节' }, { sessionId: f.created.session_id, source: 'ui', requestId: 'snapshot-display' })
+  await f.scripts.waitScriptOptimization(accepted.group_id, f.created.session_id)
+  const detail = f.records.tasks.detail(f.records.scope, accepted.group_id), report = boxReport(detail)
+  await display(report, 'start', '剧本优化')
+  for (const step of detail.steps) await display(report, 'step', '剧本优化', step)
+  await display(report, 'result', '剧本优化')
+  const rows = await display.read(f.created.session_id)
+  const start = rows.find(row => row.phase === 'start'), review = rows.find(row => row.step_name === '剧本本地审核'), result = rows.find(row => row.phase === 'result')
+  assert.equal(start.box_input.instruction, '完善基地细节')
+  assert.equal(start.project_name, '主Agent规划')
+  assert.equal(start.box_input.current_script.actual_script, '本次优化前工作稿')
+  assert.equal(review.input.current_script.actual_script, '候选正文')
+  assert.equal(result.final_output.actual_script, '候选正文'); assert.equal(result.saved, true)
+  assert.ok(start.rules.rules.review.base)
+  assert.equal(start.box_input.rules, undefined, '规则在独立详情展示，不在盒子参数重复')
+  const compact = await display.read(f.created.session_id, { compact: true })
+  for (const row of compact) for (const key of ['box_input', 'input', 'rules', 'result', 'final_output', 'summary']) assert.equal(Object.hasOwn(row, key), false)
+  assert.doesNotMatch(JSON.stringify(compact), /actual_script|候选正文/)
+  assert.equal((await display.read(f.created.session_id, { id: review.id })).length, 1)
+  assert.deepEqual(await display.read(f.created.session_id, { id: 'foreign-message' }), [])
+  await f.projects.edit({ kind: 'import_script', value: '后来用户导入的新正文', previousValue: (await f.projects.snapshot(f.created.session_id)).project.basic_info.original_script_file_path }, { sessionId: f.created.session_id, projectId: f.created.project_id })
+  const old = (await display.read(f.created.session_id, { id: start.id }))[0]
+  assert.equal(old.box_input.current_script.actual_script, '本次优化前工作稿')
 })

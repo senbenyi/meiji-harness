@@ -193,13 +193,16 @@ export class ProjectService extends EventEmitter {
         try { await this.workspaceController.delete({ workspaceId }) }
         catch (error) { if (error.code !== 'workspace/not-found') throw error }
       }
-      if (!rows.every(row => row.deleted_at)) {
-        const deletedAt = new Date().toISOString()
-        for (const row of rows) row.deleted_at = deletedAt
-        await this.#saveBindings(state)
-      }
+      const sessionRequestId = rows.find(row => row.deleted_session_request_id)?.deleted_session_request_id || randomUUID()
+      const deletedAt = new Date().toISOString()
+      for (const row of rows) { row.deleted_at ||= deletedAt; row.deleted_session_request_id = sessionRequestId }
+      await this.#saveBindings(state)
       this.emit('updated', { project_id: projectId, deleted: true, session_ids: relatedSessions })
-      return { deleted: true, project_id: projectId }
+      return { deleted: true, project_id: projectId, session_request_id: sessionRequestId }
+    }).then(async result => {
+      // startSession自身使用同一写队列，必须在删除事务释放后接续。
+      try { return { ...result, ...await this.startSession(result.session_request_id) } }
+      catch (error) { return { ...result, session_error: `项目已删除，创建空会话失败：${error.message}` } }
     })
   }
 

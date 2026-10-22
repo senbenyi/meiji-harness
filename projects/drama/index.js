@@ -40,6 +40,7 @@ export function apply(ctx) {
   tool.ready = tool.models.read().then(config => configureMainAgent(ctx, config))
   void tool.ready.catch(error => ctx.logger.warn('Drama 主Agent配置失败：%s', error.message))
   const display = createPanelTaskDisplay(ctx, tool)
+  tool.readTaskMessages = display.read
   const dispatcher = new ReportDispatcher({ root: tool.root, records: tool.records, deliver: createMainAgentDelivery(ctx, tool), display,
     onError: error => ctx.logger.warn('主Agent报告投递待重试：%s', error.message),
   })
@@ -50,7 +51,7 @@ export function apply(ctx) {
   }
   const handler = createProjectHttpHandler(tool, { authorize: req => ctx.connection.requestRejection(req), models: tool.models, scriptRevision })
   ctx.on('llm/stream', (options, next) => tool.records.models.stream(options, next))
-  for (const path of ['/plugins/drama/src/client', '/plugins/drama/packages', '/api/drama'])
+  for (const path of ['/plugins/drama/src/client', '/plugins/drama/src/node_box', '/plugins/drama/packages', '/api/drama'])
     ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path, handler }), `drama: ${path}`)
   ctx.effect(() => async () => { await dispatcher.dispose(); await handler.dispose() }, 'drama: stop events')
   ctx.on('webserver/index-inject', rows => rows.push({ kind: 'script-src', placement: 'body', src: '/plugins/drama/src/client/panel.js' }))

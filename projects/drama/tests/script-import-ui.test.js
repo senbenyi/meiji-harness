@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
-import { scriptImport } from '../src/client/script-import.js'
+import { scriptImport } from '../src/node_box/project/ui/panel/script-import.js'
 const tick=()=>new Promise(r=>setImmediate(r))
 
 test('项目内文件导入与素材库导入、失败保留旧文、销毁后拒绝迟到读取', async t => {

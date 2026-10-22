@@ -1,4 +1,4 @@
-import { element } from './panel-dom.js'
+import { element } from '../../../../client/ui/panel-dom.js'
 
 // 从本项目已复制的meiji创建弹窗提取导入控件，原文只通过导入更新，无文本编辑器。
 export function scriptImport(root, { importScript, listScripts, readScript } = {}) {

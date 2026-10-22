@@ -21,4 +21,8 @@ test('剧本素材跨重启读取，列表不泄露正文，拒绝空文件、�
   await assert.rejects(store.importScript({ originalName: 'x.txt', body: '剧'.repeat(400000) }), /1MB/)
   await assert.rejects(store.readScript('../bindings.json'), /素材ID/)
   assert.equal((await store.list()).length, 1)
+  assert.deepEqual(await store.remove(asset.id), { id: asset.id })
+  assert.deepEqual(await restarted.list(), [])
+  await assert.rejects(store.remove(asset.id), { code: 'ENOENT' })
+  await assert.rejects(store.remove('../bindings.json'), /素材ID/)
 })

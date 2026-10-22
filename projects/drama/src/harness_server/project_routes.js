@@ -1,3 +1,4 @@
+import { clientAssets } from './client_assets.js'
 import { createRecordService } from '../records/service.js'
 import { serveRecordRoute } from './record_routes.js'
 import { readFile } from 'node:fs/promises'
@@ -30,11 +31,12 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
       if (rejected) return json(res, rejected, { message: '请登录 Harness' })
       if (url.pathname.startsWith('/plugins/drama/packages/') || ['/api/drama/http-records', '/api/drama/task-history'].includes(url.pathname))
         return await serveRecordRoute(req, res, url, records, json)
-      if (url.pathname.startsWith('/plugins/drama/src/client/')) {
-        const name = url.pathname.slice('/plugins/drama/src/client/'.length)
+      if (url.pathname.startsWith('/plugins/drama/src/')) {
+        const name = url.pathname.slice('/plugins/drama/src/'.length)
         if (req.method !== 'GET') return json(res, 405, { message: '不支持的请求' })
-        if (!/^[a-z-]+\.(js|css)$/.test(name)) return json(res, 404, { message: '文件不存在' })
-        let bytes = await readFile(new URL(`../client/${name}`, import.meta.url))
+        const asset = clientAssets.get(name)
+        if (!asset) return json(res, 404, { message: '文件不存在' })
+        let bytes = await readFile(asset)
         if (name.endsWith('.js')) bytes = Buffer.from(bytes.toString().replaceAll("'@agent-modules/ui'", "'/plugins/drama/packages/ui/index.js'").replaceAll("'@agent-modules/task/ui'", "'/plugins/drama/packages/task/index.js'").replaceAll("'@agent-modules/http-client/ui'", "'/plugins/drama/packages/http-client/index.js'").replaceAll("'@agent-modules/prompt-composer/ui'", "'/plugins/drama/packages/prompt-composer/ui/rules-panel.js'"))
         res.writeHead(200, { 'Content-Type': name.endsWith('.css') ? 'text/css' : 'text/javascript', 'Cache-Control': 'no-store' })
         return res.end(bytes)
@@ -73,6 +75,13 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
       }
       const sessionId = url.searchParams.get('session_id')
       if (!sessionId) return json(res, 400, { message: '需提供会话ID' })
+      if (url.pathname === '/api/drama/task-messages' && req.method === 'GET') {
+        const rawAfter = url.searchParams.get('after') || '-1'
+        if (!/^-?\d+$/.test(rawAfter) || !Number.isSafeInteger(Number(rawAfter)) || Number(rawAfter) < -1) return json(res, 400, { message: '消息游标无效' })
+        const result = await tool.readTaskMessages?.(sessionId, { id: url.searchParams.get('id') || undefined, compact: url.searchParams.get('compact') === '1',
+          eager: url.searchParams.get('eager') === '1', after: Number(rawAfter), pending: (url.searchParams.get('pending') || '').split(',').filter(Boolean) }) || []
+        return json(res, 200, Array.isArray(result) ? { messages: result } : result)
+      }
       if (url.pathname === '/api/drama/node-states' && req.method === 'GET')
         return json(res, 200, await tool.nodeStates(sessionId))
       if (url.pathname === '/api/drama/original-script' && req.method === 'GET')

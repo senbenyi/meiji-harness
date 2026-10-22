@@ -80,9 +80,9 @@ test('标签点击与键盘导航同步 aria、焦点及显隐；多面板互不
 });
 
 test('复制使用准确原文，失败可重试，不修改其他卡片或动作', async t => {
-  const copies = [];
+  const copies = [], notifications = [];
   let fail = true;
-  const { dom, root } = setup(input, { currentBases, copyText: async text => {
+  const { dom, root } = setup(input, { currentBases, onNotify: message => notifications.push(message), copyText: async text => {
     if (fail) throw Error('clipboard denied');
     copies.push(text);
   } });
@@ -91,13 +91,13 @@ test('复制使用准确原文，失败可重试，不修改其他卡片或动�
   copy.click();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(copy.disabled, false);
-  assert.equal(copy.textContent, '复制失败，重试');
+  assert.equal(copy.textContent, '复制'); assert.match(notifications.at(-1), /复制失败/);
   fail = false;
   copy.click();
   root.querySelector('[data-action=review] [data-field=supplement] button').click();
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(copies, ['当前生成', '审核补充']);
-  assert.equal(copy.textContent, '已复制');
+  assert.equal(copy.textContent, '复制'); assert.match(notifications.at(-1), /已复制/);
 });
 
 test('HTML 文本安全展示，空规则与返回回调均可用，样式封装在 Shadow DOM', t => {

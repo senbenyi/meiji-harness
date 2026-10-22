@@ -1,5 +1,5 @@
 const PROJECT_ASPECT_RATIOS = ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'];
-import { element, showPanelDialog } from "./panel-dom.js";
+import { element, showPanelDialog } from "../../../../client/ui/panel-dom.js";
 export function projectDialog(root, save, { listScripts, readScript } = {}) {
   const dialog = element("dialog");
   dialog.id = "create-project";

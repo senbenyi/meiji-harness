@@ -1,3 +1,5 @@
+import { setToastContainer } from '@agent-modules/ui'
+
 export function createShell() {
   const host = document.createElement('drama-workbench')
   const root = host.attachShadow({ mode: 'open' })
@@ -5,7 +7,7 @@ export function createShell() {
   layout.textContent = '#root{box-sizing:border-box;padding-right:var(--drama-panel-width,min(360px,44vw))}html[data-drama-resizing],html[data-drama-resizing] *{cursor:col-resize!important;user-select:none!important}@media(max-width:680px){html[data-drama-mobile=open] #root{visibility:hidden;padding-right:0}}'
   document.head.append(layout)
   host.id = 'drama-panel'
-  root.innerHTML = `<link rel="stylesheet" href="/plugins/drama/src/client/project-ui.css"><link rel="stylesheet" href="/plugins/drama/src/client/panel-shell.css"><aside class="sidebar" aria-label="短剧工作流面板"><div class="resize-handle" role="separator" aria-label="调整右侧面板宽度" aria-orientation="vertical" tabindex="0"></div><div class="workspace-content"></div></aside>`
+  root.innerHTML = `<link rel="stylesheet" href="/plugins/drama/src/client/ui/project-ui.css"><link rel="stylesheet" href="/plugins/drama/src/client/ui/panel-shell.css"><aside class="sidebar" aria-label="短剧工作流面板"><div class="resize-handle" role="separator" aria-label="调整右侧面板宽度" aria-orientation="vertical" tabindex="0"></div><div class="workspace-content"></div></aside>`
   const toggle = document.createElement('button')
   toggle.type = 'button'
   toggle.className = 'toggle'
@@ -13,6 +15,7 @@ export function createShell() {
   toggle.innerHTML = '<svg class="panel-toggle-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" stroke-width="1"><path d="M13.5 1.5H2.5C1.94772 1.5 1.5 1.94772 1.5 2.5V13.5C1.5 14.0523 1.94772 14.5 2.5 14.5H13.5C14.0523 14.5 14.5 14.0523 14.5 13.5V2.5C14.5 1.94772 14.0523 1.5 13.5 1.5Z" stroke="currentColor"/><path d="M5.5 1.5V14.5" stroke="currentColor"/></svg>'
   document.body.append(host)
   const sidebar = root.querySelector('.sidebar'), handle = root.querySelector('.resize-handle')
+  setToastContainer(sidebar)
   const stored = Number(localStorage.getItem('drama-panel-width'))
   let preferredWidth = stored > 0 ? stored : Math.min(360, window.innerWidth * .44)
   let width, drag
@@ -70,5 +73,5 @@ export function createShell() {
   }
   toggle.onclick = () => setOpen(root.querySelector('.sidebar').classList.contains('collapsed'))
   setOpen(true)
-  return { dispose() { stopDrag(); window.removeEventListener('resize', applyWidth); layout.remove(); host.remove(); document.documentElement.style.removeProperty('--drama-panel-width'); delete document.documentElement.dataset.dramaMobile }, root, content: root.querySelector('.workspace-content'), toggle, setOpen, status: message => { root.querySelector('[role=status]').textContent = message } }
+  return { dispose() { stopDrag(); setToastContainer(null); window.removeEventListener('resize', applyWidth); layout.remove(); host.remove(); document.documentElement.style.removeProperty('--drama-panel-width'); delete document.documentElement.dataset.dramaMobile }, root, content: root.querySelector('.workspace-content'), toggle, setOpen, status: message => { root.querySelector('[role=status]').textContent = message } }
 }

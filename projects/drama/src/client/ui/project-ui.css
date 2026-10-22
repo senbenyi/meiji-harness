@@ -23,12 +23,24 @@ header,main,[role=status]{padding:16px}header{display:flex;align-items:center;ju
 .library-heading .back:focus-visible{outline:2px solid #fff;outline-offset:3px}
 .library-heading .back:active{transform:translateY(1px)}
 @media(prefers-reduced-motion:reduce){.library-heading .back{transition:none}}
-.library-tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding:2px}
+[role=status]:empty{display:none}
+.library-tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding:2px}
 .library-tabs button{flex:1;min-width:max-content;background:transparent;border-color:#383838;color:#fff}
 .library-tabs [aria-selected=true]{background:#292929;border-color:#fff}
 .library-tabs button:focus-visible{outline:2px solid #fff;outline-offset:2px}
-.library-card{padding:14px;margin:12px 0;border:1px solid #383838;border-radius:10px;overflow-wrap:anywhere}
-.library-card h3{margin:0 0 8px}.library-card p{margin:8px 0}.library-assets .import-script{margin-bottom:12px}
+.library-toolbar{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-bottom:4px}
+.library-toolbar .library-tabs{margin-bottom:0}
+.library-assets .import-script{align-self:flex-start;margin:0;border-style:dashed;background:transparent}
+.library-card{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:8px 0;border:1px solid #383838;border-radius:10px}
+.library-card-main{min-width:0;flex:1}
+.library-card h3{margin:0;overflow-wrap:anywhere;font-size:14px;line-height:1.4}
+.library-card .meta{margin:2px 0 0}
+.library-card-actions{display:flex;flex:none;gap:6px}
+.library-card-actions button{padding:3px 8px;min-height:28px;font-size:12px;line-height:20px}
+.library-open{background:none}
+.library-delete{border-color:#533b3f;background:none;color:#d59399}
+.library-delete:hover{border-color:#b36c75;background:#27191c;color:#f0b8be}
+.library-delete:disabled{opacity:.5}
 .workflow-generation-row{display:flex;flex-wrap:wrap;gap:8px}.workflow-generation-row button{flex:1;white-space:nowrap}
 .library-assets .library-tabs button{padding:6px 8px;min-width:0}
 /* 实际复制自meiji/client/panel-styles.css：概要、节点与返回栏；仅添加页面作用域。 */

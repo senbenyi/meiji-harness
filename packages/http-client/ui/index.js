@@ -2,18 +2,15 @@ import { styles } from './styles.js';
 const asText = value => typeof value === 'string' ? value : JSON.stringify(value ?? null, null, 2);
 
 /** 直接渲染到调用方容器；返回销毁函数。不绑定task、项目或URL。 */
-export function renderHttpDetails(container, { transfers = [], document = container.ownerDocument, copyText,
+export function renderHttpDetails(container, { transfers = [], document = container.ownerDocument, copyText, onNotify,
   initialIndex = 0, initialTab = 'request', onChange, emptyText = '此步骤没有已保存的 HTTP 记录' } = {}) {
   let index = Math.max(0, Math.min(initialIndex, transfers.length - 1)), tab = initialTab, disposed = false;
   const el = (tag, text = '', cls = '') => { const node = document.createElement(tag); node.textContent = text; node.className = cls; return node; };
   const button = (label, action) => { const node = el('button', label); node.type = 'button'; node.onclick = action; return node; };
-  const notice = el('p', '', 'muted'); notice.setAttribute('role', 'status');
   const copy = (label, read) => {
     const node = button('复制', async () => {
-      node.disabled = true;
-      try { await (copyText ?? (text => document.defaultView.navigator.clipboard.writeText(text)))(read()); if (!disposed) { node.textContent = '已复制'; notice.textContent = `${label}已复制`; } }
-      catch { if (!disposed) { node.textContent = '复制失败，重试'; notice.textContent = `${label}复制失败，请重试`; } }
-      finally { if (!disposed) node.disabled = false; }
+      try { await (copyText ?? (text => document.defaultView.navigator.clipboard.writeText(text)))(read()); if (!disposed) onNotify?.(`${label}已复制`, { kind: 'success' }); }
+      catch { if (!disposed) onNotify?.(`${label}复制失败，请重试`, { kind: 'error' }); }
     });
     node.className = 'copy'; node.setAttribute('aria-label', `复制${label}`); return node;
   };
@@ -34,7 +31,7 @@ export function renderHttpDetails(container, { transfers = [], document = contai
     for (const [key, label] of [['request', '请求'], ['response', '返回']]) {
       const control = button(label, () => { tab = key; paint(); onChange?.({ index, tab }); }); control.setAttribute('role', 'tab'); control.setAttribute('aria-selected', String(tab === key)); tabs.append(control);
     }
-    container.append(tabs, notice);
+    container.append(tabs);
     const persisted = Object.hasOwn(transfer, 'returned_at');
     const { request, id, prompt_id, ...response } = transfer;
     const responded = persisted ? transfer.returned_at !== null : ['ok', 'status', 'body', 'error', 'bytes'].some(key => Object.hasOwn(response, key));
@@ -48,7 +45,7 @@ export function renderHttpDetails(container, { transfers = [], document = contai
 }
 
 /** source.list({offset,limit})返回摘要数组，source.read(id)按需读取正文。 */
-export function createHttpHistory({ source, document = globalThis.document, onBack, copyText, pageSize = 20 } = {}) {
+export function createHttpHistory({ source, document = globalThis.document, onBack, copyText, onNotify, pageSize = 20 } = {}) {
   if (!source || typeof source.list !== 'function' || typeof source.read !== 'function') throw new TypeError('需提供 list/read 数据源');
   if (!document?.createElement) throw new TypeError('HTTP记录需要浏览器 document');
   if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 99) throw new TypeError('pageSize需为1–99');
@@ -74,7 +71,7 @@ export function createHttpHistory({ source, document = globalThis.document, onBa
       header();
       if (selected) {
         if (!data) throw new Error('HTTP记录不存在');
-        const body = el('div', '', 'run-record-page'); page.append(body); disposeDetail = renderHttpDetails(body, { transfers: [data], document, copyText }); return;
+        const body = el('div', '', 'run-record-page'); page.append(body); disposeDetail = renderHttpDetails(body, { transfers: [data], document, copyText, onNotify }); return;
       }
       if (!Array.isArray(data)) throw new TypeError('HTTP列表需返回数组');
       if (!data.length) page.append(el('p', '暂无HTTP记录', 'muted'));

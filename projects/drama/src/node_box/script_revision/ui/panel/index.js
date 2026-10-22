@@ -1,15 +1,10 @@
-import { element } from './panel-dom.js'
+import { showToast } from '@agent-modules/ui'
+import { element } from '../../../../client/ui/panel-dom.js'
 
 // 实际复制自meiji/client/task-panel.js的nodeCard/nodeUi剧本分支。
 // 只适配drama数据与回调；不复制meiji业务执行、旧模型或其他节点分支。
 const labels = { empty: '未生成', generated: '已生成', rejected: '未通过', expired: '已过期' }
 const button = (label, action, aria) => { const node = element('button', label); node.type = 'button'; node.onclick = action; if (aria) node.setAttribute('aria-label', aria); return node }
-
-export function backHeader(root, title, label, back) {
-  const bar = element('div', '', 'episode-bar'), b = button('←', back, label)
-  b.className = 'episode-back'
-  bar.append(b, element('h2', title)); root.append(bar)
-}
 
 export function scriptNodeCard(node, { preview = false, runOptimization, canOptimize = false, busy = false, executionStep = null, displayNodeState = null, reviewIssues = [], executionError = '', openRules, openTasks, saveOpinion, opinionDraft = node.node_state?.opinion || '', setOpinionDraft, copyText } = {}) {
   const card = element('section', '', 'session-project script-node'), head = element('div', '', 'section-head'), titles = element('div', '', 'section-titles')
@@ -34,10 +29,8 @@ export function scriptNodeCard(node, { preview = false, runOptimization, canOpti
   if (openRules) records.append(button('查看规则', openRules, '查看剧本优化规则'))
   if (output.actual_script?.trim()) {
     const copy = button('复制原文', async () => {
-      copy.disabled = true
-      try { await (copyText || (text => card.ownerDocument.defaultView.navigator.clipboard.writeText(text)))(output.actual_script); copy.textContent = '已复制' }
-      catch { copy.textContent = '复制失败，请重试' }
-      finally { copy.disabled = false }
+      try { await (copyText || (text => card.ownerDocument.defaultView.navigator.clipboard.writeText(text)))(output.actual_script); showToast('已复制') }
+      catch { showToast('复制失败，请重试') }
     }, '复制该卡片原文')
     copy.className = 'node-original-copy'; records.append(copy)
   }
@@ -93,3 +86,5 @@ export function scriptNodeCard(node, { preview = false, runOptimization, canOpti
   }
   return card
 }
+
+export const panel = { scriptNodeCard }

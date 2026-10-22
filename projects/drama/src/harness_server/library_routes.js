@@ -6,8 +6,13 @@ export function createLibraryHttpHandler(tool, json) {
   return async (req, res, url) => {
     if (url.pathname === '/api/drama/library' && req.method === 'GET')
       return json(res, 200, { projects: await tool.listProjects(), assets: await store.list() })
-    if (url.pathname.startsWith('/api/drama/library/scripts/') && req.method === 'GET')
-      return json(res, 200, { body: await store.readScript(url.pathname.slice('/api/drama/library/scripts/'.length)) })
+    const scriptId = url.pathname.startsWith('/api/drama/library/scripts/') ? decodeURIComponent(url.pathname.slice('/api/drama/library/scripts/'.length)) : ''
+    if (scriptId && req.method === 'GET')
+      return json(res, 200, { body: await store.readScript(scriptId) })
+    if (scriptId && req.method === 'DELETE') {
+      if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
+      return json(res, 200, { deleted: true, ...(await store.remove(scriptId)) })
+    }
     if (url.pathname === '/api/drama/library/scripts' && req.method === 'POST') {
       if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
       const chunks = []

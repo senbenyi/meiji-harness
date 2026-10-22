@@ -42,9 +42,9 @@ test('HTTP列表晚到响应、销毁和复制失败保护', async t => {
   const dom = new JSDOM(); t.after(() => dom.window.close()); let resolve;
   const ui = createHttpHistory({ document: dom.window.document, source: { list: () => new Promise(r => { resolve = r; }), read: () => null } });
   ui.dispose(); resolve([]); await ui.ready; assert.equal(ui.element.shadowRoot.textContent.includes('暂无HTTP记录'), false);
-  const root = dom.window.document.createElement('div');
-  const dispose = renderHttpDetails(root, { transfers: [{ id: 'pending', returned_at: null, method: 'GET', path: '/', params: null }], copyText: async () => { throw Error('denied'); } }); t.after(dispose);
-  root.querySelector('[aria-label="复制HTTP ID"]').click(); await tick(); assert.match(root.textContent, /复制失败/);
+  const root = dom.window.document.createElement('div'), notifications = [];
+  const dispose = renderHttpDetails(root, { transfers: [{ id: 'pending', returned_at: null, method: 'GET', path: '/', params: null }], copyText: async () => { throw Error('denied'); }, onNotify: message => notifications.push(message) }); t.after(dispose);
+  root.querySelector('[aria-label="复制HTTP ID"]').click(); await tick(); assert.match(notifications.at(-1), /复制失败/); assert.doesNotMatch(root.textContent, /复制失败/); assert.equal(root.querySelector('[aria-label="复制HTTP ID"]').textContent, '复制');
   button(root, '返回').click(); assert.match(root.textContent, /尚未返回/);
 });
 
