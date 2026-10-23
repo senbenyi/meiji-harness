@@ -1,0 +1,18 @@
+{
+  "requestId": "outline-a2-880c6eb2-0d51-4696-adcf-8640ad6a0cd1",
+  "elapsedMs": 370870,
+  "inputChars": 11484,
+  "outputChars": 676,
+  "promptHash": "27b82e97ef0d6364b76709d0a26e3490701d7a0d7664cb5948641f8e2b04cd7f",
+  "transport": [
+    {
+      "usage": null,
+      "error": null
+    },
+    {
+      "ok": true,
+      "usage": null,
+      "error": null
+    }
+  ]
+}

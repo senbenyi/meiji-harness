@@ -1,0 +1,93 @@
+{
+  "selected": [
+    {
+      "topic": {
+        "id": "launch",
+        "label": "发射冲击、环境与特效",
+        "terms": [
+          "炮",
+          "火",
+          "冲击",
+          "发射"
+        ]
+      },
+      "clip": {
+        "id": "eval_launch",
+        "mode": "文生",
+        "duration_seconds": 14,
+        "sources": [
+          {
+            "shot_id": "shot_007",
+            "beat_start": 0,
+            "beat_end": 0
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_007",
+        "previous_shot_connection": "cut",
+        "story_segment_id": "segment_004",
+        "title": "风暴之后，目光失去目标：气浪与伤者",
+        "key_anchor_ids": [
+          "segment_004_anchor_001"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "夜间发射后，炮火如柱冲天，强烈气浪席卷茀罗理窦；火焰照亮三百英里内夜色。",
+          "spatial_setup": "哥仑比亚炮为冲击中心，观众散布在周围；麦思敦独自站在距炮一百五十码处，弹丸已离地进入太空。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "麦思敦",
+            "presence": "开场在场，站在距炮一百五十码处。",
+            "position": "距哥仑比亚炮一百五十码。",
+            "facing": "朝向弹丸飞去方向。",
+            "gaze_target": "夜空中的弹丸。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "围观者",
+            "presence": "开场在场，分布于发射现场；冲击后许多人受伤。",
+            "position": "炮周围大范围区域。",
+            "facing": "朝向炮和夜空。",
+            "gaze_target": "弹丸飞去方向。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "伤者",
+            "presence": "冲击后在场，呻吟、包扎头脸或扶杖离去。",
+            "position": "发射现场周围地面及离场路径。",
+            "facing": "朝向安全离场方向或仰望夜空。",
+            "gaze_target": "同伴、离场路径或夜空。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 14,
+            "action": "炮火如柱冲天，震动以茀罗理窦为中心席卷大地。火焰照亮三百英里内的夜色，强烈气浪掀倒数千万名观众。麦思敦为了看清弹丸去向，发射后被气浪掷出一百二十尺，头晕气绝。",
+            "camera": "从炮口火柱向外展开广角，表现冲击席卷人群；观察方向落到麦思敦被掷开的方向。",
+            "scene_changes": "发射气浪造成大范围冲击，观众倒地。",
+            "effects": "炮火照亮三百英里内夜色；气浪强烈掀倒观众，并将麦思敦掷出一百二十尺。",
+            "audio": "炮声轰鸣后气浪呼啸，周围声响短暂被冲击压过。"
+          }
+        ]
+      },
+      "prior_beats_context": [],
+      "selectionScore": 4
+    }
+  ],
+  "problems": [
+    {
+      "topic": "crowd",
+      "reason": "无足够相关且时长合法的完整节拍"
+    },
+    {
+      "topic": "farewell",
+      "reason": "无足够相关且时长合法的完整节拍"
+    }
+  ]
+}

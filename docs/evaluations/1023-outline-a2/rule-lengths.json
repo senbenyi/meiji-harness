@@ -1,0 +1,53 @@
+{
+  "story_segments": {
+    "generate": {
+      "before": 2502,
+      "after": 1227,
+      "reduction": 51
+    },
+    "review": {
+      "before": 2774,
+      "after": 1329,
+      "reduction": 52
+    },
+    "revise": {
+      "before": 2589,
+      "after": 1282,
+      "reduction": 50
+    }
+  },
+  "shot_design": {
+    "generate": {
+      "before": 2227,
+      "after": 1270,
+      "reduction": 43
+    },
+    "review": {
+      "before": 2477,
+      "after": 1408,
+      "reduction": 43
+    },
+    "revise": {
+      "before": 2359,
+      "after": 1333,
+      "reduction": 43
+    }
+  },
+  "video_prompt": {
+    "generate": {
+      "before": 1478,
+      "after": 1095,
+      "reduction": 26
+    },
+    "review": {
+      "before": 1731,
+      "after": 1246,
+      "reduction": 28
+    },
+    "revise": {
+      "before": 1585,
+      "after": 1150,
+      "reduction": 27
+    }
+  }
+}

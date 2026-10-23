@@ -1,0 +1,20 @@
+{
+  "status": "completed",
+  "key": "wusong",
+  "round": 2,
+  "version": "B",
+  "inputHash": "65d322ccdd69443dbdd5aac5faeab3189f4abbcb1ca7ed99c1880140437188f0",
+  "metrics": {
+    "shotCount": 29,
+    "beatCount": 58,
+    "anchorCount": 14,
+    "unreferencedAnchorIds": [],
+    "missingSegmentIds": [],
+    "referenceCoverage": 1,
+    "quotedTextCount": 31,
+    "quotedTextNotFound": [],
+    "quotedTextRecallHeuristic": 1,
+    "estimatedSeconds": 385,
+    "issues": []
+  }
+}

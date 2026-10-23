@@ -1,0 +1,83 @@
+{
+  "case": "moon",
+  "round": 1,
+  "judge_scores_reliable": false,
+  "reason": "发现多项评审原文误引及正常具体化误判，不以本轮原始评分决定优劣。",
+  "findings": [
+    {
+      "judge_side": "X",
+      "issue_index": 0,
+      "verdict": "partly_unsupported",
+      "reason": "A正文和shot_014均为四十秒，未发生杪到秒的镜头改写；其他转述改直接台词属于需另看定稿充分性的边界问题。"
+    },
+    {
+      "judge_side": "X",
+      "issue_index": 1,
+      "verdict": "false_positive",
+      "reason": "shot_007首节拍action明确写温度计、风雨表、望远镜等仪器装进机械箱。"
+    },
+    {
+      "judge_side": "Y",
+      "issue_index": 0,
+      "verdict": "partly_unsupported",
+      "reason": "杪为古代秒的称呼，转换不是时间单位数值错误；是否重复表演须独立核查。"
+    },
+    {
+      "judge_side": "Y",
+      "issue_index": 1,
+      "verdict": "false_positive",
+      "reason": "B正文明确先麦思敦请求同行并退到一旁，后进入弹丸封门，与shot_017/018一致。"
+    },
+    {
+      "judge_side": "Y",
+      "issue_index": 2,
+      "verdict": "false_positive",
+      "reason": "shot_030只恢复观测条件并写有望发现，shot_031才实际发现，未提前实际结果。"
+    },
+    {
+      "judge_side": "Y",
+      "issue_index": 3,
+      "verdict": "unsupported",
+      "reason": "所列争论在B大纲本身是转述，不是被漏掉的逐字定稿对白；需要区分上游对白未定稿与下游遗漏。"
+    },
+    {
+      "judge_side": "Y",
+      "issue_index": 4,
+      "verdict": "false_positive",
+      "reason": "时刻说明用秒，倒数保留杪，不冲突；shot_019与大纲倒数完全一致。"
+    },
+    {
+      "judge_side": "Y",
+      "issue_index": 5,
+      "verdict": "false_positive",
+      "reason": "B正文明确写严防有人把烟头扔进危险区域，镜头非新增该因果。"
+    },
+    {
+      "judge_side": "Y",
+      "issue_index": 6,
+      "verdict": "not_material",
+      "reason": "短暂兴奋再苦笑可能是已有讨论的表演细化，不能自动认定为新增独立剧情。"
+    },
+    {
+      "judge_side": "Y",
+      "issue_index": 7,
+      "verdict": "supported",
+      "reason": "shot_014使用现场广播或人群传话的二选一表述，声源和具体执行尚未定稿。"
+    }
+  ],
+  "additional_observations": [
+    {
+      "version": "A",
+      "kind": "outline_continuity",
+      "segment_id": "segment_003",
+      "evidence": "正文先关紧铝门、旋紧螺栓，随后麦思敦含泪请巴比堪同行且巴比堪解释，没有交代如何继续当面对话。",
+      "status": "needs_shot_check"
+    },
+    {
+      "version": "both",
+      "kind": "outline_dialogue_finality",
+      "evidence": "部分关键争论、请求和答复仍使用转述；镜头只能继续转述或自行写成台词。",
+      "status": "observed"
+    }
+  ]
+}

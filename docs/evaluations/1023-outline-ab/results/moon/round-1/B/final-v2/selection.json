@@ -1,0 +1,269 @@
+{
+  "selected": [
+    {
+      "topic": {
+        "id": "crowd",
+        "label": "人群压力与安全制止",
+        "terms": [
+          "烟",
+          "人群",
+          "熄",
+          "麦思敦"
+        ]
+      },
+      "clip": {
+        "id": "eval_crowd",
+        "mode": "文生",
+        "duration_seconds": 12,
+        "sources": [
+          {
+            "shot_id": "shot_005",
+            "beat_start": 2,
+            "beat_end": 2
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_005",
+        "previous_shot_connection": "continuous",
+        "story_segment_id": "segment_001",
+        "title": "麦思敦制止吸烟",
+        "key_anchor_ids": [
+          "segment_001_anchor_001"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "十一月二十八日，栅门关闭，栅内有引火棉箱展示，栅外聚集大量观众；工地禁烟火。",
+          "spatial_setup": "巴比堪和麦思敦在栅内巡查，栅门是两人进入观众群的通道；危险区域位于栅内炮旁。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "麦思敦",
+            "presence": "在场，与巴比堪来回巡视。",
+            "position": "栅内靠近栅门。",
+            "facing": "朝向栅门外观众。",
+            "gaze_target": "观众手中的雪茄和烟卷。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "巴比堪",
+            "presence": "在场，巡视危险区域。",
+            "position": "栅内炮旁与栅门之间。",
+            "facing": "沿栅内巡视路线。",
+            "gaze_target": "观众和引火棉箱。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "观众",
+            "presence": "大量观众聚集栅外，仍有人吸烟。",
+            "position": "栅门外，拥挤分布。",
+            "facing": "朝向栅内展示区。",
+            "gaze_target": "引火棉箱与栅内人员。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 12,
+            "action": "麦思敦逐一夺下人们手里的雪茄和烟卷，熄灭后堆在一旁；观众被他的怒气镇住，喧哗渐息。",
+            "camera": "中近景跟随他连续收缴、熄灭并放下烟物，末尾切为观众反应与逐渐安静的人群。",
+            "scene_changes": "被熄灭的雪茄和烟卷堆在一旁；人群喧哗渐息。",
+            "effects": "无。",
+            "audio": "烟卷熄灭声与人群声由喧嚷转为低声，最终安静下来。"
+          }
+        ]
+      },
+      "prior_beats_context": [
+        {
+          "duration_seconds": 8,
+          "action": "巴比堪和麦思敦来回巡视，严防有人把烟头扔进危险区域；麦思敦高声警告：“诸君切勿吸烟，防生奇祸！”",
+          "camera": "沿栅内巡视路线侧向跟拍两人，停在麦思敦面向人群的中景。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "麦思敦高声说：“诸君切勿吸烟，防生奇祸！”人群喧嚷与吸烟声持续。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "人群仍烟雾弥漫，置若罔闻。麦思敦忍无可忍，冲出栅门，挥着小刀挤进人群。",
+          "camera": "透过栅栏拍烟雾与无动于衷的观众，随后快速跟随麦思敦冲出栅门并进入人群。",
+          "scene_changes": "麦思敦由栅内进入栅外观众群。",
+          "effects": "无。",
+          "audio": "人群喧嚷不断，麦思敦脚步急促；无新增对白。"
+        }
+      ],
+      "selectionScore": 4
+    },
+    {
+      "topic": {
+        "id": "farewell",
+        "label": "离别与被拒同行的微表情",
+        "terms": [
+          "麦思敦",
+          "同行",
+          "泪",
+          "巴比堪"
+        ]
+      },
+      "clip": {
+        "id": "eval_farewell",
+        "mode": "文生",
+        "duration_seconds": 5,
+        "sources": [
+          {
+            "shot_id": "shot_017",
+            "beat_start": 0,
+            "beat_end": 0
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_017",
+        "previous_shot_connection": "cut",
+        "story_segment_id": "segment_003",
+        "title": "麦思敦留在地球",
+        "key_anchor_ids": [
+          "segment_003_anchor_002"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "自鸣钟报十点，月夜发射现场；起重机铁索悬在炮旁，弹丸等待旅行者进入。",
+          "spatial_setup": "弹丸入口位于炮旁，起重机铁索在一侧；巴比堪与麦思敦在入口附近交谈，另两名旅行者待在旁边。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "麦思敦",
+            "presence": "在场，眼含热泪，向巴比堪提出同行。",
+            "position": "弹丸入口旁。",
+            "facing": "朝向巴比堪。",
+            "gaze_target": "巴比堪。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "巴比堪",
+            "presence": "在场，解释弹丸空间和麦思敦年纪的限制。",
+            "position": "麦思敦对面，靠近弹丸入口。",
+            "facing": "朝向麦思敦。",
+            "gaze_target": "麦思敦。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "亚电、臬科尔",
+            "presence": "在场，等待进入弹丸。",
+            "position": "入口旁后侧。",
+            "facing": "朝向巴比堪和麦思敦。",
+            "gaze_target": "两人。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 5,
+            "action": "自鸣钟报十点，起重机铁索在炮旁摇响；麦思敦眼含热泪，最后问巴比堪是否能一同前往。",
+            "camera": "铁索近景摇动后切至麦思敦含泪的脸，再带出巴比堪。",
+            "scene_changes": "无。",
+            "effects": "无。",
+            "audio": "自鸣钟报十点，铁索摇响；麦思敦询问能否同行。"
+          }
+        ]
+      },
+      "prior_beats_context": [],
+      "selectionScore": 4
+    },
+    {
+      "topic": {
+        "id": "launch",
+        "label": "发射冲击、环境与特效",
+        "terms": [
+          "炮",
+          "火",
+          "冲击",
+          "发射"
+        ]
+      },
+      "clip": {
+        "id": "eval_launch",
+        "mode": "文生",
+        "duration_seconds": 4,
+        "sources": [
+          {
+            "shot_id": "shot_019",
+            "beat_start": 1,
+            "beat_end": 1
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_019",
+        "previous_shot_connection": "continuous",
+        "story_segment_id": "segment_003",
+        "title": "倒数与放射",
+        "key_anchor_ids": [
+          "segment_003_anchor_001",
+          "segment_003_anchor_002"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "弹丸封闭在炮内，月亮逐渐升至天心，万众屏息等待发射。",
+          "spatial_setup": "炮口朝向天空，弹丸在炮膛内；机械师马起孙在炮旁发出倒数，观众位于周围地面。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "马起孙",
+            "presence": "在场，高声倒数并发出放射口令。",
+            "position": "炮旁。",
+            "facing": "朝向炮位与等待人群。",
+            "gaze_target": "炮位。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "观众",
+            "presence": "在场，万众屏息等待。",
+            "position": "炮位周围及平原营地。",
+            "facing": "朝向炮口和天空。",
+            "gaze_target": "炮口。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "巴比堪、亚电、臬科尔",
+            "presence": "三名旅行者已封闭在弹丸内，不可见。",
+            "position": "弹丸内部。",
+            "facing": "朝向舱内。",
+            "gaze_target": "舱内前方。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 4,
+            "action": "口令落下，哥仑比亚炮发射，弹丸冲出炮口。",
+            "camera": "炮口侧面远景捕捉发射瞬间，摄影机承受冲击后轻微震动，不切至其他地点。",
+            "scene_changes": "弹丸离开炮膛，进入天空。",
+            "effects": "炮口烈火爆发并向上冲出；冲击波向周围扩散，火焰与烟尘迅速蔓延。",
+            "audio": "一声轰鸣震彻天地，炮声压过其他声音；爆响后伴随强烈风压声。"
+          }
+        ]
+      },
+      "prior_beats_context": [
+        {
+          "duration_seconds": 9,
+          "action": "月亮逐渐升至天心，现场万众屏息；机械师马起孙高声倒数：“三十五杪——三十六杪——三十七杪——三十八杪——三十九杪——四十杪——放射！”",
+          "camera": "从月亮缓慢下摇至炮口和人群，倒数时稳定在马起孙与炮位的关系上。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "马起孙高声倒数：“三十五杪——三十六杪——三十七杪——三十八杪——三十九杪——四十杪——放射！”人群静默。"
+        }
+      ],
+      "selectionScore": 4
+    }
+  ],
+  "problems": []
+}

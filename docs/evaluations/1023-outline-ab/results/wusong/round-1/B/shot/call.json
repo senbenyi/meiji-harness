@@ -1,0 +1,17 @@
+{
+  "requestId": "outline-ab-71a5ef84-32e1-4fe0-9c80-428b139b3dac",
+  "elapsedMs": 380412,
+  "inputChars": 18934,
+  "outputChars": 50563,
+  "transport": [
+    {
+      "usage": null,
+      "error": null
+    },
+    {
+      "usage": null,
+      "ok": true,
+      "error": null
+    }
+  ]
+}

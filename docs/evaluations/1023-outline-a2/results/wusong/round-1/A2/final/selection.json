@@ -1,0 +1,287 @@
+{
+  "selected": [
+    {
+      "topic": {
+        "id": "medicine",
+        "label": "端药犹疑与内心冲突",
+        "terms": [
+          "潘金莲",
+          "碗",
+          "药",
+          "手"
+        ]
+      },
+      "clip": {
+        "id": "eval_medicine",
+        "mode": "文生",
+        "duration_seconds": 8,
+        "sources": [
+          {
+            "shot_id": "shot_018",
+            "beat_start": 1,
+            "beat_end": 1
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_018",
+        "previous_shot_connection": "cut",
+        "story_segment_id": "segment_004",
+        "title": "碗沿被按住",
+        "key_anchor_ids": [
+          "segment_004_anchor_001"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "武家厨房清晨，灶火加热汤水，药包纸摊在桌面，楼上可听见武大郎说话。",
+          "spatial_setup": "灶台与桌在厨房一侧，楼梯由厨房通往楼上卧房；药碗可端上楼。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "潘金莲",
+            "presence": "在厨房打开药包。",
+            "position": "桌与灶台之间。",
+            "facing": "朝药包与楼梯。",
+            "gaze_target": "药纸和碗"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "武大郎",
+            "presence": "在楼上休息。",
+            "position": "楼上卧房，画外。",
+            "facing": "不在镜头内。",
+            "gaze_target": "楼梯方向"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "武松",
+            "presence": "从窄巷回到后院，随后入楼。",
+            "position": "开场尚在楼梯外侧。",
+            "facing": "朝厨房。",
+            "gaze_target": "潘金莲与药碗"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 8,
+            "action": "潘金莲手抖，药粉落进碗里并溶开；她盯着粉末，端起碗又放下，最终端碗上楼。",
+            "camera": "手部近景捕捉药粉入汤与端起放下，随后连续跟随她上楼。",
+            "scene_changes": "药粉进入热汤并溶开，药碗被端上楼。",
+            "effects": "无。",
+            "audio": "药粉落汤轻响，水沸声持续；脚步踏上楼梯。"
+          }
+        ]
+      },
+      "prior_beats_context": [
+        {
+          "duration_seconds": 8,
+          "action": "潘金莲打开药包，读到纸上指示，抬眼望向楼上；武大郎在楼上问水开了能否倒一点。",
+          "camera": "桌面药纸近景清楚呈现字句，再抬到潘金莲望楼梯的视线。",
+          "scene_changes": "药包打开，包装纸摊在桌上。",
+          "effects": "无。",
+          "audio": "纸上写着：“一包尽入热汤，服后莫留渣。”楼上武大郎问水开了能否倒一点；灶水沸响。"
+        }
+      ],
+      "selectionScore": 8
+    },
+    {
+      "topic": {
+        "id": "brothers",
+        "label": "兄弟之间的克制与张力",
+        "terms": [
+          "武大郎",
+          "武松",
+          "我还活着",
+          "拳"
+        ]
+      },
+      "clip": {
+        "id": "eval_brothers",
+        "mode": "文生",
+        "duration_seconds": 8,
+        "sources": [
+          {
+            "shot_id": "shot_025",
+            "beat_start": 1,
+            "beat_end": 1
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_025",
+        "previous_shot_connection": "continuous",
+        "story_segment_id": "segment_005",
+        "title": "我还活着",
+        "key_anchor_ids": [
+          "segment_005_anchor_003"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "染坊院内木板裂开、木梯断裂，后院门方向传来开门声，染粉渐落。",
+          "spatial_setup": "武松压制西门庆在地面，武大郎从后院门方向走来，周巡检与官差进入院内。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "武松",
+            "presence": "拳头悬起，压制西门庆，呼吸急促。",
+            "position": "西门庆身上方。",
+            "facing": "朝西门庆。",
+            "gaze_target": "对手"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "武大郎",
+            "presence": "从后院门进入，衣肩破损。",
+            "position": "武松身后。",
+            "facing": "朝武松。",
+            "gaze_target": "弟弟"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "周巡检",
+            "presence": "带官差进入染坊院内。",
+            "position": "后院门口。",
+            "facing": "朝西门庆与武松。",
+            "gaze_target": "现场"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "西门庆",
+            "presence": "被武松压制在地。",
+            "position": "地面。",
+            "facing": "仰面朝武松。",
+            "gaze_target": "武松"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 8,
+            "action": "武大郎声音发颤但清楚地叫弟弟看自己，说自己还活着；武松拳头悬在半空，慢慢转头，看见哥哥肩头衣服破了、胸口仍在起伏，终于松开手。",
+            "camera": "武大郎脸部近景后转至武松侧脸，沿他的视线落到哥哥起伏的胸口，再回到松开的手。",
+            "scene_changes": "武松松开西门庆，拳头落下。",
+            "effects": "无。",
+            "audio": "武大郎说：“二郎，看我。我还活着。”武松呼吸由急促逐渐放缓，环境声重新浮现。"
+          }
+        ]
+      },
+      "prior_beats_context": [
+        {
+          "duration_seconds": 7,
+          "action": "后院门打开，周巡检带人进入；武大郎走到武松身后抓住弟弟手臂。武松没有回头，仍举着拳头。",
+          "camera": "由裂板与悬拳拉开，带入打开的后门和官差，再移至武大郎抓住武松手臂。",
+          "scene_changes": "后院门打开，周巡检和官差进入。",
+          "effects": "蓝色粉尘继续落地，逐渐消散。",
+          "audio": "门闩开启、官差脚步进入；武大郎衣袖摩擦武松手臂。"
+        }
+      ],
+      "selectionScore": 4
+    },
+    {
+      "topic": {
+        "id": "fight",
+        "label": "染坊动作与空间互动",
+        "terms": [
+          "染",
+          "竹竿",
+          "西门庆",
+          "刀"
+        ]
+      },
+      "clip": {
+        "id": "eval_fight",
+        "mode": "文生",
+        "duration_seconds": 8,
+        "sources": [
+          {
+            "shot_id": "shot_022",
+            "beat_start": 2,
+            "beat_end": 2
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_022",
+        "previous_shot_connection": "continuous",
+        "story_segment_id": "segment_005",
+        "title": "木桶破局",
+        "key_anchor_ids": [
+          "segment_005_anchor_001",
+          "segment_005_anchor_002"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "染坊院内风吹长布持续摆动，染缸、木桶、晾布架与矮台构成狭窄打斗空间。",
+          "spatial_setup": "武大郎与西门庆贴近染缸，武松正面持竹竿，木桶在武大郎脚边。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "武大郎",
+            "presence": "仍被西门庆控制，已观察木桶。",
+            "position": "染缸边。",
+            "facing": "朝西门庆。",
+            "gaze_target": "西门庆持刀手与脚边木桶"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "西门庆",
+            "presence": "持刀压制武大郎。",
+            "position": "武大郎身后侧。",
+            "facing": "朝武松。",
+            "gaze_target": "武松"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "武松",
+            "presence": "手持长竹竿，已降低竿头。",
+            "position": "两人对面。",
+            "facing": "朝西门庆。",
+            "gaze_target": "刀腕与武大郎"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 8,
+            "action": "武松双手持竿压住短刀，竹竿弯曲，刀刃摩擦发出刺耳声；西门庆踹翻染缸旁木架，晾布杆砸下。武松护头，竹竿被压断。",
+            "camera": "侧向中景展示竿与刀的受力弯曲，随后抬摇追随木架倾倒和武松护头。",
+            "scene_changes": "木架翻倒，晾布杆砸落；竹竿断成两截。",
+            "effects": "无。",
+            "audio": "刀刃摩擦竹竿的刺耳声，木架倒塌巨响，竹竿断裂声。"
+          }
+        ]
+      },
+      "prior_beats_context": [
+        {
+          "duration_seconds": 7,
+          "action": "武大郎突然屈膝下坠，双手抓住西门庆持刀手腕，同时踢翻木桶；水泼到两人脚下，西门庆失衡，刀尖偏开。",
+          "camera": "低角度紧跟武大郎下坠和踢桶，水泼出时快速横移至西门庆失衡的脚步。",
+          "scene_changes": "木桶翻倒，水洒在地面，地面变滑。",
+          "effects": "水流向两人脚边并迅速摊开。",
+          "audio": "木桶翻倒与泼水声，西门庆失衡时短促惊呼，布声和脚步混合。"
+        },
+        {
+          "duration_seconds": 7,
+          "action": "武松一竿挑开刀腕，跨步撞入，将哥哥推到垂布后；西门庆反手划伤武松左臂衣袖。",
+          "camera": "手持近景跟随挑竿、跨步与推人，划袖时落到左臂破口。",
+          "scene_changes": "武大郎退至垂布后；武松左臂衣袖被划破。",
+          "effects": "无。",
+          "audio": "竹竿击中手腕声、脚步踏水声、布料撕裂声。"
+        }
+      ],
+      "selectionScore": 4
+    }
+  ],
+  "problems": []
+}

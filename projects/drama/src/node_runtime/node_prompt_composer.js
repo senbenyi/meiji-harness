@@ -22,7 +22,7 @@ export function composeNodePrompt({ nodeType, action, rules, input, goal = '', d
   if (typeof goal !== 'string') throw new TypeError('goal需为文本')
   // 规则和输入不经fillTemplate再次展开，{{…}}等字面内容保持原样。
   return composeMessages({
-    system: renderSections({ 任务: `节点：${nodeType}；动作：${action}`, 基础规则: selected.base, 补充规则: selected.supplement, 输出契约: outputInstructions(schema) }),
+    system: renderSections({ 任务: `节点：${nodeType}；动作：${action}`, 基础规则: selected.base, 补充规则: selected.supplement, 输出契约: outputInstructions(schema, { format: action === 'review' ? 'schema' : definition[nodeType].output_format }) }),
     user: renderSections({ 当前目标: goal, 本次资料: input }, { jsonKeys: ['本次资料'] }),
   })
 }

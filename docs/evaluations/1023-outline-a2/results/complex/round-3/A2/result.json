@@ -1,0 +1,10 @@
+{
+  "key": "complex",
+  "round": 3,
+  "stages": {
+    "outline": "passed"
+  },
+  "status": "failed",
+  "failedStage": "shot",
+  "error": "response：不是有效JSON"
+}

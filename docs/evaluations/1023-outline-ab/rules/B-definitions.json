@@ -1,0 +1,858 @@
+{
+  "$defs": {
+    "review_output": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "passed",
+              "description": "通过。"
+            },
+            "issues": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "location": {
+                    "type": "string",
+                    "description": "候选或实际引用上游的具体对象和字段位置。",
+                    "minLength": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "当前仍成立的问题事实及依据。",
+                    "minLength": 1
+                  },
+                  "suggestion": {
+                    "type": "string",
+                    "description": "最小修正方向；需改上游或规则时明确处理位置。",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "location",
+                  "reason",
+                  "suggestion"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 0
+            }
+          },
+          "required": [
+            "status",
+            "issues"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "description": "本节点内容问题、上游问题或规则冲突。",
+              "enum": [
+                "content_issue",
+                "upstream_issue",
+                "rule_conflict"
+              ]
+            },
+            "issues": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "location": {
+                    "type": "string",
+                    "description": "候选或实际引用上游的具体对象和字段位置。",
+                    "minLength": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "当前仍成立的问题事实及依据。",
+                    "minLength": 1
+                  },
+                  "suggestion": {
+                    "type": "string",
+                    "description": "最小修正方向；需改上游或规则时明确处理位置。",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "location",
+                  "reason",
+                  "suggestion"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "status",
+            "issues"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "image_output": {
+      "type": "image",
+      "description": "返回图片接口的真实媒体结果，由适配器解析并保存有效图片地址；不让语言模型编造JSON地址。"
+    }
+  },
+  "basic_info": {
+    "kind": "text",
+    "output": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "当前项目剧本的剧情摘要，概括主要人物、冲突、发展与结局，不添加原稿未提供的信息。",
+          "minLength": 1
+        },
+        "estimated_duration_seconds": {
+          "type": "number",
+          "description": "完整剧本按正常表演节奏呈现的预估总时长，单位秒；综合对白、动作、停顿与转场估计，不照抄参考单集时长。",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "summary",
+        "estimated_duration_seconds"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "script_revision": {
+    "kind": "text",
+    "output": {
+      "type": "object",
+      "properties": {
+        "actual_script": {
+          "type": "string",
+          "description": "当前完整工作剧本正文。",
+          "minLength": 1
+        },
+        "estimated_duration_seconds": {
+          "type": "number",
+          "description": "完整优化剧本的预估总时长，单位秒。",
+          "exclusiveMinimum": 0
+        },
+        "summary": {
+          "type": "string",
+          "description": "当前内容概要。"
+        }
+      },
+      "required": [
+        "actual_script",
+        "estimated_duration_seconds",
+        "summary"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "story_segments": {
+    "kind": "text",
+    "output_format": "template",
+    "output": {
+      "type": "object",
+      "properties": {
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "segment_001",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "description": "故事段标题。",
+                "minLength": 1
+              },
+              "body": {
+                "type": "string",
+                "description": "最终改编定稿的完整可表演正文及定稿对白，直接呈现必要背景、人物目标与反应、空间行动、情绪节奏及转场；不另设解释字段，下游以此为唯一完整叙事依据。",
+                "minLength": 1
+              },
+              "key_anchors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "segment_001_anchor_001；新建锚点使用所属故事段ID加_anchor_及至少三位正整数序号，段内从001递增，整份大纲唯一；已有锚点保留原ID。",
+                      "minLength": 1
+                    },
+                    "content": {
+                      "type": "string",
+                      "description": "本段必须表达的事实、态度、程度、情绪、世界观信息或伏笔。"
+                    },
+                    "expression": {
+                      "type": "string",
+                      "description": "以画面、对白、动作、声音或其组合落实的要求；明确原话与画面文字仍逐字保留。"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "content",
+                    "expression"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "duration_seconds": {
+                "type": "number",
+                "description": "最终剧情正常表演的粗略预估时长，单位秒，大于0；仅供制作参考，不作为剧情或分段的时间限制。",
+                "exclusiveMinimum": 0
+              },
+              "continuity": {
+                "type": "object",
+                "properties": {
+                  "opening": {
+                    "type": "string",
+                    "description": "承接前段的事实和初始状态。"
+                  },
+                  "ending": {
+                    "type": "string",
+                    "description": "本段结果、待续事项及后段承接。"
+                  }
+                },
+                "required": [
+                  "opening",
+                  "ending"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "body",
+              "key_anchors",
+              "duration_seconds",
+              "continuity"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "segments"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "character_extraction": {
+    "kind": "text",
+    "initial": {
+      "assets": []
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "characters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "稳定标识；已有对象保留原ID。",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "description": "对象名称。",
+                "minLength": 1
+              },
+              "social_role": {
+                "type": "string",
+                "description": "身份、职位或社会角色。"
+              },
+              "age_range": {
+                "type": "string",
+                "description": "有依据的年龄段，不推算精确年龄。"
+              },
+              "nationality": {
+                "type": "string",
+                "description": "国籍或所属族群。"
+              },
+              "gender": {
+                "type": "string",
+                "description": "性别。"
+              },
+              "era": {
+                "type": "string",
+                "description": "所属时代。"
+              },
+              "height": {
+                "type": "string",
+                "description": "身高。"
+              },
+              "body_type": {
+                "type": "string",
+                "description": "体型。"
+              },
+              "facial_features": {
+                "type": "string",
+                "description": "面部特征。"
+              },
+              "hairstyle": {
+                "type": "string",
+                "description": "发型。"
+              },
+              "voice": {
+                "type": "string",
+                "description": "稳定声线特征；具体台词与发声时序写入分镜。"
+              },
+              "relationships": {
+                "type": "string",
+                "description": "人物之间已确认的稳定关系。"
+              },
+              "signature_props": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "稳定标识；已有对象保留原ID。",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "对象名称。",
+                      "minLength": 1
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "对象完整外观或环境身份描述。"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "description"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "immutable_traits": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "明确不可改变的人物特征。"
+                }
+              },
+              "costumes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "稳定标识；已有对象保留原ID。",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "对象名称。",
+                      "minLength": 1
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "对象完整外观或环境身份描述。"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "description"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "social_role",
+              "age_range",
+              "nationality",
+              "gender",
+              "era",
+              "height",
+              "body_type",
+              "facial_features",
+              "hairstyle",
+              "voice",
+              "relationships",
+              "signature_props",
+              "immutable_traits",
+              "costumes"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "characters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "scene_extraction": {
+    "kind": "text",
+    "initial": {
+      "assets": []
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "scenes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "稳定标识；已有对象保留原ID。",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "description": "对象名称。",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "description": "对象完整外观或环境身份描述。"
+              },
+              "layout": {
+                "type": "string",
+                "description": "权威固定布局与建筑相对关系，不因机位变化改动。"
+              },
+              "materials": {
+                "type": "string",
+                "description": "主要材质及色彩。"
+              },
+              "lighting": {
+                "type": "string",
+                "description": "基础光源与光照；剧情中昼夜或天气变化由分片和Shot状态描述。"
+              },
+              "entrances_and_routes": {
+                "type": "string",
+                "description": "出入口、区域连通关系及可通行路径。"
+              },
+              "fixed_landmarks": {
+                "type": "string",
+                "description": "跨镜复用的固定参照及其名称。"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "description",
+              "layout",
+              "materials",
+              "lighting",
+              "entrances_and_routes",
+              "fixed_landmarks"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "scenes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "shot_design": {
+    "kind": "text",
+    "output": {
+      "type": "object",
+      "properties": {
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "稳定标识；已有对象保留原ID。",
+                "minLength": 1
+              },
+              "previous_shot_connection": {
+                "type": "string",
+                "description": "与前镜的叙事衔接类型。",
+                "enum": [
+                  "opening",
+                  "continuous",
+                  "cut"
+                ]
+              },
+              "story_segment_id": {
+                "type": "string",
+                "description": "对应故事段ID。",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "description": "当前对象标题。",
+                "minLength": 1
+              },
+              "key_anchor_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "segment_001_anchor_001；引用故事段中实际保存的锚点ID，已有ID保持原样。"
+                }
+              },
+              "scene": {
+                "type": "object",
+                "properties": {
+                  "scene_id": {
+                    "type": "string",
+                    "description": "明确关联的场景ID；无资产时为空。"
+                  },
+                  "state": {
+                    "type": "string",
+                    "description": "本镜开场环境状态及光照。"
+                  },
+                  "spatial_setup": {
+                    "type": "string",
+                    "description": "本镜背景区域的固定空间关系。"
+                  }
+                },
+                "required": [
+                  "scene_id",
+                  "state",
+                  "spatial_setup"
+                ],
+                "additionalProperties": false
+              },
+              "characters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "character_id": {
+                      "type": "string",
+                      "description": "关联人物ID；无资产时为空。"
+                    },
+                    "costume_id": {
+                      "type": "string",
+                      "description": "选定服装ID；无服装目录时为空。"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "对象名称。",
+                      "minLength": 1
+                    },
+                    "presence": {
+                      "type": "string",
+                      "description": "开场在场与入画状态。"
+                    },
+                    "position": {
+                      "type": "string",
+                      "description": "开场空间位置。"
+                    },
+                    "facing": {
+                      "type": "string",
+                      "description": "开场身体朝向。"
+                    },
+                    "gaze_target": {
+                      "type": "string",
+                      "description": "开场目光对象。"
+                    }
+                  },
+                  "required": [
+                    "character_id",
+                    "costume_id",
+                    "name",
+                    "presence",
+                    "position",
+                    "facing",
+                    "gaze_target"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "beats": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "duration_seconds": {
+                      "type": "number",
+                      "description": "本段或节拍的正常表演预估时长，单位秒。",
+                      "exclusiveMinimum": 0
+                    },
+                    "action": {
+                      "type": "string",
+                      "description": "本节拍行动与反应过程。"
+                    },
+                    "camera": {
+                      "type": "string",
+                      "description": "本节拍构图与摄影变化。"
+                    },
+                    "scene_changes": {
+                      "type": "string",
+                      "description": "本节拍独立追踪的环境变化。"
+                    },
+                    "effects": {
+                      "type": "string",
+                      "description": "本节拍特效表现。"
+                    },
+                    "audio": {
+                      "type": "string",
+                      "description": "本节拍原话与声音过程。"
+                    }
+                  },
+                  "required": [
+                    "duration_seconds",
+                    "action",
+                    "camera",
+                    "scene_changes",
+                    "effects",
+                    "audio"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1
+              }
+            },
+            "required": [
+              "id",
+              "previous_shot_connection",
+              "story_segment_id",
+              "title",
+              "key_anchor_ids",
+              "scene",
+              "characters",
+              "beats"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "shots"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "video_prompt": {
+    "kind": "text",
+    "output": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "clip_id": {
+                    "type": "string",
+                    "description": "本次指定分片ID。",
+                    "minLength": 1
+                  },
+                  "text_to_video": {
+                    "type": "object",
+                    "properties": {
+                      "prompt": {
+                        "type": "object",
+                        "properties": {
+                          "integrated_multimodal_description": {
+                            "type": "string",
+                            "description": "完整视听过程。"
+                          },
+                          "overall_soundscape": {
+                            "type": "string",
+                            "description": "环境声、动作声与非语言人声。"
+                          },
+                          "non_diegetic_music": {
+                            "type": "string",
+                            "description": "非叙事配乐；没有时为N/A。"
+                          }
+                        },
+                        "required": [
+                          "integrated_multimodal_description",
+                          "overall_soundscape",
+                          "non_diegetic_music"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "prompt"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "clip_id",
+                  "text_to_video"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "clip_id": {
+                    "type": "string",
+                    "description": "本次指定分片ID。",
+                    "minLength": 1
+                  },
+                  "multimodal": {
+                    "type": "object",
+                    "properties": {
+                      "prompt": {
+                        "type": "object",
+                        "properties": {
+                          "subject_definitions": {
+                            "type": "string",
+                            "description": "参考主体定义。"
+                          },
+                          "summary": {
+                            "type": "string",
+                            "description": "当前内容概要。"
+                          },
+                          "retention_analysis": {
+                            "type": "string",
+                            "description": "素材需要保留的特征。"
+                          },
+                          "detailed_description": {
+                            "type": "string",
+                            "description": "完整视听过程。"
+                          },
+                          "overall_soundscape": {
+                            "type": "string",
+                            "description": "环境声、动作声与非语言人声。"
+                          },
+                          "non_diegetic_music": {
+                            "type": "string",
+                            "description": "非叙事配乐；没有时为N/A。"
+                          }
+                        },
+                        "required": [
+                          "subject_definitions",
+                          "summary",
+                          "retention_analysis",
+                          "detailed_description",
+                          "overall_soundscape",
+                          "non_diegetic_music"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "prompt"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "clip_id",
+                  "multimodal"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "clip_id": {
+                    "type": "string",
+                    "description": "本次指定分片ID。",
+                    "minLength": 1
+                  },
+                  "first_last_frame": {
+                    "type": "object",
+                    "properties": {
+                      "prompt": {
+                        "type": "object",
+                        "properties": {
+                          "instruction": {
+                            "type": "string",
+                            "description": "首帧与明确目标尾帧的对应说明。"
+                          },
+                          "integrated_multimodal_description": {
+                            "type": "string",
+                            "description": "完整视听过程。"
+                          },
+                          "overall_soundscape": {
+                            "type": "string",
+                            "description": "环境声、动作声与非语言人声。"
+                          },
+                          "non_diegetic_music": {
+                            "type": "string",
+                            "description": "非叙事配乐；没有时为N/A。"
+                          }
+                        },
+                        "required": [
+                          "instruction",
+                          "integrated_multimodal_description",
+                          "overall_soundscape",
+                          "non_diegetic_music"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "prompt"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "clip_id",
+                  "first_last_frame"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "costume_image": {
+    "kind": "image",
+    "initial": {
+      "reference_image": "",
+      "aspect_ratio": "",
+      "address": ""
+    },
+    "output": {
+      "type": "image",
+      "description": "返回图片接口的真实媒体结果，由适配器解析并保存有效图片地址；不让语言模型编造JSON地址。"
+    }
+  },
+  "scene_image": {
+    "kind": "image",
+    "initial": {
+      "reference_image": "",
+      "aspect_ratio": "",
+      "address": ""
+    },
+    "output": {
+      "type": "image",
+      "description": "返回图片接口的真实媒体结果，由适配器解析并保存有效图片地址；不让语言模型编造JSON地址。"
+    }
+  }
+}

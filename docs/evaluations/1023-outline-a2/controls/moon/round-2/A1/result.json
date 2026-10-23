@@ -1,0 +1,9 @@
+{
+  "key": "moon",
+  "round": 2,
+  "version": "A1",
+  "inputHash": "e50357e744a4934dcc007064b5262c2f10d8372ab20a003f71939e64d739d875",
+  "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/moon/round-2/A/final-v2",
+  "status": "failed",
+  "error": "response：不是有效JSON"
+}

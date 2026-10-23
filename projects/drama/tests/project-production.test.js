@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 import { createProject } from '../src/node_box/project/create_project.js'
 import { createProjectView } from '../src/client/project-overview.js'
+import { renderNodeRules } from '../src/node_runtime/output_contract_renderer.js'
 
 async function setup(t, options = {}) {
   const dom = new JSDOM('<main/>'), previous = globalThis.document
@@ -84,7 +85,7 @@ test('键盘切换同步焦点与内容，重新挂载各项目独立保存自�
 
 test('AI节点历史和规则接入公共UI，过滤项目/节点并返回原tab及意见草稿', async t => {
   const paths=[]
-  const {root,state,project,window}=await setup(t,{request:async path=>{paths.push(path);return {tasks:[],total:0}},save:async()=>{}})
+  const {root,state,project,window}=await setup(t,{request:async path=>{paths.push(path);if(path.startsWith('node-rules?'))return {bases:Object.fromEntries(['generate','review','revise'].map(action=>[action,renderNodeRules(project.character_extraction.node_state,action).base]))};return {tasks:[],total:0}},save:async()=>{}})
   tab(root,'角色').click()
   const input=root.querySelector('input');input.value='保持角色外貌';input.dispatchEvent(new window.Event('input'))
   const actions=root.querySelector('.node-ui-buttons')
@@ -100,9 +101,10 @@ test('AI节点历史和规则接入公共UI，过滤项目/节点并返回原tab
   assert.ok(panel.textContent.includes('暂无任务记录'));panel.querySelector('header button').click()
   assert.equal(state.mode,'production');assert.equal(state.productionTab,'character_extraction');assert.equal(root.querySelector('input').value,'保持角色外貌')
   root.querySelectorAll('.node-ui-records button')[1].click()
+  await new Promise(resolve=>setImmediate(resolve))
   panel=root.firstElementChild.shadowRoot
   assert.equal(panel.querySelector('h2').textContent,'角色规则')
-  assert.equal(panel.querySelector('[data-action=generate] .skill-text').textContent,project.character_extraction.node_state.rules.generate.base)
+  assert.equal(panel.querySelector('[data-action=generate] .skill-text').textContent,renderNodeRules(project.character_extraction.node_state,'generate').base)
   assert.ok([...panel.querySelectorAll('textarea')].every(input=>input.readOnly))
   panel.querySelector('header button').click()
   assert.equal(state.mode,'production');assert.equal(root.querySelector('input').value,'保持角色外貌')
@@ -139,4 +141,29 @@ test('程序节点只提供真实任务类型的历史入口，没有AI意见及
     root.firstElementChild.shadowRoot.querySelector('header button').click()
     assert.equal(root.querySelector('[aria-selected=true]').textContent,name)
   }
+})
+
+test('大纲规则查看显示字段，读取失败可重试，补充规则仍保存原文和旧值', async t => {
+  let fail = true, calls = [], saves = []
+  const { root, project } = await setup(t, { request: async path => {
+    calls.push(path); if (fail) throw new Error('读取失败测试')
+    return { bases: Object.fromEntries(['generate','revise','review'].map(action => [action, renderNodeRules(project.story_segments.node_state, action).base])) }
+  }, save: async command => { saves.push(command) } })
+  root.querySelectorAll('.node-ui-records button')[1].click()
+  await new Promise(resolve => setImmediate(resolve))
+  const panel = root.firstElementChild.shadowRoot
+  assert.match(panel.textContent, /读取失败测试/)
+  fail = false; [...panel.querySelectorAll('button')].find(node => node.textContent === '重新加载').click()
+  await new Promise(resolve => setImmediate(resolve))
+  const text = panel.querySelector('[data-action=generate] .skill-text').textContent
+  assert.match(text, /"segments"/); assert.match(text, /"key_anchors"/); assert.doesNotMatch(text, /\{\{output:/)
+  assert.ok(calls.every(path => path === 'node-rules?node_type=story_segments'))
+  const input = panel.querySelector('[data-action=generate] textarea')
+  input.value = '额外要求 {{output:#/story_segments/output}}'
+  input.oninput(); input.onblur(); await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(saves[0], { kind: 'rules', node_type: 'story_segments', action: 'generate', field: 'supplement', value: input.value, previousValue: '' })
+  panel.querySelector('#tab-review').click()
+  assert.match(panel.querySelector('[data-action=review] .skill-text').textContent, /"issues"/)
+  assert.match(project.story_segments.node_state.rules.generate.base, /\{\{output:/)
+  panel.querySelector('header button').click(); assert.equal(root.querySelector('[aria-selected=true]').textContent, '故事大纲')
 })

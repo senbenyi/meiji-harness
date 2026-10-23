@@ -1,0 +1,224 @@
+{
+  "selected": [
+    {
+      "topic": {
+        "id": "crowd",
+        "label": "人群压力与安全制止",
+        "terms": [
+          "烟",
+          "人群",
+          "熄",
+          "麦思敦"
+        ]
+      },
+      "clip": {
+        "id": "eval_crowd",
+        "mode": "文生",
+        "duration_seconds": 15,
+        "sources": [
+          {
+            "shot_id": "shot_006",
+            "beat_start": 0,
+            "beat_end": 0
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_006",
+        "previous_shot_connection": "continuous",
+        "story_segment_id": "segment_001",
+        "title": "麦思敦夺烟",
+        "key_anchor_ids": [
+          "segment_001_anchor_002"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "石丘观众区烟雾笼罩，约三十万人在场；禁烟禁火警告刚刚发出。",
+          "spatial_setup": "麦思敦已由栅门进入观众区，观众分布在他前后左右；栅门和禁区位于其身后。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "麦思敦",
+            "presence": "在场，画面内，已进入人群。",
+            "position": "栅外观众区。",
+            "facing": "穿行时不断朝向身边吸烟者。",
+            "gaze_target": "观众手中和口中的烟草。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "观众",
+            "presence": "约三十万人在场，许多人吸雪茄，随后逐渐安静。",
+            "position": "麦思敦周围的石丘观众区。",
+            "facing": "朝向禁区或麦思敦。",
+            "gaze_target": "麦思敦的行动。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 15,
+            "action": "麦思敦挥着小刀般灵活地穿过人群，把人们手中和口中的烟草一一夺下并熄灭，堆成一座小丘。",
+            "camera": "中近景跟拍麦思敦灵活穿行，以连续动作呈现夺烟、熄烟和堆放；不将个别观众扩写为独立事件。",
+            "scene_changes": "被夺下的烟草熄灭后堆成小丘，作为可见持续结果。",
+            "effects": "烟草熄灭时烟气逐渐消散；原有观众区烟雾仍可见。",
+            "audio": "夺取与熄灭烟草的细碎声同步发生；观众喧闹逐步减弱。"
+          }
+        ]
+      },
+      "prior_beats_context": [],
+      "selectionScore": 4
+    },
+    {
+      "topic": {
+        "id": "farewell",
+        "label": "离别与被拒同行的微表情",
+        "terms": [
+          "麦思敦",
+          "同行",
+          "泪",
+          "巴比堪"
+        ]
+      },
+      "clip": {
+        "id": "eval_farewell",
+        "mode": "文生",
+        "duration_seconds": 14,
+        "sources": [
+          {
+            "shot_id": "shot_024",
+            "beat_start": 0,
+            "beat_end": 0
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_024",
+        "previous_shot_connection": "continuous",
+        "story_segment_id": "segment_003",
+        "title": "麦思敦请求同行",
+        "key_anchor_ids": [
+          "segment_003_anchor_003"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "十点钟报响后的发射准备继续，铁索摆动，三名旅行者待入弹丸，社员肃立。",
+          "spatial_setup": "麦思敦站在地面巴比堪面前，弹丸和起重机在近旁，队列位于后方。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "麦思敦",
+            "presence": "在场，画面内，眼含泪意。",
+            "position": "巴比堪面前。",
+            "facing": "朝向巴比堪。",
+            "gaze_target": "巴比堪。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "巴比堪",
+            "presence": "在场，画面内，回应麦思敦。",
+            "position": "弹丸旁。",
+            "facing": "朝向麦思敦。",
+            "gaze_target": "麦思敦。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 14,
+            "action": "平日强硬的麦思敦终于落泪，问巴比堪能否一同前往。巴比堪回答，弹丸狭小，而麦思敦年事已高，不该冒险同行；他应留在地球等候报告。",
+            "camera": "双人中近景，先接住麦思敦落泪，再保持两人同框完成问答，弹丸压在背景中。",
+            "scene_changes": "无。",
+            "effects": "无。",
+            "audio": "麦思敦请求同行，声音含泪；巴比堪解释空间与年龄理由，语气坚定。"
+          }
+        ]
+      },
+      "prior_beats_context": [],
+      "selectionScore": 4
+    },
+    {
+      "topic": {
+        "id": "launch",
+        "label": "发射冲击、环境与特效",
+        "terms": [
+          "炮",
+          "火",
+          "冲击",
+          "发射"
+        ]
+      },
+      "clip": {
+        "id": "eval_launch",
+        "mode": "文生",
+        "duration_seconds": 15,
+        "sources": [
+          {
+            "shot_id": "shot_002",
+            "beat_start": 1,
+            "beat_end": 1
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_002",
+        "previous_shot_connection": "continuous",
+        "story_segment_id": "segment_001",
+        "title": "人力夜间搬运",
+        "key_anchor_ids": [
+          "segment_001_anchor_001"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "夜间施工，真空发光装置照亮炮底；工业场两英里内严禁烟火，强烈日光亦被视为风险。",
+          "spatial_setup": "引火棉小箱由铁道沿人力搬运路线送到炮旁，再由起重器械吊入炮底；炮底工位与铁道相连。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "巴比堪",
+            "presence": "在场，画面内，亲自督促施工。",
+            "position": "铁道与炮旁搬运路线附近。",
+            "facing": "朝向工人和起重器械。",
+            "gaze_target": "搬运中的密封小箱。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "工人",
+            "presence": "多人持续施工，画面内。",
+            "position": "沿铁道、炮旁及炮底工作位置分布。",
+            "facing": "沿搬运路线朝向炮底。",
+            "gaze_target": "密封小箱及吊运位置。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 15,
+            "action": "工人不用机器推动小箱，以起重器械将引火棉箱吊入炮底，按规程继续安放。",
+            "camera": "从炮旁中景仰拍吊运，再落至炮底接收位置；吊箱动作连续呈现。",
+            "scene_changes": "无新增独立变化。",
+            "effects": "无。",
+            "audio": "起重器械运作声与工人指挥声随吊运发生；无烟火声。"
+          }
+        ]
+      },
+      "prior_beats_context": [
+        {
+          "duration_seconds": 18,
+          "action": "工人把四十万磅引火棉分成小份装入密封小箱，沿铁道以人力送到炮旁；巴比堪亲自督促按计划搬运。",
+          "camera": "广角交代铁道至炮旁的连续路线，随后跟随工人和小箱前进，不越出工业场区域。",
+          "scene_changes": "夜色和真空发光装置的照明状态保持。",
+          "effects": "无。",
+          "audio": "夜间工业场环境声低；脚步、搬箱声同步于人力搬运，无机器摩擦声。"
+        }
+      ],
+      "selectionScore": 2
+    }
+  ],
+  "problems": []
+}

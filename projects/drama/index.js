@@ -5,6 +5,8 @@ import { OptimizeScriptTool } from './src/tools/optimize_script_tool.js'
 import { CreateProjectTool } from './src/tools/creat_project_tool.js'
 import { ProjectService } from './src/node_box/project/service.js'
 import { ScriptRevisionService } from './src/node_box/script_revision/service.js'
+import { StorySegmentsService } from './src/node_box/story_segments/service.js'
+import { GenerateStoryOutlineTool } from './src/tools/generate_story_outline_tool.js'
 import { createRecordService } from './src/records/service.js'
 import { createModelSettings } from './src/settings/model-settings.js'
 import { createProjectHttpHandler } from './src/harness_server/project_routes.js'
@@ -29,8 +31,10 @@ export function apply(ctx) {
   tool.records = createRecordService(tool.root)
   const scriptRevision = new ScriptRevisionService({ projects: tool, records: tool.records, models: tool.models })
   tool.optimizeScriptTool = new OptimizeScriptTool({ scriptRevision })
+  const storySegments = new StorySegmentsService({ projects: tool, records: tool.records, models: tool.models })
+  tool.generateStoryOutlineTool = new GenerateStoryOutlineTool({ storySegments })
   tool.planningTools = [new PlanningContextTool({ projects: tool, records: tool.records }), new UpdateProjectTool({ projects: tool }),
-    new ChangeRulesTool({ projects: tool, records: tool.records, scriptRevision })]
+    new ChangeRulesTool({ projects: tool, records: tool.records, scriptRevision, storySegments })]
   tool.applyMainAgent = async sessionId => {
     await tool.ready
     const config = await tool.models.read()
@@ -49,7 +53,7 @@ export function apply(ctx) {
     try { await display(boxReport(detail), 'start', detail.tasks[0].name) }
     catch (error) { ctx.logger.warn('面板开始消息展示失败：%s', error.message) }
   }
-  const handler = createProjectHttpHandler(tool, { authorize: req => ctx.connection.requestRejection(req), models: tool.models, scriptRevision })
+  const handler = createProjectHttpHandler(tool, { authorize: req => ctx.connection.requestRejection(req), models: tool.models, scriptRevision, storySegments })
   ctx.on('llm/stream', (options, next) => tool.records.models.stream(options, next))
   for (const path of ['/plugins/drama/src/client', '/plugins/drama/src/node_box', '/plugins/drama/packages', '/api/drama'])
     ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path, handler }), `drama: ${path}`)

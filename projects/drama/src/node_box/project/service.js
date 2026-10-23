@@ -13,6 +13,7 @@ import { projectInfo } from './create_project.js'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { createWriteQueue } from '../../project_runtime/write_queue.js'
 import { digest, scriptFingerprint, expireScriptDependents } from '../script_revision/state.js'
+import { storyFingerprint, expireStoryDependents } from '../story_segments/state.js'
 import { waitBoxTask } from '../../node_runtime/box_report.js'
 
 /** 会话与面板共用项目服务：绑定、事件和创建/编辑/删除共享串行队列。 */
@@ -148,6 +149,10 @@ export class ProjectService extends EventEmitter {
       const manager = await ProjectManager.open(join(this.root, 'projects', projectId, 'project.json'))
       if (command.kind !== 'node_opinion' && this.activeExecution(projectId, undefined, operationGroupId)) throw Object.assign(new Error('项目任务正在执行，请结束后再修改资料或规则'), { code: 'PROJECT_ACTIVE' })
       const previous = manager.read(), next = editProject(previous, command)
+      if (storyFingerprint(previous) !== storyFingerprint(next) && previous.story_segments.segments.length) {
+        next.story_segments.node_state = new NodeStateModel({ ...next.story_segments.node_state, status: 'expired', reason: '大纲资料或规则已变化，需重新生成' }).toJSON()
+        expireStoryDependents(next)
+      }
       if (command.kind !== 'import_script' && scriptFingerprint(previous) !== scriptFingerprint(next) && previous.basic_info.actual_script) {
         next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'expired', reason: '剧本资料或规则已变化，需重新优化' }).toJSON()
         expireScriptDependents(next)

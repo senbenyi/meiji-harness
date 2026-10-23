@@ -1,0 +1,159 @@
+{
+  "selected": [
+    {
+      "topic": {
+        "id": "crowd",
+        "label": "人群压力与安全制止",
+        "terms": [
+          "烟",
+          "人群",
+          "熄",
+          "麦思敦"
+        ]
+      },
+      "clip": {
+        "id": "eval_crowd",
+        "mode": "文生",
+        "duration_seconds": 12,
+        "sources": [
+          {
+            "shot_id": "shot_003",
+            "beat_start": 0,
+            "beat_end": 0
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_003",
+        "previous_shot_connection": "cut",
+        "story_segment_id": "segment_001",
+        "title": "栅栏外的烟火风险",
+        "key_anchor_ids": [
+          "segment_001_anchor_002"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "十一月二十八日，工业场栅栏关闭；栅外聚集的近村居民和外地来客迅速增至约三十万。工业场周围两英里内严禁烟火。",
+          "spatial_setup": "栅栏分隔工业场内外，石丘位于人群视野深处；栅门是麦思敦由场内进入人群的通道。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "巴比堪社长",
+            "presence": "在场，在栅内巡视并下令闭门。",
+            "position": "栅门内侧。",
+            "facing": "朝向栅门及栅外人群。",
+            "gaze_target": "栅外聚集的人群。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "麦思敦",
+            "presence": "在场，与巴比堪在栅内巡查。",
+            "position": "栅门内侧、巴比堪附近。",
+            "facing": "朝向栅外人群。",
+            "gaze_target": "人群中的吸烟者。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "围观者",
+            "presence": "约三十万人在栅栏外聚集，烟雾甚至罩住石丘。",
+            "position": "栅栏外广阔区域，密集延伸至远处。",
+            "facing": "朝向工业场与栅门。",
+            "gaze_target": "栅内作业区及彼此手中的烟卷。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 12,
+            "action": "近村居民和外地来客闻讯涌至栅栏外，人数迅速增至约三十万。巴比堪下令闭门，与麦思敦在栅内巡视，并提醒人群熄烟。",
+            "camera": "栅内中景带出巴比堪与麦思敦，继而从栅栏朝外推开，呈现密集人群的规模。",
+            "scene_changes": "栅门关闭；约三十万围观者聚集栅外。",
+            "effects": "无。",
+            "audio": "人群喧闹声由远及近；巴比堪提醒人群熄烟，现场声压不住人群喧声。"
+          }
+        ]
+      },
+      "prior_beats_context": [],
+      "selectionScore": 4
+    },
+    {
+      "topic": {
+        "id": "launch",
+        "label": "发射冲击、环境与特效",
+        "terms": [
+          "炮",
+          "火",
+          "冲击",
+          "发射"
+        ]
+      },
+      "clip": {
+        "id": "eval_launch",
+        "mode": "文生",
+        "duration_seconds": 14,
+        "sources": [
+          {
+            "shot_id": "shot_015",
+            "beat_start": 0,
+            "beat_end": 0
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_015",
+        "previous_shot_connection": "continuous",
+        "story_segment_id": "segment_004",
+        "title": "炮火冲入夜空",
+        "key_anchor_ids": [
+          "segment_004_anchor_001"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "夜间，哥仑比亚炮与周围平原处于发射瞬间；三名旅行者封在弹丸中，观众遍布发射区域。",
+          "spatial_setup": "炮口朝向夜空，弹丸由炮口射出；麦思敦独自站在距炮约一百五十码处，观众散布在三百英里内的区域。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "麦思敦",
+            "presence": "在场，独自站在距炮约一百五十码处观看。",
+            "position": "距炮约一百五十码处。",
+            "facing": "朝向炮口与弹丸飞行方向。",
+            "gaze_target": "弹丸。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "周边观众",
+            "presence": "大量观众在三百英里内。",
+            "position": "炮周围平原及更广区域。",
+            "facing": "朝向发射场。",
+            "gaze_target": "炮口与夜空。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 14,
+            "action": "口令落下，哥仑比亚炮轰然发射。烈火如柱冲出炮口，弹丸像离弦之箭掠入夜空，火光照亮茀罗理窦，继而在高空蓬勃散开。",
+            "camera": "炮口低角度近景承接发射，迅速仰摇追随弹丸掠入夜空，再以广角呈现高空火光散开。",
+            "scene_changes": "无。",
+            "effects": "炮口烈火如柱喷出；弹丸高速掠入夜空；火光照亮茀罗理窦后在高空蓬勃散开。",
+            "audio": "哥仑比亚炮轰然巨响，炮火与气流声随弹丸升空延续。"
+          }
+        ]
+      },
+      "prior_beats_context": [],
+      "selectionScore": 3
+    }
+  ],
+  "problems": [
+    {
+      "topic": "farewell",
+      "reason": "无足够相关且时长合法的完整节拍"
+    }
+  ]
+}

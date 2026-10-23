@@ -13,9 +13,10 @@ import { clientAssets } from '../src/harness_server/client_assets.js'
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'drama-http-'))
+  const sessionCreates = [], workspaceCreates = []
   const tool = new ProjectService({ root,
-    workspaceController: { create: async () => ({ workspace: { workspaceId: randomUUID() } }), rename: async () => {} },
-    sessionController: { create: async request => ({ sessionId: request.sessionId || `session-${randomUUID()}` }) },
+    workspaceController: { create: async options => { workspaceCreates.push(options); return { workspace: { workspaceId: randomUUID() } } }, rename: async () => {} },
+    sessionController: { create: async request => { sessionCreates.push(request); return { sessionId: request.sessionId || `session-${randomUUID()}` } } },
   })
   const handler = createProjectHttpHandler(tool, { authorize: req => req.headers['x-test-user'] ? null : 401 })
   const server = createServer(handler)
@@ -23,8 +24,76 @@ async function fixture(t) {
   const base = `http://127.0.0.1:${server.address().port}`
   t.after(async () => { handler.dispose(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) })
   const request = (path, options = {}) => fetch(base + path, { ...options, headers: { 'X-Test-User': '1', ...options.headers } })
-  return { tool, request, base }
+  return { tool, request, base, sessionCreates, workspaceCreates }
 }
+
+test('原生侧栏新会话创建独立空会话：合并在途点击、完成后再次新建、失败同请求重试', async t => {
+  const { tool, request, sessionCreates, workspaceCreates } = await fixture(t)
+  const created = await tool.create({ name: '保留原项目' }, { sessionId: 'source', requestId: 'sidebar-origin' })
+  const dom = new JSDOM('<button aria-label="新建会话"><span>新会话</span></button><main/>', { url: 'http://localhost' })
+  const previous = { document: globalThis.document, sessionStorage: globalThis.sessionStorage }
+  Object.assign(globalThis, { document: dom.window.document, sessionStorage: dom.window.sessionStorage })
+  let selected = created.session_id, nativeClicks = 0, release, fail = false
+  const gate = new Promise(resolve => { release = resolve }), ids = []
+  const button = document.querySelector('button'), root = document.querySelector('main')
+  button.onclick = () => { nativeClicks++ }
+  const ui = mount(root, { getSessionId: () => selected, selectSession: id => { selected = id }, Events: class { close() {} }, fetcher: async (url, options) => {
+    if (url.includes('/sessions?')) {
+      ids.push(JSON.parse(options.body).request_id)
+      await gate
+      if (fail) return { ok: false, json: async () => ({ message: '新会话创建失败' }) }
+    }
+    return request(url, options)
+  } })
+  t.after(() => { ui.dispose(); Object.assign(globalThis, previous); dom.window.close() })
+  await ui.refresh()
+  button.querySelector('span').click(); button.click()
+  assert.equal(ids.length, 1); assert.equal(nativeClicks, 0)
+  release()
+  const until = async predicate => { for (let i = 0; i < 100 && !predicate(); i++) await new Promise(resolve => setTimeout(resolve, 5)); assert.ok(predicate()) }
+  await until(() => selected !== created.session_id)
+  const first = selected
+  assert.deepEqual(await tool.snapshot(first), { project: null })
+  assert.equal(sessionStorage.getItem('drama.pending-session'), null)
+  button.setAttribute('aria-label', 'New session'); button.click()
+  await until(() => selected !== first)
+  assert.notEqual(ids[1], ids[0]); assert.equal(workspaceCreates.length, 1)
+  for (const call of sessionCreates.slice(1)) {
+    assert.equal(call.workspaceId, undefined); assert.match(call.cwd, /sessions\/session-/)
+  }
+  assert.equal((await tool.snapshot(created.session_id)).project.basic_info.name, '保留原项目')
+  const second = selected
+  fail = true; button.click()
+  await until(() => root.textContent.includes('新会话创建失败'))
+  assert.equal(selected, second)
+  fail = false; button.click()
+  await until(() => selected !== second)
+  assert.equal(ids[3], ids[2]); assert.equal(nativeClicks, 0)
+})
+
+test('原生新会话等待中切换/销毁不抢切；其他按钮保留原行为、销毁解除接管', async t => {
+  const dom = new JSDOM('<button aria-label="新建会话"><span>新会话</span></button><button id="workspace">工作区加号</button><main/>')
+  const previous = globalThis.document; globalThis.document = dom.window.document
+  const button = document.querySelector('button'), other = document.querySelector('#workspace'), root = document.querySelector('main')
+  let selected = 'original', activated = 0, nativeClicks = 0, otherClicks = 0
+  const releases = []
+  button.onclick = () => { nativeClicks++ }; other.onclick = () => { otherClicks++ }
+  const ui = mount(root, { getSessionId: () => selected, selectSession: () => { activated++ }, Events: class { close() {} },
+    fetcher: async url => url.includes('/sessions?') ? new Promise(resolve => { releases.push(resolve) }) : { ok: true, json: async () => ({ project: null }) },
+  })
+  t.after(() => { ui.dispose(); globalThis.document = previous; dom.window.close() })
+  await ui.refresh(); other.click(); assert.equal(otherClicks, 1)
+  button.click(); selected = 'another'; button.click()
+  assert.equal(releases.length, 2, '切换后的新建请求不被旧会话在途请求吞掉')
+  releases[0]({ ok: true, json: async () => ({ session_id: 'late' }) })
+  await new Promise(resolve => setTimeout(resolve, 5)); assert.equal(activated, 0)
+  releases[1]({ ok: true, json: async () => ({ session_id: 'fresh' }) })
+  await new Promise(resolve => setTimeout(resolve, 5)); assert.equal(activated, 1)
+  button.click(); ui.dispose()
+  releases[2]({ ok: true, json: async () => ({ session_id: 'disposed' }) })
+  await new Promise(resolve => setTimeout(resolve, 5)); assert.equal(activated, 1)
+  button.click(); assert.equal(nativeClicks, 1)
+})
 
 test('迁移后的浏览器入口：递归加载所有模块和样式，节点服务端源码不可访问', async t => {
   const { request, base } = await fixture(t)
@@ -139,6 +208,71 @@ test('UI收到会话工具创建事件后重新读取JSON快照、刷新项目�
   assert.match(root.textContent, /界面刷新/)
   root.querySelector('.library-heading .back').click()
   assert.equal(root.querySelector('h2').textContent, '界面刷新')
+})
+
+test('首次项目快照等待期间的会话创建经游标补发，重新打开历史来源不重放交接', async t => {
+  const { tool, request } = await fixture(t)
+  const dom = new JSDOM('<main/>'), previous = globalThis.document
+  globalThis.document = dom.window.document
+  Object.defineProperty(document, 'visibilityState', { value: 'visible' })
+  const origin = `session-${randomUUID()}`, root = document.querySelector('main')
+  let release, enter, selected, ui, first = true
+  const entered = new Promise(resolve => { enter = resolve }), gate = new Promise(resolve => { release = resolve })
+  tool.applyMainAgent = async id => { if (id === origin && first) { first = false; enter(); await gate } }
+  const urls = [], connections = new Set()
+  class Events {
+    constructor(url) {
+      urls.push(url); connections.add(this); this.abort = new AbortController()
+      void request(url, { signal: this.abort.signal }).then(async response => {
+        const reader = response.body.getReader(), decoder = new TextDecoder(); let text = ''
+        while (true) {
+          const { done, value } = await reader.read(); if (done) break
+          text += decoder.decode(value, { stream: true })
+          let boundary
+          while ((boundary = text.indexOf('\n\n')) >= 0) {
+            const frame = text.slice(0, boundary); text = text.slice(boundary + 2)
+            if (frame.startsWith('data: ')) this.onmessage?.({ data: frame.slice(6) })
+          }
+        }
+      }).catch(error => { if (!this.abort.signal.aborted) throw error })
+    }
+    close() { connections.delete(this); this.abort.abort() }
+  }
+  const options = { getSessionId: () => origin, fetcher: request, Events, selectSession: id => { selected = id } }
+  t.after(() => { ui?.dispose(); for (const stream of connections) stream.close(); globalThis.document = previous; dom.window.close() })
+  ui = mount(root, options)
+  await entered
+  const result = await tool.create({ name: '初始读取期间创建' }, { sessionId: origin, requestId: 'cursor-race', source: 'conversation' })
+  assert.equal(urls.length, 0, '创建发生时SSE尚未连接')
+  release()
+  for (let i = 0; i < 100 && !selected; i++) await new Promise(resolve => setTimeout(resolve, 5))
+  assert.equal(selected, result.session_id)
+  assert.match(urls[0], /cursor=0/)
+  ui.dispose(); selected = null; urls.length = 0
+  ui = mount(root, options)
+  for (let i = 0; i < 100 && !urls.length; i++) await new Promise(resolve => setTimeout(resolve, 5))
+  assert.match(urls[0], /cursor=1/)
+  await new Promise(resolve => setTimeout(resolve, 30)); assert.equal(selected, null)
+})
+
+test('创建通知先交接而不等待快照，用户已切换时旧连接通知不抢切', async t => {
+  const dom = new JSDOM('<main/>'), previous = globalThis.document
+  globalThis.document = dom.window.document
+  Object.defineProperty(document, 'visibilityState', { value: 'visible' })
+  let current = 'source', selected, stream, delay = false, release
+  const pending = new Promise(resolve => { release = resolve })
+  class Events { constructor() { stream = this } close() {} }
+  const ui = mount(document.querySelector('main'), { getSessionId: () => current, Events, selectSession: id => { selected = id },
+    fetcher: async () => delay ? pending : { ok: true, json: async () => ({ project: null }) },
+  })
+  t.after(() => { ui.dispose(); globalThis.document = previous; dom.window.close() })
+  await ui.refresh(); delay = true
+  stream.onmessage({ data: JSON.stringify({ type: 'created', source_session_id: 'source', session_id: 'target', cursor: 1 }) })
+  assert.equal(selected, 'target', '交接不等待无关的项目快照')
+  selected = null; current = 'elsewhere'
+  stream.onmessage({ data: JSON.stringify({ type: 'created', source_session_id: 'source', session_id: 'late', cursor: 2 }) })
+  assert.equal(selected, null)
+  release({ ok: true, json: async () => ({ project: null }) })
 })
 
 
@@ -407,4 +541,30 @@ test('会话预载端点传递增量游标与pending组，拒绝非法游标并�
   assert.equal(options.after, 30); assert.deepEqual(options.pending, ['g1', 'g2'])
   assert.equal((await request('/api/drama/task-messages?session_id=s&eager=1&after=invalid')).status, 400)
   assert.deepEqual(await (await request('/api/drama/task-messages?session_id=s&compact=1')).json(), { messages: [] })
+})
+
+test('规则展示展开真实输出字段及审核结构，鉴权与会话隔离且不改写保存规则', async t => {
+  const { tool, request } = await fixture(t)
+  const created = await tool.create({ name: '规则字段测试' }, { sessionId: 'source', requestId: 'rules-fields' })
+  const path = `/api/drama/node-rules?session_id=${created.session_id}&node_type=story_segments`
+  assert.equal((await request(path, { headers: { 'X-Test-User': '' } })).status, 401)
+  assert.equal((await request('/api/drama/node-rules?node_type=story_segments')).status, 400)
+  assert.equal((await request('/api/drama/node-rules?session_id=source&node_type=story_segments')).status, 403)
+  assert.equal((await request(`/api/drama/node-rules?session_id=${created.session_id}&node_type=unknown`)).status, 422)
+  const before = (await tool.snapshot(created.session_id)).project
+  const response = await request(path); assert.equal(response.status, 200)
+  const { bases } = await response.json()
+  for (const action of ['generate', 'revise']) {
+    assert.doesNotMatch(bases[action], /\{\{output:/)
+    for (const field of ['segments', 'title', 'body', 'key_anchors', 'duration_seconds', 'continuity']) assert.match(bases[action], new RegExp(`"${field}"`))
+    assert.match(bases[action], /"id": "string（segment_001）"/)
+    assert.match(bases[action], /最终改编定稿的完整剧情正文、对白及重要描述/)
+    assert.doesNotMatch(bases[action], /"properties"|"required"|"node_state"/)
+  }
+  assert.doesNotMatch(bases.review, /\{\{output:/)
+  for (const field of ['status', 'issues', 'location', 'reason', 'suggestion']) assert.match(bases.review, new RegExp(`"${field}"`))
+  assert.deepEqual((await tool.snapshot(created.session_id)).project, before)
+  assert.match(before.story_segments.node_state.rules.generate.base, /\{\{output:#\/story_segments\/output\}\}/)
+  const script = await (await request(`/api/drama/node-rules?session_id=${created.session_id}&node_type=script_revision`)).json()
+  assert.match(script.bases.generate, /"actual_script"/)
 })

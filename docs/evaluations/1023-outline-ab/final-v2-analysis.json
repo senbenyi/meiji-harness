@@ -1,0 +1,655 @@
+{
+  "summary": {
+    "rawScoresAreUnverified": true,
+    "versions": {
+      "A": {
+        "completed": 6,
+        "failed": 2,
+        "blockedUpstream": 1,
+        "pending": 0,
+        "promptCount": 16,
+        "missingTopicCount": 2,
+        "scoresRawUnverified": {
+          "expression_inner_state": 2,
+          "tension_rhythm": 2,
+          "background_atmosphere": 3,
+          "blocking_spatial": 3,
+          "action_physics": 2,
+          "effects_appropriateness": 3,
+          "sensory_specificity": 2,
+          "fidelity_sound": 3
+        }
+      },
+      "B": {
+        "completed": 3,
+        "failed": 3,
+        "blockedUpstream": 3,
+        "pending": 0,
+        "promptCount": 7,
+        "missingTopicCount": 3,
+        "scoresRawUnverified": {
+          "expression_inner_state": 3,
+          "tension_rhythm": 4,
+          "background_atmosphere": 4,
+          "blocking_spatial": 4,
+          "action_physics": 3,
+          "effects_appropriateness": 3,
+          "sensory_specificity": 3,
+          "fidelity_sound": 3
+        }
+      }
+    },
+    "rawPairedPreferences": {
+      "A": 0,
+      "B": 1,
+      "tie": 0,
+      "unjudged": 8
+    }
+  },
+  "rows": [
+    {
+      "key": "moon",
+      "round": 1,
+      "versions": {
+        "A": {
+          "upstream": "completed",
+          "status": "completed",
+          "selectionProblems": [
+            {
+              "topic": "farewell",
+              "reason": "无足够相关且时长合法的完整节拍"
+            }
+          ],
+          "topics": [
+            {
+              "id": "crowd",
+              "shot_id": "shot_004",
+              "duration_seconds": 12
+            },
+            {
+              "id": "launch",
+              "shot_id": "shot_015",
+              "duration_seconds": 14
+            }
+          ],
+          "promptCount": 2,
+          "failure": null,
+          "call": {
+            "requestId": "outline-final-9306f150-d159-4bc6-a753-337dd8c932be",
+            "elapsedMs": 135193,
+            "inputChars": 12303,
+            "outputChars": 778
+          }
+        },
+        "B": {
+          "upstream": "completed",
+          "status": "completed",
+          "selectionProblems": [],
+          "topics": [
+            {
+              "id": "crowd",
+              "shot_id": "shot_005",
+              "duration_seconds": 12
+            },
+            {
+              "id": "farewell",
+              "shot_id": "shot_017",
+              "duration_seconds": 5
+            },
+            {
+              "id": "launch",
+              "shot_id": "shot_019",
+              "duration_seconds": 4
+            }
+          ],
+          "promptCount": 3,
+          "failure": null,
+          "call": {
+            "requestId": "outline-final-29d3d55a-dd01-4e97-bd7e-f066899c0849",
+            "elapsedMs": 30060,
+            "inputChars": 16038,
+            "outputChars": 1200
+          }
+        }
+      },
+      "rawJudge": {
+        "preferred": "B",
+        "reason": "共同主题中Y在人群制止的动作结果和反应节奏上更明确，空间关系也更可执行；X的发射提示较完整，但Y的发射短片仍忠实于其更短来源节拍。综合共同主题，Y略优。",
+        "topics": [
+          {
+            "topic": "crowd",
+            "preferred": "B",
+            "evidence": "X来源是“挥着小刀冲出栅门，进入人群”并逐一熄烟；Y引用此前冲入人群的状态，当前节拍集中表现“熄灭后堆在一旁”及“喧哗渐息”。Y提示词明确收缴、熄灭、放下和观众反应，形成更清楚的动作结果与张弛；X则较忠实自己的当前节拍，但动作与结果交代较少。"
+          },
+          {
+            "topic": "launch",
+            "preferred": "A",
+            "evidence": "X来源为14秒完整发射至高空散开，提示明确低角度起始、仰摇追弹丸并以广角呈现散开；Y来源是4秒发射瞬间，且此前倒数口令已结束，提示正确承接而不重播，但集中加入冲击波、烟尘迅速蔓延等效果，短时动作更拥挤。两者各自符合来源，X的完整节奏与效果展开更充分。"
+          }
+        ],
+        "scores": {
+          "A": {
+            "expression_inner_state": 2,
+            "tension_rhythm": 2,
+            "background_atmosphere": 3,
+            "blocking_spatial": 3,
+            "action_physics": 2,
+            "effects_appropriateness": 3,
+            "sensory_specificity": 2,
+            "fidelity_sound": 3
+          },
+          "B": {
+            "expression_inner_state": 3,
+            "tension_rhythm": 4,
+            "background_atmosphere": 4,
+            "blocking_spatial": 4,
+            "action_physics": 3,
+            "effects_appropriateness": 3,
+            "sensory_specificity": 3,
+            "fidelity_sound": 3
+          }
+        },
+        "issues": {
+          "A": [
+            {
+              "topic": "crowd",
+              "dimension": "action_physics",
+              "severity": "major",
+              "source_quote": "麦思敦挥着小刀冲出栅门，进入人群；他逐一夺下人们手中和口中的烟卷并熄灭。",
+              "prompt_quote": "他挥着小刀在人群中逐一制止吸烟，夺下人们手中和口中的烟卷并熄灭",
+              "explanation": "保留了连续制止的核心动作，但“手中和口中”夺取的动作过程仍较笼统，拥挤人群中的逐一收缴及熄灭不易稳定呈现。"
+            },
+            {
+              "topic": "launch",
+              "dimension": "action_physics",
+              "severity": "major",
+              "source_quote": "口令落下，哥仑比亚炮轰然发射。烈火如柱冲出炮口，弹丸像离弦之箭掠入夜空，火光照亮茀罗理窦，继而在高空蓬勃散开。",
+              "prompt_quote": "火光照亮茀罗理窦，随后切换广角呈现火光在高空蓬勃散开。",
+              "explanation": "呈现了发射和高空火光，但“随后切换广角”将来源的连续追踪感变成切镜，且未明确火光散开的具体形态如何承接弹丸飞行。"
+            }
+          ],
+          "B": [
+            {
+              "topic": "launch",
+              "dimension": "effects_appropriateness",
+              "severity": "major",
+              "source_quote": "炮口烈火爆发并向上冲出；冲击波向周围扩散，火焰与烟尘迅速蔓延。",
+              "prompt_quote": "炮口烈火爆发并向上冲出，冲击波向周围扩散，火焰与烟尘迅速蔓延",
+              "explanation": "基本逐项保留来源效果，但4秒提示中同时要求火焰、烟尘迅速蔓延和弹丸离膛，效果较密集，可能挤压发射动作的可辨识度。"
+            }
+          ]
+        }
+      },
+      "manualAudit": null
+    },
+    {
+      "key": "moon",
+      "round": 2,
+      "versions": {
+        "A": {
+          "upstream": "completed",
+          "status": "completed",
+          "selectionProblems": [
+            {
+              "topic": "launch",
+              "reason": "无足够相关且时长合法的完整节拍"
+            }
+          ],
+          "topics": [
+            {
+              "id": "crowd",
+              "shot_id": "shot_006",
+              "duration_seconds": 15
+            },
+            {
+              "id": "farewell",
+              "shot_id": "shot_024",
+              "duration_seconds": 14
+            }
+          ],
+          "promptCount": 2,
+          "failure": null,
+          "call": {
+            "requestId": "outline-final-f29660a5-f0a7-4f26-bc16-092ba84fd9b7",
+            "elapsedMs": 225424,
+            "inputChars": 12248,
+            "outputChars": 862
+          }
+        },
+        "B": {
+          "upstream": "completed",
+          "status": "failed",
+          "selectionProblems": [
+            {
+              "topic": "farewell",
+              "reason": "无足够相关且时长合法的完整节拍"
+            }
+          ],
+          "topics": [
+            {
+              "id": "crowd",
+              "shot_id": "shot_002",
+              "duration_seconds": 8
+            },
+            {
+              "id": "launch",
+              "shot_id": "shot_009",
+              "duration_seconds": 12
+            }
+          ],
+          "promptCount": 0,
+          "failure": {
+            "message": "response：不是有效JSON"
+          },
+          "call": {
+            "requestId": "outline-final-e96bcb96-1546-416b-9ad0-2a06fdb7a11b",
+            "elapsedMs": 120223,
+            "inputChars": 14747,
+            "outputChars": 845
+          }
+        }
+      },
+      "manualAudit": null
+    },
+    {
+      "key": "moon",
+      "round": 3,
+      "versions": {
+        "A": {
+          "upstream": "completed",
+          "status": "completed",
+          "selectionProblems": [],
+          "topics": [
+            {
+              "id": "crowd",
+              "shot_id": "shot_005",
+              "duration_seconds": 12
+            },
+            {
+              "id": "farewell",
+              "shot_id": "shot_017",
+              "duration_seconds": 11
+            },
+            {
+              "id": "launch",
+              "shot_id": "shot_019",
+              "duration_seconds": 10
+            }
+          ],
+          "promptCount": 3,
+          "failure": null,
+          "call": {
+            "requestId": "outline-final-5d7ab7e8-794e-4572-9dde-fa64b07cc827",
+            "elapsedMs": 15064,
+            "inputChars": 15064,
+            "outputChars": 1208
+          }
+        },
+        "B": {
+          "upstream": "completed",
+          "status": "completed",
+          "selectionProblems": [
+            {
+              "topic": "crowd",
+              "reason": "无足够相关且时长合法的完整节拍"
+            },
+            {
+              "topic": "farewell",
+              "reason": "无足够相关且时长合法的完整节拍"
+            }
+          ],
+          "topics": [
+            {
+              "id": "launch",
+              "shot_id": "shot_007",
+              "duration_seconds": 14
+            }
+          ],
+          "promptCount": 1,
+          "failure": null,
+          "call": {
+            "requestId": "outline-final-3ff63937-4587-4a79-a2c6-7c32219e7597",
+            "elapsedMs": 5038,
+            "inputChars": 10728,
+            "outputChars": 435
+          }
+        }
+      },
+      "manualAudit": null
+    },
+    {
+      "key": "wusong",
+      "round": 1,
+      "versions": {
+        "A": {
+          "upstream": "completed",
+          "status": "completed",
+          "selectionProblems": [],
+          "topics": [
+            {
+              "id": "medicine",
+              "shot_id": "shot_017",
+              "duration_seconds": 7
+            },
+            {
+              "id": "brothers",
+              "shot_id": "shot_024",
+              "duration_seconds": 8
+            },
+            {
+              "id": "fight",
+              "shot_id": "shot_022",
+              "duration_seconds": 9
+            }
+          ],
+          "promptCount": 3,
+          "failure": null,
+          "call": {
+            "requestId": "outline-final-370e43f1-8d5a-48de-a9b6-09726d578e09",
+            "elapsedMs": 270401,
+            "inputChars": 16618,
+            "outputChars": 1135
+          }
+        },
+        "B": {
+          "upstream": "failed",
+          "status": "blocked_upstream",
+          "selectionProblems": [],
+          "topics": [],
+          "promptCount": 0,
+          "failure": {
+            "message": "上游镜头未通过契约，最终提示词不绕过失败继续生成"
+          },
+          "call": null
+        }
+      },
+      "manualAudit": null
+    },
+    {
+      "key": "wusong",
+      "round": 2,
+      "versions": {
+        "A": {
+          "upstream": "completed",
+          "status": "completed",
+          "selectionProblems": [],
+          "topics": [
+            {
+              "id": "medicine",
+              "shot_id": "shot_025",
+              "duration_seconds": 5
+            },
+            {
+              "id": "brothers",
+              "shot_id": "shot_035",
+              "duration_seconds": 7
+            },
+            {
+              "id": "fight",
+              "shot_id": "shot_033",
+              "duration_seconds": 5
+            }
+          ],
+          "promptCount": 3,
+          "failure": null,
+          "call": {
+            "requestId": "outline-final-0a07299e-e22f-4509-b8fc-d814cebb0bc0",
+            "elapsedMs": 25062,
+            "inputChars": 16463,
+            "outputChars": 1293
+          }
+        },
+        "B": {
+          "upstream": "completed",
+          "status": "failed",
+          "selectionProblems": [],
+          "topics": [
+            {
+              "id": "medicine",
+              "shot_id": "shot_016",
+              "duration_seconds": 7
+            },
+            {
+              "id": "brothers",
+              "shot_id": "shot_023",
+              "duration_seconds": 7
+            },
+            {
+              "id": "fight",
+              "shot_id": "shot_021",
+              "duration_seconds": 8
+            }
+          ],
+          "promptCount": 0,
+          "failure": {
+            "message": "response：不是有效JSON"
+          },
+          "call": {
+            "requestId": "outline-final-5e8d39a0-a05f-45fb-b0f0-f4788d1e3323",
+            "elapsedMs": 170325,
+            "inputChars": 15735,
+            "outputChars": 1350
+          }
+        }
+      },
+      "manualAudit": null
+    },
+    {
+      "key": "wusong",
+      "round": 3,
+      "versions": {
+        "A": {
+          "upstream": "completed",
+          "status": "failed",
+          "selectionProblems": [],
+          "topics": [
+            {
+              "id": "medicine",
+              "shot_id": "shot_025",
+              "duration_seconds": 4
+            },
+            {
+              "id": "brothers",
+              "shot_id": "shot_035",
+              "duration_seconds": 4
+            },
+            {
+              "id": "fight",
+              "shot_id": "shot_029",
+              "duration_seconds": 4
+            }
+          ],
+          "promptCount": 0,
+          "failure": {
+            "message": "response：不是有效JSON"
+          },
+          "call": {
+            "requestId": "outline-final-1b6b3de4-7dc0-47b8-918e-262ad9eb70f7",
+            "elapsedMs": 10054,
+            "inputChars": 15712,
+            "outputChars": 1046
+          }
+        },
+        "B": {
+          "upstream": "failed",
+          "status": "blocked_upstream",
+          "selectionProblems": [],
+          "topics": [],
+          "promptCount": 0,
+          "failure": {
+            "message": "上游镜头未通过契约，最终提示词不绕过失败继续生成"
+          },
+          "call": null
+        }
+      },
+      "manualAudit": null
+    },
+    {
+      "key": "complex",
+      "round": 1,
+      "versions": {
+        "A": {
+          "upstream": "completed",
+          "status": "failed",
+          "selectionProblems": [],
+          "topics": [
+            {
+              "id": "sisters",
+              "shot_id": "shot_017",
+              "duration_seconds": 14
+            },
+            {
+              "id": "rescue",
+              "shot_id": "shot_014",
+              "duration_seconds": 12
+            },
+            {
+              "id": "keys",
+              "shot_id": "shot_018",
+              "duration_seconds": 10
+            }
+          ],
+          "promptCount": 0,
+          "failure": {
+            "message": "response：不是有效JSON"
+          },
+          "call": {
+            "requestId": "outline-final-f654f742-e3c4-4229-ac02-427a13265180",
+            "elapsedMs": 30052,
+            "inputChars": 15537,
+            "outputChars": 1254
+          }
+        },
+        "B": {
+          "upstream": "failed",
+          "status": "blocked_upstream",
+          "selectionProblems": [],
+          "topics": [],
+          "promptCount": 0,
+          "failure": {
+            "message": "上游镜头未通过契约，最终提示词不绕过失败继续生成"
+          },
+          "call": null
+        }
+      },
+      "manualAudit": null
+    },
+    {
+      "key": "complex",
+      "round": 2,
+      "versions": {
+        "A": {
+          "upstream": "completed",
+          "status": "completed",
+          "selectionProblems": [],
+          "topics": [
+            {
+              "id": "sisters",
+              "shot_id": "shot_016",
+              "duration_seconds": 12
+            },
+            {
+              "id": "rescue",
+              "shot_id": "shot_013",
+              "duration_seconds": 10
+            },
+            {
+              "id": "keys",
+              "shot_id": "shot_017",
+              "duration_seconds": 10
+            }
+          ],
+          "promptCount": 3,
+          "failure": null,
+          "call": {
+            "requestId": "outline-final-b1c80d84-5dac-4774-8028-e1a324e6db08",
+            "elapsedMs": 130305,
+            "inputChars": 14803,
+            "outputChars": 1312
+          }
+        },
+        "B": {
+          "upstream": "completed",
+          "status": "completed",
+          "selectionProblems": [],
+          "topics": [
+            {
+              "id": "sisters",
+              "shot_id": "shot_024",
+              "duration_seconds": 15
+            },
+            {
+              "id": "rescue",
+              "shot_id": "shot_027",
+              "duration_seconds": 14
+            },
+            {
+              "id": "keys",
+              "shot_id": "shot_025",
+              "duration_seconds": 12
+            }
+          ],
+          "promptCount": 3,
+          "failure": null,
+          "call": {
+            "requestId": "outline-final-69fdc8a0-ddda-4e19-83f3-b40d9a5067bb",
+            "elapsedMs": 250497,
+            "inputChars": 14828,
+            "outputChars": 1292
+          }
+        }
+      },
+      "manualAudit": null
+    },
+    {
+      "key": "complex",
+      "round": 3,
+      "versions": {
+        "A": {
+          "upstream": "failed",
+          "status": "blocked_upstream",
+          "selectionProblems": [],
+          "topics": [],
+          "promptCount": 0,
+          "failure": {
+            "message": "上游镜头未通过契约，最终提示词不绕过失败继续生成"
+          },
+          "call": null
+        },
+        "B": {
+          "upstream": "completed",
+          "status": "failed",
+          "selectionProblems": [],
+          "topics": [
+            {
+              "id": "sisters",
+              "shot_id": "shot_017",
+              "duration_seconds": 12
+            },
+            {
+              "id": "rescue",
+              "shot_id": "shot_013",
+              "duration_seconds": 12
+            },
+            {
+              "id": "keys",
+              "shot_id": "shot_018",
+              "duration_seconds": 10
+            }
+          ],
+          "promptCount": 0,
+          "failure": {
+            "message": "response：不是有效JSON"
+          },
+          "call": {
+            "requestId": "outline-final-8095d8ff-d484-47b0-88ed-aed068131189",
+            "elapsedMs": 15063,
+            "inputChars": 15254,
+            "outputChars": 1283
+          }
+        }
+      },
+      "manualAudit": null
+    }
+  ]
+}

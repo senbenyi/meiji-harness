@@ -16,9 +16,10 @@ const editIcon = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path 
 const button = (label, action, name) => { const node = element('button', label); node.type = 'button'; node.onclick = action; if (name) node.setAttribute('aria-label', name); return node }
 
 /** meiji风格的基本资料/剧本视图；state由外层保存，所有写入通过save回调。 */
-export function createProjectView(root, { project: initialProject, save, refresh, request, remove, optimize, scriptExecution: initialExecution = null, summaryExecution: initialSummaryExecution = null, confirmDelete = message => root.ownerDocument.defaultView.confirm(message), dialogRoot = root, state = {} } = {}) {
+export function createProjectView(root, { project: initialProject, save, refresh, request, remove, optimize, generateStory, storyExecution: initialStoryExecution = null, scriptExecution: initialExecution = null, summaryExecution: initialSummaryExecution = null, confirmDelete = message => root.ownerDocument.defaultView.confirm(message), dialogRoot = root, state = {} } = {}) {
   let sourceRead = 0
   let project = initialProject, execution = initialExecution, summaryExecution = initialSummaryExecution, disposed = false, recordView, disposeImport
+  let storyExecution = initialStoryExecution
   state.mode ||= 'overview'
   const ownedDialogs = new Set()
   const go = mode => { state.mode = mode; paint() }
@@ -62,9 +63,10 @@ export function createProjectView(root, { project: initialProject, save, refresh
       if (!(nodeType === 'script_revision' ? project.basic_info.script_revision_node : project[nodeType]?.node_state)?.rules) { go(state.ruleReturn || 'overview'); return }
       const ruleState = nodeType === 'script_revision' ? project.basic_info.script_revision_node : project[nodeType].node_state
       root.append(renderRulesPanel({ supports_supplement: ruleState.supports_supplement, rules: ruleState.rules }, { title: `${nodeTitle}规则`, document: root.ownerDocument, onNotify: message => showToast(message),
-        baseLabel: '基础规则', ruleNote: nodeType === 'script_revision' ? '这里展示项目内保存的规则。各动作的补充规则独立保存。' : '这里展示项目内保存的规则，当前仅供查看。',
+        loadCurrentBases: request ? async () => (await request(`node-rules?${new URLSearchParams({ node_type: nodeType })}`)).bases : undefined,
+        baseLabel: '基础规则', ruleNote: `输出引用已展开为具体字段、类型、必填项及说明。${['script_revision', 'story_segments'].includes(nodeType) ? '各动作的补充规则独立保存。' : '当前仅供查看。'}`,
         onBack: () => go(['script', 'production'].includes(state.ruleReturn) ? state.ruleReturn : 'overview'),
-        onSave: nodeType === 'script_revision' ? change => persist({ kind: 'rules', node_type: nodeType, ...change }) : undefined,
+        onSave: ['script_revision', 'story_segments'].includes(nodeType) ? change => persist({ kind: 'rules', node_type: nodeType, ...change }) : undefined,
       }))
       return
     }
@@ -72,6 +74,8 @@ export function createProjectView(root, { project: initialProject, save, refresh
     root.append(view)
     if (state.mode === 'production') {
       renderProjectProduction(view, project, { state, onBack: () => go('overview'),
+        story: { execution: storyExecution, generate: generateStory, refresh, repaint: paint, isCurrent: () => !disposed,
+          setExecution: value => { storyExecution = value } },
         openTasks: request ? (type, title) => openRecords('tasks', type, title) : undefined, openRules,
         saveOpinion: save ? (type, value, previousValue) => persist({ kind: 'node_opinion', node_type: type, value, previousValue }) : undefined,
       })
@@ -153,9 +157,11 @@ export function createProjectView(root, { project: initialProject, save, refresh
     view.append(script)
   }
   paint()
-  return { get isShowingRecords() { return ['tasks', 'http'].includes(state.mode) }, update(next, { scriptExecution = execution, summaryExecution: nextSummaryExecution = summaryExecution } = {}) { if (disposed) return; const unchanged = JSON.stringify(project) === JSON.stringify(next) && JSON.stringify(execution) === JSON.stringify(scriptExecution) && JSON.stringify(summaryExecution) === JSON.stringify(nextSummaryExecution); if (next.basic_info.script_revision_node?.status === 'generated' && next.basic_info.script_revision_node.opinion === ''
+  return { get isShowingRecords() { return ['tasks', 'http'].includes(state.mode) }, update(next, { scriptExecution = execution, summaryExecution: nextSummaryExecution = summaryExecution, storyExecution: nextStoryExecution = storyExecution } = {}) { if (disposed) return; const unchanged = JSON.stringify(project) === JSON.stringify(next) && JSON.stringify(execution) === JSON.stringify(scriptExecution) && JSON.stringify(storyExecution) === JSON.stringify(nextStoryExecution) && JSON.stringify(summaryExecution) === JSON.stringify(nextSummaryExecution); if (next.basic_info.script_revision_node?.status === 'generated' && next.basic_info.script_revision_node.opinion === ''
       && project.basic_info.script_revision_node.opinion && state.opinionDraft === project.basic_info.script_revision_node.opinion) state.opinionDraft = ''
-    project = next; execution = scriptExecution; summaryExecution = nextSummaryExecution; if (!unchanged && !['rules', 'tasks', 'http'].includes(state.mode)) paint() }, dispose() {
+    if (next.story_segments.node_state.status === 'generated' && !next.story_segments.node_state.opinion && project.story_segments.node_state.opinion
+      && state.nodeOpinions?.story_segments === project.story_segments.node_state.opinion) state.nodeOpinions.story_segments = ''
+    project = next; execution = scriptExecution; storyExecution = nextStoryExecution; summaryExecution = nextSummaryExecution; if (!unchanged && !['rules', 'tasks', 'http'].includes(state.mode)) paint() }, dispose() {
     if (disposed) return
     disposed = true
     recordView?.dispose()

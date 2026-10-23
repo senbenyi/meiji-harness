@@ -13,6 +13,8 @@
 
 - 剧本优化入口为 `src/tools/optimize_script_tool.js`，执行器为 `src/node_box/script_revision/executor.js`；运行用独立有界模型请求，生成/本地审核/修订使用文本模型，项目审核使用主Agent模型。
 
+- 故事大纲入口为 `src/tools/generate_story_outline_tool.js`，Service/Executor位于 `src/node_box/story_segments/`；面板及会话共用生成入口。输入为basic_info（仅actual_script/summary/estimated_duration_seconds）、current_outline、instruction、output_language，与规则中的basic_info.actual_script路径一致。优化剧本可选，有工作稿即可生成。完整集合严格校验且拒绝空集合、重复段/锚点ID，审核通过才替换segments；本地内容问题最多修订3轮，失败/取消保留原结果。意见、规则、记录、结束摘要、下游过期及专属UI见开发方向“故事大纲生成”。
+
 - `src/harness_server/` 只提供harness-http路由、认证、静态资源和SSE，不承载盒子业务。根插件组装项目管理、剧本优化服务及共享记录；不设顶层service转发层，也不保留旧目录代理。HTTP分类和记录归属统一遵守根开发指引的“HTTP术语与记录归属”。
 
 - 项目管理专属的输入字段、创建和编辑/导入校验分别在 `src/node_box/project/create_project.js`、`edit_project.js`。`src/project_runtime/`保留整个项目共享的Manager、Model和写入队列；其中 `project_manager.js`、`project_model.js` 不随盒子迁移。节点专属界面归 `src/node_box/<节点>/ui/panel/`（右侧面板）与 `ui/conversation/`（会话）；公共组件、样式、全局片库/设置与历史适配归 `src/client/ui/`。`src/client/` 保留工作台、项目视图/阶段编排及会话挂载控制器。服务端Schema和校验不当作UI迁入。
@@ -39,3 +41,7 @@
 - 删除项目完成后，使用项目请求行持久化的deleted_session_request_id接续startSession，创建/复用独立cwd且不关联任何项目或项目工作区的空会话。面板切换到返回会话；创建失败仍保留删除事实并提供同请求重试。删除失败不建会话；用户已切换时不抢切。旧会话、文件和执行记录保留。
 
 - 节点UI通过 `src/client/ui/node-registry.js` 注册 panel/conversation；业务输入、结果和操作归节点，共享时间线、审核状态、loading、折叠、复制及未知类型完整记录兜底归公共层。节点UI只能依赖浏览器可用代码，不导入Service、Executor或服务端定义。历史投影为各节点ui/conversation/history.js中的纯函数，经公共task-presentation适配供浏览器/会话记录复用。生产节点未接执行器时，展示已有数据不代表可执行；没有现成UI的图片节点不建空占位模块。浏览器资源在harness_server/client_assets.js逐文件登记，沿用鉴权，不开放node_box服务端源码。
+
+- 原生侧栏全局新会话在Drama挂载期间走独立startSession入口，不复用当前/最近项目工作区。仅限定公开可访问名称的原生新建按钮，保持业务创建与工作区内加号；快速连点合并、失败同请求重试、成功后再次点击新建；切换/销毁后迟到结果不抢切，卸载解除监听。不创建业务项目、不改宿主源码。
+
+- 创建交接通过project响应头游标接续SSE，校验来源和导航后立即切换，迟到快照不抢切。模型响应先严格解析，仅在失败时无损归一化字符串内部原始LF/CR/TAB，再严格解析及Schema校验；保留原始调用记录，不补结构或字段。详见开发方向“创建交接与模型响应解析”。

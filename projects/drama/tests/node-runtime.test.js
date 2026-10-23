@@ -88,6 +88,27 @@ test('解析校验拒绝缺失、额外、错误类型、非有限数字及非�
   assert.throws(() => validateNodeOutput('costume_image', 'generate', { address: '虚构' }), { code: 'INVALID_NODE_OUTPUT' })
 })
 
+test('模型JSON字符串内的原始换行回车制表符无损归一化，已有转义和引号不变', () => {
+  const value = { ...script, actual_script: '第一行\n第二行\r\n\t第三行："对白"，路径C:\\稿件，字面\\n' }
+  const raw = JSON.stringify(value).replace('第一行\\n第二行\\r\\n\\t', '第一行\n第二行\r\n\t')
+  assert.throws(() => JSON.parse(raw))
+  assert.deepEqual(parseNodeOutput('script_revision', 'generate', raw), value)
+  assert.deepEqual(parseNodeOutput('script_revision', 'revise', raw), value)
+  assert.equal(raw.includes('第一行\n第二行'), true, '不改写原始响应')
+})
+
+test('编码归一化不猜测结构，不接受截断、错误转义、控制符或不符合Schema的结果', () => {
+  for (const raw of [
+    '{"actual_script":"第一行\n第二行"',
+    '{"actual_script":"第一行\n第二行",}',
+    '{"actual_script":"第一行\n\\q"}',
+    '{"actual_script":"第一行\u0000第二行"}',
+    '{"actual_script":"第一行\\' + '\n' + '第二行"}',
+    '{"actual_script":"第一行\n第二行"}',
+    JSON.stringify({ ...script, extra: '第一行\n第二行' }).replace('第一行\\n第二行', '第一行\n第二行'),
+  ]) assert.throws(() => parseNodeOutput('script_revision', 'generate', raw), { code: 'INVALID_NODE_OUTPUT' })
+})
+
 test('文本节点可校验完整返回，镜头枚举及节拍容量有约束', () => {
   for (const nodeType of names.filter(name => nodeDefinitions[name].kind === 'text')) {
     const value = sample(nodeDefinitions[nodeType].output)

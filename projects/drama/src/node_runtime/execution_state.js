@@ -10,7 +10,7 @@ export function projectExecutions(records, projectId) {
     for (const task of page.tasks) {
       if (task.metadata.project_id !== projectId || ['queued', 'running'].includes(task.task_status)) continue
       const type = task.node_type
-      if (!['project', 'script_revision'].includes(type)) continue
+      if (!['project', 'script_revision', 'story_segments'].includes(type)) continue
       if (!latest.has(type) || latest.get(type).queue_order < task.queue_order) latest.set(type, task)
     }
     if (offset + page.tasks.length >= page.total) break

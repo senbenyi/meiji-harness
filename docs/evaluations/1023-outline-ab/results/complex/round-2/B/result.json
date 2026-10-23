@@ -1,0 +1,20 @@
+{
+  "status": "completed",
+  "key": "complex",
+  "round": 2,
+  "version": "B",
+  "inputHash": "54793e96bab1c363c2e9145580d5e102909088b2ef1db4f0048181eefefa48a0",
+  "metrics": {
+    "shotCount": 34,
+    "beatCount": 34,
+    "anchorCount": 20,
+    "unreferencedAnchorIds": [],
+    "missingSegmentIds": [],
+    "referenceCoverage": 1,
+    "quotedTextCount": 24,
+    "quotedTextNotFound": [],
+    "quotedTextRecallHeuristic": 1,
+    "estimatedSeconds": 453,
+    "issues": []
+  }
+}

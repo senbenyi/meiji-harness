@@ -1,0 +1,20 @@
+{
+  "status": "completed",
+  "key": "moon",
+  "round": 1,
+  "version": "A",
+  "inputHash": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93",
+  "metrics": {
+    "shotCount": 22,
+    "beatCount": 43,
+    "anchorCount": 9,
+    "unreferencedAnchorIds": [],
+    "missingSegmentIds": [],
+    "referenceCoverage": 1,
+    "quotedTextCount": 2,
+    "quotedTextNotFound": [],
+    "quotedTextRecallHeuristic": 1,
+    "estimatedSeconds": 596,
+    "issues": []
+  }
+}

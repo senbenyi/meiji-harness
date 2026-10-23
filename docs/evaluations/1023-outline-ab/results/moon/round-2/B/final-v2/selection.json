@@ -1,0 +1,212 @@
+{
+  "selected": [
+    {
+      "topic": {
+        "id": "crowd",
+        "label": "人群压力与安全制止",
+        "terms": [
+          "烟",
+          "人群",
+          "熄",
+          "麦思敦"
+        ]
+      },
+      "clip": {
+        "id": "eval_crowd",
+        "mode": "文生",
+        "duration_seconds": 8,
+        "sources": [
+          {
+            "shot_id": "shot_002",
+            "beat_start": 4,
+            "beat_end": 4
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_002",
+        "previous_shot_connection": "continuous",
+        "story_segment_id": "segment_001",
+        "title": "栅内围观与烟草",
+        "key_anchor_ids": [
+          "segment_001_anchor_001",
+          "segment_001_anchor_002"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "十一月二十八日，火药箱已安置妥当。夜间炮位周围聚集大批近村居民，烟雾笼罩石丘，少量烟斗和雪茄仍有火点。",
+          "spatial_setup": "石丘炮位与栅栏围成的区域相邻；栅门是人群进出栅内的通道，栅内可见已装好的引火棉箱，栅外聚集观众。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "社长",
+            "presence": "在场，与麦思敦在栅栏内巡视。",
+            "position": "栅内，靠近引火棉箱及栅门。",
+            "facing": "朝向围观人群。",
+            "gaze_target": "栅门附近的人群与烟火。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "麦思敦",
+            "presence": "在场，与社长在栅内巡视，随后冲出栅门。",
+            "position": "开场在栅内、社长附近。",
+            "facing": "朝向栅外人群。",
+            "gaze_target": "人群中的烟斗、雪茄与烟雾。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "臬科尔",
+            "presence": "在场，仍未改变对实验的判断。",
+            "position": "栅内，靠近社长与麦思敦。",
+            "facing": "朝向围观者及炮位。",
+            "gaze_target": "人群与已安置的火药箱。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "围观者",
+            "presence": "约三十万人聚集，栅外人群拥挤，少量人在抽烟。",
+            "position": "栅栏外及栅门周边。",
+            "facing": "朝向栅内的引火棉箱。",
+            "gaze_target": "栅内箱体与炮位。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "守栅工人",
+            "presence": "在场，奉命守住栅门，后将装好的引火棉箱摆在栅内供人观看。",
+            "position": "栅门及栅内箱体附近。",
+            "facing": "朝向栅门外人群。",
+            "gaze_target": "试图挤入的围观者及箱体。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 8,
+            "action": "麦思敦将夺下的烟草堆成一座小丘。人群被他的怒气镇住，终于安静下来。",
+            "camera": "从烟草堆的小丘抬至麦思敦，再向外呈现逐渐安静的人群；停在栅内外关系清楚的全景。",
+            "scene_changes": "烟草堆积成一座小丘，成为现场持续状态。",
+            "effects": "烟雾仍笼罩石丘，火点已熄。",
+            "audio": "人群声由喧闹降为安静；麦思敦的脚步声停下，夜风声浮现。"
+          }
+        ]
+      },
+      "prior_beats_context": [
+        {
+          "duration_seconds": 15,
+          "action": "十一月二十八日，火药箱全部安置妥当。近村居民闻讯聚集，越聚越多，试图挤进栅栏观看；社长命人守住栅门，不许他们靠近。",
+          "camera": "中远景呈现栅栏外逐渐拥挤的人群与栅门；切至栅内社长示意守门工人拦住人群。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "人群说话声、脚步声与拥挤声渐起；栅门处工人阻拦的声响同步出现。"
+        },
+        {
+          "duration_seconds": 10,
+          "action": "为平息人群，社长最终让工人把装好的引火棉箱摆在栅内供人观看。",
+          "camera": "从社长示意转至工人将箱体摆出的中景，再以栅栏内外同框呈现观众观看。",
+          "scene_changes": "箱体被摆在栅内供人观看，保持安置妥当状态。",
+          "effects": "无。",
+          "audio": "人群声略有变化，仍持续聚集；箱体搬放声短暂出现。"
+        },
+        {
+          "duration_seconds": 15,
+          "action": "社长与麦思敦在栏内巡视，反复提醒众人不得吸烟。围观者已增至约三十万，仍有烟斗与雪茄的火点星星点点亮着。",
+          "camera": "跟随社长与麦思敦沿栅内巡视；穿插栅栏外密集人群及其中零星火点，烟雾在石丘上方可见。",
+          "scene_changes": "烟雾持续笼罩石丘；人群规模维持约三十万。",
+          "effects": "烟雾在夜空中缓慢弥散，未消散。",
+          "audio": "社长与麦思敦反复提醒不得吸烟；人群嘈杂声未止，烟斗、雪茄无额外音效。"
+        },
+        {
+          "duration_seconds": 20,
+          "action": "麦思敦看到烟雾笼罩石丘，索性冲出栅门，挥着小刀挤入人海，逐一夺下人们手中和嘴边的烟草并熄灭。",
+          "camera": "从烟雾中的石丘切至麦思敦察觉后冲向栅门；手持跟拍他穿过栅门、挤入人群，镜头落在逐一夺下并熄灭烟草的连续行动上。",
+          "scene_changes": "无。",
+          "effects": "烟雾仍在；烟草火点在被夺下熄灭后逐一消失。",
+          "audio": "人群喧闹声持续；麦思敦挤入人群时衣物与脚步声近而急，夺下、熄灭烟草的细小声响与动作同步。"
+        }
+      ],
+      "selectionScore": 4
+    },
+    {
+      "topic": {
+        "id": "launch",
+        "label": "发射冲击、环境与特效",
+        "terms": [
+          "炮",
+          "火",
+          "冲击",
+          "发射"
+        ]
+      },
+      "clip": {
+        "id": "eval_launch",
+        "mode": "文生",
+        "duration_seconds": 12,
+        "sources": [
+          {
+            "shot_id": "shot_009",
+            "beat_start": 0,
+            "beat_end": 0
+          }
+        ]
+      },
+      "shot": {
+        "id": "shot_009",
+        "previous_shot_connection": "continuous",
+        "story_segment_id": "segment_003",
+        "title": "弹丸飞入黑暗太空",
+        "key_anchor_ids": [
+          "segment_003_anchor_001",
+          "segment_003_anchor_003"
+        ],
+        "scene": {
+          "scene_id": "",
+          "state": "十二月朔日夜间，发射倒数结束，弹丸封闭在炮膛内；地面观众聚集在炮位周围。",
+          "spatial_setup": "炮口朝向夜空；石丘与平原观众位于炮位周围，远近层次沿炮口方向展开。"
+        },
+        "characters": [
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "地面观众",
+            "presence": "在场，聚集在石丘与平原，面向炮位。",
+            "position": "炮位周围及平原。",
+            "facing": "朝向炮口。",
+            "gaze_target": "炮口与夜空。"
+          },
+          {
+            "character_id": "",
+            "costume_id": "",
+            "name": "麦思敦",
+            "presence": "在场，留在地面等待旅行者报告。",
+            "position": "炮位附近，已退到一旁。",
+            "facing": "朝向炮口。",
+            "gaze_target": "弹丸发射方向。"
+          }
+        ],
+        "beats": [
+          {
+            "duration_seconds": 12,
+            "action": "“放射！”后，炮声轰鸣，火光冲天，弹丸离炮飞入黑暗太空。",
+            "camera": "炮位广角捕捉火光冲出炮口；镜头沿弹丸发射方向上仰跟随，但不越出地面观察者可见范围去虚构内部视角。",
+            "scene_changes": "炮口火光照亮周围夜空，发射后渐暗。",
+            "effects": "发射引发强烈火光与冲击；弹丸迅速离炮飞向黑暗太空，最终失去地面观众视线。",
+            "audio": "炮声轰鸣，与火光冲出及弹丸离炮同步；余响在平原上回荡。"
+          }
+        ]
+      },
+      "prior_beats_context": [],
+      "selectionScore": 4
+    }
+  ],
+  "problems": [
+    {
+      "topic": "farewell",
+      "reason": "无足够相关且时长合法的完整节拍"
+    }
+  ]
+}

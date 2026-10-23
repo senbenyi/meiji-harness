@@ -1,0 +1,1795 @@
+{
+  "summary": {
+    "versions": {
+      "A": {
+        "runs": 9,
+        "completed": 8,
+        "failed": 1,
+        "meanSegments": 5.375,
+        "meanShots": 31.75,
+        "meanReferenceCoverage": 1,
+        "meanQuotedTextRecallHeuristic": 1,
+        "referenceErrors": 0,
+        "unreferencedAnchors": 0,
+        "missingSegments": 0,
+        "meanOutlineElapsedSeconds": 112.40044444444445,
+        "meanShotElapsedSeconds": 225.31488888888893,
+        "meanShotInputChars": 20998.666666666668,
+        "meanShotOutputChars": 34995.22222222222,
+        "scoresRawUnverified": {
+          "story_quality": 3.4,
+          "continuity": 2.6,
+          "coverage": 3,
+          "dialogue": 2.6,
+          "no_readaptation": 2.8,
+          "shootability": 2.6
+        },
+        "judgeIssuesBySeverityRawUnverified": {
+          "minor": 4,
+          "major": 16,
+          "critical": 1
+        }
+      },
+      "B": {
+        "runs": 9,
+        "completed": 6,
+        "failed": 3,
+        "meanSegments": 5.666666666666667,
+        "meanShots": 23.833333333333332,
+        "meanReferenceCoverage": 1,
+        "meanQuotedTextRecallHeuristic": 1,
+        "referenceErrors": 0,
+        "unreferencedAnchors": 0,
+        "missingSegments": 0,
+        "meanOutlineElapsedSeconds": 87.91677777777778,
+        "meanShotElapsedSeconds": 233.09533333333331,
+        "meanShotInputChars": 17082.11111111111,
+        "meanShotOutputChars": 27874,
+        "scoresRawUnverified": {
+          "story_quality": 3,
+          "continuity": 2.6,
+          "coverage": 3.2,
+          "dialogue": 2,
+          "no_readaptation": 2.2,
+          "shootability": 2.4
+        },
+        "judgeIssuesBySeverityRawUnverified": {
+          "minor": 5,
+          "major": 23,
+          "critical": 4
+        }
+      }
+    },
+    "paired": {
+      "A": 3,
+      "B": 2,
+      "tie": 0,
+      "unjudged": 4
+    }
+  },
+  "rounds": [
+    {
+      "key": "moon",
+      "round": 1,
+      "versions": {
+        "A": {
+          "status": "completed",
+          "key": "moon",
+          "round": 1,
+          "version": "A",
+          "inputHash": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93",
+          "metrics": {
+            "shotCount": 22,
+            "beatCount": 43,
+            "anchorCount": 9,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 2,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 596,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-bf810093-078e-470f-ad29-3d9c0909294f",
+            "elapsedMs": 50089,
+            "inputChars": 10417,
+            "outputChars": 6680,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-5ec1627e-ac4a-49cf-86c4-e06c1c63d985",
+            "elapsedMs": 150164,
+            "inputChars": 15609,
+            "outputChars": 25355,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 4,
+          "outlineSeconds": 750,
+          "judge": {
+            "scores": {
+              "story_quality": 4,
+              "continuity": 3,
+              "coverage": 3,
+              "dialogue": 2,
+              "no_readaptation": 3,
+              "shootability": 3
+            },
+            "issues": [
+              {
+                "severity": "major",
+                "dimension": "dialogue",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_011",
+                  "shot_012",
+                  "shot_013",
+                  "shot_014"
+                ],
+                "evidence": "大纲要求马起孙喊出“**四十秒——放射！**”；shot_014逐字保留这一句，但删去了“杪”，并将前段倒数概括为数字。另如大纲“请他日后把地球的新变化告诉自己”，shot_011改写为“日后把地球的新变化告诉我”。",
+                "explanation": "关键倒数不完整，且对白有措辞替换；镜头未完整保留定稿对白。"
+              },
+              {
+                "severity": "minor",
+                "dimension": "coverage",
+                "segment_id": "segment_002",
+                "shot_ids": [
+                  "shot_006",
+                  "shot_007",
+                  "shot_008",
+                  "shot_009"
+                ],
+                "evidence": "大纲写明“巴比堪留下食物、蔬菜汁、盐、肉和酒”“添上臬科尔的爱犬、另一匹纽芬兰犬、小树和种子”；shot_007、shot_008覆盖上述物资，但未见大纲所述“温度计、风雨表、望远镜等仪器装进机械箱”中的仪器具体落实，仅镜头列出清单。",
+                "explanation": "关键装备有列举，却缺少装入机械箱的动作证据；仅凭覆盖提及不能确认执行落地。"
+              }
+            ]
+          }
+        },
+        "B": {
+          "status": "completed",
+          "key": "moon",
+          "round": 1,
+          "version": "B",
+          "inputHash": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93",
+          "metrics": {
+            "shotCount": 32,
+            "beatCount": 75,
+            "anchorCount": 12,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 8,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 610,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-3cee243a-8ac8-499f-8e82-6f9f9deb7677",
+            "elapsedMs": 90134,
+            "inputChars": 10084,
+            "outputChars": 6632,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-f137f28e-49c6-4777-99cd-299fcd7129ad",
+            "elapsedMs": 275288,
+            "inputChars": 15526,
+            "outputChars": 35698,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 5,
+          "outlineSeconds": 990,
+          "judge": {
+            "scores": {
+              "story_quality": 3,
+              "continuity": 2,
+              "coverage": 2,
+              "dialogue": 1,
+              "no_readaptation": 1,
+              "shootability": 2
+            },
+            "issues": [
+              {
+                "severity": "critical",
+                "dimension": "story_quality",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_019",
+                  "shot_020"
+                ],
+                "evidence": "原稿写“十点四十分四十六杪”发射；Y大纲写“十点四十分四十六秒”，并把麦思敦受冲击段落提前并入segment_003，segment_004又再次叙述发射冲击及同一伤情。",
+                "explanation": "时间单位被改错，且同一关键事件跨段重复叙述，削弱时间逻辑与因果清晰度。"
+              },
+              {
+                "severity": "major",
+                "dimension": "continuity",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_017",
+                  "shot_018"
+                ],
+                "evidence": "shot_017写“麦思敦……最后问巴比堪是否能一同前往”，shot_018随后才写“三名旅行者依次进入弹丸”；但大纲将入舱、封门置于麦思敦请求同行之前。",
+                "explanation": "镜头顺序颠倒了定稿中的入舱封门与挽留对话，造成入舱状态连续性矛盾。"
+              },
+              {
+                "severity": "major",
+                "dimension": "coverage",
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_030",
+                  "shot_031",
+                  "shot_032"
+                ],
+                "evidence": "Y大纲segment_004结尾仅说“弹丸行迹才有望重新被发现”；segment_005明确写“弹丸的踪迹终于显现”并传信。shot_030却把“夜空终于澄明如洗，弹丸行迹才有望重新被发现”与两项事件合写，提前到解云当刻，随后shot_031再表现发现。",
+                "explanation": "镜头把观测结果提前并重复，未按大纲将转晴、实际发现及传讯分开落实。"
+              },
+              {
+                "severity": "major",
+                "dimension": "dialogue",
+                "segment_id": "segment_002",
+                "shot_ids": [
+                  "shot_006",
+                  "shot_007",
+                  "shot_008",
+                  "shot_009",
+                  "shot_010"
+                ],
+                "evidence": "大纲对白包括亚电对月界居民可能友善或危险的推测、巴比堪援引小说、亚电反驳臆测不能代替准备等内容；相关镜头音频多为概述，未给出完整对白。",
+                "explanation": "大纲明确的争论与立场转折主要以总结代替对白，无法据镜头确认定稿台词完整落实。"
+              },
+              {
+                "severity": "major",
+                "dimension": "dialogue",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_019"
+                ],
+                "evidence": "大纲要求马起孙倒数原句“ 三十五杪——三十六杪——三十七杪——三十八杪——三十九杪——四十杪——放射！”；shot_019音频虽写出该句，但正文大纲的时间单位为“秒”。",
+                "explanation": "镜头对白与自身定稿大纲的“秒”不一致，关键倒数单位未按定稿执行。"
+              },
+              {
+                "severity": "major",
+                "dimension": "no_readaptation",
+                "segment_id": "segment_001",
+                "shot_ids": [
+                  "shot_004",
+                  "shot_005"
+                ],
+                "evidence": "大纲称巴比堪“关闭栅门”，并让工人“把引火棉箱摆在栅内供人观看”；shot_005却写巴比堪和麦思敦“严防有人把烟头扔进危险区域”，且镜头覆盖从栅内巡查、麦思敦冲入人群。",
+                "explanation": "将栅栏内外的风险改成观众可把烟头扔进危险区，改变了大纲中展示箱子、巡查与制止吸烟的因果空间关系。"
+              },
+              {
+                "severity": "major",
+                "dimension": "no_readaptation",
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_025"
+                ],
+                "evidence": "大纲仅说两人谈到造巨扇并“苦笑承认，即使办法可行，现在才提出也已太迟”；shot_025明确写麦思敦先“为办法喝彩”，再转为苦笑。",
+                "explanation": "新增显著的情绪反转与反应，不是大纲所定内容，改变人物当下态度。"
+              },
+              {
+                "severity": "minor",
+                "dimension": "shootability",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_014"
+                ],
+                "evidence": "shot_014音频要求“现场广播或人群传话”告知精确天象、期限信息，同时写“不添说话人身份”；大纲未设广播或传话者。",
+                "explanation": "以未确定的声源传递大段说明，缺少可执行的具体声场方案。"
+              }
+            ]
+          }
+        }
+      },
+      "judgeValid": true,
+      "preferred": "A",
+      "judgeReason": "X总体遵守大纲且镜头可执行，主要缺口是关键对白不完整及少数准备动作落实不够。Y虽有较充分的素材覆盖，但出现入舱顺序冲突、观测结果提前重复、对白概述代替定稿，以及额外情绪动作等问题，整体下游执行较不可靠。"
+    },
+    {
+      "key": "moon",
+      "round": 2,
+      "versions": {
+        "A": {
+          "status": "completed",
+          "key": "moon",
+          "round": 2,
+          "version": "A",
+          "inputHash": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93",
+          "metrics": {
+            "shotCount": 42,
+            "beatCount": 67,
+            "anchorCount": 17,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 3,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 824,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-99409bb0-3d81-4885-bce1-dc83a0d2e306",
+            "elapsedMs": 115135,
+            "inputChars": 10417,
+            "outputChars": 10049,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-c3b919a2-f948-4390-849a-2194eb2e3d4b",
+            "elapsedMs": 270314,
+            "inputChars": 19262,
+            "outputChars": 41649,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 5,
+          "outlineSeconds": 960,
+          "judge": {
+            "scores": {
+              "story_quality": 2,
+              "continuity": 2,
+              "coverage": 3,
+              "dialogue": 2,
+              "no_readaptation": 2,
+              "shootability": 2
+            },
+            "issues": [
+              {
+                "segment_id": "segment_001",
+                "shot_ids": [
+                  "shot_004"
+                ],
+                "severity": "major",
+                "dimension": "continuity",
+                "evidence": "最终大纲称火药小包已在“白日”安置妥当；shot_004 scene_state也写“白日”，而segment_001与shot_005—006明确麦思敦收烟发生在夜间。",
+                "explanation": "同一段连续的栅内外围观与收烟行动跨镜头从白日跳到夜间，没有时间过渡；违反镜头自身定稿的场景时序。"
+              },
+              {
+                "segment_id": "segment_002",
+                "shot_ids": [
+                  "shot_009",
+                  "shot_010",
+                  "shot_011",
+                  "shot_012"
+                ],
+                "severity": "major",
+                "dimension": "continuity",
+                "evidence": "segment_002及shot_012称物品封箱、弹丸入炮；shot_008写“弹丸室”清点，shot_009—011又继续在“弹丸室”挑选、安排物资与犬只。",
+                "explanation": "大纲先写物资装载与入炮，镜头却在入炮前后反复把整理地点称作弹丸室；未明确物资是在弹丸室筛选后再封箱，空间与动作顺序不够连贯。"
+              },
+              {
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_019",
+                  "shot_020",
+                  "shot_023",
+                  "shot_025",
+                  "shot_026"
+                ],
+                "severity": "major",
+                "dimension": "continuity",
+                "evidence": "大纲写“晚上十点四十分四十六秒”发射；shot_019在队伍出场前写“自鸣钟敲响七下”，shot_023写“十点钟报响”，shot_026仍称“发射窗口十点四十分四十六秒将至”。",
+                "explanation": "出场、十点钟报响、入舱和倒数的时间关系混乱，七下钟声又无合理时序承接；倒数结束时窗口究竟是否到达也不清楚。"
+              },
+              {
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_020",
+                  "shot_021"
+                ],
+                "severity": "major",
+                "dimension": "dialogue",
+                "evidence": "原稿亚电说“余将远行，与君离别。君若能以地球上新事相告，忻幸何如！”最终大纲要求保留这句，并说明通信之志；shot_020保留原句，但shot_021将后续信念、臬科尔曾反对等内容概述为“阐述信念”“继续表达”，没有呈现定稿中应落实的具体对白。",
+                "explanation": "关键告别对白只落实了首句；通信承诺的主要话语被压成概述，无法确认定稿对白完整呈现。"
+              },
+              {
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_028"
+                ],
+                "severity": "major",
+                "dimension": "story_quality",
+                "evidence": "最终大纲只说“许多人摔伤、失聪”，并将麦思敦受伤昏厥单独铺陈；shot_028把“许多人摔伤、失聪”放在麦思敦被掷出之前，shot_029才呈现他“捂着腰大喊疼痛”。",
+                "explanation": "镜头让群体伤情先于中心人物冲击发生，因果落点偏移；且把“约三千人失聪”的后果留到后续镜头，削弱发射冲击由事件到后果的清晰性。"
+              },
+              {
+                "segment_id": "segment_005",
+                "shot_ids": [
+                  "shot_042"
+                ],
+                "severity": "major",
+                "dimension": "no_readaptation",
+                "evidence": "原稿仅说“他人私信，因此阻止者，不知多少”；最终大纲改为“已有不少人试图以私人信件插队传讯，观测机构只能设法阻止”。shot_042进一步写“私人信件来信者”在传讯通路外、“处理插队信件”的动作。",
+                "explanation": "把原稿对私人信件造成阻碍的叙述扩写成具体插队者和现场处置信息；虽大纲已作合理改编，镜头仍将其进一步具象为独立场面，超出定稿明确给出的可拍行动。"
+              }
+            ]
+          }
+        },
+        "B": {
+          "status": "completed",
+          "key": "moon",
+          "round": 2,
+          "version": "B",
+          "inputHash": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93",
+          "metrics": {
+            "shotCount": 13,
+            "beatCount": 53,
+            "anchorCount": 10,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 1,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 718,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-9c05e018-c591-472c-af60-fbc7f5c2ce85",
+            "elapsedMs": 40056,
+            "inputChars": 10084,
+            "outputChars": 5084,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-c6692b53-053d-4f6a-84bc-281fd8c8c8fd",
+            "elapsedMs": 195211,
+            "inputChars": 13860,
+            "outputChars": 21970,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 4,
+          "outlineSeconds": 670,
+          "judge": {
+            "scores": {
+              "story_quality": 3,
+              "continuity": 3,
+              "coverage": 4,
+              "dialogue": 3,
+              "no_readaptation": 3,
+              "shootability": 2
+            },
+            "issues": [
+              {
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_006"
+                ],
+                "severity": "major",
+                "dimension": "continuity",
+                "evidence": "大纲及镜头均写发射窗口为“晚上十点四十分四十六秒”；镜头又写“自鸣钟打了七下”，并立刻接月亮升起、队列出场。",
+                "explanation": "钟声七下对应原稿中较早的时刻，不能与十点后的发射准备无缝相接；镜头没有交代中间时间经过，削弱发射时序可信度。"
+              },
+              {
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_008"
+                ],
+                "severity": "major",
+                "dimension": "continuity",
+                "evidence": "shot_008 beat 1：“起重机以铁索把巴比堪、臬科尔与亚电送入弹丸”；beat 2：“麦思敦……请求社长也同行”。",
+                "explanation": "三人已被送入舱内后，麦思敦才提出同行请求，随后又由舱内巴比堪回应；人物位置与交谈顺序不成立。"
+              },
+              {
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_011",
+                  "shot_012",
+                  "shot_013"
+                ],
+                "severity": "major",
+                "dimension": "coverage",
+                "evidence": "原稿写烟雾“虽在咫尺亦不能辨”，麦思敦“骑了马，跑至望远镜建设处”；最终大纲写次日“暗得近乎咫尺难辨”，并写麦思敦“骑马赶来”。shot_011只列培儿斐斯在场，shot_012从“天文台外马匹到达”切入。",
+                "explanation": "后续镜头实际承接了麦思敦到达，但shot_011作为该段开场缺少他骑马赶到的入场依据；地点衔接不够清晰，且将严重低能见度弱化为“能见度不足”，关键环境障碍未充分落实。"
+              },
+              {
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_013"
+                ],
+                "severity": "major",
+                "dimension": "continuity",
+                "evidence": "segment_004大纲按日期写“十二月四日至六日……七日早晨……八、九两日……直到十日……十一日下午”；shot_013却把“十二月四日至六日”列在七日、八九日、十日等事件之后。",
+                "explanation": "该镜头内的日期事件顺序倒置，观众会先看到后发生的时间段，再回到较早日期。"
+              }
+            ]
+          }
+        }
+      },
+      "judgeValid": true,
+      "preferred": "B",
+      "judgeReason": "X整体较好地保留四段事件链及关键行动；主要问题集中在少数时序和衔接。Y的镜头在发射夜时序、对白落实和跨段场景顺序上有更多明确矛盾，且将观测传讯处的概述扩成了具体行动场面。"
+    },
+    {
+      "key": "moon",
+      "round": 3,
+      "versions": {
+        "A": {
+          "status": "completed",
+          "key": "moon",
+          "round": 3,
+          "version": "A",
+          "inputHash": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93",
+          "metrics": {
+            "shotCount": 30,
+            "beatCount": 60,
+            "anchorCount": 12,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 7,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 575,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-25424a05-cd3d-4f51-8c89-6ae52eef38cc",
+            "elapsedMs": 80143,
+            "inputChars": 10417,
+            "outputChars": 9442,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-8a353b18-b7dd-4a4e-9709-9997708d84b6",
+            "elapsedMs": 185326,
+            "inputChars": 18536,
+            "outputChars": 30041,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 5,
+          "outlineSeconds": 1260,
+          "judge": {
+            "scores": {
+              "story_quality": 3,
+              "continuity": 3,
+              "coverage": 3,
+              "dialogue": 3,
+              "no_readaptation": 3,
+              "shootability": 3
+            },
+            "issues": [
+              {
+                "severity": "major",
+                "dimension": "story_quality",
+                "segment_id": "segment_005",
+                "shot_ids": [
+                  "shot_030"
+                ],
+                "evidence": "原稿：“他人私信，因此阻止者，不知多少。”；大纲称“有人试图以私人通信拦阻消息传播”；镜头写“有人试图以私人通信拦阻传播”。",
+                "explanation": "把原文含义不够明确的私人信件描述落实成有人拦阻消息，扩大了因果与行动；且镜头未具体说明阻拦如何发生，执行依据不足。"
+              },
+              {
+                "severity": "major",
+                "dimension": "continuity",
+                "segment_id": "segment_005",
+                "shot_ids": [
+                  "shot_029",
+                  "shot_030"
+                ],
+                "evidence": "原稿：“于是弹丸进路，遂得发见，自亚美利加全洲，以至欧洲诸国，均用电报通知”；大纲：消息经电报传向各地；shot_029写“观测者得以重新追踪”，shot_030写“有人试图以私人通信拦阻传播”。",
+                "explanation": "镜头把发现和传播拆成连续镜头本身并无问题，但将原稿未明确的私人通信阻拦拍成传播期间的行动，造成消息传播因果被改写。"
+              }
+            ]
+          }
+        },
+        "B": {
+          "status": "completed",
+          "key": "moon",
+          "round": 3,
+          "version": "B",
+          "inputHash": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93",
+          "metrics": {
+            "shotCount": 11,
+            "beatCount": 36,
+            "anchorCount": 12,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 1,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 510,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-a00d37f0-bba4-4c6e-8c4d-837be72cd4ea",
+            "elapsedMs": 120209,
+            "inputChars": 10084,
+            "outputChars": 5379,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-2bef4f51-e6d8-44ad-861b-8536f22bfe6b",
+            "elapsedMs": 230407,
+            "inputChars": 15393,
+            "outputChars": 18003,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 5,
+          "outlineSeconds": 880,
+          "judge": {
+            "scores": {
+              "story_quality": 2,
+              "continuity": 2,
+              "coverage": 3,
+              "dialogue": 1,
+              "no_readaptation": 1,
+              "shootability": 2
+            },
+            "issues": [
+              {
+                "severity": "critical",
+                "dimension": "dialogue",
+                "segment_id": "segment_002",
+                "shot_ids": [
+                  "shot_004"
+                ],
+                "evidence": "大纲要求保留原文赌金对白“君的赌金，又输去了。余要拿去赠月世界国王的。”；镜头对白改成“关于把赌金带去送给月界国王的话依正文表达”，未列定稿原句。",
+                "explanation": "镜头未落实大纲锁定的逐字对白；该句是告别场景的重要原稿台词，不能以概述替代。"
+              },
+              {
+                "severity": "critical",
+                "dimension": "dialogue",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_005",
+                  "shot_006"
+                ],
+                "evidence": "大纲要求完整保留倒数“ 三十五杪——三十六杪——三十七杪——三十八杪——三十九杪——四十杪——放射！”；shot_006对白虽列出倒数，但行动写成三人“进入弹丸，关上铝门，旋紧门闩”，原稿为“关上铝门，将螺旋捻紧”，大纲同样要求铝门与螺旋。",
+                "explanation": "锁定对白有保留，但镜头把门闩替代螺旋，具体装置和动作未经定稿授权改写；此外， shot_005将亚电告别话语改成新句，取代原稿明确的报告故国愿望。"
+              },
+              {
+                "severity": "critical",
+                "dimension": "no_readaptation",
+                "segment_id": "segment_002",
+                "shot_ids": [
+                  "shot_004"
+                ],
+                "evidence": "大纲：“亚电向熟识的朋友告别，郑重说明自己并非诀别，若能抵达月界，仍要回来报告真实见闻。”；镜头新增对白：“我并非诀别，若能抵达月界，仍要回来报告真实见闻。”原稿实际为“余且拟报告月界的真态。”",
+                "explanation": "将大纲概述转写成原稿没有的直接引语，且改写告别对白，新增措辞与明确承诺，不是单纯镜头调度。"
+              },
+              {
+                "severity": "major",
+                "dimension": "no_readaptation",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_005"
+                ],
+                "evidence": "原稿亚电对麦思敦说：“君若能以地球上新事相告，忻幸何如！”并提出持续研究通信良法；镜头写“日后设法把地球的新事告诉我”，并新增“通信之法也终会有人找到”。",
+                "explanation": "镜头将原稿对麦思敦的愿望改造成直接指派其日后通信，并省改亚电论述，改变关系与对白语气。"
+              },
+              {
+                "severity": "major",
+                "dimension": "continuity",
+                "segment_id": "segment_002",
+                "shot_ids": [
+                  "shot_004"
+                ],
+                "evidence": "大纲：“弹丸已进入炮膛”；原稿：“运上石丘，举起鹤颈称，吊入炮内……已达炮底。”镜头以石丘上起重机吊运后“最终落到炮底”，随后仍在石丘告别。",
+                "explanation": "镜头把炮底与石丘呈现为同一告别位置，空间关系含混；原稿朋友在炮旁送别，弹丸吊入炮底后不应继续作为石丘上的同一位置处理。"
+              },
+              {
+                "severity": "major",
+                "dimension": "coverage",
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_008"
+                ],
+                "evidence": "原稿：“十二月四日至六日，美洲虽烟雾涨天……欧洲则晴空如洗”；“至初七早晨……不到午后，黑云如磐，又堆满了空际。”大纲把四日至七日观测受阻列为关键限定。",
+                "explanation": "镜头覆盖日期与观测失败，但把初七的浓云直接并入此前状况，且没呈现初七清晨短暂见晴及复云的完整节拍；相关内容被移至下一段，镜头段落切点仍使这一等待过程不完整。"
+              },
+              {
+                "severity": "major",
+                "dimension": "story_quality",
+                "segment_id": "segment_005",
+                "shot_ids": [
+                  "shot_011"
+                ],
+                "evidence": "原稿十一日只说“烈风骤起，乱卷暗云”，入夜“空明如洗”；大纲称“烈风骤起，卷动暗云，天幕裂开斑驳的亮色”。",
+                "explanation": "“天幕裂开斑驳的亮色”将云散写成戏剧化景象，并非原稿明确事件；进一步把来信者蜂拥、私人信件难处理作为消息传播结果，原稿只说有人私信阻止传播，因果不符。"
+              },
+              {
+                "severity": "major",
+                "dimension": "shootability",
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_007"
+                ],
+                "evidence": "原稿麦思敦“独立在一百五十码以内”，发射后“直掷出至百二十尺之外”；镜头状态称站在“距炮一百五十码处”，又写“被气浪掷出一百二十尺”。",
+                "explanation": "“一百五十码以内”不等于距炮恰好一百五十码，镜头把范围限定改成精确起点，影响可执行的位置与冲击调度。"
+              }
+            ]
+          }
+        }
+      },
+      "judgeValid": true,
+      "preferred": "A",
+      "judgeReason": "X总体较贴合定稿，主要问题集中在把私人通信的含义落实为阻拦行动。Y有多处锁定对白未按原文落实、改写对白及新增事件，并出现炮旁空间、观测天气节拍和拍摄位置偏差，因此下游执行风险更高。"
+    },
+    {
+      "key": "wusong",
+      "round": 1,
+      "versions": {
+        "A": {
+          "status": "completed",
+          "key": "wusong",
+          "round": 1,
+          "version": "A",
+          "inputHash": "65d322ccdd69443dbdd5aac5faeab3189f4abbcb1ca7ed99c1880140437188f0",
+          "metrics": {
+            "shotCount": 31,
+            "beatCount": 119,
+            "anchorCount": 18,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 28,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 937,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-deb666a8-f7da-4ca3-802a-544eb0ba4340",
+            "elapsedMs": 105138,
+            "inputChars": 15291,
+            "outputChars": 14916,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-73324c63-05b1-422c-8997-467c227d1d81",
+            "elapsedMs": 265298,
+            "inputChars": 24284,
+            "outputChars": 46068,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 6,
+          "outlineSeconds": 2180
+        },
+        "B": {
+          "status": "failed",
+          "key": "wusong",
+          "round": 1,
+          "version": "B",
+          "error": "output.shots[27].characters[2].id：不允许额外字段",
+          "outlineCall": {
+            "requestId": "outline-ab-12717029-7f81-415e-bb7d-ee0b54ccb9ca",
+            "elapsedMs": 180221,
+            "inputChars": 14958,
+            "outputChars": 9967,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-71a5ef84-32e1-4fe0-9c80-428b139b3dac",
+            "elapsedMs": 380412,
+            "inputChars": 18934,
+            "outputChars": 50563,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 6,
+          "outlineSeconds": 1730
+        }
+      },
+      "judgeValid": false,
+      "preferred": null
+    },
+    {
+      "key": "wusong",
+      "round": 2,
+      "versions": {
+        "A": {
+          "status": "completed",
+          "key": "wusong",
+          "round": 2,
+          "version": "A",
+          "inputHash": "65d322ccdd69443dbdd5aac5faeab3189f4abbcb1ca7ed99c1880140437188f0",
+          "metrics": {
+            "shotCount": 41,
+            "beatCount": 138,
+            "anchorCount": 20,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 27,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 755,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-9b9bd860-63e5-4f5b-9bb8-f3c870f876ac",
+            "elapsedMs": 180243,
+            "inputChars": 15291,
+            "outputChars": 13058,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-d1bd5114-9d10-4674-ac60-31fe7071c1cc",
+            "elapsedMs": 380503,
+            "inputChars": 24309,
+            "outputChars": 56267,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 6,
+          "outlineSeconds": 1870,
+          "judge": {
+            "scores": {
+              "story_quality": 4,
+              "continuity": 3,
+              "coverage": 3,
+              "dialogue": 3,
+              "no_readaptation": 4,
+              "shootability": 3
+            },
+            "issues": [
+              {
+                "severity": "major",
+                "dimension": "coverage",
+                "segment_id": "segment_001",
+                "shot_ids": [
+                  "shot_005",
+                  "shot_006",
+                  "shot_007"
+                ],
+                "evidence": "原稿写“武大郎把一个略焦的饼递给郓哥，没收钱”；X的shot_006保留递饼，但其声轨把王婆的迎客声概括为“王婆迎客的招呼声”，未覆盖茶坊门口具体人物为穿深蓝绸袍的男人这一关键信息。",
+                "explanation": "茶坊来客身份及其与王婆的接触是后续悬疑线索；镜头未明确落实，削弱观众对西门庆进入茶坊的识别。"
+              },
+              {
+                "severity": "major",
+                "dimension": "coverage",
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_027"
+                ],
+                "evidence": "原稿写“药中有毒”是第六场数日后验药结果；第四场周巡检只认出“军仓缺失的领药票”，并说“碗、纸、人，一并带走查验”。X的shot_027同样只呈现领药票及待查验，没有覆盖潘金莲惊慌摇头、武大郎失踪和西门庆在巷尾持刀挟持他的完整揭示。",
+                "explanation": "shot_028补了后窗和挟持，但未明确后门敞开，也未覆盖潘金莲惊慌摇头；失踪如何发生及她是否知情仍显含混。"
+              },
+              {
+                "severity": "minor",
+                "dimension": "dialogue",
+                "segment_id": "segment_006",
+                "shot_ids": [
+                  "shot_038"
+                ],
+                "evidence": "原稿对白为“我听得懂你嫌穷，嫌我矮，嫌这一辈子看得见头”；X的shot_038写为“嫌贫、嫌我矮、嫌日子一眼望到头”。",
+                "explanation": "意思相近但不是定稿原句，属于轻微对白改写。"
+              },
+              {
+                "severity": "minor",
+                "dimension": "shootability",
+                "segment_id": "segment_005",
+                "shot_ids": [
+                  "shot_033",
+                  "shot_035"
+                ],
+                "evidence": "染坊动作要求在湿布缠刀、武大郎抬插销、武松被染粉遮眼及木梯断裂坠落后继续连贯完成；原稿动作链包含这些连续节点。",
+                "explanation": "节点较多且空间关系紧密，若不明确调度与镜头节拍，现场执行容易造成动作方向不清；本身仍可拍摄。"
+              }
+            ]
+          }
+        },
+        "B": {
+          "status": "completed",
+          "key": "wusong",
+          "round": 2,
+          "version": "B",
+          "inputHash": "65d322ccdd69443dbdd5aac5faeab3189f4abbcb1ca7ed99c1880140437188f0",
+          "metrics": {
+            "shotCount": 29,
+            "beatCount": 58,
+            "anchorCount": 14,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 31,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 385,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-6b2ff26d-7030-4240-8327-0e0680bc131a",
+            "elapsedMs": 85116,
+            "inputChars": 14958,
+            "outputChars": 9128,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-cf918b81-3a6a-40a2-9b6f-fb5f8a2970ff",
+            "elapsedMs": 260359,
+            "inputChars": 19438,
+            "outputChars": 36700,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 6,
+          "outlineSeconds": 1710,
+          "judge": {
+            "scores": {
+              "story_quality": 4,
+              "continuity": 3,
+              "coverage": 3,
+              "dialogue": 2,
+              "no_readaptation": 3,
+              "shootability": 3
+            },
+            "issues": [
+              {
+                "severity": "major",
+                "dimension": "dialogue",
+                "segment_id": "segment_001",
+                "shot_ids": [
+                  "shot_003"
+                ],
+                "evidence": "原稿在此处只写武大郎叫“二郎，饼快凉了！”；Y shot_003新增对白“又做噩梦了？喝口热的。”",
+                "explanation": "把原稿稍后发生的询问与递茶对白提前到冲突前，改变对白时序并弱化武松失控的突发性。"
+              },
+              {
+                "severity": "major",
+                "dimension": "dialogue",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_011"
+                ],
+                "evidence": "原稿武大郎说“我不是来打你的。你要走，就今日说。”；Y写成“我不求她留下，只问她是否今日便要走”，并新增“你今日便要走？”",
+                "explanation": "改写定稿对白，且把武大郎主动让妻子当面选择的明确边界替换成转述式问句。"
+              },
+              {
+                "severity": "major",
+                "dimension": "dialogue",
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_015"
+                ],
+                "evidence": "原稿武松对郓哥说“王婆刚从后门进去，那张纸上有军字。我只能认得这些，别添别减。”；Y写成“我只见王婆刚从后门进去，那张纸上有个‘军’字，我只能认得这些”，没有保留“别添别减”的明确指令。",
+                "explanation": "短状转述的限制被从对白中删去，影响武松要求如实递报的关键限定。"
+              },
+              {
+                "severity": "major",
+                "dimension": "dialogue",
+                "segment_id": "segment_005",
+                "shot_ids": [
+                  "shot_020"
+                ],
+                "evidence": "原稿武大郎的台词是“二郎。”“别只看刀。”；Y保留为“二郎。别只看刀。”",
+                "explanation": "两句合并本身不改变意思，但Y将完整台词并入动作声轨，仍属轻微呈现差异；本项仅据原稿中两句明确停顿的节拍要求，影响有限。"
+              },
+              {
+                "severity": "major",
+                "dimension": "coverage",
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_018"
+                ],
+                "evidence": "原稿写“众人上楼，窗边的后门敞着，武大郎不见了”；Y写“后窗旁的后门敞开”，但镜头空间又把后窗、后门、巷尾视线混写。",
+                "explanation": "空间路径交代不够清楚，观众难以判断武大郎从哪处被带走；属于实质性空间信息缺口。"
+              },
+              {
+                "severity": "major",
+                "dimension": "no_readaptation",
+                "segment_id": "segment_005",
+                "shot_ids": [
+                  "shot_024"
+                ],
+                "evidence": "原稿写潘金莲“指出”藏信地点；Y称她“被押进染坊”后当场作证。",
+                "explanation": "将原稿的到场与交代改成明确被押送入场，新增了拘押和押送结果，改变人物处境。"
+              },
+              {
+                "severity": "minor",
+                "dimension": "dialogue",
+                "segment_id": "segment_006",
+                "shot_ids": [
+                  "shot_026"
+                ],
+                "evidence": "原稿为“武大郎：是你的。”；Y写“都是你的。”",
+                "explanation": "定稿对白有轻微字词改动。"
+              },
+              {
+                "severity": "minor",
+                "dimension": "story_quality",
+                "segment_id": "segment_001",
+                "shot_ids": [
+                  "shot_005"
+                ],
+                "evidence": "原稿写西门庆下马、王婆笑着迎进去，随后郓哥介绍其身份；Y把他进入茶坊与告示等事件压在同一镜头段。",
+                "explanation": "事件压缩使武松留意西门庆、郓哥解释身份、武松被哥哥叫回的观看节奏稍显拥挤，但不构成因果断裂。"
+              }
+            ]
+          }
+        }
+      },
+      "judgeValid": true,
+      "preferred": "A",
+      "judgeReason": "X总体保留原稿因果、人物选择与关键收束，主要不足是少数事件覆盖和对白细节偏差。Y的节奏紧凑，但多处改写已定稿对白，尤其削弱武大郎的自主边界与武松对证据转述的限定；另有将潘金莲明确设为被押入场的新增处境。两方案均有可执行的分镜基础，X下游偏差较少。"
+    },
+    {
+      "key": "wusong",
+      "round": 3,
+      "versions": {
+        "A": {
+          "status": "completed",
+          "key": "wusong",
+          "round": 3,
+          "version": "A",
+          "inputHash": "65d322ccdd69443dbdd5aac5faeab3189f4abbcb1ca7ed99c1880140437188f0",
+          "metrics": {
+            "shotCount": 42,
+            "beatCount": 168,
+            "anchorCount": 19,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 17,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 601,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-34dff567-2a10-48ff-bb60-f488fbb781f7",
+            "elapsedMs": 170314,
+            "inputChars": 15291,
+            "outputChars": 14365,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-6b0ea93c-c932-4696-9ba1-277eff4549e2",
+            "elapsedMs": 250451,
+            "inputChars": 23744,
+            "outputChars": 57864,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 6,
+          "outlineSeconds": 1830
+        },
+        "B": {
+          "status": "failed",
+          "key": "wusong",
+          "round": 3,
+          "version": "B",
+          "error": "empty shots",
+          "outlineCall": {
+            "requestId": "outline-ab-45b3f946-fa57-4573-86d7-363400c16aa0",
+            "elapsedMs": 70143,
+            "inputChars": 14958,
+            "outputChars": 9163,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-23f0b7a7-2a9f-4afa-a3da-ce30614cea9b",
+            "elapsedMs": 110186,
+            "inputChars": 19716,
+            "outputChars": 12,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 6,
+          "outlineSeconds": 2160
+        }
+      },
+      "judgeValid": false,
+      "preferred": null
+    },
+    {
+      "key": "complex",
+      "round": 1,
+      "versions": {
+        "A": {
+          "status": "completed",
+          "key": "complex",
+          "round": 1,
+          "version": "A",
+          "inputHash": "54793e96bab1c363c2e9145580d5e102909088b2ef1db4f0048181eefefa48a0",
+          "metrics": {
+            "shotCount": 24,
+            "beatCount": 36,
+            "anchorCount": 19,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 23,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 341,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-d9912ff8-3677-4073-a29f-c99a599f9b44",
+            "elapsedMs": 110148,
+            "inputChars": 7478,
+            "outputChars": 11418,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-c8fc84be-0c81-48ca-b7da-2eecc9226520",
+            "elapsedMs": 210229,
+            "inputChars": 20783,
+            "outputChars": 27021,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 6,
+          "outlineSeconds": 1070
+        },
+        "B": {
+          "status": "failed",
+          "key": "complex",
+          "round": 1,
+          "version": "B",
+          "error": "response：不是有效JSON",
+          "outlineCall": {
+            "requestId": "outline-ab-a3ce81f4-6638-427e-97f3-ee0fee0f38e5",
+            "elapsedMs": 40064,
+            "inputChars": 7145,
+            "outputChars": 6721,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-87ec2308-119d-42ac-ab62-14c2df6ab234",
+            "elapsedMs": 170200,
+            "inputChars": 15567,
+            "outputChars": 28230,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 4,
+          "outlineSeconds": 665
+        }
+      },
+      "judgeValid": false,
+      "preferred": null
+    },
+    {
+      "key": "complex",
+      "round": 2,
+      "versions": {
+        "A": {
+          "status": "completed",
+          "key": "complex",
+          "round": 2,
+          "version": "A",
+          "inputHash": "54793e96bab1c363c2e9145580d5e102909088b2ef1db4f0048181eefefa48a0",
+          "metrics": {
+            "shotCount": 22,
+            "beatCount": 46,
+            "anchorCount": 16,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 23,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 461,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-1cbe592e-da65-4601-a246-5dffeb21062a",
+            "elapsedMs": 70109,
+            "inputChars": 7478,
+            "outputChars": 10289,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-9758ee5d-a569-41a4-b84b-74664223ff8c",
+            "elapsedMs": 170245,
+            "inputChars": 19481,
+            "outputChars": 27309,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 5,
+          "outlineSeconds": 765,
+          "judge": {
+            "scores": {
+              "story_quality": 4,
+              "continuity": 2,
+              "coverage": 3,
+              "dialogue": 3,
+              "no_readaptation": 2,
+              "shootability": 2
+            },
+            "issues": [
+              {
+                "severity": "critical",
+                "dimension": "continuity",
+                "segment_id": "segment_002",
+                "shot_ids": [
+                  "shot_005",
+                  "shot_006",
+                  "shot_008"
+                ],
+                "evidence": "shot_005把电台设为“小满在大厅使用电台”，并写沈岚在大厅与二层通路附近；shot_006罗闻在泵房内听到三连击；shot_008却将事件定为21:51后、沈岚在泵房控制柜旁处理故障。大纲将沈岚到泵房及开柜定在21:54。",
+                "explanation": "镜头把沈岚到场开柜提前，且电台位置/监听关系不同于大纲已定空间与时序，造成明显的时空和知情顺序冲突。"
+              },
+              {
+                "severity": "major",
+                "dimension": "no_readaptation",
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_018"
+                ],
+                "evidence": "大纲止于“准备由人守住压轮、由其他人拉门救人”，镜头beat直接写“各人重新站定后，沈岚双手压紧泄压轮，江禾和许衡合力拉开检修门”。",
+                "explanation": "镜头将下一段正式救援的执行动作提前到重新分工段，改变段落事件推进并提前启动救援。"
+              },
+              {
+                "severity": "major",
+                "dimension": "shootability",
+                "segment_id": "segment_005",
+                "shot_ids": [
+                  "shot_020"
+                ],
+                "evidence": "同一镜先写“许衡与罗闻共同收绳”，随后才写“陈姨……江禾将救援绳一端绕过门外固定柱，另一端递给陈姨”。",
+                "explanation": "收绳发生在绳端固定、扣到陈姨腰间之前，动作因果与绳路无法按所列顺序执行。"
+              },
+              {
+                "severity": "major",
+                "dimension": "no_readaptation",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_013",
+                  "shot_014"
+                ],
+                "evidence": "大纲写罗闻压轮、许衡和江禾拉门，沈岚切断回路后另行拉门；shot_013称“门外人员准备尝试开门”，shot_014又写沈岚、许衡、江禾拉门时罗闻压轮。",
+                "explanation": "镜头将第一轮拉门动作放在沈岚切断回路之前，擅自重排关键操作因果，且使同一轮救援的动作次序与定稿大纲不符。"
+              },
+              {
+                "severity": "major",
+                "dimension": "coverage",
+                "segment_id": "segment_001",
+                "shot_ids": [
+                  "shot_003"
+                ],
+                "evidence": "大纲写许衡走进旧仓间才低声承认维修件下周才到；镜头写“切至旧仓间内单独背景区域，许衡压低声音”，但同时写“江禾听不清电话内容”，没有说明许衡说话对象或是否在通话。",
+                "explanation": "具体延期内容被镜头声场排除，许衡的隐瞒及江禾误判未被明确拍成可辨的信息差。"
+              },
+              {
+                "severity": "major",
+                "dimension": "continuity",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_011",
+                  "shot_012",
+                  "shot_013"
+                ],
+                "evidence": "shot_011写江禾在旧仓间播放录音；shot_012写她回大厅后与许衡相遇，并在后续动作将蓝钥匙交还罗闻；shot_013却称“蓝钥匙已由罗闻收在胸前透明小袋”，同时该镜没有交还动作。",
+                "explanation": "镜头之间的钥匙状态虽有口头说明但交接动作被省略，实物状态跳变，影响唯一钥匙的连续性。"
+              },
+              {
+                "severity": "minor",
+                "dimension": "coverage",
+                "segment_id": "segment_007",
+                "shot_ids": [
+                  "shot_021",
+                  "shot_022"
+                ],
+                "evidence": "大纲明确写许衡公开承认延报责任；shot_021只写他贴通知、写时间并交出钥匙和记录本，没有呈现承认责任。",
+                "explanation": "公开承担责任是结尾重要结果，但镜头只落实了记录更新，责任承认未落地。"
+              }
+            ]
+          }
+        },
+        "B": {
+          "status": "completed",
+          "key": "complex",
+          "round": 2,
+          "version": "B",
+          "inputHash": "54793e96bab1c363c2e9145580d5e102909088b2ef1db4f0048181eefefa48a0",
+          "metrics": {
+            "shotCount": 34,
+            "beatCount": 34,
+            "anchorCount": 20,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 24,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 453,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-41f06f73-8e01-4ab3-94fe-7752fb45ad30",
+            "elapsedMs": 110169,
+            "inputChars": 7145,
+            "outputChars": 8618,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-468612f7-9f5a-42bb-b516-f0159c768557",
+            "elapsedMs": 275387,
+            "inputChars": 17870,
+            "outputChars": 32372,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 7,
+          "outlineSeconds": 920,
+          "judge": {
+            "scores": {
+              "story_quality": 3,
+              "continuity": 3,
+              "coverage": 4,
+              "dialogue": 3,
+              "no_readaptation": 3,
+              "shootability": 3
+            },
+            "issues": [
+              {
+                "severity": "major",
+                "dimension": "coverage",
+                "segment_id": "segment_001",
+                "shot_ids": [
+                  "shot_003",
+                  "shot_004"
+                ],
+                "evidence": "大纲写许衡在旧仓间“低声承认维修件下周才到”，镜头仅写“许衡说：‘现场没有异常。’”并称“电话内容不清晰、不提供可辨信息”；而shot_003的行动又称江禾误以为他在隐瞒事故。",
+                "explanation": "定稿大纲中许衡承认延期的声音没有落实到镜头；观众只能看到遮挡动作，重要的误解来源和许衡具体隐瞒事项缺少可执行呈现。"
+              },
+              {
+                "severity": "major",
+                "dimension": "coverage",
+                "segment_id": "segment_004",
+                "shot_ids": [
+                  "shot_021"
+                ],
+                "evidence": "大纲写“罗闻的右腿旧伤发软，手不由得离开压轮”，镜头只写“手不由得离开压轮”，没有呈现右腿旧伤发软。",
+                "explanation": "镜头未落实罗闻因旧伤失手这一关键因果，可能让第一轮失败看起来像无缘由松手，削弱其无辜且行动受限的呈现。"
+              },
+              {
+                "severity": "minor",
+                "dimension": "coverage",
+                "segment_id": "segment_001",
+                "shot_ids": [
+                  "shot_001",
+                  "shot_002"
+                ],
+                "evidence": "大纲开场包括江禾质问“你们每次都说没事。上次也是。”；shot_001、shot_002均无这句对白。",
+                "explanation": "姐妹旧怨的直接触发台词未进入镜头，虽有挡镜头动作承接冲突，关系起点仍较弱。"
+              },
+              {
+                "severity": "minor",
+                "dimension": "continuity",
+                "segment_id": "segment_003",
+                "shot_ids": [
+                  "shot_019",
+                  "shot_020",
+                  "shot_021"
+                ],
+                "evidence": "shot_019称自动重发已切断、红钥匙腕带挂柜旁；shot_020随后称沈岚从泵房侧拉门；shot_021延续该动作，但未交代红钥匙/腕带从挂钩处移开。",
+                "explanation": "此处没有明确矛盾，不据此判持物错误；不过腕带挂钩状态缺少承接，拍摄连续性需补明。"
+              }
+            ]
+          }
+        }
+      },
+      "judgeValid": true,
+      "preferred": "B",
+      "judgeReason": "X总体按定稿大纲落实事件、关键对白及救援动作，问题集中在少数漏拍和因果表现偏弱。Y有更明显的时序与动作因果冲突：沈岚到场开柜时点提前、分工段提前执行救援、第一轮拉门次序颠倒，且绳索收紧早于固定与系扣。"
+    },
+    {
+      "key": "complex",
+      "round": 3,
+      "versions": {
+        "A": {
+          "status": "failed",
+          "key": "complex",
+          "round": 3,
+          "version": "A",
+          "error": "response：不是有效JSON",
+          "outlineCall": {
+            "requestId": "outline-ab-9b4e4695-ddac-4da0-94a8-be5929d0902a",
+            "elapsedMs": 130285,
+            "inputChars": 7478,
+            "outputChars": 13417,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-f5526653-5735-4405-9ffc-a283e1e3a8d1",
+            "elapsedMs": 145304,
+            "inputChars": 22980,
+            "outputChars": 3383,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 7,
+          "outlineSeconds": 955
+        },
+        "B": {
+          "status": "completed",
+          "key": "complex",
+          "round": 3,
+          "version": "B",
+          "inputHash": "54793e96bab1c363c2e9145580d5e102909088b2ef1db4f0048181eefefa48a0",
+          "metrics": {
+            "shotCount": 24,
+            "beatCount": 50,
+            "anchorCount": 18,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 22,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 463,
+            "issues": []
+          },
+          "outlineCall": {
+            "requestId": "outline-ab-340cbcfa-acd1-4de1-8bc5-35d8a9a6269e",
+            "elapsedMs": 55139,
+            "inputChars": 7145,
+            "outputChars": 8245,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "shotCall": {
+            "requestId": "outline-ab-9b144f93-89a1-4c8b-93dd-5416f3a4263b",
+            "elapsedMs": 200408,
+            "inputChars": 17435,
+            "outputChars": 27318,
+            "transport": [
+              {
+                "usage": null,
+                "error": null
+              },
+              {
+                "usage": null,
+                "ok": true,
+                "error": null
+              }
+            ]
+          },
+          "segmentCount": 7,
+          "outlineSeconds": 1060
+        }
+      },
+      "judgeValid": false,
+      "preferred": null
+    }
+  ]
+}

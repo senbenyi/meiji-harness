@@ -1,0 +1,18 @@
+{
+  "key": "complex",
+  "round": 2,
+  "stages": {
+    "outline": "passed",
+    "shot": "passed"
+  },
+  "metrics": {
+    "shotCount": 28,
+    "beatCount": 56,
+    "missingSegments": [],
+    "missingAnchors": [],
+    "issues": []
+  },
+  "status": "failed",
+  "failedStage": "final",
+  "error": "response：不是有效JSON"
+}

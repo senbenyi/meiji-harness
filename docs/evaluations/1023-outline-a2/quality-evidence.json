@@ -1,0 +1,184 @@
+[
+  {
+    "id": "E01",
+    "kind": "fixed/contradiction",
+    "finding": "月界第1轮栅门关闭与穿出并存，压缩未解决来源冲突",
+    "assessment": "两版均有；来源冲突另列，不归因字段结构",
+    "references": [
+      {
+        "file": "controls/moon/round-1/A1/response.txt",
+        "quote": "栅门保持关闭"
+      },
+      {
+        "file": "controls/moon/round-1/A2/response.txt",
+        "quote": "栅门保持关闭，麦思敦从门内挥着小刀冲出栅门"
+      }
+    ],
+    "literalVerified": true
+  },
+  {
+    "id": "E02",
+    "kind": "fixed/regression",
+    "finding": "武松第1轮药碗分片重新引入此前说完的人声",
+    "assessment": "新版声音时序回退；本拍audio只有碗声和克制厨房声",
+    "references": [
+      {
+        "file": "controls/wusong/round-1/source.json",
+        "quote": "武大郎在楼上问"
+      },
+      {
+        "file": "controls/wusong/round-1/A1/response.txt",
+        "quote": "无新增人声"
+      },
+      {
+        "file": "controls/wusong/round-1/A2/response.txt",
+        "quote": "楼上卧房里传来武大郎的声音"
+      }
+    ],
+    "literalVerified": true
+  },
+  {
+    "id": "E03",
+    "kind": "fixed/regression",
+    "finding": "武松第1轮新版仍使用刀在手边的旧状态，旧版本次正确继承踢离",
+    "assessment": "同输入下新版起点不如本次旧版",
+    "references": [
+      {
+        "file": "controls/wusong/round-1/source.json",
+        "quote": "短刀被踢离西门庆手边"
+      },
+      {
+        "file": "controls/wusong/round-1/A1/response.txt",
+        "quote": "短刀已被踢离手边"
+      },
+      {
+        "file": "controls/wusong/round-1/A2/response.txt",
+        "quote": "短刀在西门庆手边"
+      }
+    ],
+    "literalVerified": true
+  },
+  {
+    "id": "E04",
+    "kind": "fixed/clarity",
+    "finding": "武松第1轮新版明确破损衣袖属于武松，行文指代更清楚",
+    "assessment": "局部表达改善，不据此给全链路判胜",
+    "references": [
+      {
+        "file": "controls/wusong/round-1/A1/response.txt",
+        "quote": "开场时武大郎已被武松推到垂布后方，左臂衣袖被划开"
+      },
+      {
+        "file": "controls/wusong/round-1/A2/response.txt",
+        "quote": "武松左袖已被短刀划开"
+      }
+    ],
+    "literalVerified": true
+  },
+  {
+    "id": "E05",
+    "kind": "fixed/retained",
+    "finding": "复杂第1轮精简仍保留泄压必要条件与失败结果",
+    "assessment": "表达效率改善，动作因果保持；并非剧情质量新增提升",
+    "references": [
+      {
+        "file": "controls/complex/round-1/A1/response.txt",
+        "quote": "失去持续按压后，门迅速合回"
+      },
+      {
+        "file": "controls/complex/round-1/A2/response.txt",
+        "quote": "失去持续按压后，门迅速合回并发出撞击声，没有夹伤陈姨"
+      }
+    ],
+    "literalVerified": true
+  },
+  {
+    "id": "E06",
+    "kind": "fixed/wording",
+    "finding": "武松第2轮新版把声音特征误接到脸",
+    "assessment": "轻微措辞退化；soundscape另正确保留声音，不能说声音完全遗漏",
+    "references": [
+      {
+        "file": "controls/wusong/round-2/source.json",
+        "quote": "武大郎声音发颤却清楚"
+      },
+      {
+        "file": "controls/wusong/round-2/A2/response.txt",
+        "quote": "发颤却清楚的脸"
+      }
+    ],
+    "literalVerified": true
+  },
+  {
+    "id": "E07",
+    "kind": "fixed/detail",
+    "finding": "武松第2轮已给定尘屑氛围在新版正文不再表达",
+    "assessment": "描述具体性有所减少，单独不足以判严重错误；不要求复制全部背景",
+    "references": [
+      {
+        "file": "controls/wusong/round-2/source.json",
+        "quote": "尘屑在光线中浮动"
+      },
+      {
+        "file": "controls/wusong/round-2/A1/response.txt",
+        "quote": "尘屑浮动"
+      },
+      {
+        "file": "controls/wusong/round-2/A2/response.txt",
+        "quote": "后门已打开，晨光照入"
+      }
+    ],
+    "literalVerified": true
+  },
+  {
+    "id": "E08",
+    "kind": "fixed/control_language",
+    "finding": "月界第3轮新版仍有控制性解释进入最终正文",
+    "assessment": "去控制文案未完全达成；原台词或剧情必需的否定表达不在此列",
+    "references": [
+      {
+        "file": "controls/moon/round-3/A2/response.txt",
+        "quote": "不扩写回应原话"
+      }
+    ],
+    "literalVerified": true
+  },
+  {
+    "id": "E09",
+    "kind": "full/continuity",
+    "finding": "武松第3轮最终描述未继承此前后门已打开且哥哥已走近",
+    "assessment": "本轮全链路的起点状态仍不稳定，不是固定输入配对胜负证据",
+    "references": [
+      {
+        "file": "results/wusong/round-3/A2/final/selection.json",
+        "quote": "武大郎打开后门，周巡检带官差进入"
+      },
+      {
+        "file": "results/wusong/round-3/A2/final/response.txt",
+        "quote": "武大郎站在尚未完全打开的后门边"
+      }
+    ],
+    "literalVerified": true
+  },
+  {
+    "id": "E10",
+    "kind": "fixed/upstream_dialogue",
+    "finding": "月界第2轮来源只有转述，新旧均自行补成直接台词",
+    "assessment": "本次两版请求方向均合理，不能用历史旧版写反来宣称新版稳定改善；根因在上游台词未锁定。A1包装格式失败，仅作可读内容核查",
+    "references": [
+      {
+        "file": "controls/moon/round-2/source.json",
+        "quote": "麦思敦请求同行，声音含泪"
+      },
+      {
+        "file": "controls/moon/round-2/A1/response.txt",
+        "quote": "你能让我一同前往吗？"
+      },
+      {
+        "file": "controls/moon/round-2/A2/response.txt",
+        "quote": "你能让我和你们一同前往吗？"
+      }
+    ],
+    "literalVerified": true
+  }
+]

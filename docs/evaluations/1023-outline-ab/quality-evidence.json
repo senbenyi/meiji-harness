@@ -1,0 +1,93 @@
+[
+  {
+    "case": "moon",
+    "round": 1,
+    "version": "A",
+    "topic": "crowd",
+    "stage": "final-v2",
+    "finding": "关闭状态与穿出动作冲突",
+    "quote": "栅门保持关闭。镜头贴身跟随麦思敦从栅门内穿出进入人群",
+    "origin": "来源开场栅门关闭；当前动作冲出，转译没有交代门状态变化。不能仅凭此归因大纲字段。",
+    "type": "negative",
+    "literalQuoteVerified": true,
+    "source_file": "results/moon/round-1/A/final-v2/response.txt"
+  },
+  {
+    "case": "moon",
+    "round": 1,
+    "version": "B",
+    "topic": "crowd",
+    "stage": "final-v2",
+    "finding": "怒气与动作、群体反应有可见落实",
+    "quote": "动作果断急切，面容因怒气紧绷",
+    "origin": "来源已明确怒气镇住观众，属于表演具体化。",
+    "type": "positive",
+    "literalQuoteVerified": true,
+    "source_file": "results/moon/round-1/B/final-v2/response.txt"
+  },
+  {
+    "case": "wusong",
+    "round": 1,
+    "version": "A",
+    "topic": "medicine",
+    "stage": "final-v2",
+    "finding": "犹疑通过手抖、盯视、端起又放下落实",
+    "quote": "她的手抖了一下，随后盯着粉末溶开，神情与目光收紧；她端起碗，又将碗放回桌面",
+    "origin": "来源完整动作得到保留，未靠抽象情绪标签代替。",
+    "type": "positive",
+    "literalQuoteVerified": true,
+    "source_file": "results/wusong/round-1/A/final-v2/response.txt"
+  },
+  {
+    "case": "wusong",
+    "round": 1,
+    "version": "A",
+    "topic": "fight",
+    "stage": "final-v2",
+    "finding": "分片起点沿用旧在场状态，人物同时已脱困又被挟持",
+    "quote": "已将哥哥推到垂布后方；西门庆在染缸边持刀，武大郎受制于他",
+    "origin": "共用提示词适配以shot开场资料及prior_beats_context提供累积状态，模型未正确合并；问题在转译状态继承，不把它当作大纲结构单独因果证据。",
+    "type": "negative",
+    "literalQuoteVerified": true,
+    "source_file": "results/wusong/round-1/A/final-v2/response.txt"
+  },
+  {
+    "case": "complex",
+    "round": 1,
+    "version": "A",
+    "topic": "keys",
+    "stage": "final",
+    "finding": "探索样本钥匙交接完整",
+    "quote": "从控制柜旁挂钩取下红钥匙，锁上已断电控制柜，再把钥匙交给站在柜旁的许衡",
+    "origin": "探索记录，排除正式胜负，仅供说明什么是充分可执行的过程。",
+    "type": "exploratory_positive",
+    "literalQuoteVerified": true,
+    "source_file": "results/complex/round-1/A/final/response.txt"
+  },
+  {
+    "case": "moon",
+    "round": 2,
+    "version": "A",
+    "topic": "farewell",
+    "stage": "final-v2",
+    "finding": "转述未定稿导致下游补写台词并倒置请求方向",
+    "quote": "你能和我一同前往吗？",
+    "origin": "来源音频只有麦思敦请求同行，声音含泪；实际意图是请求让自己同行，不是邀请本来就出发的巴比堪同行。",
+    "type": "negative",
+    "literalQuoteVerified": true,
+    "source_file": "results/moon/round-2/A/final-v2/response.txt"
+  },
+  {
+    "case": "complex",
+    "round": 2,
+    "version": "B",
+    "topic": "rescue",
+    "stage": "final-v2",
+    "finding": "救援站位、朝向、持续按压条件明确",
+    "quote": "双手持续压住机械泄压轮",
+    "origin": "来源持续按压是开门必要条件，文本与其他人员分工相互对应。",
+    "type": "positive",
+    "literalQuoteVerified": true,
+    "source_file": "results/complex/round-2/B/final-v2/response.txt"
+  }
+]

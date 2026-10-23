@@ -1,0 +1,30 @@
+{
+  "createdAt": "2026-10-23T12:40:37.649Z",
+  "model": "codex-gpt",
+  "output_language": "zh-CN",
+  "rounds": 3,
+  "fullConcurrency": 2,
+  "controlConcurrency": 1,
+  "maximumConcurrentRequests": 3,
+  "timeoutMs": 900000,
+  "sampling": "模型服务默认，无seed/temperature；无内容重采样和调用重试",
+  "upstreamGoals": "与历史A完全一致",
+  "finalGoal": "仅为指定完整节拍生成文生视频提示词，不输出评语。",
+  "hashes": {
+    "story": "6c7a701843922b5c819b019f0939b978d3549e5c7b14c0ccbedd7855b02fd568",
+    "shot": "2fc24907352f8815a763a3cfccbb48bfd2e07e933625f91f42eae19139426394",
+    "video": "8343e790cccc216c69f52243e0af131c4a3a11cfe07883a91ff04ebcc433d750",
+    "definitions": "ad58d4591539a61a5277d756fdf69114bade9225cab7b189ac884a47fa7daaf3"
+  },
+  "comparison": "历史A全链路 + 同输入新旧最终规则控制组，非同时随机化全链路对照",
+  "completedAt": "2026-10-23T13:17:14.588Z",
+  "actualRequests": 38,
+  "actualReturned": 38,
+  "cacheReused": 0,
+  "actualStageRequests": {
+    "outline": 9,
+    "shot": 9,
+    "final": 4,
+    "controls": 16
+  }
+}

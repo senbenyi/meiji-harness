@@ -7,7 +7,7 @@ export default { kind: "text", output: object({
       "previous_shot_connection": string("与前镜的叙事衔接类型。", { enum: ["opening", "continuous", "cut"] }),
       "story_segment_id": string("对应故事段ID。", { minLength: 1 }),
       "title": string("当前对象标题。", { minLength: 1 }),
-      "key_anchor_ids": array(string("anchor_001")),
+      "key_anchor_ids": array(string("segment_001_anchor_001；引用故事段中实际保存的锚点ID，已有ID保持原样。")),
       "scene": object({
         "scene_id": string("明确关联的场景ID；无资产时为空。"),
         "state": string("本镜开场环境状态及光照。"),

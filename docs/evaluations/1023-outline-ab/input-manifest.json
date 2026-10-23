@@ -1,0 +1,17 @@
+[
+  {
+    "file": "月界旅行.txt",
+    "copy_matches": true,
+    "sha256": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93"
+  },
+  {
+    "file": "武松_兄长不死_六场约30分钟.txt",
+    "copy_matches": true,
+    "sha256": "65d322ccdd69443dbdd5aac5faeab3189f4abbcb1ca7ed99c1880140437188f0"
+  },
+  {
+    "file": "最后一班潮汐_复杂测试剧本.txt",
+    "copy_matches": true,
+    "sha256": "54793e96bab1c363c2e9145580d5e102909088b2ef1db4f0048181eefefa48a0"
+  }
+]

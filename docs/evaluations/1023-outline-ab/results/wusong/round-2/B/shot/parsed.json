@@ -1,0 +1,1776 @@
+{
+  "shots": [
+    {
+      "id": "shot_001",
+      "previous_shot_connection": "opening",
+      "story_segment_id": "segment_001",
+      "title": "火场托举",
+      "key_anchor_ids": [
+        "segment_001_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "现代燃烧房间内火势猛烈，浓烟遮蔽空间，火光跳动。",
+        "spatial_setup": "房间内部，墙角有待救的孩子，通向窗户的路径被烟火包围；横梁横跨头顶。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "林峥",
+          "presence": "在画面内，现代消防员身份。",
+          "position": "房间内，靠近墙角与孩子。",
+          "facing": "朝向孩子与窗户方向。",
+          "gaze_target": "孩子和逃生方向。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "孩子",
+          "presence": "在场，林峥正在救援。",
+          "position": "房间墙角。",
+          "facing": "不明。",
+          "gaze_target": "林峥。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "窗外接应者",
+          "presence": "窗外接应，作为画外或局部可见对象。",
+          "position": "窗外。",
+          "facing": "朝向窗内。",
+          "gaze_target": "林峥与孩子。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 5,
+          "action": "林峥戴着呼吸器冲进火场，穿过烟火抵达墙角，弯身抱起孩子。",
+          "camera": "首拍中景建立火场空间与林峥的冲入方向，跟随他穿过烟雾，落到抱起孩子的动作。",
+          "scene_changes": "火势与浓烟持续。",
+          "effects": "火焰吞吐、烟尘翻卷，随火势持续。",
+          "audio": "火焰燃烧与结构受热的噼啪声连续；林峥呼吸器的沉重呼吸声随奔跑同步。"
+        },
+        {
+          "duration_seconds": 3,
+          "action": "林峥把孩子托向窗外接应者；他刚抬头，头顶横梁断裂，火光吞没视野。",
+          "camera": "镜头贴近托举动作，随林峥抬头短促上仰至断裂横梁，随后被火光覆盖。",
+          "scene_changes": "横梁断裂，火场空间被坍落物与火光遮蔽。",
+          "effects": "横梁断裂落下，火焰猛然遮满画面。",
+          "audio": "木梁断裂轰响压过火声；呼吸声与火场声骤然被坍塌巨响吞没。"
+        }
+      ]
+    },
+    {
+      "id": "shot_002",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_001",
+      "title": "陌生的醒来",
+      "key_anchor_ids": [
+        "segment_001_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "乡间屋内，发黑房梁下无火，楼下蒸笼升起白气；室内光线朴素微暗。",
+        "spatial_setup": "床在房间内，床边立哨棒；铜盆置于可俯身照看的位置，楼梯通向楼下灶间。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "镜头开场醒来在场，现代林峥已处于武松身体中。",
+          "position": "床上，身体仍保持托举姿势。",
+          "facing": "仰卧。",
+          "gaze_target": "先望向上方，再看向右手虎口与铜盆。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 4,
+          "action": "武松猛然醒来，仍维持托举姿势；他发现房梁发黑却没有火，楼下蒸笼白气升起。",
+          "camera": "近景从托举姿势落到武松惊醒的脸，再缓慢带出房梁与窗外/楼下白气。",
+          "scene_changes": "无新增环境变化。",
+          "effects": "无。",
+          "audio": "楼下传来招呼：“二郎，饼快凉了！”蒸笼轻响与远处屋内日常声衬出火场声的消失。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "武松看见粗布短衣、床边哨棒，俯身望铜盆；山岗、猛虎、人群喊“武都头”的记忆碎片闪过。他看见右手虎口旧疤，低声道：“武松？”",
+          "camera": "由衣着与哨棒的主观扫视切至铜盆倒影，再特写虎口旧疤；记忆碎片以短促闪现处理，不形成完整新场景。",
+          "scene_changes": "无。",
+          "effects": "山岗、猛虎与人群记忆碎片短暂闪现后消散。",
+          "audio": "记忆中的人群声闪过：“武都头！”武松低声道：“武松？”"
+        }
+      ]
+    },
+    {
+      "id": "shot_003",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_001",
+      "title": "灶前兄嫂",
+      "key_anchor_ids": [
+        "segment_001_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "武家楼下灶间与饭桌区域，蒸笼白气升腾，室内有日常晨间光线。",
+        "spatial_setup": "楼梯口连接楼上；灶台与竹篮在后方，饭桌和茶碗在前；潘金莲从里屋方向出来。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "开场由楼梯冲入画面。",
+          "position": "楼梯口，随后进入灶间。",
+          "facing": "冲向灶前。",
+          "gaze_target": "武大郎与潘金莲。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，正在装炊饼。",
+          "position": "灶前，竹篮旁。",
+          "facing": "朝向竹篮与武松。",
+          "gaze_target": "武松。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "开场从里屋端茶出来。",
+          "position": "里屋与灶间交界处。",
+          "facing": "朝向饭桌。",
+          "gaze_target": "武松。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 4,
+          "action": "武松冲下楼，险些撞翻水缸；灶前武大郎把炊饼装进竹篮，潘金莲端茶从里屋出来。",
+          "camera": "跟随武松下楼进入灶间，及时收住构图让水缸、灶台和兄嫂同处一个空间。",
+          "scene_changes": "水缸被险险避开，未翻倒。",
+          "effects": "蒸笼白气持续升腾。",
+          "audio": "脚步急促，灶火与蒸笼声持续；无对白。"
+        },
+        {
+          "duration_seconds": 4,
+          "action": "武大郎看武松脸色不对，递来热茶；武松脑中闪过“大郎，该吃药了”，挥手打翻茶碗，碎片四散，热茶烫红潘金莲指背。她缩手问：“叔叔这是发的什么脾气？”武大郎挡在她身前：“没睡醒，没睡醒。我再倒一碗。”",
+          "camera": "先取茶碗递出的中景，随挥手下摇到碗碎与茶水，再抬到潘金莲缩手及武大郎挡身。",
+          "scene_changes": "茶碗碎裂，茶水洒在地面；潘金莲指背烫红。",
+          "effects": "记忆字句“大郎，该吃药了”短促闪现；热茶溅起后消散。",
+          "audio": "武大郎：“又做噩梦了？喝口热的。”记忆声/心念：“大郎，该吃药了。”碗碎声；潘金莲：“叔叔这是发的什么脾气？”武大郎：“没睡醒，没睡醒。我再倒一碗。”"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "武松抓住武大郎肩头，仔细看他的脸、听他的呼吸，直到武大郎皱眉说“二郎，疼”。武松立刻松手，眼眶发红：“哥，你还活着。”",
+          "camera": "紧贴武松双手与武大郎脸部，再以呼吸起伏的近景交代确认；武松松手后留在双人近景。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "武大郎：“二郎，疼。”武松：“哥，你还活着。”环境声略收，保留近距离呼吸。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "武大郎怔了怔，笑道：“大清早的，净说胡话。你哥不活着，谁给你做饼？”他把炊饼塞进弟弟手里。武松攥着饼，迟迟没有咬。潘金莲蹲下收拾碎片，察觉武松戒备的目光，动作一顿；武大郎叫她拿笤帚，别伤了手。",
+          "camera": "镜头由兄弟近景放宽到潘金莲蹲身收拾的同一灶间空间，停在她察觉目光的瞬间。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "武大郎：“大清早的，净说胡话。你哥不活着，谁给你做饼？”随后：“拿笤帚，别伤了手。”碎片轻碰地面声。"
+        }
+      ]
+    },
+    {
+      "id": "shot_004",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_001",
+      "title": "稳住担子",
+      "key_anchor_ids": [
+        "segment_001_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "武家门口连接街巷，晨间自然光；炊饼担子与门框构成窄通路。",
+        "spatial_setup": "门框在近景，武大郎与武松在门内外交接担子；街巷向外延伸。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，准备出门。",
+          "position": "门内侧，靠近担子。",
+          "facing": "朝向门外。",
+          "gaze_target": "武大郎与担子。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，与武松同行。",
+          "position": "门内侧担子旁。",
+          "facing": "朝向武松。",
+          "gaze_target": "武松。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 6,
+          "action": "出门时武松帮哥哥担起炊饼担子，用力过猛，竹篮撞上门框，几个饼滚落。武大郎笑着接回扁担：“打虎的力气，做不得这个。得稳。”武松蹲下捡饼，试着放轻动作，问自己原定哪日出门办差。武大郎说三日后去州府送文书。武松掩饰道：“我记岔了。”",
+          "camera": "门内中景完整呈现交接与碰框，随滚落炊饼下摇，最后回到兄弟蹲站的双人构图。",
+          "scene_changes": "几个饼滚落门边，随后被捡起。",
+          "effects": "无。",
+          "audio": "竹篮撞门框声、饼落地声。武大郎：“打虎的力气，做不得这个。得稳。”武松问原定哪日出门办差；武大郎：“三日后去州府送文书。”武松：“我记岔了。”"
+        }
+      ]
+    },
+    {
+      "id": "shot_005",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_001",
+      "title": "街上卖饼",
+      "key_anchor_ids": [
+        "segment_001_anchor_001",
+        "segment_001_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "县城街市日间，街面有行人车轮，王婆茶坊临街开门。",
+        "spatial_setup": "武家兄弟的担子在街面；郓哥在附近；茶坊位于街对面，门前帘子通向后院；街口告示张贴处可见。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，与哥哥沿街卖饼。",
+          "position": "炊饼担旁。",
+          "facing": "沿街并朝茶坊方向观察。",
+          "gaze_target": "郓哥、茶坊与街口告示。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，经营炊饼担。",
+          "position": "担子旁。",
+          "facing": "朝向顾客与街道。",
+          "gaze_target": "郓哥及担子。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "郓哥",
+          "presence": "在场，接过略焦的饼。",
+          "position": "担子旁。",
+          "facing": "朝向武大郎。",
+          "gaze_target": "武大郎。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "王婆",
+          "presence": "在街对面茶坊门口。",
+          "position": "茶坊门前。",
+          "facing": "朝向来客。",
+          "gaze_target": "穿深蓝绸袍的男人。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "在场，穿深蓝绸袍进入茶坊。",
+          "position": "茶坊门外至门内。",
+          "facing": "朝向茶坊。",
+          "gaze_target": "王婆与茶坊内。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "武大郎把略焦的饼送给郓哥，不收钱，还叮嘱他先顾好父亲、别饿着肚子跑。武松记住郓哥的脸。",
+          "camera": "中景交代街面与担子，近景落在递饼和武松观察郓哥的目光。",
+          "scene_changes": "无。",
+          "effects": "街市人流持续。",
+          "audio": "街市环境声、车轮声。武大郎叮嘱郓哥先顾好父亲、别饿着肚子跑；无新增台词引述。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "街对面王婆笑迎穿深蓝绸袍的男人进茶坊。武松问他是谁，郓哥说是开药铺、半条街都欠他人情的西门大官人。武松放下篮子想去茶坊，王婆挡在门前招呼他吃茶，武松目光越过她停在通往后院的帘子上。",
+          "camera": "从担子方向望向对街茶坊，随武松放篮起身轻移，最后透过王婆身侧构图看见后院帘子。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "武松问他是谁；郓哥回答：“开药铺、半条街都欠他人情的西门大官人。”王婆招呼武松吃茶；街声持续。"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "街对面武大郎叫武松帮忙扶正被车轮碰歪的担子，武松立刻回身。等他再看，后帘已落下。街口新贴告示，武松读完后回望茶坊。武大郎掰开炊饼，把较大的一半递给他：“别老板着脸。回了家，就把心放下。”武松接饼，看见哥哥手上的烫伤，说：“哥，这几日，我陪你。”",
+          "camera": "先随武松回身扶担，再回望茶坊帘子落下；移至街口告示近景，文字清楚可读：“周巡检奉命查核军中药材，三日后抵县，知情者可到驿馆递状。”最后以兄弟并肩近景收束。",
+          "scene_changes": "街口张贴告示。",
+          "effects": "无。",
+          "audio": "车轮碰担子的声响。告示文字为画面文字。武大郎：“别老板着脸。回了家，就把心放下。”武松：“哥，这几日，我陪你。”"
+        }
+      ]
+    },
+    {
+      "id": "shot_006",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_002",
+      "title": "金簪与院子",
+      "key_anchor_ids": [
+        "segment_002_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "当日下午王婆茶坊后房，窗光柔暗，茶壶置入室内。",
+        "spatial_setup": "后房门通前厅，桌在室内中央，床与屏风在一侧；离门处可离开，王婆能从前厅照应。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "王婆",
+          "presence": "开场将茶壶放进后房，随后退出。",
+          "position": "后房门口。",
+          "facing": "朝向室内。",
+          "gaze_target": "潘金莲与西门庆。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "在场，穿藕色外衫，手捏针线包。",
+          "position": "桌旁。",
+          "facing": "朝向门口。",
+          "gaze_target": "西门庆。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "在场，门外应声后进入后房。",
+          "position": "门口至桌旁。",
+          "facing": "朝向潘金莲。",
+          "gaze_target": "潘金莲。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "王婆把茶壶放进后房。潘金莲问改衣裳的衣裳在哪里，门外西门庆答：“我穿着来的。”潘金莲看见他便转身要走。西门庆没有堵门，只把金簪放在桌上，说她上回看了两眼，掌柜说她走后又回来过。潘金莲反问看看也不成？西门庆说喜欢什么就该看得久一点。王婆退出前说前头由她照应，门闩轻响。",
+          "camera": "以门口与桌构成同框，保留潘金莲转身可离开的通路；金簪落桌时轻推近，王婆退出后留门闩。",
+          "scene_changes": "门闩轻响，后房与前厅分隔。",
+          "effects": "无。",
+          "audio": "西门庆：“我穿着来的。”潘金莲：“改衣裳的衣裳在哪里？”潘金莲：“看看也不成？”西门庆：“喜欢什么就该看得久一点。”王婆：“前头由我照应。”门闩轻响。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "潘金莲质问西门庆把她当什么人。他回答：“一个连喜欢什么都不敢说的人。”西门庆走到她身后，把金簪放进她掌心，没有替她戴上；他说城南有处院子，窗外就是河，不必再对着灶灰、整夜揉面。潘金莲问这些话他对多少人说过；西门庆让她住过便知道真假。她握紧金簪，偏头躲开他抚来的手，却没有退开。",
+          "camera": "围绕两人保持同一房间轴线，近景表现簪子交入掌心与躲手但未退开的身体距离。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "西门庆：“一个连喜欢什么都不敢说的人。”其余对话按正文原句逐句呈现：“城南有处院子，窗外就是河，不必再对着灶灰、整夜揉面。”潘金莲：“这些话你对多少人说过？”西门庆：“你住过便知道真假。”"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "潘金莲说武松回来了，西门庆答他总要走。她坦言武松今日看她的眼神像早知道什么，西门庆反问她为何还来。潘金莲没有回答，而是抓住他的衣襟主动吻上去。两人拥抱着移向床前，藕色外衫落在屏风上。画面停在金簪与晃动的茶水，床帷落下，室内声音渐隐；窗外日影移动，王婆几次为前厅客人续水。烛火点起后，潘金莲在镜前重新挽发，西门庆整理衣襟。她问何时带她去那院子，他从镜中回答：“等你把家里的事理清。”她的笑意淡了。",
+          "camera": "保持动作连续，随拥抱移到床前，不展示额外细节；以金簪和茶水静止构图承接床帷落下，再以日影移动与续水表现时间流逝，烛光后转镜前双人倒影。",
+          "scene_changes": "日影由日间移至烛火点起，后房光线转暖。",
+          "effects": "无。",
+          "audio": "潘金莲：“武松回来了。”西门庆：“他总要走。”潘金莲：“武松今日看我的眼神像早知道什么。”西门庆：“你为何还来？”床帷落下后室内声音渐隐，前厅续水声断续。潘金莲：“何时带我去那院子？”西门庆：“等你把家里的事理清。”"
+        }
+      ]
+    },
+    {
+      "id": "shot_007",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_002",
+      "title": "夜饭与新簪",
+      "key_anchor_ids": [
+        "segment_002_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "夜间武家屋内，桌上摆三碗粥，灯火照亮饭桌。",
+        "spatial_setup": "三人围桌，门口可通院子；桌上有饼、粥与潘金莲发间金簪。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，坐于饭桌旁。",
+          "position": "桌边。",
+          "facing": "朝向潘金莲与武松。",
+          "gaze_target": "潘金莲。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "夜里回到武家，在场。",
+          "position": "桌边。",
+          "facing": "朝向武大郎。",
+          "gaze_target": "桌上粥碗。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，观察潘金莲。",
+          "position": "桌边。",
+          "facing": "朝向潘金莲。",
+          "gaze_target": "她发间的金簪。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 9,
+          "action": "武大郎把最后一张饼推给潘金莲，问她为何改衣裳这么晚。潘金莲说拆了针脚又重缝。武松看见她发间新簪，问这簪子不像做针线挣来的。潘金莲放下碗，反问叔叔是不是要查她的账，又问他在外头得了赏钱，可曾每一文都告诉哥哥。武松无言。武大郎把粥端到弟弟面前：“吃饭。一家人，不审犯人。”",
+          "camera": "饭桌中景建立三人关系，簪子特写后回到潘金莲反问与武松无言的对切；不改变同桌空间。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "武大郎问为何改衣裳这么晚。潘金莲：“拆了针脚又重缝。”武松：“这簪子不像做针线挣来的。”潘金莲：“叔叔是不是要查我的账？你在外头得了赏钱，可曾每一文都告诉哥哥？”武大郎：“吃饭。一家人，不审犯人。”"
+        },
+        {
+          "duration_seconds": 3,
+          "action": "敲门声响，郓哥送来衙门封好的文书，说门房让他顺路捎来。文书将送文书的差事提前到次日一早。",
+          "camera": "由饭桌转向门口，文书封口及交接清楚可见，再停在兄弟读取文书的反应。",
+          "scene_changes": "衙门封好的文书进入屋内。",
+          "effects": "无。",
+          "audio": "敲门声。郓哥说明门房让他顺路捎来；文书传达次日一早启程。"
+        }
+      ]
+    },
+    {
+      "id": "shot_008",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_002",
+      "title": "院中裂棒",
+      "key_anchor_ids": [
+        "segment_002_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "深夜武家院落，灯火有限，院内静。",
+        "spatial_setup": "武松在院中持哨棒练习；武大郎提灯从屋内出来，二人隔院相对。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，独自在院中练握哨棒。",
+          "position": "院落中央。",
+          "facing": "朝向哨棒动作方向。",
+          "gaze_target": "手中哨棒。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "开场从屋内提灯出来。",
+          "position": "院门一侧。",
+          "facing": "朝向武松。",
+          "gaze_target": "武松与裂棒。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "武松因用力过猛捏裂哨棒木纹，随后松手调整呼吸。武大郎提灯出来，看出他有话要说。武松劝哥哥别信王婆和西门庆。武大郎承认见过西门庆送潘金莲回来，轿子离巷口几步她便下轿；他没有叫住她。",
+          "camera": "院中中景先聚焦手掌与木纹裂开，随后放宽到提灯的武大郎与武松对话，保持两人相对位置。",
+          "scene_changes": "哨棒木纹开裂。",
+          "effects": "无。",
+          "audio": "木纹轻裂声，武松调整呼吸。武松劝哥哥别信王婆和西门庆；武大郎说明见过轿子送潘金莲，离巷口几步她便下轿，自己没有叫住她。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "武松问为何不告诉自己。武大郎看着他手中的裂棒：“告诉你，明日我去哪里领你的尸首？”沉默之后，武大郎平静地说：“我个子矮，不是没长眼睛。”",
+          "camera": "双人近景，先看武大郎目光落在裂棒，再保持沉默的停顿后落在他的脸上。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "武松：“为何不告诉我？”武大郎：“告诉你，明日我去哪里领你的尸首？”短暂沉默。武大郎：“我个子矮，不是没长眼睛。”"
+        }
+      ]
+    },
+    {
+      "id": "shot_009",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_003",
+      "title": "留下还是放手",
+      "key_anchor_ids": [
+        "segment_003_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "次日上午武家屋内，日光照入，差服与文书置于桌面。",
+        "spatial_setup": "武松立于桌边，文书在手边；武大郎在桌对面，旁有凳子可坐。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，已穿差服，未出门。",
+          "position": "桌边，手压文书。",
+          "facing": "朝向武大郎。",
+          "gaze_target": "武大郎与文书。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，准备与弟弟交谈。",
+          "position": "桌对面。",
+          "facing": "朝向武松。",
+          "gaze_target": "武松。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "武松穿着差服，却把文书留在桌上，称告病不去。武大郎指出他昨日还能举起水缸，今日不能忽然病倒。武松说总有法子守住哥哥，武大郎反问他能守一天，能守一辈子吗。",
+          "camera": "桌面文书近景起，抬至双人对峙中景，保持文书位于两人之间。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "武松称告病不去；武大郎：“你昨日还能举起水缸，今日不能忽然病倒。”武松说总有法子守住哥哥；武大郎：“你能守一天，能守一辈子吗？”"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "武松终于说出梦境：他见过哥哥躺在这里再也叫不醒，所有人都说哥哥是病死的。武大郎听完，搬凳坐下：“那是梦。”武松问若是真的呢。武大郎答，就该让他知道自己为什么会死。武松蹲到哥哥面前，终于把手从文书上移开。",
+          "camera": "武松坦白时缓慢推近，武大郎坐下后改为平视双人近景；武松手离开文书作为明确动作收束。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "武松说明梦境原意：“我见过哥哥躺在这里再也叫不醒，所有人都说哥哥是病死的。”武大郎：“那是梦。”武松：“若是真的呢？”武大郎：“就该让他知道自己为什么会死。”"
+        }
+      ]
+    },
+    {
+      "id": "shot_010",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_003",
+      "title": "约定门外等候",
+      "key_anchor_ids": [
+        "segment_003_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "承接武家屋内上午谈话，光线与桌面文书状态不变。",
+        "spatial_setup": "武大郎坐在凳上，武松蹲在他面前；门通往街巷。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，刚决定亲自问清楚。",
+          "position": "凳上。",
+          "facing": "朝向武松。",
+          "gaze_target": "武松。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，蹲在哥哥面前。",
+          "position": "武大郎前方，近桌边。",
+          "facing": "朝向武大郎。",
+          "gaze_target": "武大郎。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 6,
+          "action": "武大郎决定去问清楚，若潘金莲真要走，就写和离书；武松要跟去，他要求弟弟在门外等，听见自己叫再进。武松迟疑后答应。",
+          "camera": "维持平视双人构图，武大郎说出条件时稳定不动，武松迟疑后轻微点头。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "武大郎说明若潘金莲真要走就写和离书，并说：“你在门外等，听见我叫再进。”武松迟疑后答应。"
+        }
+      ]
+    },
+    {
+      "id": "shot_011",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_003",
+      "title": "茶坊对质",
+      "key_anchor_ids": [
+        "segment_003_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "白日茶坊前厅无客人，桌椅整齐，后房帘子垂挂。",
+        "spatial_setup": "柜台在前厅，后帘通后房；武大郎由门进入柜台前，王婆在柜台后，西门庆与潘金莲在后房。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "开场进入前厅，带两张刚出炉的饼。",
+          "position": "柜台前。",
+          "facing": "朝向王婆。",
+          "gaze_target": "王婆与后帘。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "王婆",
+          "presence": "在场，守柜台。",
+          "position": "柜台后。",
+          "facing": "朝向武大郎。",
+          "gaze_target": "武大郎。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "在后房内，隔帘可闻声。",
+          "position": "后房桌旁。",
+          "facing": "朝向门口。",
+          "gaze_target": "武大郎。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "在后房内。",
+          "position": "潘金莲旁。",
+          "facing": "朝向前厅帘口。",
+          "gaze_target": "武大郎。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "武大郎把两张刚出炉的饼放到柜台，请王婆让金莲出来。王婆否认她在此，后房传来潘金莲一声轻咳，王婆笑容僵住。武大郎不争辩，掀帘进后房。潘金莲坐在桌旁，西门庆还握着她的手；看见丈夫，她下意识抽回手。",
+          "camera": "前厅中景呈现柜台与帘口，潘金莲轻咳时切近王婆僵住的笑，再随武大郎掀帘进入后房，明确背景区域改变。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "武大郎请王婆让金莲出来；王婆否认她在此。潘金莲轻咳一声。后房环境声克制。"
+        },
+        {
+          "duration_seconds": 7,
+          "action": "武大郎只说：“跟我回去，把话说清。”西门庆起身，把一锭银子放在桌上，说做买卖不容易，让大郎拿去再置一副担子。武大郎盯一眼银子，将它推回去：“我同我妻子说话。”潘金莲说让他先回去，自己稍后就回；武大郎不求她留下，只问她是否今日便要走。",
+          "camera": "后房内以三人关系中景保持桌、银锭和后门方向；银锭被推回的动作清楚可见。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "武大郎：“跟我回去，把话说清。”西门庆提出银子供置担子；武大郎：“我同我妻子说话。”潘金莲让他先回去，自己稍后就回；武大郎问：“你今日便要走？”"
+        }
+      ]
+    },
+    {
+      "id": "shot_012",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_003",
+      "title": "门帘骤起",
+      "key_anchor_ids": [
+        "segment_003_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "承接茶坊后房对话，桌椅、银锭与后帘位置不变。",
+        "spatial_setup": "武大郎在桌边，西门庆靠近他；门帘通往前厅，武松在前厅门外等待。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，面对西门庆。",
+          "position": "桌旁。",
+          "facing": "朝向西门庆。",
+          "gaze_target": "西门庆。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "在场，开始对武大郎动手。",
+          "position": "武大郎近旁。",
+          "facing": "朝向武大郎。",
+          "gaze_target": "武大郎。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在门外等待，按约定尚未进入。",
+          "position": "前厅门帘外。",
+          "facing": "朝向后房。",
+          "gaze_target": "武大郎。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "在后房内旁观。",
+          "position": "桌边。",
+          "facing": "朝向武大郎与西门庆。",
+          "gaze_target": "两人。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 5,
+          "action": "西门庆不耐烦，抓住武大郎肩膀把他推向门边。武大郎撞翻凳子仍站稳，叫他把手拿开。西门庆一脚踹向他腹部。门帘骤掀，武松侧身接住哥哥，反手扣住西门庆小腿，将他掀翻在桌上。",
+          "camera": "跟随武大郎被推向门边，踹击发生后迅速转向帘口，连续呈现武松接住哥哥与掀翻西门庆，不跳出后房。",
+          "scene_changes": "凳子翻倒。",
+          "effects": "无。",
+          "audio": "凳子倒地声；武大郎：“把手拿开。”踹击闷响、桌椅碰撞声。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "茶壶摔碎。西门庆滚地躲开第二拳，抄起矮凳横挡；武松一拳打裂凳面，自己的手背也破了。巨大力量带得武松向前踉跄，西门庆趁机用凳脚扫他膝窝。武松半跪，抓住桌腿稳住身体，不再乱挥大拳，而是贴近以肩撞开西门庆、压住他的手腕。",
+          "camera": "低机位跟随搏斗的近身动作，保留桌、矮凳与双方位置连续性；手背破皮与凳面裂开均清楚呈现。",
+          "scene_changes": "茶壶摔碎，凳面裂开；武松手背破皮。",
+          "effects": "碎瓷片散落，水渍溅开后留在地面。",
+          "audio": "茶壶碎裂、拳击木凳、凳脚扫膝与桌腿受力声连续。"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "西门庆拿“私闯民宅、殴打良民”威胁，武松拳头停在他面前。武大郎从后拉住弟弟衣袖：“二郎，扶我。”武松回头看见哥哥扶腰、气息不稳，松开西门庆。潘金莲上前一步又停下；武大郎没有看她，扶着弟弟离开。",
+          "camera": "拳头近景停在西门庆面前，随后转向拉住衣袖的武大郎；武松回头后纳入潘金莲停步与兄弟离开的同框。",
+          "scene_changes": "无新增。",
+          "effects": "无。",
+          "audio": "西门庆威胁：“私闯民宅、殴打良民。”武大郎：“二郎，扶我。”脚步与急促呼吸声。"
+        }
+      ]
+    },
+    {
+      "id": "shot_013",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_003",
+      "title": "药包与追寻",
+      "key_anchor_ids": [
+        "segment_003_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "茶坊后房，搏斗后桌椅倾斜、茶壶碎片在地。",
+        "spatial_setup": "西门庆在桌旁，王婆靠近他；领货单、银锭及包药用的小纸包在桌面可及。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "在场，嘴角带伤。",
+          "position": "桌边。",
+          "facing": "朝向王婆。",
+          "gaze_target": "领货单与纸包。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "王婆",
+          "presence": "在场，听从西门庆吩咐。",
+          "position": "桌旁。",
+          "facing": "朝向西门庆。",
+          "gaze_target": "药包与西门庆。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "后房里西门庆擦去嘴角血迹，王婆说只要武大郎还在就不可能干净。西门庆拾起桌上的银锭，说武松没去送文书，明日衙门必找他。他取出盖有药铺印记的领货单，在背面写字，包进小纸包，交代王婆说是治跌伤的药，怎么用写在上头；若送不到潘金莲手里，先倒霉的是王婆。",
+          "camera": "从西门庆擦嘴角的近景转至领货单印记和背面书写，再跟随包纸、递交动作；不展示未写出的药方内容。",
+          "scene_changes": "领货单被包入小纸包，交给王婆。",
+          "effects": "无。",
+          "audio": "王婆：“只要武大郎还在，就不可能干净。”西门庆说明武松未送文书、明日衙门必找；他说：“这是治跌伤的药，怎么用写在上头。若送不到潘金莲手里，先倒霉的是你。”纸张摩擦声。"
+        },
+        {
+          "duration_seconds": 4,
+          "action": "武家门前，武松扶哥哥进屋。郓哥从街口跑来，说衙门正在寻武松。",
+          "camera": "门前中景交代武松扶人入门，郓哥从街口进入画面并停下报信。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "急促脚步。郓哥：“衙门正在寻武松。”"
+        }
+      ]
+    },
+    {
+      "id": "shot_014",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "和离书与药包",
+      "key_anchor_ids": [
+        "segment_004_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "次日清晨武家屋内，光线冷淡；武大郎腰侧贴药布，桌面有和离书与旧银镯。",
+        "spatial_setup": "卧室床边靠里，桌在床旁；后门通向院落，楼梯通楼上；潘金莲由后门进入。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，坐床边。",
+          "position": "床沿。",
+          "facing": "朝向桌与潘金莲。",
+          "gaze_target": "和离书。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "端水进屋，在场。",
+          "position": "后门至桌旁。",
+          "facing": "朝向武大郎。",
+          "gaze_target": "和离书与武大郎。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "王婆",
+          "presence": "在后门外敲门后短暂进入，递交药包。",
+          "position": "后门口。",
+          "facing": "朝向潘金莲。",
+          "gaze_target": "潘金莲。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "武大郎坐在床边，腰侧贴着药布。潘金莲端水进屋，他把昨夜请人代写的和离书放在桌上，让她看看是否亏待了她。潘金莲怔住，问他真肯放她走。武大郎说留不住的便不留；自己昨日去茶坊，是要她亲口说清楚。纸边放着她带来的旧银镯，武大郎叫她把自己的东西都带上。",
+          "camera": "由药布近景移到桌上和离书与银镯，随后保持两人同框呈现交谈。",
+          "scene_changes": "和离书与旧银镯位置保持可见。",
+          "effects": "无。",
+          "audio": "武大郎让她看看是否亏待了她。潘金莲：“你真肯放我走？”武大郎说明留不住的便不留，昨日去茶坊是要她亲口说清楚，并叫她把自己的东西都带上。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "后门有人敲响，王婆把药包塞给潘金莲，低声说西门大官人称事情闹开谁也保不了她，药下去便只是一场急病。潘金莲说武大郎已经肯和离，王婆提醒她武松知道这些事，不会让他们好过。潘金莲捏紧药包，回头望楼梯。",
+          "camera": "从桌旁转向后门，近景交代药包转手，再落在潘金莲捏紧纸包、回望楼梯的目光上。",
+          "scene_changes": "药包由王婆交给潘金莲。",
+          "effects": "无。",
+          "audio": "敲门声。王婆低声转述西门庆的话：“事情闹开谁也保不了她，药下去便只是一场急病。”潘金莲：“武大郎已经肯和离。”王婆提醒武松不会让他们好过。"
+        }
+      ]
+    },
+    {
+      "id": "shot_015",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "只凭药票起疑",
+      "key_anchor_ids": [
+        "segment_004_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "武家门前清晨，街巷安静，传唤文书在武松手中。",
+        "spatial_setup": "前门通街，郓哥在街边；武松出门后可沿街转入窄巷返回后院。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "持传唤文书出门，随后把短状交给郓哥。",
+          "position": "武家门口。",
+          "facing": "朝向街巷。",
+          "gaze_target": "郓哥与驿馆方向。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "郓哥",
+          "presence": "在街口附近，接过短状。",
+          "position": "武松前方。",
+          "facing": "朝向武松。",
+          "gaze_target": "短状。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "武松拿着传唤文书出门，经过郓哥时把写好的短状交给他，叫他送到驿馆找周巡检，说明西门药铺的人拿军中领药单包私药，请巡检验查，不要添减。郓哥问他是否亲眼看见，武松说只见王婆刚从后门进去，那张纸上有个“军”字，自己只能认得这些。郓哥带状子跑向驿馆。武松拐过街角没有去县衙，而沿窄巷返回后院。",
+          "camera": "近景呈现短状交接与“军”字所指，随后跟随郓哥跑向驿馆，再回到武松转入窄巷的选择。",
+          "scene_changes": "短状从武松交给郓哥。",
+          "effects": "无。",
+          "audio": "武松交代原话：“送到驿馆找周巡检，说明西门药铺的人拿军中领药单包私药，请巡检验查，不要添减。”郓哥：“你亲眼看见？”武松：“我只见王婆刚从后门进去，那张纸上有个‘军’字，我只能认得这些。”"
+        }
+      ]
+    },
+    {
+      "id": "shot_016",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "碗边停手",
+      "key_anchor_ids": [
+        "segment_004_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "武家厨房与楼梯间清晨，炉火在灶下，热汤已备。",
+        "spatial_setup": "厨房桌案在楼梯下方，楼梯通往武大郎所在楼上；药包、碗与包装纸在案上。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "在厨房内，持药包和碗。",
+          "position": "厨房桌案旁。",
+          "facing": "朝向碗。",
+          "gaze_target": "药粉溶入热汤的碗。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在楼上，画外先发声。",
+          "position": "楼上房间。",
+          "facing": "朝向楼梯口。",
+          "gaze_target": "楼梯方向。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "沿窄巷返回后院，之后冲入厨房。",
+          "position": "开场在后院通道外。",
+          "facing": "进入厨房。",
+          "gaze_target": "潘金莲手中的碗。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "厨房里，潘金莲打开药包，纸上写着：“一包尽入热汤，服后莫留渣。”楼上传来武大郎叫她水开后倒一点。她手抖着把药粉倒入碗中，盯着粉末溶开，端碗的手抬起又放下。",
+          "camera": "先给包装纸文字清晰特写，再落到药粉倒入汤中和潘金莲迟疑的手；楼梯保持在画面边缘。",
+          "scene_changes": "药粉溶入热汤，碗中汤液改变。",
+          "effects": "药粉入汤后逐渐溶开。",
+          "audio": "画面文字逐字：“一包尽入热汤，服后莫留渣。”楼上传来武大郎：“水开后倒一点。”炉火轻响。"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "她端碗上楼。武大郎问碗里是什么，她答治伤的药。武大郎伸手，她却没松碗，只低声说“你……”楼梯响起脚步，武松冲上来握住碗沿，稳稳把碗放回桌上，药液溅出少许。",
+          "camera": "随碗上楼，近景呈现武大郎伸手与潘金莲未松手；脚步声先到，武松进入同一房间动作连贯。",
+          "scene_changes": "碗回到桌面，少许药液溅出。",
+          "effects": "药液少量溅落。",
+          "audio": "武大郎：“碗里是什么？”潘金莲：“治伤的药。”她低声：“你……”楼梯脚步声渐近，碗轻触桌面。"
+        }
+      ]
+    },
+    {
+      "id": "shot_017",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_004",
+      "title": "药纸与传唤",
+      "key_anchor_ids": [
+        "segment_004_anchor_001",
+        "segment_004_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "武家楼上房间清晨，桌上有药碗与包装纸，楼梯通往下层。",
+        "spatial_setup": "武大郎在床边，潘金莲站桌旁，武松在她近侧；门通院落与前门。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "开场已握住碗沿并将碗放回桌上。",
+          "position": "桌旁。",
+          "facing": "朝向潘金莲。",
+          "gaze_target": "药碗与包装纸。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "在场，未松开过碗后已放手。",
+          "position": "桌旁。",
+          "facing": "朝向武松。",
+          "gaze_target": "药碗。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，床边观察。",
+          "position": "床边。",
+          "facing": "朝向妻子与药碗。",
+          "gaze_target": "药碗与潘金莲。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "武松问谁开的方子，潘金莲脸色发白不答。武松从她手中取过包装纸，看清用药字句，没有发作，只把纸摊平，用干净布包住碗。武大郎看着药和妻子：“我都让你走了。”潘金莲张口无言，低下头。",
+          "camera": "由武松取纸的手部近景移到文字，再回到三人；纸被摊平、碗被干净布包住的动作完整可见。",
+          "scene_changes": "包装纸摊平，药碗被干净布包裹。",
+          "effects": "无。",
+          "audio": "武松：“谁开的方子？”武大郎：“我都让你走了。”室内短暂沉默。"
+        },
+        {
+          "duration_seconds": 9,
+          "action": "门外重重敲门。两名衙役堵住前门，称要带武松问殴人、误差之罪。王婆跟在后面指着楼上，喊那碗是武松栽赃药铺的。一名衙役伸手抢碗，武松扣住他的手腕；另一人拔出半截刀。郓哥领周巡检进门，周巡检喝令收刀，出示公文，接过药包纸，认出上面的印记是军仓缺失的领药票。他下令碗、纸、人一并带走查验。武松松开衙役，先问哥哥是否还好，楼上无人回答。",
+          "camera": "门口方向中景纳入衙役、王婆与楼梯口；抢碗动作短促清楚，周巡检进门后以公文和药纸近景确认查验指令。",
+          "scene_changes": "周巡检收取包装纸；药碗与相关人等进入待查验状态。",
+          "effects": "无。",
+          "audio": "重重敲门声。衙役称带武松问殴人、误差之罪。王婆喊：“那碗是武松栽赃药铺的！”衙役拔刀半截。周巡检喝令收刀，出示公文，认出领药票并下令带走碗、纸、人查验。武松问：“哥哥还好吗？”无人回应。"
+        }
+      ]
+    },
+    {
+      "id": "shot_018",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "后窗空了",
+      "key_anchor_ids": [
+        "segment_004_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "武家屋内，前门处有衙役，楼上房间桌上药碗与药纸已交巡检。",
+        "spatial_setup": "楼梯通向上层，后窗朝向巷尾，后门通院墙外；各人从楼梯移至后窗观察。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "周巡检",
+          "presence": "在场，刚安排查验。",
+          "position": "屋内靠近楼梯。",
+          "facing": "朝向楼上。",
+          "gaze_target": "后窗方向。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，随众人上楼。",
+          "position": "楼梯与后窗间。",
+          "facing": "朝向后窗。",
+          "gaze_target": "巷尾。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "原应在楼上，此时不见。",
+          "position": "开场位置空缺，后门已敞开。",
+          "facing": "不在画面内。",
+          "gaze_target": "不适用。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "在场，惊慌。",
+          "position": "楼上房间。",
+          "facing": "朝向后窗。",
+          "gaze_target": "空置的床边与窗外。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "巷尾出现，持短刀劫持武大郎。",
+          "position": "巷尾后门外。",
+          "facing": "朝向武家后窗。",
+          "gaze_target": "武松。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "众人上楼，发现后窗旁的后门敞开，武大郎不见了。潘金莲惊慌摇头。院墙外西门庆喊：“武二！想见你哥，带那张纸来染坊！”武松冲到窗口，看见巷尾西门庆持短刀抵着武大郎，拖他拐进旧染坊。",
+          "camera": "沿楼梯上行至空置位置，转向敞开的后门与后窗；西门庆喊声先入，随后主观望向巷尾，保持距离可辨认人质与短刀。",
+          "scene_changes": "后门敞开，武大郎离开原位并被挟持。",
+          "effects": "无。",
+          "audio": "门外西门庆：“武二！想见你哥，带那张纸来染坊！”院外脚步远去声。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "周巡检说自己从后门围堵，不能让他拿到证物。武松把药包纸交给周巡检，拾起门边长竹竿，冲出家门。",
+          "camera": "由武松手中纸交给周巡检的近景转到竹竿被拾起，跟随武松冲出门。",
+          "scene_changes": "药包纸交由周巡检保管；武松带长竹竿离开。",
+          "effects": "无。",
+          "audio": "周巡检：“我从后门围堵，不能让他拿到证物。”脚步声急促远去。"
+        }
+      ]
+    },
+    {
+      "id": "shot_019",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_005",
+      "title": "染坊挟持",
+      "key_anchor_ids": [
+        "segment_005_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "旧染坊院内，未收走的长布随风摆动，染缸与木桶、木架、矮台、木梯散布院中。",
+        "spatial_setup": "院门通外；染缸在后侧，西门庆挟持武大郎退至染缸边；武松从院门入场；垂布遮住后门与院内视线。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "持竹竿进入院内。",
+          "position": "院门内，距西门庆约两丈。",
+          "facing": "朝向西门庆与武大郎。",
+          "gaze_target": "西门庆手中短刀。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "在场，持短刀挟持武大郎。",
+          "position": "染缸边。",
+          "facing": "朝向武松。",
+          "gaze_target": "武松。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，受伤并被刀抵住。",
+          "position": "西门庆身前、染缸边。",
+          "facing": "朝向武松。",
+          "gaze_target": "武松。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "西门庆拖着武大郎退到染缸边，以短刀横抵他肩前。武松提竹竿进院，隔两丈停下。西门庆索要药票纸，武松只叫他放人。西门庆加重刀势，武大郎痛得踉跄。武松慢慢放低竹竿，说西门庆扣着他出不了县城，拿自己换哥哥。西门庆不信。",
+          "camera": "院门内中远景建立两丈距离与长布遮挡，再以三人关系中景保持刀与人质位置清晰。",
+          "scene_changes": "无。",
+          "effects": "风吹长布遮掩视线。",
+          "audio": "风吹布声。西门庆索要药票纸；武松：“放人。”武松提出拿自己换哥哥。"
+        }
+      ]
+    },
+    {
+      "id": "shot_020",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_005",
+      "title": "水桶脱险",
+      "key_anchor_ids": [
+        "segment_005_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "承接染坊院内对峙，风吹长布持续摆动，地面有盛水木桶。",
+        "spatial_setup": "武大郎脚边是盛水木桶；西门庆持刀控制他，武松持竹竿在两丈外。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "被挟持，暗中观察脚边木桶。",
+          "position": "西门庆身前，桶旁。",
+          "facing": "朝向武松。",
+          "gaze_target": "先看桶沿，再与武松对视。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "持刀挟持武大郎。",
+          "position": "武大郎身后侧。",
+          "facing": "朝向武松。",
+          "gaze_target": "武松。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "持竹竿对峙。",
+          "position": "两丈外。",
+          "facing": "朝向两人。",
+          "gaze_target": "武大郎与刀。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 5,
+          "action": "武大郎看见脚边盛水木桶，脚尖试了试桶沿，抬眼叫“二郎”。两人对上目光，武大郎说：“别只看刀。”他突然屈膝下坠，抓住西门庆持刀手腕并踢翻木桶。水泼在两人脚下，西门庆失衡，刀尖偏开。",
+          "camera": "桶沿与脚尖近景建立动作因果，迅速抬至两人目光，再跟随下坠、抓腕、踢桶和刀尖偏开。",
+          "scene_changes": "木桶翻倒，水泼在地面。",
+          "effects": "水流扩散至两人脚下，持续形成湿滑地面。",
+          "audio": "武大郎：“二郎。别只看刀。”桶翻倒与水泼声；西门庆失衡的脚步声。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "武松一竿挑开刀腕，跨步撞入，把哥哥推到垂布后。西门庆挥刀反划，割开武松左臂衣袖。武松退半步，双手持竿压刀，竿身弯曲，刀刃摩擦作响。",
+          "camera": "手持跟近武松入场，沿竹竿、刀腕、左臂衣袖连续移动，最后压在弯曲竿身与刀刃接触处。",
+          "scene_changes": "武大郎移至垂布后；武松左臂衣袖被划开。",
+          "effects": "无。",
+          "audio": "竹竿挑刀、脚步与刀刃摩擦竹竿声。"
+        }
+      ]
+    },
+    {
+      "id": "shot_021",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_005",
+      "title": "断竿反击",
+      "key_anchor_ids": [
+        "segment_005_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "承接染坊院内搏斗，地面有桶水，长布持续摆动，武大郎暂在垂布后。",
+        "spatial_setup": "西门庆与武松在染缸旁木架附近；矮台与木柱在一侧，后门位于垂布后方。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "双手持弯曲竹竿压刀，左袖破开。",
+          "position": "西门庆正前方。",
+          "facing": "朝向西门庆。",
+          "gaze_target": "短刀。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "持短刀与武松缠斗。",
+          "position": "武松对面。",
+          "facing": "朝向武松。",
+          "gaze_target": "武松。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在垂布后，试图打开后院门。",
+          "position": "后门内侧。",
+          "facing": "朝向门。",
+          "gaze_target": "插销。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "西门庆踹倒染缸旁木架，晾布杆砸下，武松护住头，竹竿被压断。他顺势持半截竿扫西门庆脚踝。西门庆跃上矮台刺下，武松侧身避开，刀钉入木柱；武松抓住他衣领，却被肘击胸口。两人各退一步喘息。",
+          "camera": "先随木架倒下与晾布杆落下，再以中景完整表现断竿、扫踝、跃台刺击、刀入木柱和肘击后的分开。",
+          "scene_changes": "木架倒下，竹竿断为两截；短刀钉入木柱。",
+          "effects": "无。",
+          "audio": "木架与晾布杆撞击声、竹竿断裂声、刀钉入木柱声；两人喘息。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "武大郎躲在布后试推后院门，发现反锁，便摸到门边插销费力上抬。西门庆听见动静，拔刀扑去。武松扯下一条湿布甩向他面门，湿布缠住刀锋；武松用半截竹竿顶住西门庆胸口，把他逼离后门。",
+          "camera": "垂布后以近景交代推门受阻与插销上抬；西门庆扑去时转回院内，湿布缠刀和竹竿顶胸动作一气呵成。",
+          "scene_changes": "后门插销上抬，门尚未完全打开；一条湿布脱离晾挂处。",
+          "effects": "湿布缠住短刀刀锋后持续挂住。",
+          "audio": "后门轻响、插销摩擦声；脚步猛然靠近，湿布甩动与刀具碰撞声。"
+        }
+      ]
+    },
+    {
+      "id": "shot_022",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_005",
+      "title": "染粉与木梯",
+      "key_anchor_ids": [
+        "segment_005_anchor_001",
+        "segment_005_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "染坊院内地面湿滑，武松脸侧染蓝，湿布缠刀，竹竿仅剩半截。",
+        "spatial_setup": "武松背靠木梯，西门庆持刀逼近；木梯连接低矮晾布台，后门在两人侧后方。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，脸侧染蓝，左袖破开。",
+          "position": "木梯前。",
+          "facing": "朝向西门庆。",
+          "gaze_target": "凭脚步判断西门庆位置。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "在场，趁势猛攻。",
+          "position": "武松前方。",
+          "facing": "朝向武松。",
+          "gaze_target": "武松。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "西门庆抓起染粉扬来，武松闭眼偏头，脸侧染成深蓝，只能凭脚步声后撤，背撞木梯。西门庆趁势猛攻，武松挡住两下，第三下竹竿脱手。他摸到湿布擦开一只眼，看到刀尖逼近，突然向前贴身，以左掌压刀腕、右手托肘，借腰胯转动把西门庆撞上木梯。木梯折断，两人跌落低矮晾布台。",
+          "camera": "染粉扬起时短暂遮挡镜头，跟随武松后退撞梯，再回到单眼视线主观角度；动作按挡两下、脱竿、擦眼、贴身转摔完整呈现。",
+          "scene_changes": "木梯折断，两人跌落晾布台；武松竹竿脱手。",
+          "effects": "染粉扬起扩散，落在武松脸侧，粉尘逐渐沉降。",
+          "audio": "染粉扬起的沙响；脚步与木梯撞击；三次兵器格挡，第三下竹竿脱手；木梯折断声。"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "武松肩背着地，痛得吸气；西门庆翻身爬起，短刀就在手边。武松一脚踢开刀，抓住西门庆伸来的手，压住肩肘将他按倒。西门庆喊打死他武松也要偿命。武松拳头落在西门庆耳侧木板上，木板裂开。",
+          "camera": "低机位贴地表现双方起身、踢刀与压制；拳头落下时切近木板裂缝，不遮蔽西门庆在下方的方位。",
+          "scene_changes": "短刀被踢离；木板裂开。",
+          "effects": "木板裂纹扩展，碎屑落下。",
+          "audio": "武松吸气声、刀踢开声、身体撞台声。西门庆：“打死我，你武松也要偿命！”拳头砸木板闷响。"
+        }
+      ]
+    },
+    {
+      "id": "shot_023",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_005",
+      "title": "我还活着",
+      "key_anchor_ids": [
+        "segment_005_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "承接晾布台边搏斗，裂开的木板与断梯在地，武松压制西门庆。",
+        "spatial_setup": "西门庆被压在晾布台旁；后门在院侧，武大郎已打开后门，周巡检带人从后门进入。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，拳头举起，情绪激烈。",
+          "position": "西门庆上方。",
+          "facing": "朝向西门庆。",
+          "gaze_target": "西门庆。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "被武松压制。",
+          "position": "地面，武松身下。",
+          "facing": "仰面。",
+          "gaze_target": "武松。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "打开后门后进入院内。",
+          "position": "后门至兄弟旁。",
+          "facing": "朝向武松。",
+          "gaze_target": "武松抬起的手臂。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "周巡检",
+          "presence": "带人由后门进入。",
+          "position": "后门口。",
+          "facing": "朝向西门庆。",
+          "gaze_target": "被压制的西门庆。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "火场坍塌声在武松耳边回响，又混入哥哥刚才压抑的痛叫；他再抬拳时眼中只剩愤怒。武大郎打开后门，周巡检带人进入。武大郎踉跄走来，抓住弟弟抬起的手臂：“二郎，看我。”武松没有回头。",
+          "camera": "拳头与武松脸部近景，声画闪回仅以声音与短促感官反应表达；后门打开后纳入武大郎进场和抓住手臂。",
+          "scene_changes": "后门打开，周巡检及随行人员进入院内。",
+          "effects": "无。",
+          "audio": "火场坍塌声与武大郎此前压抑的痛叫在武松耳边交叠。武大郎：“二郎，看我。”"
+        },
+        {
+          "duration_seconds": 7,
+          "action": "武大郎声音发颤却清楚：“我还活着。”武松的拳头悬住，慢慢转头，看见哥哥肩头衣服破了、胸口仍在起伏，终于松开手。周巡检将西门庆锁住。",
+          "camera": "从悬停拳头缓慢移到武大郎胸口起伏，再回到武松转头松手；随后取周巡检锁住西门庆的动作。",
+          "scene_changes": "西门庆被锁住。",
+          "effects": "无。",
+          "audio": "武大郎：“我还活着。”环境声压低，拳头松开与锁具声清晰。"
+        }
+      ]
+    },
+    {
+      "id": "shot_024",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_005",
+      "title": "线索交给巡检",
+      "key_anchor_ids": [
+        "segment_005_anchor_003"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "旧染坊院内，周巡检控制现场，武大郎仍有伤，武松左臂与肩背受伤。",
+        "spatial_setup": "被押的西门庆位于一侧，王婆在近旁；潘金莲随后被押入；周巡检居中询问。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "被押进染坊，参与说明线索。",
+          "position": "周巡检与西门庆可见范围内。",
+          "facing": "朝向西门庆与周巡检。",
+          "gaze_target": "西门庆。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "西门庆",
+          "presence": "被锁押，试图推卸罪责。",
+          "position": "周巡检看管之下。",
+          "facing": "朝向潘金莲。",
+          "gaze_target": "潘金莲。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "王婆",
+          "presence": "被押在场，急于辩解。",
+          "position": "西门庆附近。",
+          "facing": "朝向周巡检。",
+          "gaze_target": "周巡检。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "周巡检",
+          "presence": "在场，组织查验与带人。",
+          "position": "现场中央。",
+          "facing": "朝向涉事者。",
+          "gaze_target": "说话者。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，仍有伤。",
+          "position": "武松旁。",
+          "facing": "朝向巡检。",
+          "gaze_target": "巡检。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，刚松开西门庆。",
+          "position": "武大郎身边。",
+          "facing": "朝向西门庆与哥哥。",
+          "gaze_target": "哥哥。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "被押进来的潘金莲听见西门庆把罪推给她，说她与王婆商量害夫，与他无关。潘金莲望着他，拔下金簪，指出茶坊床下松动的砖下藏着西门庆给她的信，药也是他让王婆送的。",
+          "camera": "以押入的潘金莲建立新人物位置，转至她拔下金簪并直视西门庆，保持周巡检在可听见的范围。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "西门庆推称潘金莲与王婆商量害夫、自己无关。潘金莲指出茶坊床下松动砖下藏有西门庆给她的信，并说明药由他让王婆送来。"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "王婆急辩信是西门庆写的、自己一个字没添。周巡检命人一并带走查验，询问武大郎能否自行走动。武大郎扶住武松站直，说能。兄弟俩握住彼此的手，并肩走出染坊。",
+          "camera": "周巡检的指令与王婆辩解同框，随后落到兄弟互相扶持站直、握手并肩离开的背影。",
+          "scene_changes": "西门庆、王婆等被带走查验；兄弟离开染坊。",
+          "effects": "无。",
+          "audio": "王婆：“信是西门庆写的，我一个字没添。”周巡检命人一并带走查验，问武大郎能否自行走动。武大郎：“能。”脚步声远去。"
+        }
+      ]
+    },
+    {
+      "id": "shot_025",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_006",
+      "title": "证物与复核",
+      "key_anchor_ids": [
+        "segment_006_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "数日后公堂外晨光照着石阶，证物已封存。",
+        "spatial_setup": "公堂外廊下，证物依次陈列或展示；周巡检面对武家兄弟说明查验结果。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "周巡检",
+          "presence": "在廊下说明案件查验结果。",
+          "position": "证物旁。",
+          "facing": "朝向武家兄弟。",
+          "gaze_target": "兄弟二人及证物。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场听取说明。",
+          "position": "周巡检对面。",
+          "facing": "朝向周巡检。",
+          "gaze_target": "周巡检。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，携有状纸。",
+          "position": "武松旁。",
+          "facing": "朝向周巡检。",
+          "gaze_target": "证物与状纸。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 9,
+          "action": "封存的药碗、验药记录、领药票、从茶坊搜出的书信，以及西门药铺账册印记依次出现。周巡检向武家兄弟说明查验结果：药中有毒，药票、书信和账册相互印证，取药、授意、下药之人分别录了口供。",
+          "camera": "证物逐一以近景交代，之后回到廊下三人中景；明确证物已封存。",
+          "scene_changes": "无新增，证物保持封存状态。",
+          "effects": "无。",
+          "audio": "周巡检说明查验结果：“药中有毒，药票、书信和账册相互印证，取药、授意、下药之人分别录了口供。”"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "武松问会如何判，周巡检说卷宗将移送复核，谋害人命、劫持伤人和药材案会逐件审理。武大郎问有钱是否就能改结果。周巡检回答证物已经封存、口供留有副本，有异议仍可递状。武大郎点头，把状纸折好收进怀里。",
+          "camera": "保持廊下平视对话，周巡检说复核审理时不作判决式强调；最后跟随武大郎将状纸收进怀里。",
+          "scene_changes": "状纸折好并收进武大郎怀中。",
+          "effects": "无。",
+          "audio": "武松：“会如何判？”周巡检说明卷宗将移送复核、案件逐件审理。武大郎：“有钱是否就能改结果？”周巡检说明证物封存、口供留副本，有异议仍可递状。"
+        }
+      ]
+    },
+    {
+      "id": "shot_026",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_006",
+      "title": "了结旧事",
+      "key_anchor_ids": [
+        "segment_006_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "牢房探视处，光线冷硬，木栏隔开探视人与潘金莲。",
+        "spatial_setup": "木栏分隔内外；潘金莲在栏内，武大郎在栏外，布包由外侧交给看守。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "潘金莲",
+          "presence": "在牢房内探视位置。",
+          "position": "木栏内侧。",
+          "facing": "朝向武大郎。",
+          "gaze_target": "先望武大郎身后，再看布包。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场探视。",
+          "position": "木栏外侧。",
+          "facing": "朝向潘金莲。",
+          "gaze_target": "潘金莲。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "看守",
+          "presence": "在场接收布包。",
+          "position": "木栏旁。",
+          "facing": "朝向武大郎。",
+          "gaze_target": "布包。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 10,
+          "action": "牢房探视时，潘金莲隔着木栏看见武大郎，先望他身后。武大郎告诉她武松没来。她低头。武大郎把布包交给看守，里面是旧银镯、几件衣物和和离书。潘金莲问他为何还拿这些来，他说都是她的。她说端药上楼时其实想叫他别喝。武大郎沉默后指出，她说那是治伤的药。",
+          "camera": "木栏两侧平视中景，先呈现她望身后的动作，再给布包交接与布包内物件，最后回到两人对话。",
+          "scene_changes": "旧银镯、衣物和和离书随布包交给看守。",
+          "effects": "无。",
+          "audio": "武大郎：“武松没来。”潘金莲问他为何还拿这些来；武大郎：“都是你的。”潘金莲：“端药上楼时，其实想叫你别喝。”武大郎沉默后说：“你说那是治伤的药。”"
+        },
+        {
+          "duration_seconds": 10,
+          "action": "潘金莲无言。武大郎说他听得懂她嫌贫、嫌他矮、嫌一辈子望得到头，但她想要的日子不能拿他的命换。潘金莲落泪，问他来是要听她认错吗。武大郎说自己是来了结两人之间的事，让她把做过的事向官府说清楚，往后自己过什么日子由自己想。他扶腰起身，慢慢离开，没有回头。",
+          "camera": "近景停在武大郎平静说话与潘金莲落泪，随后跟武大郎起身离开，镜头不追入牢内，保留他不回头的动作。",
+          "scene_changes": "武大郎离开探视处。",
+          "effects": "无。",
+          "audio": "武大郎说明他听得懂她的嫌弃，但她想要的日子不能拿他的命换。潘金莲：“你来是要听我认错吗？”武大郎：“我是来了结两人之间的事。把做过的事向官府说清楚，往后自己过什么日子由自己想。”脚步声渐远。"
+        }
+      ]
+    },
+    {
+      "id": "shot_027",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_006",
+      "title": "武家炊饼开张",
+      "key_anchor_ids": [
+        "segment_006_anchor_003"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "一个月后空着的小铺，日间光线明亮，铺内整洁待开张。",
+        "spatial_setup": "招牌悬挂在门头，凳子在铺内；柜台与炉灶在后方，兄弟可在门口和铺内互动。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，踩凳子挂招牌。",
+          "position": "凳子上，门头下方。",
+          "facing": "朝向招牌。",
+          "gaze_target": "招牌位置。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，在下方指挥。",
+          "position": "凳子旁。",
+          "facing": "仰头朝向武松。",
+          "gaze_target": "招牌。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "郓哥",
+          "presence": "抱梨进入铺内。",
+          "position": "门口。",
+          "facing": "朝向兄弟。",
+          "gaze_target": "武大郎。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "一个月后，空着的小铺里，武松踩凳子挂上“武家炊饼”招牌。武大郎在下面指挥他往左、再低一点，笑他打虎也毛手毛脚。郓哥抱梨进来要帮忙招揽客人，武大郎说梨得算钱。郓哥反问从前给他的饼怎么算，武大郎挑出一个梨说算还他的，剩下按市价。",
+          "camera": "先以招牌字样近景确认“武家炊饼”，再放宽到兄弟与进门的郓哥，保持铺内位置清晰。",
+          "scene_changes": "招牌挂上门头。",
+          "effects": "无。",
+          "audio": "武大郎指挥：“往左，再低一点。”并笑说他打虎也毛手毛脚。郓哥要帮忙招揽客人；武大郎：“梨得算钱。”郓哥反问从前饼怎么算；武大郎：“算还你的，剩下按市价。”"
+        },
+        {
+          "duration_seconds": 7,
+          "action": "武松跳下凳子，把写着兄弟两人名字的铺契递给哥哥。武大郎问弟弟出赏钱买的铺子为何添上自己名字。武松说自己只会吃不会做，没有哥哥明日就关门。武大郎笑着收好铺契。",
+          "camera": "铺契文字与两人名字特写后移至兄弟双人中景，铺契交接完整可见。",
+          "scene_changes": "铺契由武松交给武大郎并收好。",
+          "effects": "无。",
+          "audio": "武大郎：“你出赏钱买的铺子，为何添上我名字？”武松：“我只会吃不会做，没有哥哥明日就关门。”"
+        }
+      ]
+    },
+    {
+      "id": "shot_028",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_006",
+      "title": "炉火边学做饼",
+      "key_anchor_ids": [
+        "segment_006_anchor_003"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "清晨铺内炉火亮起，蒸笼升着白气，案板与面团备好。",
+        "spatial_setup": "案板在灶前，武大郎与武松并肩操作；铺门通向街面。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，试着捏面团。",
+          "position": "案板前。",
+          "facing": "朝向面团。",
+          "gaze_target": "手中面团。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，指导弟弟。",
+          "position": "武松身侧。",
+          "facing": "朝向案板。",
+          "gaze_target": "武松的手。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 9,
+          "action": "清晨炉火亮起，武松试着捏面团，用力不匀，摊出的饼厚得像馒头。武大郎握住他的手示范轻一点、转半圈，武松终于摊出像样的饼。掌心面粉让武松想起火场中没能收回的那只手，回忆一闪而过，眼前灶火温暖，哥哥就在身边。武大郎问他又愣什么，武松说没什么。",
+          "camera": "手部近景表现面团厚薄变化与武大郎握手示范；武松愣神时短暂停在掌心面粉，回到温暖灶火与哥哥身边。",
+          "scene_changes": "无。",
+          "effects": "火场未能收回的那只手以短暂记忆闪现后消散。",
+          "audio": "炉火与蒸笼声持续。武大郎：“轻一点，转半圈。”随后问：“你又愣什么？”武松：“没什么。”"
+        }
+      ]
+    },
+    {
+      "id": "shot_029",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_006",
+      "title": "换你等我收摊",
+      "key_anchor_ids": [
+        "segment_006_anchor_003"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "清晨炊饼铺，炉火与蒸笼持续工作，街上渐渐热闹。",
+        "spatial_setup": "灶台与案板在铺内，门槛通向街道；武松穿差服准备出门，武大郎在柜台与蒸笼间经营。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武松",
+          "presence": "在场，穿差服准备出门。",
+          "position": "门槛内侧。",
+          "facing": "先朝门外，随后回身。",
+          "gaze_target": "武大郎。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "武大郎",
+          "presence": "在场，正把第一笼饼端上案板。",
+          "position": "灶台与柜台之间。",
+          "facing": "朝向案板。",
+          "gaze_target": "蒸笼与炊饼。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "郓哥",
+          "presence": "在铺门边招揽客人。",
+          "position": "门边。",
+          "facing": "朝向街道。",
+          "gaze_target": "路过行人。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "武松穿差服准备出门，走到门槛又回身：“哥，中午等我回来吃饭。”武大郎正把第一笼饼端上案板，说今日开张忙着呢。武松说自己早些回来帮忙。武大郎笑着摇手：“你去忙你的。这回，换你等我收摊。”武松看着他，轻轻答：“好。”",
+          "camera": "由案板蒸笼跟到门槛上的武松回身，保持兄弟目光连线，结尾停留在武松轻声回应。",
+          "scene_changes": "无。",
+          "effects": "蒸笼白气持续。",
+          "audio": "武松：“哥，中午等我回来吃饭。”武大郎说明今日开张忙着；武松：“我早些回来帮忙。”武大郎：“你去忙你的。这回，换你等我收摊。”武松：“好。”"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "街上渐热闹，郓哥在门边喊“武家炊饼，刚出锅的！”武大郎站上自己做的小木台，平稳够到柜台另一边，熟练地接钱包饼，声音比从前响亮。武松走入晨光，回头看了一眼，哥哥忙着，没有看见。画面停在蒸笼升起的白气上，字幕：“命运改变以后，日子才刚刚开始。”",
+          "camera": "从门边郓哥带到武大郎站上小木台、接钱包饼的平稳动作，再跟武松走入晨光并回头，最后停在蒸笼白气。",
+          "scene_changes": "街面人流逐渐增多。",
+          "effects": "无。",
+          "audio": "街市声渐热闹。郓哥：“武家炊饼，刚出锅的！”蒸笼声与铺内经营声延续，结尾渐收。画面字幕逐字：“命运改变以后，日子才刚刚开始。”"
+        }
+      ]
+    }
+  ]
+}

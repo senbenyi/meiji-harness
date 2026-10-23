@@ -5,7 +5,7 @@ import { RulesModel } from '@agent-modules/prompt-composer'
 import { projectInfo } from './create_project.js'
 
 const editable = ['name', 'aspect_ratio', 'reference_episode_duration_seconds']
-const nodes = ['script_revision']
+const nodes = ['script_revision', 'story_segments']
 const opinionNodes = ['script_revision', 'story_segments', 'character_extraction', 'scene_extraction', 'shot_design', 'video_prompt']
 const invalid = message => { throw new TypeError(message) }
 const conflict = () => { throw Object.assign(new Error('资料已被修改，请刷新后重新编辑'), { code: 'EDIT_CONFLICT' }) }

@@ -1,0 +1,9 @@
+{
+  "key": "complex",
+  "round": 2,
+  "version": "A1",
+  "inputHash": "650d253eabc53cdb5779e257b4c2c12c6c4c686c0a53dc34b3b54f9bf00465ec",
+  "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/complex/round-2/A/final-v2",
+  "status": "failed",
+  "error": "response：不是有效JSON"
+}

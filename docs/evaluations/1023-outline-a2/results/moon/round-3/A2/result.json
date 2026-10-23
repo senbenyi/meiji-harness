@@ -1,0 +1,18 @@
+{
+  "key": "moon",
+  "round": 3,
+  "stages": {
+    "outline": "passed",
+    "shot": "passed"
+  },
+  "metrics": {
+    "shotCount": 12,
+    "beatCount": 34,
+    "missingSegments": [],
+    "missingAnchors": [],
+    "issues": []
+  },
+  "status": "failed",
+  "failedStage": "final",
+  "error": "无符合主题和时长的样本"
+}

@@ -1,0 +1,17 @@
+{
+  "key": "wusong",
+  "round": 1,
+  "stages": {
+    "outline": "passed",
+    "shot": "passed",
+    "final": "passed"
+  },
+  "metrics": {
+    "shotCount": 31,
+    "beatCount": 110,
+    "missingSegments": [],
+    "missingAnchors": [],
+    "issues": []
+  },
+  "status": "completed"
+}

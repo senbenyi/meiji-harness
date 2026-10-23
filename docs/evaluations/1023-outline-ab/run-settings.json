@@ -1,0 +1,33 @@
+{
+  "model": "codex-gpt",
+  "language": "zh-CN",
+  "rounds": 3,
+  "concurrency": 2,
+  "timeoutMs": 900000,
+  "sampling": "未传采样参数；使用当前模型服务默认设置，不保证可设随机种子",
+  "requestsPlanned": {
+    "outline": 18,
+    "shot": 18,
+    "pairedJudge": 9
+  },
+  "createdAt": "2026-10-23T10:58:43.627Z",
+  "rulesHashes": {
+    "A": "010ee3ec879e5073954121e447953fbd8c88457ae12461cd9c516bbe199c0796",
+    "B": "f452f828d2c98379babaa2bddca83c914a1542da81c188f28de1399e3f878894"
+  },
+  "upstreamConcurrency": 2,
+  "finalPromptConcurrency": 1,
+  "maximumConcurrentRequests": 3,
+  "formalFinalStage": "final-v2",
+  "exploratoryFinalStage": "final，抽样匹配问题已停止，不用于正式方案判断",
+  "actualRequests": {
+    "mainOutline": 18,
+    "mainShot": 18,
+    "mainPairedJudge": 5,
+    "formalFinalPrompt": 14,
+    "formalFinalJudge": 3,
+    "formalTotal": 58,
+    "exploratoryFinalIncludingOneStoppedLocalWorker": 6
+  },
+  "completedAt": "2026-10-23T12:02:30.517Z"
+}

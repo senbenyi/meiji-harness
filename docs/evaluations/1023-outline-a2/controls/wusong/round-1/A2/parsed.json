@@ -1,0 +1,34 @@
+{
+  "items": [
+    {
+      "clip_id": "eval_medicine",
+      "text_to_video": {
+        "prompt": {
+          "integrated_multimodal_description": "清晨武家厨房，镜头紧贴桌边的手与药碗；拆开的药包放在一旁，楼上卧房里传来武大郎的声音。潘金莲手抖一下，药粉落进热汤，粉末在汤面散开、逐渐溶解。她盯着汤中粉末，端起碗，迟疑片刻又将碗放回桌面，碗沿轻碰桌面。",
+          "overall_soundscape": "克制的厨房环境声，药粉落入汤中的细微声响，以及碗放回桌面的轻碰声。",
+          "non_diegetic_music": "N/A"
+        }
+      }
+    },
+    {
+      "clip_id": "eval_brothers",
+      "text_to_video": {
+        "prompt": {
+          "integrated_multimodal_description": "旧染坊院内，断裂的木梯与受损晾布台旁，武松制服西门庆，短刀在西门庆手边；垂布隔开后院门附近的武大郎。武大郎抓着武松的手臂，肩头衣服破损，声音发颤却清楚地说：“二郎，看我。我还活着。”镜头从两人相接的手臂缓慢转向武松悬停在半空的拳头，再随他缓缓转头的视线落到兄弟对视：武松看见哥哥肩头破衣下胸口仍在起伏，终于松开制服西门庆的手。",
+          "overall_soundscape": "武大郎的声音清晰传来，火场回响渐退，现场呼吸声逐渐回归。",
+          "non_diegetic_music": "N/A"
+        }
+      }
+    },
+    {
+      "clip_id": "eval_fight",
+      "text_to_video": {
+        "prompt": {
+          "integrated_multimodal_description": "旧染坊院内，长布在风中摆动，染缸与翻倒的木桶在近旁，地面湿滑。武松左袖已被短刀划开，持长竹竿与西门庆僵持；武大郎已退到垂布后。连续中景中，武松双手持竿压住西门庆的刀身，竹竿弯曲，刀刃摩擦发出刺耳声响。西门庆踹向染缸旁木架，镜头仰摇，木架受力晃动，晾布杆砸落；镜头随之落回，武松抬臂护住头部，竹竿被压断为两截。",
+          "overall_soundscape": "风吹长布声间有刀刃摩擦声；木架受踹、晾布杆坠落、竹竿断裂声接连响起。",
+          "non_diegetic_music": "N/A"
+        }
+      }
+    }
+  ]
+}

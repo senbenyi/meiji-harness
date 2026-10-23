@@ -2,6 +2,7 @@
 export const clientAssets = new Map([
   ['node_box/project/ui/conversation/history.js', new URL('../node_box/project/ui/conversation/history.js', import.meta.url)],
   ['node_box/script_revision/ui/conversation/history.js', new URL('../node_box/script_revision/ui/conversation/history.js', import.meta.url)],
+  ['node_box/story_segments/ui/conversation/history.js', new URL('../node_box/story_segments/ui/conversation/history.js', import.meta.url)],
   ['client/ui/project-ui.css', new URL('../client/ui/project-ui.css', import.meta.url)],
   ['client/ui/panel-shell.css', new URL('../client/ui/panel-shell.css', import.meta.url)],
   ['client/panel.js', new URL('../client/panel.js', import.meta.url)],

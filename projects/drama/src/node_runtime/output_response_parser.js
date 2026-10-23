@@ -55,7 +55,22 @@ export function validateNodeOutput(nodeType, action, value, { definition = nodeD
 export function parseNodeOutput(nodeType, action, response, options) {
   let value = response
   if (typeof response === 'string') {
-    try { value = JSON.parse(response) } catch { invalid('response', '不是有效JSON') }
+    try { value = JSON.parse(response) }
+    catch {
+      // 部分模型在JSON字符串内直接返回换行；只修正编码，不推断字段或结构。
+      let encoded = '', quoted = false, escaped = false
+      for (const char of response) {
+        if (quoted && !escaped && ['\n', '\r', '\t'].includes(char)) {
+          encoded += JSON.stringify(char).slice(1, -1)
+          continue
+        }
+        encoded += char
+        if (escaped) escaped = false
+        else if (quoted && char === '\\') escaped = true
+        else if (char === '"') quoted = !quoted
+      }
+      try { value = JSON.parse(encoded) } catch { invalid('response', '不是有效JSON') }
+    }
   }
   return validateNodeOutput(nodeType, action, value, options)
 }

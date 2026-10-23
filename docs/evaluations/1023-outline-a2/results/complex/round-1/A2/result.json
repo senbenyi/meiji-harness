@@ -1,0 +1,17 @@
+{
+  "key": "complex",
+  "round": 1,
+  "stages": {
+    "outline": "passed",
+    "shot": "passed",
+    "final": "passed"
+  },
+  "metrics": {
+    "shotCount": 20,
+    "beatCount": 39,
+    "missingSegments": [],
+    "missingAnchors": [],
+    "issues": []
+  },
+  "status": "completed"
+}

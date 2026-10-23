@@ -1,0 +1,237 @@
+{
+  "path": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/complex/round-2/A/final-v2",
+  "inputHash": "650d253eabc53cdb5779e257b4c2c12c6c4c686c0a53dc34b3b54f9bf00465ec",
+  "selection": {
+    "selected": [
+      {
+        "topic": {
+          "id": "sisters",
+          "label": "姐妹信任变化与表情",
+          "terms": [
+            "江禾",
+            "沈岚",
+            "怕",
+            "相机"
+          ]
+        },
+        "clip": {
+          "id": "eval_sisters",
+          "mode": "文生",
+          "duration_seconds": 12,
+          "sources": [
+            {
+              "shot_id": "shot_016",
+              "beat_start": 0,
+              "beat_end": 0
+            }
+          ]
+        },
+        "shot": {
+          "id": "shot_016",
+          "previous_shot_connection": "cut",
+          "story_segment_id": "segment_004",
+          "title": "把我们都写进去：姐妹对话",
+          "key_anchor_ids": [
+            "segment_004_anchor_002"
+          ],
+          "scene": {
+            "scene_id": "",
+            "state": "雨夜大厅，江禾相机被雨水浸湿；救援仍在进行。",
+            "spatial_setup": "大厅楼梯扶手可固定相机，镜头朝向大厅救援绳，不对准控制柜内部；沈岚与江禾在大厅相对。"
+          },
+          "characters": [
+            {
+              "character_id": "",
+              "costume_id": "",
+              "name": "江禾",
+              "presence": "在大厅持相机。",
+              "position": "楼梯扶手旁。",
+              "facing": "朝向沈岚。",
+              "gaze_target": "沈岚。"
+            },
+            {
+              "character_id": "",
+              "costume_id": "",
+              "name": "沈岚",
+              "presence": "从泵房侧来到大厅与江禾对话。",
+              "position": "楼梯附近。",
+              "facing": "朝向江禾。",
+              "gaze_target": "江禾的相机。"
+            }
+          ],
+          "beats": [
+            {
+              "duration_seconds": 12,
+              "action": "江禾问沈岚：“你怕的是做错，还是只剩你签字？”沈岚看着姐姐被雨浸湿的相机，终于不再只谈规程：“我怕别人替我承担。”",
+              "camera": "双人中近景，焦点由江禾转向沈岚；沈岚目光落在相机上，摄影不进入控制柜区域。",
+              "scene_changes": "无。",
+              "effects": "无。",
+              "audio": "江禾逐字问：“你怕的是做错，还是只剩你签字？”沈岚回答：“我怕别人替我承担。”雨声低底持续。"
+            }
+          ]
+        },
+        "prior_beats_context": [],
+        "selectionScore": 4
+      },
+      {
+        "topic": {
+          "id": "rescue",
+          "label": "救援站位、持续动作与水压",
+          "terms": [
+            "压轮",
+            "沈岚",
+            "陈姨",
+            "门"
+          ]
+        },
+        "clip": {
+          "id": "eval_rescue",
+          "mode": "文生",
+          "duration_seconds": 10,
+          "sources": [
+            {
+              "shot_id": "shot_013",
+              "beat_start": 1,
+              "beat_end": 1
+            }
+          ]
+        },
+        "shot": {
+          "id": "shot_013",
+          "previous_shot_connection": "continuous",
+          "story_segment_id": "segment_003",
+          "title": "迟到的报告：切断重发",
+          "key_anchor_ids": [
+            "segment_003_anchor_003"
+          ],
+          "scene": {
+            "scene_id": "",
+            "state": "泵房控制柜仍通电，自动开门指令周期闪烁；红钥匙挂在柜旁，蓝钥匙已由罗闻收在胸前透明小袋。",
+            "spatial_setup": "控制柜与检修门相邻；沈岚操作柜，门外人员准备尝试开门。"
+          },
+          "characters": [
+            {
+              "character_id": "",
+              "costume_id": "",
+              "name": "沈岚",
+              "presence": "在控制柜前。",
+              "position": "控制柜旁。",
+              "facing": "朝向柜内回路。",
+              "gaze_target": "自动重发回路。"
+            },
+            {
+              "character_id": "",
+              "costume_id": "",
+              "name": "罗闻",
+              "presence": "在检修门旁协助泄压。",
+              "position": "门边机械泄压轮附近。",
+              "facing": "朝向泄压轮。",
+              "gaze_target": "机械泄压轮。"
+            },
+            {
+              "character_id": "",
+              "costume_id": "",
+              "name": "江禾",
+              "presence": "回到泵房侧参与救援。",
+              "position": "检修门外。",
+              "facing": "朝向门。",
+              "gaze_target": "门缝。"
+            }
+          ],
+          "beats": [
+            {
+              "duration_seconds": 10,
+              "action": "沈岚亲手拉门，门只开一指宽，掌心被磨出血。罗闻持续按住门旁的机械泄压轮，许衡和江禾一起拉门；门内的陈姨依照江禾的指示，把卡住脚踝的工具箱推开。",
+              "camera": "泵房侧中景交代泄压轮、拉门人员与门缝；推进手掌和一指宽门缝，再让门内回应以声音呈现。",
+              "scene_changes": "沈岚掌心磨出血；门仍受水压限制。陈姨脚踝脱离工具箱。",
+              "effects": "门缝短暂开启约一指宽，未形成稳定开启。",
+              "audio": "门受压呻吟，众人用力声；江禾隔门指导陈姨推开工具箱，陈姨回应动作；水声持续。"
+            }
+          ]
+        },
+        "prior_beats_context": [
+          {
+            "duration_seconds": 8,
+            "action": "沈岚切断自动重发回路，指令灯停止闪烁，但水压仍把检修门顶住。",
+            "camera": "柜内开关与指令灯特写；灯停后移向仍受压的门扇，明确两者结果不同。",
+            "scene_changes": "自动重发停止；检修门外水压状态不变。",
+            "effects": "指令灯闪烁停止，设备提示音停止。",
+            "audio": "切断回路的开关声；提示音止，门外水流和雨声仍在。"
+          }
+        ],
+        "selectionScore": 4
+      },
+      {
+        "topic": {
+          "id": "keys",
+          "label": "钥匙交接与物件连续性",
+          "terms": [
+            "红钥匙",
+            "许衡",
+            "沈岚",
+            "交"
+          ]
+        },
+        "clip": {
+          "id": "eval_keys",
+          "mode": "文生",
+          "duration_seconds": 10,
+          "sources": [
+            {
+              "shot_id": "shot_017",
+              "beat_start": 0,
+              "beat_end": 0
+            }
+          ]
+        },
+        "shot": {
+          "id": "shot_017",
+          "previous_shot_connection": "cut",
+          "story_segment_id": "segment_004",
+          "title": "把我们都写进去：红钥匙与裂杆",
+          "key_anchor_ids": [
+            "segment_004_anchor_003"
+          ],
+          "scene": {
+            "scene_id": "",
+            "state": "泵房控制柜已经断电，机械泄压轮旁辅助拉杆可见裂纹；红钥匙原挂于柜边。",
+            "spatial_setup": "控制柜、钥匙挂钩和泄压轮位于泵房侧同一区域；沈岚可取钥匙锁柜，随后检查辅助拉杆。"
+          },
+          "characters": [
+            {
+              "character_id": "",
+              "costume_id": "",
+              "name": "沈岚",
+              "presence": "回到控制柜旁。",
+              "position": "柜边挂钩处。",
+              "facing": "朝向控制柜。",
+              "gaze_target": "红钥匙和柜锁。"
+            },
+            {
+              "character_id": "",
+              "costume_id": "",
+              "name": "许衡",
+              "presence": "在控制柜旁守候。",
+              "position": "沈岚对面。",
+              "facing": "朝向沈岚。",
+              "gaze_target": "交来的红钥匙。"
+            }
+          ],
+          "beats": [
+            {
+              "duration_seconds": 10,
+              "action": "沈岚从挂钩上取回红钥匙，用它锁上已经断电的控制柜，再把钥匙交给许衡：“你守柜，不再复位。”许衡握住钥匙，没有将它插回柜中。",
+              "camera": "红钥匙取下、锁柜、交到许衡手中的连续手部动作；停在许衡握钥匙而未插入柜中的状态。",
+              "scene_changes": "控制柜保持断电并上锁；红钥匙转由许衡持有。",
+              "effects": "无。",
+              "audio": "柜锁闭合声；沈岚说：“你守柜，不再复位。”雨声及救援声持续。"
+            }
+          ]
+        },
+        "prior_beats_context": [],
+        "selectionScore": 4
+      }
+    ],
+    "problems": []
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "status": "failed",
+  "key": "wusong",
+  "round": 1,
+  "version": "B",
+  "error": "output.shots[27].characters[2].id：不允许额外字段"
+}

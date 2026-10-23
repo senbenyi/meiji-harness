@@ -4,13 +4,15 @@ import { serveRecordRoute } from './record_routes.js'
 import { readFile } from 'node:fs/promises'
 import { createLibraryHttpHandler } from './library_routes.js'
 import { createModelSettings, modelOptions } from '../settings/model-settings.js'
+import { renderNodeRules, nodeContract } from '../node_runtime/output_contract_renderer.js'
+import { nodeState } from '../node_runtime/node_state.js'
 
 const json = (res, status, value) => {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
   res.end(JSON.stringify(value))
 }
 
-export function createProjectHttpHandler(tool, { authorize, models = createModelSettings(tool.root), scriptRevision }) {
+export function createProjectHttpHandler(tool, { authorize, models = createModelSettings(tool.root), scriptRevision, storySegments }) {
   const streams = new Set(), creations = new Map()
   let cursor = 0
   // 暂停实时连接时仍保留每个来源会话的最新创建通知，恢复后补发。
@@ -75,6 +77,15 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
       }
       const sessionId = url.searchParams.get('session_id')
       if (!sessionId) return json(res, 400, { message: '需提供会话ID' })
+      if (url.pathname === '/api/drama/node-rules' && req.method === 'GET') {
+        const type = url.searchParams.get('node_type')
+        nodeContract(type)
+        const { project } = await tool.snapshot(sessionId)
+        if (!project) return json(res, 403, { message: '当前会话未绑定项目' })
+        const state = nodeState(project, type)
+        if (state?.type !== 1 || !state.rules) return json(res, 422, { message: '该节点没有AI规则' })
+        return json(res, 200, { bases: Object.fromEntries(['generate', 'revise', 'review'].map(action => [action, renderNodeRules(state, action).base])) })
+      }
       if (url.pathname === '/api/drama/task-messages' && req.method === 'GET') {
         const rawAfter = url.searchParams.get('after') || '-1'
         if (!/^-?\d+$/.test(rawAfter) || !Number.isSafeInteger(Number(rawAfter)) || Number(rawAfter) < -1) return json(res, 400, { message: '消息游标无效' })
@@ -87,10 +98,13 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
       if (url.pathname === '/api/drama/original-script' && req.method === 'GET')
         return json(res, 200, await tool.readOriginalScript(sessionId))
       if (url.pathname === '/api/drama/project' && req.method === 'GET') {
+        // 在异步快照前采样，补回首次加载期间、SSE尚未连接时的创建交接。
+        res.setHeader('X-Drama-Event-Cursor', String(cursor))
         if (tool.applyMainAgent && /^session-[a-f0-9-]{36}$/i.test(sessionId)) await tool.applyMainAgent(sessionId)
         const snapshot = await tool.snapshot(sessionId)
         const active = snapshot.project && tool.activeExecution(snapshot.project.basic_info.id, 'script_revision')
-        return json(res, 200, { ...snapshot, ...(active ? { script_execution: active } : {}) })
+        const storyActive = snapshot.project && tool.activeExecution(snapshot.project.basic_info.id, 'story_segments')
+        return json(res, 200, { ...snapshot, ...(active ? { script_execution: active } : {}), ...(storyActive ? { story_execution: storyActive } : {}) })
       }
       if (url.pathname === '/api/drama/project' && req.method === 'DELETE') {
         if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
@@ -109,6 +123,14 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         for await (const chunk of req) { size += chunk.length; if (size > 65536) return json(res, 413, { message: '优化要求过大' }); chunks.push(chunk) }
         const { project_id, request_id, instruction } = JSON.parse(Buffer.concat(chunks).toString())
         const result = await scriptRevision.optimizeScript({ instruction }, { sessionId, projectId: project_id, requestId: request_id, source: 'ui' })
+        return json(res, 202, result)
+      }
+      if (url.pathname === '/api/drama/story-outline' && req.method === 'POST') {
+        if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
+        const chunks = []; let size = 0
+        for await (const chunk of req) { size += chunk.length; if (size > 65536) return json(res, 413, { message: '大纲要求过大' }); chunks.push(chunk) }
+        const { project_id, request_id, instruction } = JSON.parse(Buffer.concat(chunks).toString())
+        const result = await storySegments.generateStoryOutline({ instruction }, { sessionId, projectId: project_id, requestId: request_id, source: 'ui' })
         return json(res, 202, result)
       }
       if (url.pathname === '/api/drama/project' && req.method === 'PATCH') {

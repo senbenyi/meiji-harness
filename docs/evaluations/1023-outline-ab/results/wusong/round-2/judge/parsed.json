@@ -1,0 +1,151 @@
+{
+  "X": {
+    "scores": {
+      "story_quality": 4,
+      "continuity": 3,
+      "coverage": 3,
+      "dialogue": 3,
+      "no_readaptation": 4,
+      "shootability": 3
+    },
+    "issues": [
+      {
+        "severity": "major",
+        "dimension": "coverage",
+        "segment_id": "segment_001",
+        "shot_ids": [
+          "shot_005",
+          "shot_006",
+          "shot_007"
+        ],
+        "evidence": "原稿写“武大郎把一个略焦的饼递给郓哥，没收钱”；X的shot_006保留递饼，但其声轨把王婆的迎客声概括为“王婆迎客的招呼声”，未覆盖茶坊门口具体人物为穿深蓝绸袍的男人这一关键信息。",
+        "explanation": "茶坊来客身份及其与王婆的接触是后续悬疑线索；镜头未明确落实，削弱观众对西门庆进入茶坊的识别。"
+      },
+      {
+        "severity": "major",
+        "dimension": "coverage",
+        "segment_id": "segment_004",
+        "shot_ids": [
+          "shot_027"
+        ],
+        "evidence": "原稿写“药中有毒”是第六场数日后验药结果；第四场周巡检只认出“军仓缺失的领药票”，并说“碗、纸、人，一并带走查验”。X的shot_027同样只呈现领药票及待查验，没有覆盖潘金莲惊慌摇头、武大郎失踪和西门庆在巷尾持刀挟持他的完整揭示。",
+        "explanation": "shot_028补了后窗和挟持，但未明确后门敞开，也未覆盖潘金莲惊慌摇头；失踪如何发生及她是否知情仍显含混。"
+      },
+      {
+        "severity": "minor",
+        "dimension": "dialogue",
+        "segment_id": "segment_006",
+        "shot_ids": [
+          "shot_038"
+        ],
+        "evidence": "原稿对白为“我听得懂你嫌穷，嫌我矮，嫌这一辈子看得见头”；X的shot_038写为“嫌贫、嫌我矮、嫌日子一眼望到头”。",
+        "explanation": "意思相近但不是定稿原句，属于轻微对白改写。"
+      },
+      {
+        "severity": "minor",
+        "dimension": "shootability",
+        "segment_id": "segment_005",
+        "shot_ids": [
+          "shot_033",
+          "shot_035"
+        ],
+        "evidence": "染坊动作要求在湿布缠刀、武大郎抬插销、武松被染粉遮眼及木梯断裂坠落后继续连贯完成；原稿动作链包含这些连续节点。",
+        "explanation": "节点较多且空间关系紧密，若不明确调度与镜头节拍，现场执行容易造成动作方向不清；本身仍可拍摄。"
+      }
+    ]
+  },
+  "Y": {
+    "scores": {
+      "story_quality": 4,
+      "continuity": 3,
+      "coverage": 3,
+      "dialogue": 2,
+      "no_readaptation": 3,
+      "shootability": 3
+    },
+    "issues": [
+      {
+        "severity": "major",
+        "dimension": "dialogue",
+        "segment_id": "segment_001",
+        "shot_ids": [
+          "shot_003"
+        ],
+        "evidence": "原稿在此处只写武大郎叫“二郎，饼快凉了！”；Y shot_003新增对白“又做噩梦了？喝口热的。”",
+        "explanation": "把原稿稍后发生的询问与递茶对白提前到冲突前，改变对白时序并弱化武松失控的突发性。"
+      },
+      {
+        "severity": "major",
+        "dimension": "dialogue",
+        "segment_id": "segment_003",
+        "shot_ids": [
+          "shot_011"
+        ],
+        "evidence": "原稿武大郎说“我不是来打你的。你要走，就今日说。”；Y写成“我不求她留下，只问她是否今日便要走”，并新增“你今日便要走？”",
+        "explanation": "改写定稿对白，且把武大郎主动让妻子当面选择的明确边界替换成转述式问句。"
+      },
+      {
+        "severity": "major",
+        "dimension": "dialogue",
+        "segment_id": "segment_004",
+        "shot_ids": [
+          "shot_015"
+        ],
+        "evidence": "原稿武松对郓哥说“王婆刚从后门进去，那张纸上有军字。我只能认得这些，别添别减。”；Y写成“我只见王婆刚从后门进去，那张纸上有个‘军’字，我只能认得这些”，没有保留“别添别减”的明确指令。",
+        "explanation": "短状转述的限制被从对白中删去，影响武松要求如实递报的关键限定。"
+      },
+      {
+        "severity": "major",
+        "dimension": "dialogue",
+        "segment_id": "segment_005",
+        "shot_ids": [
+          "shot_020"
+        ],
+        "evidence": "原稿武大郎的台词是“二郎。”“别只看刀。”；Y保留为“二郎。别只看刀。”",
+        "explanation": "两句合并本身不改变意思，但Y将完整台词并入动作声轨，仍属轻微呈现差异；本项仅据原稿中两句明确停顿的节拍要求，影响有限。"
+      },
+      {
+        "severity": "major",
+        "dimension": "coverage",
+        "segment_id": "segment_004",
+        "shot_ids": [
+          "shot_018"
+        ],
+        "evidence": "原稿写“众人上楼，窗边的后门敞着，武大郎不见了”；Y写“后窗旁的后门敞开”，但镜头空间又把后窗、后门、巷尾视线混写。",
+        "explanation": "空间路径交代不够清楚，观众难以判断武大郎从哪处被带走；属于实质性空间信息缺口。"
+      },
+      {
+        "severity": "major",
+        "dimension": "no_readaptation",
+        "segment_id": "segment_005",
+        "shot_ids": [
+          "shot_024"
+        ],
+        "evidence": "原稿写潘金莲“指出”藏信地点；Y称她“被押进染坊”后当场作证。",
+        "explanation": "将原稿的到场与交代改成明确被押送入场，新增了拘押和押送结果，改变人物处境。"
+      },
+      {
+        "severity": "minor",
+        "dimension": "dialogue",
+        "segment_id": "segment_006",
+        "shot_ids": [
+          "shot_026"
+        ],
+        "evidence": "原稿为“武大郎：是你的。”；Y写“都是你的。”",
+        "explanation": "定稿对白有轻微字词改动。"
+      },
+      {
+        "severity": "minor",
+        "dimension": "story_quality",
+        "segment_id": "segment_001",
+        "shot_ids": [
+          "shot_005"
+        ],
+        "evidence": "原稿写西门庆下马、王婆笑着迎进去，随后郓哥介绍其身份；Y把他进入茶坊与告示等事件压在同一镜头段。",
+        "explanation": "事件压缩使武松留意西门庆、郓哥解释身份、武松被哥哥叫回的观看节奏稍显拥挤，但不构成因果断裂。"
+      }
+    ]
+  },
+  "preferred": "X",
+  "reason": "X总体保留原稿因果、人物选择与关键收束，主要不足是少数事件覆盖和对白细节偏差。Y的节奏紧凑，但多处改写已定稿对白，尤其削弱武大郎的自主边界与武松对证据转述的限定；另有将潘金莲明确设为被押入场的新增处境。两方案均有可执行的分镜基础，X下游偏差较少。"
+}

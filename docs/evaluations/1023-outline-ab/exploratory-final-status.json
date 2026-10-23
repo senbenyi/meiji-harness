@@ -1,0 +1,6 @@
+{
+  "status": "stopped",
+  "reason": "抽样器只依赖词匹配，存在把茶碗记忆选成端药犹疑的问题。已有最终提示词作为探索记录，不纳入正式方案胜负。正式抽样v2改为剧情阶段+动作约束。",
+  "stopped_at": "2026-10-23T11:33:38.108908+00:00",
+  "inflight_request_may_be_incomplete": "results/moon/round-2/A/final"
+}

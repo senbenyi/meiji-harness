@@ -1,0 +1,4210 @@
+{
+  "controls": [
+    {
+      "case": "complex",
+      "round": 1,
+      "source": {
+        "path": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/complex/round-1/A/final-v2",
+        "inputHash": "ecbe2c4267481d5cc02a387214d233220be93f4e44a6bde2f5acdf860029f165",
+        "selection": {
+          "selected": [
+            {
+              "topic": {
+                "id": "sisters",
+                "label": "姐妹信任变化与表情",
+                "terms": [
+                  "江禾",
+                  "沈岚",
+                  "怕",
+                  "相机"
+                ]
+              },
+              "clip": {
+                "id": "eval_sisters",
+                "mode": "文生",
+                "duration_seconds": 14,
+                "sources": [
+                  {
+                    "shot_id": "shot_017",
+                    "beat_start": 0,
+                    "beat_end": 0
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_017",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_005",
+                "title": "把我们都写进去",
+                "key_anchor_ids": [
+                  "segment_005_anchor_002"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "泵房及大厅均为冷白灯光，风雨持续；救援绳在大厅区域。",
+                  "spatial_setup": "姐妹在泵房附近交流，江禾的相机可固定于大厅楼梯扶手，镜头朝大厅救援绳，不拍控制柜内部。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "江禾",
+                    "presence": "在泵房附近与沈岚交谈，随后移动到大厅楼梯扶手固定相机。",
+                    "position": "沈岚对面，后至楼梯扶手旁。",
+                    "facing": "朝沈岚，后朝相机取景方向。",
+                    "gaze_target": "沈岚，后检查救援绳入镜。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "沈岚",
+                    "presence": "在泵房内面对江禾。",
+                    "position": "江禾对面。",
+                    "facing": "朝江禾。",
+                    "gaze_target": "江禾。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 14,
+                    "action": "剧情依据：segment_005_anchor_002。江禾问沈岚害怕做错还是只剩她签字；沈岚望着姐姐被雨浸湿的相机，承认害怕别人替她承担。江禾没有逼她道歉，把相机固定在楼梯扶手上，镜头对准大厅救援绳而非控制柜内部，表示共同承担。",
+                    "camera": "双人近景保留目光交流，随后跟江禾移到楼梯扶手，确认取景框含救援绳、不含控制柜内部。",
+                    "scene_changes": "相机由手持改为固定在楼梯扶手。",
+                    "effects": "无。",
+                    "audio": "江禾说：“你怕的是做错，还是只剩你签字？”沈岚说：“我怕别人替我承担。”江禾说：“那就把我们都写进去。”风雨声持续。"
+                  }
+                ]
+              },
+              "prior_beats_context": [],
+              "selectionScore": 4
+            },
+            {
+              "topic": {
+                "id": "rescue",
+                "label": "救援站位、持续动作与水压",
+                "terms": [
+                  "压轮",
+                  "沈岚",
+                  "陈姨",
+                  "门"
+                ]
+              },
+              "clip": {
+                "id": "eval_rescue",
+                "mode": "文生",
+                "duration_seconds": 12,
+                "sources": [
+                  {
+                    "shot_id": "shot_014",
+                    "beat_start": 1,
+                    "beat_end": 1
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_014",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_004",
+                "title": "灯停，门未开",
+                "key_anchor_ids": [
+                  "segment_004_anchor_001"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "泵房冷白灯光；检修廊水压持续，门外控制柜仍可见。",
+                  "spatial_setup": "控制柜、检修门及门旁机械泄压轮位于同一泵房区域；陈姨在门内。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "沈岚",
+                    "presence": "在控制柜处切断自动重发回路后转向门。",
+                    "position": "控制柜旁至检修门外。",
+                    "facing": "先朝柜内，后朝门。",
+                    "gaze_target": "指令灯，后为门。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "罗闻",
+                    "presence": "守在门旁泄压轮。",
+                    "position": "检修门旁机械泄压轮处。",
+                    "facing": "朝门。",
+                    "gaze_target": "门与泄压轮。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "许衡",
+                    "presence": "在门外准备拉门。",
+                    "position": "检修门外一侧。",
+                    "facing": "朝门。",
+                    "gaze_target": "门。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "江禾",
+                    "presence": "在门外准备协助。",
+                    "position": "许衡旁。",
+                    "facing": "朝门。",
+                    "gaze_target": "门。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "陈姨",
+                    "presence": "仍在门内。",
+                    "position": "检修廊内。",
+                    "facing": "朝门外。",
+                    "gaze_target": "门外声源。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 12,
+                    "action": "剧情依据：segment_004_anchor_001。沈岚亲手拉门，门只动一指宽，掌心磨破。罗闻压住机械泄压轮，许衡和江禾合力拉门；陈姨依照指示推开卡住脚踝的工具箱。水流突然加大，罗闻旧伤发软、手离开压轮，门立刻合回，没有夹伤陈姨。",
+                    "camera": "门外中近景连续观察施力、门缝一指宽、罗闻手离轮及门合回；不切至另一背景区。",
+                    "scene_changes": "廊内水流突然加大，门重新闭合。",
+                    "effects": "门在压轮失去持续按压后迅速合回；未夹伤陈姨。",
+                    "audio": "拉门、压轮与水流声逐渐增强，门合回发出撞击声；无新增对白。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 8,
+                  "action": "剧情依据：segment_004_anchor_001。沈岚切断自动重发回路，指令灯终于停下；水压仍把门顶住。",
+                  "camera": "先近拍断路操作及指令灯熄灭，再移至门板仍受力不动，明确先后。",
+                  "scene_changes": "自动重发停止；检修廊水压与进水仍持续。",
+                  "effects": "指令灯由周期闪烁变为熄灭。",
+                  "audio": "设备重复声停止，水压顶门的低沉声持续。"
+                }
+              ],
+              "selectionScore": 4
+            },
+            {
+              "topic": {
+                "id": "keys",
+                "label": "钥匙交接与物件连续性",
+                "terms": [
+                  "红钥匙",
+                  "许衡",
+                  "沈岚",
+                  "交"
+                ]
+              },
+              "clip": {
+                "id": "eval_keys",
+                "mode": "文生",
+                "duration_seconds": 10,
+                "sources": [
+                  {
+                    "shot_id": "shot_018",
+                    "beat_start": 0,
+                    "beat_end": 0
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_018",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_005",
+                "title": "钥匙与裂纹",
+                "key_anchor_ids": [
+                  "segment_005_anchor_003"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "泵房控制柜已断电，柜旁挂钩仍挂红钥匙；大厅救援绳和辅助拉杆在救援区域。",
+                  "spatial_setup": "沈岚由泵房控制柜取钥匙并交给许衡；随后在大厅救援绳处检查压轮辅助拉杆。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "沈岚",
+                    "presence": "在控制柜旁取红钥匙，之后检查拉杆。",
+                    "position": "泵房控制柜旁至大厅救援绳区域。",
+                    "facing": "朝控制柜、许衡及拉杆。",
+                    "gaze_target": "红钥匙、许衡、拉杆裂纹。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "许衡",
+                    "presence": "接过红钥匙守柜。",
+                    "position": "控制柜旁。",
+                    "facing": "朝沈岚。",
+                    "gaze_target": "红钥匙与控制柜。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 10,
+                    "action": "剧情依据：segment_005_anchor_003。沈岚从柜边挂钩取回红钥匙，锁上已断电控制柜并交给许衡，要求他守柜、不再复位。许衡握住钥匙，不插回柜中，也不再操作。",
+                    "camera": "特写红钥匙离开挂钩、锁柜、交到许衡手中；停留确认钥匙未插入。",
+                    "scene_changes": "控制柜保持断电并锁闭，由许衡看守。",
+                    "effects": "无。",
+                    "audio": "沈岚说：“你守柜，不再复位。”锁柜声、钥匙轻响；设备声已停。"
+                  }
+                ]
+              },
+              "prior_beats_context": [],
+              "selectionScore": 4
+            }
+          ],
+          "problems": []
+        }
+      },
+      "A1": {
+        "result": {
+          "key": "complex",
+          "round": 1,
+          "version": "A1",
+          "inputHash": "ecbe2c4267481d5cc02a387214d233220be93f4e44a6bde2f5acdf860029f165",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/complex/round-1/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_sisters",
+            "text": "14秒，单一连续镜头。泵房与大厅均是冷白灯光，风雨持续。开场双人近景：江禾与沈岚在泵房附近相对而立，彼此注视；江禾手持被雨水浸湿的相机。镜头保持两人的目光交流，江禾问：“你怕的是做错，还是只剩你签字？”沈岚望向姐姐被雨浸湿的相机，承认：“我怕别人替我承担。”她的目光停在相机上，语气坦白。江禾不逼她道歉，随后拿着相机从沈岚面前移向大厅楼梯扶手；摄影连续跟随，不跳切。她把相机固定在扶手上，调整镜头朝向大厅救援绳，检查取景框确实包含救援绳、不含控制柜内部，然后说：“那就把我们都写进去。”镜头以固定相机对准救援绳的构图结束。",
+            "chars": 261,
+            "controlLanguageFlags": [
+              "保持两人的目光交流，江禾问：“你怕的是做错，还是只剩你签字？”沈岚望向姐姐被雨浸湿的相机，承认：“我怕别人替我承担。”她的目光停在相机上，语气坦白。江禾不"
+            ]
+          },
+          {
+            "clip_id": "eval_rescue",
+            "text": "12秒，门外中近景连续观察，不切至另一背景区。开场承接同一镜头此前状态：泵房冷白灯光下，指令灯已熄灭、自动重发已停止，但检修廊水压仍将门顶住；沈岚从控制柜处转向检修门。罗闻守在门旁机械泄压轮，许衡与江禾在门外一侧准备拉门，陈姨仍在门内。沈岚亲手拉门，门板只开一指宽，她的掌心磨破。罗闻持续压住泄压轮，许衡和江禾合力拉门；陈姨依照指示推开卡住脚踝的工具箱。廊内水流突然加大，罗闻旧伤发软，手离开压轮；失去持续按压后，门迅速合回并发出撞击声，没有夹伤陈姨。镜头连续看清门缝、罗闻手离开压轮及门合回的先后过程。无新增对白。",
+            "chars": 258,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_keys",
+            "text": "10秒。泵房冷白灯光下，控制柜已断电，柜旁挂钩上仍挂着红钥匙，设备声已停。镜头特写沈岚从挂钩取下红钥匙，锁上已断电的控制柜，再把钥匙交给许衡。沈岚要求：“你守柜，不再复位。”许衡接过钥匙并握住，留在控制柜旁看守；镜头停留确认钥匙没有插回柜中，许衡也没有再操作。控制柜保持断电并锁闭。",
+            "chars": 141,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/complex/round-1/A1/response.txt"
+      },
+      "A2": {
+        "result": {
+          "key": "complex",
+          "round": 1,
+          "version": "A2",
+          "inputHash": "ecbe2c4267481d5cc02a387214d233220be93f4e44a6bde2f5acdf860029f165",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/complex/round-1/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_sisters",
+            "text": "14秒，冷白灯下的泵房，风雨持续。双人近景中，江禾面对沈岚，目光沉稳地问：“你怕的是做错，还是只剩你签字？”沈岚望向姐姐被雨浸湿的相机，迟疑片刻，承认：“我怕别人替我承担。”江禾没有逼她道歉，随后带着相机移向大厅楼梯扶手；镜头连续跟随她，将相机固定在扶手上，调整取景并确认大厅救援绳清晰入镜、控制柜内部不在画面中。江禾对沈岚说：“那就把我们都写进去。”结束时相机已固定，镜头对准救援绳。",
+            "chars": 193,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_rescue",
+            "text": "12秒，泵房冷白灯下，检修门外中近景连续拍摄。自动重发回路已切断，指令灯熄灭，但检修廊水压仍持续顶住门。沈岚亲手拉门，门只开出一指宽，掌心磨破。门旁的罗闻压住机械泄压轮，许衡与江禾在门外合力拉门；门内的陈姨依照指示推开卡住脚踝的工具箱。廊内水流突然加大，罗闻旧伤发软，手从压轮上滑开；失去持续按压后，门迅速合回并发出撞击声，没有夹伤陈姨。",
+            "chars": 169,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_keys",
+            "text": "10秒，泵房控制柜已断电，柜旁挂钩上仍挂着红钥匙。镜头特写沈岚从挂钩取下红钥匙，锁上已断电的控制柜，再将钥匙交给许衡。沈岚说：“你守柜，不再复位。”许衡握住钥匙守在柜旁，不把钥匙插回柜中，也不再操作。镜头停留确认钥匙仍在许衡手中、控制柜保持断电锁闭。",
+            "chars": 125,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/complex/round-1/A2/response.txt"
+      }
+    },
+    {
+      "case": "complex",
+      "round": 2,
+      "source": {
+        "path": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/complex/round-2/A/final-v2",
+        "inputHash": "650d253eabc53cdb5779e257b4c2c12c6c4c686c0a53dc34b3b54f9bf00465ec",
+        "selection": {
+          "selected": [
+            {
+              "topic": {
+                "id": "sisters",
+                "label": "姐妹信任变化与表情",
+                "terms": [
+                  "江禾",
+                  "沈岚",
+                  "怕",
+                  "相机"
+                ]
+              },
+              "clip": {
+                "id": "eval_sisters",
+                "mode": "文生",
+                "duration_seconds": 12,
+                "sources": [
+                  {
+                    "shot_id": "shot_016",
+                    "beat_start": 0,
+                    "beat_end": 0
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_016",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_004",
+                "title": "把我们都写进去：姐妹对话",
+                "key_anchor_ids": [
+                  "segment_004_anchor_002"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "雨夜大厅，江禾相机被雨水浸湿；救援仍在进行。",
+                  "spatial_setup": "大厅楼梯扶手可固定相机，镜头朝向大厅救援绳，不对准控制柜内部；沈岚与江禾在大厅相对。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "江禾",
+                    "presence": "在大厅持相机。",
+                    "position": "楼梯扶手旁。",
+                    "facing": "朝向沈岚。",
+                    "gaze_target": "沈岚。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "沈岚",
+                    "presence": "从泵房侧来到大厅与江禾对话。",
+                    "position": "楼梯附近。",
+                    "facing": "朝向江禾。",
+                    "gaze_target": "江禾的相机。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 12,
+                    "action": "江禾问沈岚：“你怕的是做错，还是只剩你签字？”沈岚看着姐姐被雨浸湿的相机，终于不再只谈规程：“我怕别人替我承担。”",
+                    "camera": "双人中近景，焦点由江禾转向沈岚；沈岚目光落在相机上，摄影不进入控制柜区域。",
+                    "scene_changes": "无。",
+                    "effects": "无。",
+                    "audio": "江禾逐字问：“你怕的是做错，还是只剩你签字？”沈岚回答：“我怕别人替我承担。”雨声低底持续。"
+                  }
+                ]
+              },
+              "prior_beats_context": [],
+              "selectionScore": 4
+            },
+            {
+              "topic": {
+                "id": "rescue",
+                "label": "救援站位、持续动作与水压",
+                "terms": [
+                  "压轮",
+                  "沈岚",
+                  "陈姨",
+                  "门"
+                ]
+              },
+              "clip": {
+                "id": "eval_rescue",
+                "mode": "文生",
+                "duration_seconds": 10,
+                "sources": [
+                  {
+                    "shot_id": "shot_013",
+                    "beat_start": 1,
+                    "beat_end": 1
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_013",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_003",
+                "title": "迟到的报告：切断重发",
+                "key_anchor_ids": [
+                  "segment_003_anchor_003"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "泵房控制柜仍通电，自动开门指令周期闪烁；红钥匙挂在柜旁，蓝钥匙已由罗闻收在胸前透明小袋。",
+                  "spatial_setup": "控制柜与检修门相邻；沈岚操作柜，门外人员准备尝试开门。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "沈岚",
+                    "presence": "在控制柜前。",
+                    "position": "控制柜旁。",
+                    "facing": "朝向柜内回路。",
+                    "gaze_target": "自动重发回路。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "罗闻",
+                    "presence": "在检修门旁协助泄压。",
+                    "position": "门边机械泄压轮附近。",
+                    "facing": "朝向泄压轮。",
+                    "gaze_target": "机械泄压轮。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "江禾",
+                    "presence": "回到泵房侧参与救援。",
+                    "position": "检修门外。",
+                    "facing": "朝向门。",
+                    "gaze_target": "门缝。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 10,
+                    "action": "沈岚亲手拉门，门只开一指宽，掌心被磨出血。罗闻持续按住门旁的机械泄压轮，许衡和江禾一起拉门；门内的陈姨依照江禾的指示，把卡住脚踝的工具箱推开。",
+                    "camera": "泵房侧中景交代泄压轮、拉门人员与门缝；推进手掌和一指宽门缝，再让门内回应以声音呈现。",
+                    "scene_changes": "沈岚掌心磨出血；门仍受水压限制。陈姨脚踝脱离工具箱。",
+                    "effects": "门缝短暂开启约一指宽，未形成稳定开启。",
+                    "audio": "门受压呻吟，众人用力声；江禾隔门指导陈姨推开工具箱，陈姨回应动作；水声持续。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 8,
+                  "action": "沈岚切断自动重发回路，指令灯停止闪烁，但水压仍把检修门顶住。",
+                  "camera": "柜内开关与指令灯特写；灯停后移向仍受压的门扇，明确两者结果不同。",
+                  "scene_changes": "自动重发停止；检修门外水压状态不变。",
+                  "effects": "指令灯闪烁停止，设备提示音停止。",
+                  "audio": "切断回路的开关声；提示音止，门外水流和雨声仍在。"
+                }
+              ],
+              "selectionScore": 4
+            },
+            {
+              "topic": {
+                "id": "keys",
+                "label": "钥匙交接与物件连续性",
+                "terms": [
+                  "红钥匙",
+                  "许衡",
+                  "沈岚",
+                  "交"
+                ]
+              },
+              "clip": {
+                "id": "eval_keys",
+                "mode": "文生",
+                "duration_seconds": 10,
+                "sources": [
+                  {
+                    "shot_id": "shot_017",
+                    "beat_start": 0,
+                    "beat_end": 0
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_017",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_004",
+                "title": "把我们都写进去：红钥匙与裂杆",
+                "key_anchor_ids": [
+                  "segment_004_anchor_003"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "泵房控制柜已经断电，机械泄压轮旁辅助拉杆可见裂纹；红钥匙原挂于柜边。",
+                  "spatial_setup": "控制柜、钥匙挂钩和泄压轮位于泵房侧同一区域；沈岚可取钥匙锁柜，随后检查辅助拉杆。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "沈岚",
+                    "presence": "回到控制柜旁。",
+                    "position": "柜边挂钩处。",
+                    "facing": "朝向控制柜。",
+                    "gaze_target": "红钥匙和柜锁。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "许衡",
+                    "presence": "在控制柜旁守候。",
+                    "position": "沈岚对面。",
+                    "facing": "朝向沈岚。",
+                    "gaze_target": "交来的红钥匙。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 10,
+                    "action": "沈岚从挂钩上取回红钥匙，用它锁上已经断电的控制柜，再把钥匙交给许衡：“你守柜，不再复位。”许衡握住钥匙，没有将它插回柜中。",
+                    "camera": "红钥匙取下、锁柜、交到许衡手中的连续手部动作；停在许衡握钥匙而未插入柜中的状态。",
+                    "scene_changes": "控制柜保持断电并上锁；红钥匙转由许衡持有。",
+                    "effects": "无。",
+                    "audio": "柜锁闭合声；沈岚说：“你守柜，不再复位。”雨声及救援声持续。"
+                  }
+                ]
+              },
+              "prior_beats_context": [],
+              "selectionScore": 4
+            }
+          ],
+          "problems": []
+        }
+      },
+      "A1": {
+        "result": {
+          "key": "complex",
+          "round": 2,
+          "version": "A1",
+          "inputHash": "650d253eabc53cdb5779e257b4c2c12c6c4c686c0a53dc34b3b54f9bf00465ec",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/complex/round-2/A/final-v2",
+          "status": "failed",
+          "error": "response：不是有效JSON"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_sisters",
+            "text": "12秒，雨夜大厅双人中近景。大厅楼梯扶手旁，江禾持着被雨水浸湿的相机，身体朝向沈岚；沈岚从泵房侧来到大厅，在楼梯附近面向江禾，目光落在姐姐被雨浸湿的相机上。两人在大厅相对，救援仍在进行。摄影机观察两人，画面不进入控制柜区域；焦点先落在江禾，再转向沈岚，二人同框保持对话关系。江禾看着沈岚，清楚地问：“你怕的是做错，还是只剩你签字？”问完后，沈岚仍看着相机，神情和姿态显出压抑的迟疑，随后不再只谈规程，以克制而真切的语气回答：“我怕别人替我承担。”以沈岚说完后的双人中近景结束；无场景变化、无特效。",
+            "chars": 248,
+            "controlLanguageFlags": [
+              "保持对话关系。江禾看着沈岚，清楚地问：“你怕的是做错，还是只剩你签字？”问完后，沈岚仍看着相机，神情和姿态显出压抑的迟疑，随后不"
+            ]
+          },
+          {
+            "clip_id": "eval_rescue",
+            "text": "10秒，同一泵房侧镜头连续承接：沈岚已切断自动重发回路，指令灯停止闪烁，设备提示音已停止；水压仍把检修门顶住。泵房侧中景先交代控制柜与相邻检修门、门边机械泄压轮，以及沈岚在柜旁、罗闻在门边、江禾在门外的关系。摄影机观察方向保持在泵房侧，不改变人物位置。沈岚亲手拉门，门受水压只开约一指宽；摄影推进至她被门边磨出血的掌心和狭窄门缝，门没有稳定开启。罗闻持续按住机械泄压轮，许衡与江禾一起拉门。门内不展示陈姨，只以声音呈现她依照江禾隔门的指示，把卡住脚踝的工具箱推开；工具箱移开，陈姨脚踝脱离。门扇仍受水压限制。",
+            "chars": 254,
+            "controlLanguageFlags": [
+              "保持在泵房侧，不"
+            ]
+          },
+          {
+            "clip_id": "eval_keys",
+            "text": "10秒，泵房内控制柜已断电，柜边挂钩上有红钥匙，机械泄压轮旁辅助拉杆可见裂纹。沈岚回到柜边挂钩处，面向控制柜，视线落在红钥匙和柜锁；许衡在她对面守候，面向沈岚，注视交来的红钥匙。摄影机观察控制柜、钥匙挂钩与泄压轮所在区域，以连续手部动作呈现沈岚从挂钩取下红钥匙、用钥匙锁上断电的控制柜，再将钥匙交给许衡。沈岚交钥匙时说：“你守柜，不再复位。”许衡握住红钥匙，没有将它插回柜中。镜头停在许衡握钥匙、控制柜保持断电上锁的状态；辅助拉杆裂纹仍可见，无场景变化、无特效。",
+            "chars": 231,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/complex/round-2/A1/response.txt"
+      },
+      "A2": {
+        "result": {
+          "key": "complex",
+          "round": 2,
+          "version": "A2",
+          "inputHash": "650d253eabc53cdb5779e257b4c2c12c6c4c686c0a53dc34b3b54f9bf00465ec",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/complex/round-2/A/final-v2",
+          "status": "failed",
+          "error": "response：不是有效JSON"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_sisters",
+            "text": "雨夜大厅，楼梯扶手旁，江禾持着被雨水浸湿的相机，面对楼梯附近的沈岚；救援仍在进行。双人中近景连续拍摄，焦点先落在江禾身上。她看着沈岚，逐字问：“你怕的是做错，还是只剩你签字？”焦点随即转向沈岚；她看着姐姐被雨浸湿的相机，短暂停顿，终于不再只谈规程，回答：“我怕别人替我承担。”摄影始终不进入控制柜区域，画面结束在姐妹相对、沈岚目光仍落在相机上的状态。",
+            "chars": 175,
+            "controlLanguageFlags": [
+              "逐字"
+            ]
+          },
+          {
+            "clip_id": "eval_rescue",
+            "text": "泵房侧连续中景，控制柜仍通电，自动重发指令灯已停止闪烁、提示音已止；水压仍顶住检修门。沈岚在控制柜旁亲手拉门，罗闻在门边持续按住机械泄压轮；江禾在门外与许衡一起拉门。摄影推进到沈岚用力拉门的手掌，掌心被磨出血；门扇受压呻吟，只短暂打开约一指宽，未能稳定开启。门内传来江禾指导陈姨推开卡住脚踝的工具箱，陈姨照做，脚踝脱离工具箱；门仍受水压限制，众人继续用力。",
+            "chars": 178,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_keys",
+            "text": "泵房侧，控制柜已经断电，柜边挂钩上仍挂着红钥匙，泄压轮旁辅助拉杆可见裂纹。沈岚回到柜边，连续手部近景跟随她从挂钩取下红钥匙、用钥匙锁上断电的控制柜，再把钥匙交给对面的许衡。沈岚说：“你守柜，不再复位。”许衡握住红钥匙，没有将它插回柜中。画面停在控制柜保持断电并上锁、红钥匙由许衡持有的状态。",
+            "chars": 145,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/complex/round-2/A2/response.txt"
+      }
+    },
+    {
+      "case": "moon",
+      "round": 1,
+      "source": {
+        "path": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/moon/round-1/A/final-v2",
+        "inputHash": "60537a1528f60d5229c750d03e4b1777728df1e6f29952a389e761d838347668",
+        "selection": {
+          "selected": [
+            {
+              "topic": {
+                "id": "crowd",
+                "label": "人群压力与安全制止",
+                "terms": [
+                  "烟",
+                  "人群",
+                  "熄",
+                  "麦思敦"
+                ]
+              },
+              "clip": {
+                "id": "eval_crowd",
+                "mode": "文生",
+                "duration_seconds": 12,
+                "sources": [
+                  {
+                    "shot_id": "shot_004",
+                    "beat_start": 0,
+                    "beat_end": 0
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_004",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_001",
+                "title": "麦思敦冲入人群",
+                "key_anchor_ids": [
+                  "segment_001_anchor_002"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "栅栏仍关闭，栅外约三十万人聚集，烟雾笼罩石丘；两英里禁烟火要求仍然有效。",
+                  "spatial_setup": "麦思敦从栅门内冲出，穿过栅门进入人群；人群围绕栅门外侧，石丘在远处。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "麦思敦",
+                    "presence": "在场，准备冲出栅门制止吸烟。",
+                    "position": "栅门内侧。",
+                    "facing": "朝向栅门外的人群。",
+                    "gaze_target": "人群中的吸烟者。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "围观者",
+                    "presence": "约三十万人在栅外，部分人手中或口中有烟卷。",
+                    "position": "栅门外密集分布。",
+                    "facing": "大多朝向工业场，部分彼此交谈。",
+                    "gaze_target": "工业场及各自手中的烟卷。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 12,
+                    "action": "麦思敦挥着小刀冲出栅门，进入人群；他逐一夺下人们手中和口中的烟卷并熄灭。",
+                    "camera": "跟随麦思敦从栅门内穿出，贴身跟拍他在人群中逐一制止吸烟；镜头不跳至另一背景区域。",
+                    "scene_changes": "无独立环境变化；栅门保持已关闭状态，麦思敦由门内进入门外人群。",
+                    "effects": "无。",
+                    "audio": "人群喧声、麦思敦的脚步与夺下烟卷的动作声同步；无新增对白。"
+                  }
+                ]
+              },
+              "prior_beats_context": [],
+              "selectionScore": 4
+            },
+            {
+              "topic": {
+                "id": "launch",
+                "label": "发射冲击、环境与特效",
+                "terms": [
+                  "炮",
+                  "火",
+                  "冲击",
+                  "发射"
+                ]
+              },
+              "clip": {
+                "id": "eval_launch",
+                "mode": "文生",
+                "duration_seconds": 14,
+                "sources": [
+                  {
+                    "shot_id": "shot_015",
+                    "beat_start": 0,
+                    "beat_end": 0
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_015",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_004",
+                "title": "炮火冲入夜空",
+                "key_anchor_ids": [
+                  "segment_004_anchor_001"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "夜间，哥仑比亚炮与周围平原处于发射瞬间；三名旅行者封在弹丸中，观众遍布发射区域。",
+                  "spatial_setup": "炮口朝向夜空，弹丸由炮口射出；麦思敦独自站在距炮约一百五十码处，观众散布在三百英里内的区域。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "麦思敦",
+                    "presence": "在场，独自站在距炮约一百五十码处观看。",
+                    "position": "距炮约一百五十码处。",
+                    "facing": "朝向炮口与弹丸飞行方向。",
+                    "gaze_target": "弹丸。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "周边观众",
+                    "presence": "大量观众在三百英里内。",
+                    "position": "炮周围平原及更广区域。",
+                    "facing": "朝向发射场。",
+                    "gaze_target": "炮口与夜空。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 14,
+                    "action": "口令落下，哥仑比亚炮轰然发射。烈火如柱冲出炮口，弹丸像离弦之箭掠入夜空，火光照亮茀罗理窦，继而在高空蓬勃散开。",
+                    "camera": "炮口低角度近景承接发射，迅速仰摇追随弹丸掠入夜空，再以广角呈现高空火光散开。",
+                    "scene_changes": "无。",
+                    "effects": "炮口烈火如柱喷出；弹丸高速掠入夜空；火光照亮茀罗理窦后在高空蓬勃散开。",
+                    "audio": "哥仑比亚炮轰然巨响，炮火与气流声随弹丸升空延续。"
+                  }
+                ]
+              },
+              "prior_beats_context": [],
+              "selectionScore": 3
+            }
+          ],
+          "problems": [
+            {
+              "topic": "farewell",
+              "reason": "无足够相关且时长合法的完整节拍"
+            }
+          ]
+        }
+      },
+      "A1": {
+        "result": {
+          "key": "moon",
+          "round": 1,
+          "version": "A1",
+          "inputHash": "60537a1528f60d5229c750d03e4b1777728df1e6f29952a389e761d838347668",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/moon/round-1/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_crowd",
+            "text": "夜间以外的场景，栅门仍关闭，栅外约三十万人密集聚集，烟雾笼罩远处石丘；两英里禁烟火要求仍有效。麦思敦起始于栅门内侧，面朝门外人群，目光锁定吸烟者；人群分布在栅门外，大多朝向工业场，部分彼此交谈，部分手中或口中叼着烟卷。镜头贴近麦思敦，从栅门内跟随他穿出门外，持续贴身跟拍，不跳至其他背景区域。麦思敦挥着小刀冲入人群，逐一夺下人们手中和口中的烟卷并熄灭；动作在拥挤人群间连续推进，夺取与熄灭的先后清晰可见，栅门保持关闭。画面呈现人群的密集规模与持续喧闹，以及麦思敦专注制止吸烟的急迫行动。",
+            "chars": 243,
+            "controlLanguageFlags": [
+              "不跳至"
+            ]
+          },
+          {
+            "clip_id": "eval_launch",
+            "text": "夜间平原的发射场，哥仑比亚炮炮口朝向夜空，弹丸封着三名旅行者；观众散布在发射区域及更广范围。麦思敦独自站在距炮约一百五十码处，面朝炮口与弹丸飞行方向，目光追随弹丸；周边观众朝向发射场。镜头由炮口低角度近景承接发射，口令落下，哥仑比亚炮轰然发射，烈火如柱从炮口喷出。镜头迅速仰摇追随弹丸像离弦之箭般高速掠入夜空，火光照亮茀罗理窦；继而转为广角呈现弹丸上升后，高空火光蓬勃散开。火焰喷射、弹丸飞行及火光扩散连贯呈现，麦思敦与观众保持原有位置。",
+            "chars": 219,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/moon/round-1/A1/response.txt"
+      },
+      "A2": {
+        "result": {
+          "key": "moon",
+          "round": 1,
+          "version": "A2",
+          "inputHash": "60537a1528f60d5229c750d03e4b1777728df1e6f29952a389e761d838347668",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/moon/round-1/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_crowd",
+            "text": "12秒连续跟拍。栅门保持关闭，麦思敦从门内挥着小刀冲出栅门，进入门外密集的人群。约三十万人围绕栅门外侧，部分人手中或口中叼着烟卷，远处石丘笼罩在烟雾中。镜头贴身跟随麦思敦穿过人群，他逐一夺下人们手中和口中的烟卷并熄灭；人群拥挤环绕，镜头不跳至其他背景区域。两英里禁烟火要求仍然有效。",
+            "chars": 141,
+            "controlLanguageFlags": [
+              "保持关闭，麦思敦从门内挥着小刀冲出栅门，进入门外密集的人群。约三十万人围绕栅门外侧，部分人手中或口中叼着烟卷，远处石丘笼罩在烟雾中。镜头贴身跟随麦思敦穿过人群，他逐一夺下人们手中和口中的烟卷并熄灭；人群拥挤环绕，镜头不"
+            ]
+          },
+          {
+            "clip_id": "eval_launch",
+            "text": "14秒连续镜头，夜间平原上的哥仑比亚炮炮口朝向夜空。低角度近景承接发射瞬间：口令落下，哥仑比亚炮轰然发射，烈火如柱冲出炮口，弹丸像离弦之箭高速掠入夜空。镜头迅速仰摇追随弹丸升空，火光照亮茀罗理窦，随后切换为广角，呈现火光在高空蓬勃散开。麦思敦独自站在距炮约一百五十码处朝向炮口观看；大量观众散布在炮周围平原及三百英里内，望向发射场。",
+            "chars": 166,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/moon/round-1/A2/response.txt"
+      }
+    },
+    {
+      "case": "moon",
+      "round": 2,
+      "source": {
+        "path": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/moon/round-2/A/final-v2",
+        "inputHash": "e50357e744a4934dcc007064b5262c2f10d8372ab20a003f71939e64d739d875",
+        "selection": {
+          "selected": [
+            {
+              "topic": {
+                "id": "crowd",
+                "label": "人群压力与安全制止",
+                "terms": [
+                  "烟",
+                  "人群",
+                  "熄",
+                  "麦思敦"
+                ]
+              },
+              "clip": {
+                "id": "eval_crowd",
+                "mode": "文生",
+                "duration_seconds": 15,
+                "sources": [
+                  {
+                    "shot_id": "shot_006",
+                    "beat_start": 0,
+                    "beat_end": 0
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_006",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_001",
+                "title": "麦思敦夺烟",
+                "key_anchor_ids": [
+                  "segment_001_anchor_002"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "石丘观众区烟雾笼罩，约三十万人在场；禁烟禁火警告刚刚发出。",
+                  "spatial_setup": "麦思敦已由栅门进入观众区，观众分布在他前后左右；栅门和禁区位于其身后。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "麦思敦",
+                    "presence": "在场，画面内，已进入人群。",
+                    "position": "栅外观众区。",
+                    "facing": "穿行时不断朝向身边吸烟者。",
+                    "gaze_target": "观众手中和口中的烟草。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "观众",
+                    "presence": "约三十万人在场，许多人吸雪茄，随后逐渐安静。",
+                    "position": "麦思敦周围的石丘观众区。",
+                    "facing": "朝向禁区或麦思敦。",
+                    "gaze_target": "麦思敦的行动。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 15,
+                    "action": "麦思敦挥着小刀般灵活地穿过人群，把人们手中和口中的烟草一一夺下并熄灭，堆成一座小丘。",
+                    "camera": "中近景跟拍麦思敦灵活穿行，以连续动作呈现夺烟、熄烟和堆放；不将个别观众扩写为独立事件。",
+                    "scene_changes": "被夺下的烟草熄灭后堆成小丘，作为可见持续结果。",
+                    "effects": "烟草熄灭时烟气逐渐消散；原有观众区烟雾仍可见。",
+                    "audio": "夺取与熄灭烟草的细碎声同步发生；观众喧闹逐步减弱。"
+                  }
+                ]
+              },
+              "prior_beats_context": [],
+              "selectionScore": 4
+            },
+            {
+              "topic": {
+                "id": "farewell",
+                "label": "离别与被拒同行的微表情",
+                "terms": [
+                  "麦思敦",
+                  "同行",
+                  "泪",
+                  "巴比堪"
+                ]
+              },
+              "clip": {
+                "id": "eval_farewell",
+                "mode": "文生",
+                "duration_seconds": 14,
+                "sources": [
+                  {
+                    "shot_id": "shot_024",
+                    "beat_start": 0,
+                    "beat_end": 0
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_024",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_003",
+                "title": "麦思敦请求同行",
+                "key_anchor_ids": [
+                  "segment_003_anchor_003"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "十点钟报响后的发射准备继续，铁索摆动，三名旅行者待入弹丸，社员肃立。",
+                  "spatial_setup": "麦思敦站在地面巴比堪面前，弹丸和起重机在近旁，队列位于后方。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "麦思敦",
+                    "presence": "在场，画面内，眼含泪意。",
+                    "position": "巴比堪面前。",
+                    "facing": "朝向巴比堪。",
+                    "gaze_target": "巴比堪。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "巴比堪",
+                    "presence": "在场，画面内，回应麦思敦。",
+                    "position": "弹丸旁。",
+                    "facing": "朝向麦思敦。",
+                    "gaze_target": "麦思敦。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 14,
+                    "action": "平日强硬的麦思敦终于落泪，问巴比堪能否一同前往。巴比堪回答，弹丸狭小，而麦思敦年事已高，不该冒险同行；他应留在地球等候报告。",
+                    "camera": "双人中近景，先接住麦思敦落泪，再保持两人同框完成问答，弹丸压在背景中。",
+                    "scene_changes": "无。",
+                    "effects": "无。",
+                    "audio": "麦思敦请求同行，声音含泪；巴比堪解释空间与年龄理由，语气坚定。"
+                  }
+                ]
+              },
+              "prior_beats_context": [],
+              "selectionScore": 4
+            }
+          ],
+          "problems": [
+            {
+              "topic": "launch",
+              "reason": "无足够相关且时长合法的完整节拍"
+            }
+          ]
+        }
+      },
+      "A1": {
+        "result": {
+          "key": "moon",
+          "round": 2,
+          "version": "A1",
+          "inputHash": "e50357e744a4934dcc007064b5262c2f10d8372ab20a003f71939e64d739d875",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/moon/round-2/A/final-v2",
+          "status": "failed",
+          "error": "response：不是有效JSON"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_crowd",
+            "text": "15秒，石丘观众区的烟雾仍笼罩四周，禁烟禁火警告刚刚发出。约三十万人分布在麦思敦前后左右，许多人手持或口中含着雪茄；栅门与禁区在他身后。中近景连续跟拍麦思敦灵活穿行，他不断转向身边吸烟的观众，挥动小刀般的手势，将人们手中和口中的烟草一一夺下、熄灭，并堆成一座可见的小丘。夺取、熄灭与堆放连续发生，不扩写个别观众的独立事件。每撮烟草熄灭时，烟气逐渐消散，但观众区原有烟雾依然可见。观众最初喧闹，随着麦思敦持续行动逐步安静；他们朝向禁区或麦思敦，目光跟随他的行动。镜头始终在同一连续跟拍中呈现完整过程。",
+            "chars": 249,
+            "controlLanguageFlags": [
+              "不扩写"
+            ]
+          },
+          {
+            "clip_id": "eval_farewell",
+            "text": "14秒，十点钟报响后的发射准备仍在继续：铁索摆动，三名旅行者待入弹丸，社员在后方肃立。地面上，麦思敦站在巴比堪面前，眼含泪意，朝向并看着巴比堪；巴比堪站在弹丸旁，面对麦思敦。以双人中近景开始，先捕捉平日强硬的麦思敦终于落泪，随后保持两人同框完成问答，弹丸压在背景中。麦思敦含泪问：“你能让我一同前往吗？”巴比堪语气坚定地回答：“弹丸狭小，而你年事已高，不该冒险同行；你应留在地球等候报告。”两人的视线保持相接，发射准备与铁索摆动在背景持续；画面不发生场景变化。",
+            "chars": 230,
+            "controlLanguageFlags": [
+              "保持两人同框完成问答，弹丸压在背景中。麦思敦含泪问：“你能让我一同前往吗？”巴比堪语气坚定地回答：“弹丸狭小，而你年事已高，不",
+              "保持相接，发射准备与铁索摆动在背景持续；画面不"
+            ]
+          }
+        ],
+        "path": "controls/moon/round-2/A1/response.txt"
+      },
+      "A2": {
+        "result": {
+          "key": "moon",
+          "round": 2,
+          "version": "A2",
+          "inputHash": "e50357e744a4934dcc007064b5262c2f10d8372ab20a003f71939e64d739d875",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/moon/round-2/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_crowd",
+            "text": "石丘观众区被烟雾笼罩，约三十万人散布在麦思敦前后左右；禁烟禁火警告刚刚发出。麦思敦已从身后的栅门进入观众区，镜头以中近景连续跟拍他灵活穿行，身形在人群间迅速移动，朝身边吸烟者伸手，将他们手中和口中的烟草一一夺下、熄灭，再堆放在一起。细碎的夺取与熄灭动作连贯发生，不突出个别观众；烟草逐渐堆成一座清晰可见的小丘，熄灭处的烟气消散，观众区原有烟雾仍弥漫。周围观众的喧闹随行动逐步减弱，收尾时小丘留在麦思敦身旁。",
+            "chars": 203,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_farewell",
+            "text": "十点钟报响后的发射准备仍在继续，铁索摆动，三名旅行者待入弹丸，社员肃立在后方。双人中近景中，麦思敦站在地面巴比堪面前，弹丸和起重机在近旁并压在背景中；麦思敦眼含泪意，望着巴比堪，终于落泪，以含泪的声音问：“你能让我和你们一同前往吗？”镜头保持两人同框，巴比堪面对麦思敦，坚定回答：“弹丸太小了，而且您年事已高，不该冒险同行。您还是留在地球上等候我们的报告吧。”问答结束时两人仍相对而立，发射准备在身后持续。",
+            "chars": 203,
+            "controlLanguageFlags": [
+              "保持两人同框，巴比堪面对麦思敦，坚定回答：“弹丸太小了，而且您年事已高，不"
+            ]
+          }
+        ],
+        "path": "controls/moon/round-2/A2/response.txt"
+      }
+    },
+    {
+      "case": "moon",
+      "round": 3,
+      "source": {
+        "path": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/moon/round-3/A/final-v2",
+        "inputHash": "91bd52827771002a2c7431dfb41f3aa13f353bd7faae8e4a70c65cd43a6bb21f",
+        "selection": {
+          "selected": [
+            {
+              "topic": {
+                "id": "crowd",
+                "label": "人群压力与安全制止",
+                "terms": [
+                  "烟",
+                  "人群",
+                  "熄",
+                  "麦思敦"
+                ]
+              },
+              "clip": {
+                "id": "eval_crowd",
+                "mode": "文生",
+                "duration_seconds": 12,
+                "sources": [
+                  {
+                    "shot_id": "shot_005",
+                    "beat_start": 1,
+                    "beat_end": 1
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_005",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_001",
+                "title": "麦思敦制止吸烟",
+                "key_anchor_ids": [
+                  "segment_001_anchor_002"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "栅门外人群仍喧闹，烟雾浓；栅栏边界保持关闭。",
+                  "spatial_setup": "本镜从栅内巡查位置开始，麦思敦冲出栅门进入栅外人群；巴比堪留在栅内。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "麦思敦",
+                    "presence": "在场，栅内巡查，随后越过栅门。",
+                    "position": "栅门内侧。",
+                    "facing": "朝向人群。",
+                    "gaze_target": "持烟者。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "巴比堪",
+                    "presence": "在场，栅内巡查。",
+                    "position": "栅门内侧。",
+                    "facing": "朝向栅门外。",
+                    "gaze_target": "麦思敦及人群。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "围观者",
+                    "presence": "在场，栅外拥挤吸烟。",
+                    "position": "栅门外人群中。",
+                    "facing": "朝向栅内或身边人群。",
+                    "gaze_target": "麦思敦及手中烟卷。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 12,
+                    "action": "劝阻无效，麦思敦冲出栅门，挥着小刀穿过人群，将人们手中和口边的烟卷一一夺下并熄灭，堆成一小堆。",
+                    "camera": "跟随麦思敦穿出栅门进入人群，保持连续运动；镜头停在熄灭的烟卷堆，不夸大刀具用途。",
+                    "scene_changes": "无。",
+                    "effects": "烟卷逐一熄灭，烟火风险随制止吸烟而消退。",
+                    "audio": "人群声中夹杂急促脚步、取下烟卷与熄灭声；无新增对白。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 5,
+                  "action": "麦思敦高声警告吸烟者；人群仍吵嚷不休。",
+                  "camera": "栅内中景对麦思敦，栅栏和人群留在背景，略推近以突出警告。",
+                  "scene_changes": "烟雾继续积聚。",
+                  "effects": "无。",
+                  "audio": "麦思敦高声说：“诸君切勿吸烟，防生奇祸！”人群喧哗未止。"
+                }
+              ],
+              "selectionScore": 4
+            },
+            {
+              "topic": {
+                "id": "farewell",
+                "label": "离别与被拒同行的微表情",
+                "terms": [
+                  "麦思敦",
+                  "同行",
+                  "泪",
+                  "巴比堪"
+                ]
+              },
+              "clip": {
+                "id": "eval_farewell",
+                "mode": "文生",
+                "duration_seconds": 11,
+                "sources": [
+                  {
+                    "shot_id": "shot_017",
+                    "beat_start": 1,
+                    "beat_end": 1
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_017",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_003",
+                "title": "麦思敦含泪送别",
+                "key_anchor_ids": [
+                  "segment_003_anchor_003"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "钟声报到十点，起重机铁索开始摇动，三名旅行者即将被送入弹丸。",
+                  "spatial_setup": "本镜位于炮旁起重设备与弹丸处；旅行者临近弹丸，麦思敦留在地面与巴比堪告别。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "麦思敦",
+                    "presence": "在场，强忍情绪后流泪。",
+                    "position": "炮旁地面，靠近巴比堪。",
+                    "facing": "朝向巴比堪。",
+                    "gaze_target": "巴比堪。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "巴比堪",
+                    "presence": "在场，准备进入弹丸。",
+                    "position": "弹丸入口附近。",
+                    "facing": "朝向麦思敦。",
+                    "gaze_target": "麦思敦。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "亚电与臬科尔",
+                    "presence": "在场，即将随弹丸启程。",
+                    "position": "弹丸入口附近。",
+                    "facing": "朝向弹丸。",
+                    "gaze_target": "弹丸入口。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 11,
+                    "action": "麦思敦再问：“君不偕余同去么？”巴比堪坦言弹丸狭小，而麦思敦年事已高、承受不了旅途艰辛，留在地球等待报告更合适。麦思敦含泪退到一旁，不再阻拦。",
+                    "camera": "两人近景保持面对面关系，巴比堪回应时稳定构图，随后跟麦思敦退开。",
+                    "scene_changes": "无。",
+                    "effects": "无。",
+                    "audio": "麦思敦逐字说：“君不偕余同去么？”巴比堪依正文作克制明确的回应，不扩写对白；铁索声持续。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 8,
+                  "action": "钟声报到十点，起重机铁索开始摇动。麦思敦强忍情绪，终于流下眼泪，问巴比堪是否还能从容片刻。",
+                  "camera": "以起重铁索前景建立倒计时压力，再移至麦思敦含泪面部与巴比堪。",
+                  "scene_changes": "无。",
+                  "effects": "无。",
+                  "audio": "钟声与铁索摇动声同步；麦思敦询问巴比堪能否从容片刻，按正文呈现，不补写原文未明确措辞。"
+                }
+              ],
+              "selectionScore": 3
+            },
+            {
+              "topic": {
+                "id": "launch",
+                "label": "发射冲击、环境与特效",
+                "terms": [
+                  "炮",
+                  "火",
+                  "冲击",
+                  "发射"
+                ]
+              },
+              "clip": {
+                "id": "eval_launch",
+                "mode": "文生",
+                "duration_seconds": 10,
+                "sources": [
+                  {
+                    "shot_id": "shot_019",
+                    "beat_start": 0,
+                    "beat_end": 0
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_019",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_004",
+                "title": "火焰照亮茀罗理窦",
+                "key_anchor_ids": [
+                  "segment_004_anchor_001"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "“放射”声落，夜色笼罩哥仑比亚炮与茀罗理窦平原。",
+                  "spatial_setup": "以哥仑比亚炮为爆发中心，视野由炮口向火焰扩散的天空和三百英里内受照亮区域展开。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "平原观众",
+                    "presence": "在场，聚集于炮周围及远处平原。",
+                    "position": "发射区周围与平原。",
+                    "facing": "朝向哥仑比亚炮与天空。",
+                    "gaze_target": "炮口、火焰及升空方向。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 10,
+                    "action": "哥仑比亚炮轰然震响，火焰如柱冲上天空，继而蓬勃四散，照亮茀罗理窦，仿佛夜里骤然出现一个火焰世界。",
+                    "camera": "炮口低角度仰拍火焰柱，随火焰扩散转为大远景展现被照亮的平原。",
+                    "scene_changes": "夜空与平原被炮火照亮。",
+                    "effects": "炮火由集中火柱迅速扩散成蓬勃火光，强烈照亮周围天空；火光持续于爆发过程。",
+                    "audio": "炮声轰然爆发，低频冲击与火焰声同步；无对白。"
+                  }
+                ]
+              },
+              "prior_beats_context": [],
+              "selectionScore": 3
+            }
+          ],
+          "problems": []
+        }
+      },
+      "A1": {
+        "result": {
+          "key": "moon",
+          "round": 3,
+          "version": "A1",
+          "inputHash": "91bd52827771002a2c7431dfb41f3aa13f353bd7faae8e4a70c65cd43a6bb21f",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/moon/round-3/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_crowd",
+            "text": "时长约12秒，单一连续镜头，不剪辑。开场承接麦思敦已在栅内高声警告、人群仍吵嚷、烟雾继续积聚的状态：栅门关闭，麦思敦在栅门内侧面向栅外持烟者，巴比堪留在他身旁朝向栅外；栅门外拥挤的人群仍在吸烟，彼此朝向栅内或身边人群，目光落在麦思敦及手中烟卷上。摄影从栅内跟随麦思敦冲出栅门，连续进入人群；他挥着小刀穿行其间，逐一夺下人们手中和口边的烟卷并熄灭，堆成一小堆。表现清楚烟卷被取下、熄灭并聚成烟卷堆的过程，不夸大刀具用途。烟卷逐一熄灭，烟火风险随制止吸烟而消退；镜头保持连续运动，最后停在熄灭的烟卷堆上。此前警告已经说完，本片不重复对白；无新增对白。",
+            "chars": 273,
+            "controlLanguageFlags": [
+              "保持连续运动，最后停在熄灭的烟卷堆上。此前警告已经说完，本片不"
+            ]
+          },
+          {
+            "clip_id": "eval_farewell",
+            "text": "时长约11秒。开场承接钟声已报到十点、起重机铁索开始摇动，麦思敦强忍情绪后已流泪的状态；切至炮旁起重设备与弹丸处的两人近景。麦思敦在地面靠近巴比堪，面朝他、目光相对；巴比堪在弹丸入口附近转向麦思敦，亚电与臬科尔也在入口附近朝向弹丸，准备随弹丸启程。铁索在背景持续摇动。保持两人面对面的近景关系，麦思敦含泪问：“君不偕余同去么？”巴比堪克制而明确地说明弹丸狭小，麦思敦年事已高、难以承受旅途艰辛，留在地球等待报告更合适；不扩写对白。随后摄影跟随麦思敦退到一旁，他不再阻拦。",
+            "chars": 235,
+            "controlLanguageFlags": [
+              "保持两人面对面的近景关系，麦思敦含泪问：“君不",
+              "不扩写"
+            ]
+          },
+          {
+            "clip_id": "eval_launch",
+            "text": "时长约10秒，夜色笼罩哥仑比亚炮与茀罗理窦平原。发射区周围及远处平原聚集着观众，他们朝向哥仑比亚炮、炮口火焰及升空方向。镜头从炮口低角度仰拍；在“放射”声落后，哥仑比亚炮轰然震响，火焰如柱冲上天空，集中火柱迅速蓬勃四散，强烈照亮周围夜空。摄影随火焰扩散转为大远景，展现火光照亮茀罗理窦及三百英里内的平原，宛如夜里骤然出现一个火焰世界。火光持续于爆发、扩散和照亮过程；无对白。",
+            "chars": 187,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/moon/round-3/A1/response.txt"
+      },
+      "A2": {
+        "result": {
+          "key": "moon",
+          "round": 3,
+          "version": "A2",
+          "inputHash": "91bd52827771002a2c7431dfb41f3aa13f353bd7faae8e4a70c65cd43a6bb21f",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/moon/round-3/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_crowd",
+            "text": "栅门外人群拥挤喧闹，浓烟弥漫，栅栏边界关闭。镜头从栅内巡查位置连续跟随麦思敦冲出栅门进入人群，巴比堪留在栅内注视。麦思敦挥着小刀穿过人群，依次夺下人们手中及口边的烟卷并逐一熄灭，烟火风险随之消退，熄灭的烟卷堆成一小堆。镜头不停顿地跟随其行动，最后停在烟卷堆上；刀具仅作为挥动动作呈现。",
+            "chars": 142,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_farewell",
+            "text": "炮旁起重设备与弹丸入口处，铁索持续摇动；三名旅行者临近弹丸，麦思敦与巴比堪在地面相对而立。麦思敦仍含泪，面对巴比堪问：“君不偕余同去么？”两人近景保持面对面关系。巴比堪克制而明确地回应，说明弹丸狭小、麦思敦年事已高且难承旅途艰辛，留在地球等待报告更合适；不扩写回应原话。麦思敦含泪退到一旁，不再阻拦。镜头随后跟着他退开。",
+            "chars": 160,
+            "controlLanguageFlags": [
+              "保持面对面关系。巴比堪克制而明确地回应，说明弹丸狭小、麦思敦年事已高且难承旅途艰辛，留在地球等待报告更合适；不"
+            ]
+          },
+          {
+            "clip_id": "eval_launch",
+            "text": "夜色笼罩哥仑比亚炮与茀罗理窦平原，以“放射”声落作为起点。低角度从炮口仰拍，哥仑比亚炮轰然震响，火焰如柱冲上天空；镜头随火焰迅速蓬勃四散，转为大远景，展现夜空与周围平原被强烈照亮，三百英里内仿佛骤然出现一个火焰世界。平原上的观众聚集在发射区及远处，望向炮口、火焰和升空方向。",
+            "chars": 137,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/moon/round-3/A2/response.txt"
+      }
+    },
+    {
+      "case": "wusong",
+      "round": 1,
+      "source": {
+        "path": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/wusong/round-1/A/final-v2",
+        "inputHash": "abc5658f376dcbb5f8617116ec2b4b2fd97a6216f96af3d023ae97e00d466615",
+        "selection": {
+          "selected": [
+            {
+              "topic": {
+                "id": "medicine",
+                "label": "端药犹疑与内心冲突",
+                "terms": [
+                  "潘金莲",
+                  "碗",
+                  "药",
+                  "手"
+                ]
+              },
+              "clip": {
+                "id": "eval_medicine",
+                "mode": "文生",
+                "duration_seconds": 7,
+                "sources": [
+                  {
+                    "shot_id": "shot_017",
+                    "beat_start": 1,
+                    "beat_end": 1
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_017",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_004",
+                "title": "药碗停在桌上",
+                "key_anchor_ids": [
+                  "segment_004_anchor_001"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "武家厨房清晨，药包已打开，桌上有碗；楼上卧房内武大郎休息。",
+                  "spatial_setup": "厨房在楼梯下方，桌边可放药碗；楼梯直通卧房，后门通窄巷。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "潘金莲",
+                    "presence": "厨房内拆开药包，随后端碗上楼。",
+                    "position": "桌旁至楼梯。",
+                    "facing": "朝向药碗，后朝楼上。",
+                    "gaze_target": "药粉、楼梯与武大郎所在房间。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武大郎",
+                    "presence": "楼上房中。",
+                    "position": "床边或房内。",
+                    "facing": "朝向楼梯方向。",
+                    "gaze_target": "楼下声音。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 7,
+                    "action": "她的手抖了一下，药粉落入碗里。她盯着粉末溶开，端起碗又放下。",
+                    "camera": "手与药粉近景，跟随药粉落水、溶解、端碗再放下。",
+                    "scene_changes": "药粉进入热汤并溶解。",
+                    "effects": "药粉在汤中扩散溶开。",
+                    "audio": "碗与桌面轻碰声；厨房声场克制。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 9,
+                  "action": "潘金莲拆开药包，纸上写着“一包尽入热汤，服后莫留渣”。她望向楼上，武大郎在房中问水若开了能否倒一点。",
+                  "camera": "药纸文字特写完整呈现，再切潘金莲望楼梯及楼上传来的方向。",
+                  "scene_changes": "药包纸被展开，文字可见。",
+                  "effects": "无。",
+                  "audio": "武大郎在楼上问：“水若开了，能否倒一点？”"
+                }
+              ],
+              "selectionScore": 7
+            },
+            {
+              "topic": {
+                "id": "brothers",
+                "label": "兄弟之间的克制与张力",
+                "terms": [
+                  "武大郎",
+                  "武松",
+                  "我还活着",
+                  "拳"
+                ]
+              },
+              "clip": {
+                "id": "eval_brothers",
+                "mode": "文生",
+                "duration_seconds": 8,
+                "sources": [
+                  {
+                    "shot_id": "shot_024",
+                    "beat_start": 3,
+                    "beat_end": 3
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_024",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_005",
+                "title": "拳停在半空",
+                "key_anchor_ids": [
+                  "segment_005_anchor_002"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "旧染坊院内，木梯折断，晾布台受损，短刀落在西门庆手边；武松脸侧染蓝、左臂衣袖破损。",
+                  "spatial_setup": "武松与西门庆在晾布台下方，武大郎在后院门附近，垂布隔开视线。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武松",
+                    "presence": "肩背着地后起身制服西门庆。",
+                    "position": "西门庆旁。",
+                    "facing": "朝向西门庆。",
+                    "gaze_target": "对手及其手边短刀。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "西门庆",
+                    "presence": "翻身爬起后被制服。",
+                    "position": "晾布台下方。",
+                    "facing": "朝向武松。",
+                    "gaze_target": "武松。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武大郎",
+                    "presence": "后院门附近，继续摸索插销。",
+                    "position": "垂布后。",
+                    "facing": "朝向后门。",
+                    "gaze_target": "插销。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 8,
+                    "action": "武大郎声音发颤却清楚：“二郎，看我。我还活着。”武松的拳停在半空，慢慢转头，看见哥哥肩头衣服破了，胸口仍在起伏。他终于松开手。",
+                    "camera": "武大郎抓手臂的近景，缓慢转到武松悬停的拳与回头视线，落在兄弟对视。",
+                    "scene_changes": "无。",
+                    "effects": "无。",
+                    "audio": "武大郎：“二郎，看我。我还活着。”火场回响渐退，现场呼吸声回归。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 8,
+                  "action": "武松一脚踢开刀，抓住西门庆伸来的手，压住肩肘把他按在地上。西门庆喊打死自己武松也要偿命。",
+                  "camera": "低机位跟随踢刀、抓手、压肩肘，停在地面制伏构图。",
+                  "scene_changes": "短刀被踢离西门庆手边。",
+                  "effects": "无。",
+                  "audio": "刀滑地声；西门庆喊：“打死我，你武松也要偿命！”"
+                },
+                {
+                  "duration_seconds": 7,
+                  "action": "武松一拳砸在他耳侧木板上，木板裂开。火场坍塌的声音在武松耳边回响，又混进武大郎刚才压抑的痛叫。他再度抬拳，愤怒几乎压过判断。",
+                  "camera": "拳头落板与木板裂纹特写，转至武松失焦眼神；视听主观化但保持染坊空间。",
+                  "scene_changes": "木板裂开。",
+                  "effects": "无。",
+                  "audio": "拳击木板声转为火场坍塌回响，混入武大郎先前痛叫；回响压过现场声。"
+                },
+                {
+                  "duration_seconds": 8,
+                  "action": "武大郎终于抬起插销推开后门，周巡检带人从门外进入。武大郎踉跄走向弟弟，抓住他抬起的手臂。武松没有回头。",
+                  "camera": "后门插销与门开启的近景，周巡检进入后移至武大郎抓住武松手臂。",
+                  "scene_changes": "后门打开，周巡检及随行人员进入院内。",
+                  "effects": "无。",
+                  "audio": "插销抬起与门轴声、众人脚步；火场回响仍在。"
+                }
+              ],
+              "selectionScore": 4
+            },
+            {
+              "topic": {
+                "id": "fight",
+                "label": "染坊动作与空间互动",
+                "terms": [
+                  "染",
+                  "竹竿",
+                  "西门庆",
+                  "刀"
+                ]
+              },
+              "clip": {
+                "id": "eval_fight",
+                "mode": "文生",
+                "duration_seconds": 9,
+                "sources": [
+                  {
+                    "shot_id": "shot_022",
+                    "beat_start": 2,
+                    "beat_end": 2
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_022",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_005",
+                "title": "水桶打乱刀势",
+                "key_anchor_ids": [
+                  "segment_005_anchor_001",
+                  "segment_005_anchor_002"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "旧染坊院内，长布随风摆动，染缸与盛水木桶在近旁。",
+                  "spatial_setup": "武大郎受制于西门庆刀下；武松在两丈外持长竹竿，染缸与布帘为两人间障碍。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武大郎",
+                    "presence": "被挟持，主动反击。",
+                    "position": "西门庆身前，木桶旁。",
+                    "facing": "朝向西门庆。",
+                    "gaze_target": "持刀手与木桶。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "西门庆",
+                    "presence": "持刀挟持武大郎。",
+                    "position": "染缸边。",
+                    "facing": "朝向武松，后转向武大郎。",
+                    "gaze_target": "武松。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武松",
+                    "presence": "持长竹竿待机。",
+                    "position": "两丈外。",
+                    "facing": "朝向二人。",
+                    "gaze_target": "刀腕与武大郎。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 9,
+                    "action": "武松双手持竿压住刀身，竹竿弯曲，刀刃摩擦出刺耳声响。西门庆踹向染缸旁木架，晾布杆砸下，武松护住头，竹竿被压断。",
+                    "camera": "双人中景展示压刀僵持，仰摇木架与落下晾布杆，再落回护头及断竿。",
+                    "scene_changes": "木架被踹动，晾布杆落下；竹竿断为两截。",
+                    "effects": "无。",
+                    "audio": "刀刃摩擦刺耳声、木架受踹声、晾布杆坠落与竹竿断裂声。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 8,
+                  "action": "武大郎突然屈膝下坠，抓住西门庆持刀的手腕，同时踢翻木桶。水泼在两人脚下，西门庆失去平衡，刀尖偏开。",
+                  "camera": "中景连续呈现屈膝、抓腕、踢桶及水泼落地，不拆断动作。",
+                  "scene_changes": "木桶翻倒，地面被水打湿。",
+                  "effects": "水流泼洒后在地面扩散。",
+                  "audio": "桶翻倒与水声，西门庆失衡踉跄声。"
+                },
+                {
+                  "duration_seconds": 8,
+                  "action": "武松用竹竿挑开刀腕，跨步撞入，把哥哥推到垂布后方。西门庆短刀反划，割开武松左臂衣袖。",
+                  "camera": "跟随竹竿挑腕与跨步撞入，切近景呈现衣袖被划开，保持动作方向。",
+                  "scene_changes": "武松左臂衣袖被割开。",
+                  "effects": "无。",
+                  "audio": "竹竿击腕声、脚步水声、衣料被划裂声。"
+                }
+              ],
+              "selectionScore": 4
+            }
+          ],
+          "problems": []
+        }
+      },
+      "A1": {
+        "result": {
+          "key": "wusong",
+          "round": 1,
+          "version": "A1",
+          "inputHash": "abc5658f376dcbb5f8617116ec2b4b2fd97a6216f96af3d023ae97e00d466615",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/wusong/round-1/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_medicine",
+            "text": "7秒，武家厨房清晨。开场延续此前状态：药包已经打开，药纸摊在桌上，碗中盛着热汤；潘金莲站在桌旁，目光落在药粉与碗上，楼上的武大郎仍在房中。镜头保持同一连续镜头，以手与药粉近景观察：潘金莲的手微微一抖，药粉落入热汤；镜头跟随粉末在汤中扩散、逐渐溶开。她盯着汤面，随后端起碗，又将碗放回桌上，碗与桌面轻轻相碰。厨房光线清淡克制，桌、楼梯及楼上空间关系保持明确；不重播此前拆药包、看楼上或武大郎的问话。",
+            "chars": 198,
+            "controlLanguageFlags": [
+              "保持同一连续镜头，以手与药粉近景观察：潘金莲的手微微一抖，药粉落入热汤；镜头跟随粉末在汤中扩散、逐渐溶开。她盯着汤面，随后端起碗，又将碗放回桌上，碗与桌面轻轻相碰。厨房光线清淡克制，桌、楼梯及楼上空间关系保持明确；不"
+            ]
+          },
+          {
+            "clip_id": "eval_brothers",
+            "text": "8秒，旧染坊院内，延续同一连续镜头。武松在晾布台下方压制着西门庆，拳头仍悬停在半空；西门庆在他旁边，短刀已被踢离手边。武大郎在后院门附近、垂布之后，刚推开后门并走向弟弟，伸手抓住武松抬起的手臂；武松此前没有回头。摄影从武大郎抓住手臂的近景缓慢转向武松悬停的拳头与回头的视线，再落在兄弟对视的构图。武大郎声音发颤却清楚地说：“二郎，看我。我还活着。”武松看见哥哥肩头衣服破了、胸口仍在起伏，拳头保持悬停后慢慢松开手。脸侧染蓝、左臂衣袖破损等状态保持；垂布、断裂木梯与受损晾布台留在院中背景。",
+            "chars": 244,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_fight",
+            "text": "9秒，旧染坊院内，同一连续镜头承接先前动作。开场时武大郎已被武松推到垂布后方，左臂衣袖被划开；他与西门庆在染缸、木桶附近，地面已有泼洒的水。武松位于两丈外，双手持长竹竿，面对西门庆。以双人中景呈现武松用竹竿压住西门庆的刀身，竹竿受力弯曲，刀刃摩擦发出刺耳声响。西门庆踹向染缸旁木架，镜头仰摇跟随木架受力，晾布杆砸下；镜头落回武松护住头部、竹竿被压断为两截。长布随风摆动，染缸与近旁木桶保持原位关系，动作方向与人物位置连续清楚，不重演此前踢翻木桶、挑开刀腕或将武大郎推至垂布后的过程。",
+            "chars": 241,
+            "controlLanguageFlags": [
+              "保持原位关系，动作方向与人物位置连续清楚，不"
+            ]
+          }
+        ],
+        "path": "controls/wusong/round-1/A1/response.txt"
+      },
+      "A2": {
+        "result": {
+          "key": "wusong",
+          "round": 1,
+          "version": "A2",
+          "inputHash": "abc5658f376dcbb5f8617116ec2b4b2fd97a6216f96af3d023ae97e00d466615",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/wusong/round-1/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_medicine",
+            "text": "清晨武家厨房，镜头紧贴桌边的手与药碗；拆开的药包放在一旁，楼上卧房里传来武大郎的声音。潘金莲手抖一下，药粉落进热汤，粉末在汤面散开、逐渐溶解。她盯着汤中粉末，端起碗，迟疑片刻又将碗放回桌面，碗沿轻碰桌面。",
+            "chars": 102,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_brothers",
+            "text": "旧染坊院内，断裂的木梯与受损晾布台旁，武松制服西门庆，短刀在西门庆手边；垂布隔开后院门附近的武大郎。武大郎抓着武松的手臂，肩头衣服破损，声音发颤却清楚地说：“二郎，看我。我还活着。”镜头从两人相接的手臂缓慢转向武松悬停在半空的拳头，再随他缓缓转头的视线落到兄弟对视：武松看见哥哥肩头破衣下胸口仍在起伏，终于松开制服西门庆的手。",
+            "chars": 163,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_fight",
+            "text": "旧染坊院内，长布在风中摆动，染缸与翻倒的木桶在近旁，地面湿滑。武松左袖已被短刀划开，持长竹竿与西门庆僵持；武大郎已退到垂布后。连续中景中，武松双手持竿压住西门庆的刀身，竹竿弯曲，刀刃摩擦发出刺耳声响。西门庆踹向染缸旁木架，镜头仰摇，木架受力晃动，晾布杆砸落；镜头随之落回，武松抬臂护住头部，竹竿被压断为两截。",
+            "chars": 154,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/wusong/round-1/A2/response.txt"
+      }
+    },
+    {
+      "case": "wusong",
+      "round": 2,
+      "source": {
+        "path": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/wusong/round-2/A/final-v2",
+        "inputHash": "991bb3d5023d324569d4f9da2cf1a4dce9ac49f9eeabb2459228787ae60b2871",
+        "selection": {
+          "selected": [
+            {
+              "topic": {
+                "id": "medicine",
+                "label": "端药犹疑与内心冲突",
+                "terms": [
+                  "潘金莲",
+                  "碗",
+                  "药",
+                  "手"
+                ]
+              },
+              "clip": {
+                "id": "eval_medicine",
+                "mode": "文生",
+                "duration_seconds": 5,
+                "sources": [
+                  {
+                    "shot_id": "shot_025",
+                    "beat_start": 3,
+                    "beat_end": 3
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_025",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_004",
+                "title": "药粉落入热汤",
+                "key_anchor_ids": [
+                  "segment_004_anchor_002"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "清晨武家厨房，灶火烧着热汤，后门通窄巷，楼梯通往楼上房间。",
+                  "spatial_setup": "炉灶与碗在厨房一侧，楼梯在近旁；潘金莲可从厨房端碗上楼。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "潘金莲",
+                    "presence": "在厨房打开药包。",
+                    "position": "炉灶边。",
+                    "facing": "朝向碗与热汤。",
+                    "gaze_target": "药包里的文字和碗。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武大郎",
+                    "presence": "在楼上房间，画外。",
+                    "position": "楼上。",
+                    "facing": "朝向楼梯口。",
+                    "gaze_target": "楼梯下方。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武松",
+                    "presence": "尚在绕回后院的途中，未入厨房。",
+                    "position": "屋外窄巷。",
+                    "facing": "朝向后院。",
+                    "gaze_target": "后门。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 5,
+                    "action": "她端碗上楼，武大郎问是什么，她说是治伤的药。武大郎伸手，她却不松碗，只低头迟疑地说：“你……”",
+                    "camera": "随潘金莲端碗上楼，保持碗在她手中；在楼上房间区域内停于两人伸手与未松碗的状态。",
+                    "scene_changes": "碗由厨房被带至楼上。",
+                    "effects": "汤面因行走产生轻微晃动。",
+                    "audio": "武大郎问是什么；潘金莲说是治伤的药，低头迟疑说：“你……”"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 5,
+                  "action": "潘金莲打开药包，纸上写着：“一包尽入热汤，服后莫留渣。”她望向楼上。",
+                  "camera": "药包和用药文字特写，随后抬至潘金莲望楼梯的脸。",
+                  "scene_changes": "药包被打开。",
+                  "effects": "无。",
+                  "audio": "纸包拆开声，楼上环境安静。"
+                },
+                {
+                  "duration_seconds": 5,
+                  "action": "武大郎在楼上问水开了能否倒一点。潘金莲手一抖，药粉落进碗里。",
+                  "camera": "先保持潘金莲手与药粉近景，楼上声音传来时不切走；药粉落碗清晰可见。",
+                  "scene_changes": "药粉落入热汤碗中。",
+                  "effects": "药粉在热汤表面散开。",
+                  "audio": "武大郎在楼上问水开了能否倒一点；药粉落碗时有轻微粉末与液面声。"
+                },
+                {
+                  "duration_seconds": 6,
+                  "action": "潘金莲盯着溶开的粉末，端碗抬起又放下。",
+                  "camera": "近景跟随她端起碗再放回，停留于她迟疑的眼神与碗中汤液。",
+                  "scene_changes": "碗被端起后又放回原处。",
+                  "effects": "粉末逐渐溶开，汤面轻晃。",
+                  "audio": "碗与桌面轻碰，灶火声持续。"
+                }
+              ],
+              "selectionScore": 8
+            },
+            {
+              "topic": {
+                "id": "brothers",
+                "label": "兄弟之间的克制与张力",
+                "terms": [
+                  "武大郎",
+                  "武松",
+                  "我还活着",
+                  "拳"
+                ]
+              },
+              "clip": {
+                "id": "eval_brothers",
+                "mode": "文生",
+                "duration_seconds": 7,
+                "sources": [
+                  {
+                    "shot_id": "shot_035",
+                    "beat_start": 1,
+                    "beat_end": 1
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_035",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_005",
+                "title": "我还活着",
+                "key_anchor_ids": [
+                  "segment_005_anchor_003"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "染坊院内后门处插销松动，门外有周巡检带队包围；晾布台旁木板已裂。",
+                  "spatial_setup": "武大郎在后门内侧，武松与西门庆倒地处于院内；后门开启后周巡检等人可进入。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武大郎",
+                    "presence": "在后门内侧抬起插销。",
+                    "position": "后门旁。",
+                    "facing": "朝向门板。",
+                    "gaze_target": "插销与门外。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武松",
+                    "presence": "压制西门庆，拳头已抬起。",
+                    "position": "晾布台旁。",
+                    "facing": "朝向西门庆。",
+                    "gaze_target": "西门庆。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "周巡检",
+                    "presence": "带人从后门外进入。",
+                    "position": "后门外。",
+                    "facing": "朝向院内。",
+                    "gaze_target": "武松与西门庆。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 7,
+                    "action": "武大郎踉跄走近，抓住弟弟抬起的手臂。武松没有回头。武大郎声音发颤却清楚：“二郎，看我。我还活着。”",
+                    "camera": "从抓住手臂的手部缓慢推至武大郎，再保持两人同框，武松仍未回头。",
+                    "scene_changes": "无。",
+                    "effects": "无。",
+                    "audio": "武大郎声音发颤却清楚地说：“二郎，看我。我还活着。”火场坍塌混响退去，留下呼吸声。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 5,
+                  "action": "武大郎抬起插销推开后门，周巡检带人从后门进入。",
+                  "camera": "从武大郎抬插销的手跟至门打开，镜头随周巡检与随行人员进入院内。",
+                  "scene_changes": "后门打开，插销被抬起。",
+                  "effects": "门外晨光进入院内，尘屑在光线中浮动。",
+                  "audio": "插销抬起与门轴声，周巡检等人脚步入院。"
+                }
+              ],
+              "selectionScore": 3
+            },
+            {
+              "topic": {
+                "id": "fight",
+                "label": "染坊动作与空间互动",
+                "terms": [
+                  "染",
+                  "竹竿",
+                  "西门庆",
+                  "刀"
+                ]
+              },
+              "clip": {
+                "id": "eval_fight",
+                "mode": "文生",
+                "duration_seconds": 5,
+                "sources": [
+                  {
+                    "shot_id": "shot_033",
+                    "beat_start": 1,
+                    "beat_end": 1
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_033",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_005",
+                "title": "染粉遮眼",
+                "key_anchor_ids": [
+                  "segment_005_anchor_002"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "染坊院内后门仍未完全打开，地面潮湿，染粉存放在近旁；木梯靠近晾布台。",
+                  "spatial_setup": "武松在后门与西门庆之间，西门庆面对武松；木梯与晾布台在院落另一侧。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武松",
+                    "presence": "以半截竹竿顶住西门庆。",
+                    "position": "靠近后门。",
+                    "facing": "朝向西门庆。",
+                    "gaze_target": "对方手部与脚步。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "西门庆",
+                    "presence": "被逼离后门，手中短刀被湿布缠住。",
+                    "position": "武松前方。",
+                    "facing": "朝向武松。",
+                    "gaze_target": "武松。"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武大郎",
+                    "presence": "在后门内侧抬插销。",
+                    "position": "门边，处于垂布后方。",
+                    "facing": "朝向门。",
+                    "gaze_target": "插销与门缝。"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 5,
+                    "action": "西门庆趁势猛攻，竹竿挡过两下，第三下脱手。",
+                    "camera": "以武松受限视线的近景呈现刀势，保持连续两次格挡后第三次失手。",
+                    "scene_changes": "半截竹竿脱离武松手中，落在地面。",
+                    "effects": "染粉残雾逐渐落定。",
+                    "audio": "两次竹竿格挡刀击声，第三下竹竿落地声，呼吸急促。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 5,
+                  "action": "西门庆抓起染粉扬来，武松闭眼偏头，脸侧染成深蓝，只能凭脚步声后撤，背撞木梯。",
+                  "camera": "近景捕捉染粉扑向武松面部与闭眼偏头，再后撤跟至背撞木梯。",
+                  "scene_changes": "武松脸侧沾上深蓝染粉，背部撞上木梯。",
+                  "effects": "染粉在空中散开并落在武松脸侧与地面。",
+                  "audio": "染粉扬起的沙沙声、武松后退脚步与背撞木梯声。"
+                }
+              ],
+              "selectionScore": 4
+            }
+          ],
+          "problems": []
+        }
+      },
+      "A1": {
+        "result": {
+          "key": "wusong",
+          "round": 2,
+          "version": "A1",
+          "inputHash": "991bb3d5023d324569d4f9da2cf1a4dce9ac49f9eeabb2459228787ae60b2871",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/wusong/round-2/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_medicine",
+            "text": "清晨武家厨房，灶火烧着热汤，楼梯就在炉灶旁，后门通向窄巷。潘金莲站在炉灶边，面朝碗与热汤；药粉已落入碗中并逐渐溶开，汤面轻晃。她此前端起碗又放回原处，此刻重新端碗，双手始终握住碗，没有松手。镜头随她端碗上楼，碗中汤面随着行走轻微晃动；武大郎始终在楼上房间，画外朝向楼梯口。抵达楼上房间区域后，镜头停在两人伸手与未松碗的状态：武大郎伸手，问：“这是什么？”潘金莲仍握着碗，回答：“治伤的药。”她低下头，动作迟疑，随后轻声说：“你……”并停在未说完的瞬间。",
+            "chars": 226,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_brothers",
+            "text": "染坊院内，后门已打开，门外晨光照入，尘屑浮动。武大郎在后门内侧，踉跄走近武松；武松仍压制着倒地的西门庆，拳头已抬起，朝向西门庆，没有回头。周巡检及随行人员已从后门进入院内，面向武松与西门庆。镜头从武大郎抓住武松抬起手臂的手部缓慢推至武大郎，再保持两人同框；武松仍不回头。武大郎声音发颤却清楚地说：“二郎，看我。我还活着。”说话时他抓住弟弟的手臂，神情急切而克制。火场坍塌的混响退去，画面留下两人的呼吸声。",
+            "chars": 202,
+            "controlLanguageFlags": [
+              "保持两人同框；武松仍不"
+            ]
+          },
+          {
+            "clip_id": "eval_fight",
+            "text": "染坊院内地面潮湿，后门仍未完全打开，木梯靠近晾布台。武松脸侧已沾深蓝染粉，闭着眼，背抵木梯；西门庆面对他，手中短刀缠着湿布。武大郎仍在后门内侧垂布后抬插销。染粉残雾正逐渐落定。以武松受限视线的近景呈现刀势：西门庆趁势猛攻，武松以半截竹竿连续挡过前两下；第三下竹竿脱手落地，武松仍闭眼偏头，保持背抵木梯的姿态。镜头连续呈现两次格挡、第三次失手及竹竿落地，不切镜。",
+            "chars": 180,
+            "controlLanguageFlags": [
+              "保持背抵木梯的姿态。镜头连续呈现两次格挡、第三次失手及竹竿落地，不"
+            ]
+          }
+        ],
+        "path": "controls/wusong/round-2/A1/response.txt"
+      },
+      "A2": {
+        "result": {
+          "key": "wusong",
+          "round": 2,
+          "version": "A2",
+          "inputHash": "991bb3d5023d324569d4f9da2cf1a4dce9ac49f9eeabb2459228787ae60b2871",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/wusong/round-2/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_medicine",
+            "text": "清晨的武家厨房，灶火映着热汤。潘金莲已打开药包，药粉已落入碗中并逐渐溶开；她此前端碗又放下，此刻重新端起，汤面随步伐轻晃。镜头连续跟随她端碗上楼，始终让碗留在她手中，不切镜。楼上房间里，武大郎在画外问：“这是什么？”潘金莲回答：“治伤的药。”武大郎伸手，她没有松开碗；她低下头，迟疑地说：“你……”。镜头在两人伸手而碗仍握在潘金莲手中的状态停住。",
+            "chars": 173,
+            "controlLanguageFlags": [
+              "不切镜"
+            ]
+          },
+          {
+            "clip_id": "eval_brothers",
+            "text": "染坊院内，后门已打开，晨光照入，周巡检等人已进入院中。武松仍压制着倒地的西门庆，拳头抬起；武大郎踉跄走近，抓住弟弟抬起的手臂。武松没有回头。镜头从武大郎抓住手臂的手部缓慢推至他发颤却清楚的脸，再保持两人同框，武松始终未回头。武大郎说：“二郎，看我。我还活着。”",
+            "chars": 130,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_fight",
+            "text": "染坊院内地面潮湿，后门尚未完全打开，染粉残雾正在落定。武松脸侧沾着深蓝染粉，背靠木梯，闭眼偏头，凭脚步声应对；他以半截竹竿顶住面前手持被湿布缠住短刀的西门庆。连续近景保持武松受限的视线与交手动作：西门庆猛攻，武松用竹竿挡过两下刀击；第三下竹竿脱手，落在地面。",
+            "chars": 129,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/wusong/round-2/A2/response.txt"
+      }
+    },
+    {
+      "case": "wusong",
+      "round": 3,
+      "source": {
+        "path": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/wusong/round-3/A/final-v2",
+        "inputHash": "1663e5852d69c19e2aae08d60281604249d52c0622d2550e660c8b5771ddeec3",
+        "selection": {
+          "selected": [
+            {
+              "topic": {
+                "id": "medicine",
+                "label": "端药犹疑与内心冲突",
+                "terms": [
+                  "潘金莲",
+                  "碗",
+                  "药",
+                  "手"
+                ]
+              },
+              "clip": {
+                "id": "eval_medicine",
+                "mode": "文生",
+                "duration_seconds": 4,
+                "sources": [
+                  {
+                    "shot_id": "shot_025",
+                    "beat_start": 2,
+                    "beat_end": 2
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_025",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_004",
+                "title": "药粉入碗",
+                "key_anchor_ids": [
+                  "segment_004_anchor_001",
+                  "segment_004_anchor_003"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "武家厨房清晨，光线冷白，桌上有空碗与药包，楼上可闻武大郎声音。",
+                  "spatial_setup": "厨房桌面用于拆包和调药，楼梯通往武大郎房间，后门通院子。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "潘金莲",
+                    "presence": "在场，独自拆开纸包配药。",
+                    "position": "厨房桌边。",
+                    "facing": "朝向碗与药包。",
+                    "gaze_target": "药包内纸张与药粉"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 4,
+                    "action": "潘金莲手抖着把药粉倒进碗里，望着粉末溶开；端起碗，又放下。",
+                    "camera": "手部近景完整呈现倒粉、溶开、端起又放回的连续过程。",
+                    "scene_changes": "",
+                    "effects": "",
+                    "audio": "药粉落入液体声、碗底轻触桌面声；配乐以压抑持续音铺底。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 3,
+                  "action": "潘金莲拆开纸包，看到纸上写着“一包尽入热汤，服后莫留渣”。",
+                  "camera": "纸张特写，字句清晰可读，药粉与碗位于画面下方。",
+                  "scene_changes": "",
+                  "effects": "",
+                  "audio": "拆包与纸张展开声；环境安静。"
+                },
+                {
+                  "duration_seconds": 3,
+                  "action": "楼上传来武大郎要水的声音。",
+                  "camera": "潘金莲听见声音后抬眼望向楼梯，保持厨房空间。",
+                  "scene_changes": "",
+                  "effects": "",
+                  "audio": "楼上武大郎要水的声音传下，潘金莲呼吸变浅。"
+                }
+              ],
+              "selectionScore": 8
+            },
+            {
+              "topic": {
+                "id": "brothers",
+                "label": "兄弟之间的克制与张力",
+                "terms": [
+                  "武大郎",
+                  "武松",
+                  "我还活着",
+                  "拳"
+                ]
+              },
+              "clip": {
+                "id": "eval_brothers",
+                "mode": "文生",
+                "duration_seconds": 4,
+                "sources": [
+                  {
+                    "shot_id": "shot_035",
+                    "beat_start": 2,
+                    "beat_end": 2
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_035",
+                "previous_shot_connection": "continuous",
+                "story_segment_id": "segment_005",
+                "title": "我还活着",
+                "key_anchor_ids": [
+                  "segment_005_anchor_001",
+                  "segment_005_anchor_003"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "染坊院内，武松拳头举起，西门庆被压制；后院门仍在武大郎手边。",
+                  "spatial_setup": "武大郎靠后院门，插销已被抬起；武松与西门庆在晾布台旁，周巡检等候在门外。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武松",
+                    "presence": "在场，举拳停顿中尚未回头。",
+                    "position": "压住西门庆。",
+                    "facing": "朝向西门庆。",
+                    "gaze_target": "西门庆"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武大郎",
+                    "presence": "在场，终于抬起插销打开后门。",
+                    "position": "后院门边。",
+                    "facing": "朝武松。",
+                    "gaze_target": "武松"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "周巡检及官差",
+                    "presence": "从后院门外进入。",
+                    "position": "后院门外。",
+                    "facing": "朝院内。",
+                    "gaze_target": "武松与西门庆"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 4,
+                    "action": "武大郎声音发颤却清楚：“二郎，看我。我还活着。”",
+                    "camera": "近景落在武大郎抓手的动作与清楚发声，再保持武松背影在前景。",
+                    "scene_changes": "",
+                    "effects": "",
+                    "audio": "武大郎逐字说：“二郎，看我。我还活着。”声音发颤但清楚。"
+                  }
+                ]
+              },
+              "prior_beats_context": [
+                {
+                  "duration_seconds": 4,
+                  "action": "武大郎终于抬起插销打开后门，周巡检带人从后院进入。",
+                  "camera": "同一院内全景呈现门开、插销抬起及周巡检官差入内，方向明确。",
+                  "scene_changes": "后院门打开。",
+                  "effects": "",
+                  "audio": "插销抬起与门开声，官差脚步进入；火场回声仍短暂残留。"
+                },
+                {
+                  "duration_seconds": 3,
+                  "action": "武大郎踉跄上前抓住弟弟手臂。武松没有回头。",
+                  "camera": "从武大郎踉跄步伐跟至抓住手臂，武松仍背对哥哥，拳头保持悬起。",
+                  "scene_changes": "",
+                  "effects": "",
+                  "audio": "脚步踉跄声，衣袖被抓住声；火场声音渐退。"
+                }
+              ],
+              "selectionScore": 2
+            },
+            {
+              "topic": {
+                "id": "fight",
+                "label": "染坊动作与空间互动",
+                "terms": [
+                  "染",
+                  "竹竿",
+                  "西门庆",
+                  "刀"
+                ]
+              },
+              "clip": {
+                "id": "eval_fight",
+                "mode": "文生",
+                "duration_seconds": 4,
+                "sources": [
+                  {
+                    "shot_id": "shot_029",
+                    "beat_start": 0,
+                    "beat_end": 0
+                  }
+                ]
+              },
+              "shot": {
+                "id": "shot_029",
+                "previous_shot_connection": "cut",
+                "story_segment_id": "segment_005",
+                "title": "染坊院内对峙",
+                "key_anchor_ids": [
+                  "segment_005_anchor_001"
+                ],
+                "scene": {
+                  "scene_id": "",
+                  "state": "废弃染坊院内，未收走的长布被风吹动，染缸与盛水木桶留在院中，日光偏暗。",
+                  "spatial_setup": "院口为武松进入处；西门庆拖武大郎退到染缸边，木桶在染缸旁，垂布可遮挡视线，后院门在院内另一侧。"
+                },
+                "characters": [
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武松",
+                    "presence": "提着长竹竿从院口进入。",
+                    "position": "院口内侧。",
+                    "facing": "朝染缸边。",
+                    "gaze_target": "西门庆与武大郎"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "西门庆",
+                    "presence": "持短刀挟持武大郎。",
+                    "position": "染缸边。",
+                    "facing": "朝武松。",
+                    "gaze_target": "武松"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "武大郎",
+                    "presence": "被西门庆挟持。",
+                    "position": "染缸旁、西门庆身前。",
+                    "facing": "朝武松方向。",
+                    "gaze_target": "武松"
+                  },
+                  {
+                    "character_id": "",
+                    "costume_id": "",
+                    "name": "周巡检及官差",
+                    "presence": "在后院外包围，尚未入院。",
+                    "position": "后院门外。",
+                    "facing": "朝院内。",
+                    "gaze_target": "院内动静"
+                  }
+                ],
+                "beats": [
+                  {
+                    "duration_seconds": 4,
+                    "action": "武松提着长竹竿进入废弃染坊院内；未收走的长布被风吹动，遮挡视线。",
+                    "camera": "院口中景建立武松与染缸边两人的距离，前景长布间歇遮挡画面。",
+                    "scene_changes": "",
+                    "effects": "长布随风摆动，持续遮挡局部视线。",
+                    "audio": "风吹布料声、空院回响，配乐紧张低沉。"
+                  }
+                ]
+              },
+              "prior_beats_context": [],
+              "selectionScore": 2
+            }
+          ],
+          "problems": []
+        }
+      },
+      "A1": {
+        "result": {
+          "key": "wusong",
+          "round": 3,
+          "version": "A1",
+          "inputHash": "1663e5852d69c19e2aae08d60281604249d52c0622d2550e660c8b5771ddeec3",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/wusong/round-3/A/final-v2",
+          "status": "completed"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_medicine",
+            "text": "清晨武家厨房，冷白光落在桌面，空碗与药包在手边；楼梯通往楼上武大郎房间，后门通向院子。镜头以手部近景连续呈现潘金莲在桌边朝向碗与药包、视线落在药粉上的动作：她手微微发抖，将药粉倒进碗中，粉末在液体里溶开；她端起碗，随即又轻轻放回桌面，碗底与桌面相触。画面保持连续，不重演此前拆开纸包或听见楼上声音的过程，也不重复已说过的话。",
+            "chars": 162,
+            "controlLanguageFlags": [
+              "保持连续，不",
+              "不重复"
+            ]
+          },
+          {
+            "clip_id": "eval_brothers",
+            "text": "染坊院内，武大郎在已打开的后院门边，手抓着武松的手臂；武松压住西门庆，仍背对哥哥，拳头悬起。周巡检及官差已从门外进入，面向院内。近景落在武大郎抓住弟弟手臂的动作与发声，武松背影留在前景。武大郎声音发颤却清楚地说：“二郎，看我。我还活着。”镜头保持同一院内连续空间；不重演开门、官差进入或抓住手臂的过程，也不重播此前对白。",
+            "chars": 160,
+            "controlLanguageFlags": [
+              "保持同一院内连续空间；不",
+              "不重播"
+            ]
+          },
+          {
+            "clip_id": "eval_fight",
+            "text": "废弃染坊院内日光偏暗，染缸与盛水木桶留在院中，未收走的长布悬挂在风里；院口是武松进入处，后院门在院内另一侧，周巡检及官差仍在后院门外包围。院口中景建立武松与染缸边西门庆、武大郎之间的距离：武松提着长竹竿从院口进入，面朝染缸边，目光落在挟持武大郎的西门庆身上；西门庆持短刀，位于染缸边，武大郎在他身前。长布持续随风摆动，间歇遮住部分画面与视线，风停后布面回落，人物位置和对峙关系不变。",
+            "chars": 191,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/wusong/round-3/A1/response.txt"
+      },
+      "A2": {
+        "result": {
+          "key": "wusong",
+          "round": 3,
+          "version": "A2",
+          "inputHash": "1663e5852d69c19e2aae08d60281604249d52c0622d2550e660c8b5771ddeec3",
+          "source": "/Users/devin/meiji/agent-harness/docs/evaluations/1023-outline-ab/results/wusong/round-3/A/final-v2",
+          "status": "failed",
+          "error": "response：不是有效JSON"
+        },
+        "descriptions": [
+          {
+            "clip_id": "eval_medicine",
+            "text": "清晨冷白光下的武家厨房，手部近景连续呈现潘金莲在桌边对着空碗与药包操作。她的手微微发抖，将药粉倒入碗中，粉末在液体里散开溶解；她端起碗，迟疑片刻，又将碗放回桌面。碗底轻触桌面，动作完整连贯。",
+            "chars": 95,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_brothers",
+            "text": "染坊院内，保持同一连续近景，武大郎站在后院门边，手抓着武松的手臂；武松背对哥哥，仍压制着西门庆，拳头悬起，尚未回头。武大郎声音发颤却清楚地说：“二郎，看我。我还活着。”武松仍背对他，院门已开，周巡检与官差在院内。",
+            "chars": 106,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_fight",
+            "text": "废弃染坊院口中景建立武松与染缸边西门庆、武大郎之间的距离。日光偏暗，染缸和盛水木桶留在院中，未收走的长布在前景被风吹动，间歇遮挡局部视线。武松提着长竹竿从院口进入，朝染缸边两人走入院内；西门庆持短刀挟持着武大郎，退在染缸旁。后院门外周巡检与官差包围院子，尚未进入。",
+            "chars": 132,
+            "controlLanguageFlags": []
+          }
+        ],
+        "path": "controls/wusong/round-3/A2/response.txt"
+      }
+    }
+  ],
+  "full": [
+    {
+      "key": "complex",
+      "round": 1,
+      "stages": {
+        "outline": "passed",
+        "shot": "passed",
+        "final": "passed"
+      },
+      "metrics": {
+        "shotCount": 20,
+        "beatCount": 39,
+        "missingSegments": [],
+        "missingAnchors": [],
+        "issues": []
+      },
+      "status": "completed",
+      "descriptions": [
+        {
+          "clip_id": "eval_sisters",
+          "text": "冷白灯照着大厅与泵房交界处，雨声持续，救援尚未重新开始。江禾站在楼梯扶手旁，手持被雨打湿的相机面对泵房门边的沈岚。两人中近景保持面对面距离，江禾清晰问：“你怕的是做错，还是只剩你签字？”镜头轻推至沈岚看着姐姐湿透的相机，停顿后，她终于主动承认：“我怕别人替我承担。”镜头回到江禾的反应；两人没有互相免责，也没有拥抱，在沉默中形成有限的信任。",
+          "chars": 170,
+          "controlLanguageFlags": []
+        },
+        {
+          "clip_id": "eval_rescue",
+          "text": "泵房内水声与风雨声交叠，控制柜开启，检修门受水压压住，陈姨困在门后低处，脚踝被工具箱卡住。沈岚在控制柜前切断自动重发回路，柜内指令灯停止闪动。镜头从柜内手部特写移到熄止的指令灯，再沿沈岚转向检修门的动作跟到她拉门：门仅开一指宽，水压从门缝喷出细流，她掌心擦伤并留下少量血迹。罗闻在门旁压住机械泄压轮；许衡与江禾在门外一同拉门，三人鞋底摩擦湿滑地面，门板仍被水压顶住，门缝难以扩大，保持近乎闭合。",
+          "chars": 197,
+          "controlLanguageFlags": []
+        },
+        {
+          "clip_id": "eval_keys",
+          "text": "大厅与泵房门口湿滑，冷白灯照着已断电的控制柜，风雨声与检修廊水声持续。沈岚从挂钩取回红钥匙，锁上控制柜；镜头特写柜门与锁，确认指示灯保持熄灭。她把红钥匙交给对面的许衡，说：“你守柜，不再复位。”镜头跟随钥匙从沈岚手中移交到许衡手里，停在他握着钥匙、没有将其插回柜中的手上。",
+          "chars": 136,
+          "controlLanguageFlags": [
+            "保持熄灭。她把红钥匙交给对面的许衡，说：“你守柜，不"
+          ]
+        }
+      ],
+      "selection": {
+        "selected": [
+          {
+            "topic": {
+              "id": "sisters",
+              "label": "姐妹信任变化与表情",
+              "terms": [
+                "江禾",
+                "沈岚",
+                "怕",
+                "相机"
+              ]
+            },
+            "clip": {
+              "id": "eval_sisters",
+              "mode": "文生",
+              "duration_seconds": 14,
+              "sources": [
+                {
+                  "shot_id": "shot_015",
+                  "beat_start": 0,
+                  "beat_end": 0
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_015",
+              "previous_shot_connection": "cut",
+              "story_segment_id": "segment_004",
+              "title": "把我们都写进去",
+              "key_anchor_ids": [
+                "segment_004_anchor_002"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "21:59后，大厅与泵房交界处冷白灯下雨声持续；救援尚未重新开始。",
+                "spatial_setup": "大厅楼梯扶手可固定相机并朝向救援绳位置；相机调整后不拍控制柜内部，泵房检修门在一侧可见。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "江禾",
+                  "presence": "持相机站在大厅与泵房交界处",
+                  "position": "楼梯扶手旁",
+                  "facing": "朝向沈岚，后转向救援绳",
+                  "gaze_target": "沈岚及相机取景范围"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "沈岚",
+                  "presence": "在泵房门边",
+                  "position": "江禾对面",
+                  "facing": "朝向江禾",
+                  "gaze_target": "姐姐被雨打湿的相机"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 14,
+                  "action": "江禾问：“你怕的是做错，还是只剩你签字？”沈岚看着姐姐被雨打湿的相机，终于主动承认：“我怕别人替我承担。”两人没有互相免责，沉默中建立有限的信任。",
+                  "camera": "两人中近景保持面对面距离，轻推至沈岚说出恐惧时的眼神，再回江禾反应；不以拥抱收束。",
+                  "scene_changes": "无新增环境变化。",
+                  "effects": "无。",
+                  "audio": "江禾清晰发问：“你怕的是做错，还是只剩你签字？”沈岚停顿后说：“我怕别人替我承担。”雨声在停顿间持续。"
+                }
+              ]
+            },
+            "prior_beats_context": [],
+            "selectionScore": 4
+          },
+          {
+            "topic": {
+              "id": "rescue",
+              "label": "救援站位、持续动作与水压",
+              "terms": [
+                "压轮",
+                "沈岚",
+                "陈姨",
+                "门"
+              ]
+            },
+            "clip": {
+              "id": "eval_rescue",
+              "mode": "文生",
+              "duration_seconds": 13,
+              "sources": [
+                {
+                  "shot_id": "shot_012",
+                  "beat_start": 0,
+                  "beat_end": 0
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_012",
+              "previous_shot_connection": "cut",
+              "story_segment_id": "segment_003",
+              "title": "第一次开门失败",
+              "key_anchor_ids": [
+                "segment_003_anchor_003"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "21:54后，泵房水声与风雨声交叠，检修门受水压压住；控制柜仍开启。",
+                "spatial_setup": "控制柜紧邻泵房东墙检修门，泄压轮在门旁；门内侧无把手，廊内陈姨在门后。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "沈岚",
+                  "presence": "在控制柜前操作后转至检修门",
+                  "position": "柜边",
+                  "facing": "朝向柜内回路",
+                  "gaze_target": "自动重发回路"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "罗闻",
+                  "presence": "在检修门旁压泄压轮",
+                  "position": "门侧泄压轮处",
+                  "facing": "朝向压轮",
+                  "gaze_target": "轮与门缝"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "许衡",
+                  "presence": "在检修门外协助拉门",
+                  "position": "门的泵房侧",
+                  "facing": "朝向门",
+                  "gaze_target": "门缝"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "江禾",
+                  "presence": "已回到泵房参与救援",
+                  "position": "许衡旁侧门外",
+                  "facing": "朝向门",
+                  "gaze_target": "门缝"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "陈姨",
+                  "presence": "困在检修廊内",
+                  "position": "门后低处，脚踝工具箱已卡住",
+                  "facing": "朝向泵房门",
+                  "gaze_target": "门缝"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 13,
+                  "action": "沈岚切断自动重发回路，柜内指令灯终于停下，但门仍被水压顶住。她拉门只开一指宽，掌心磨出血；罗闻压住机械泄压轮，许衡与江禾一起拉，门缝仍难扩大。",
+                  "camera": "柜内手部特写确认切断动作后移到熄止的指令灯，再沿沈岚受伤掌心到一指宽门缝；横移纳入三人用力姿势。",
+                  "scene_changes": "自动重发回路切断，指令灯停止；检修门仍保持近乎闭合。",
+                  "effects": "门缝涌水受压喷出细流；沈岚掌心擦伤有少量血迹。",
+                  "audio": "切断开关声后继电声停止；门板受压呻吟，三人拉门时鞋底摩擦地面，泵声与雨声持续。"
+                }
+              ]
+            },
+            "prior_beats_context": [],
+            "selectionScore": 3
+          },
+          {
+            "topic": {
+              "id": "keys",
+              "label": "钥匙交接与物件连续性",
+              "terms": [
+                "红钥匙",
+                "许衡",
+                "沈岚",
+                "交"
+              ]
+            },
+            "clip": {
+              "id": "eval_keys",
+              "mode": "文生",
+              "duration_seconds": 12,
+              "sources": [
+                {
+                  "shot_id": "shot_016",
+                  "beat_start": 0,
+                  "beat_end": 0
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_016",
+              "previous_shot_connection": "cut",
+              "story_segment_id": "segment_004",
+              "title": "重新分工",
+              "key_anchor_ids": [
+                "segment_004_anchor_003"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "大厅与泵房门口仍湿滑，冷白灯照着已断电的控制柜；风雨与检修廊水声持续。",
+                "spatial_setup": "控制柜在泵房侧，救援绳与辅助拉杆在大厅门边；检修门及泄压轮相邻，罗闻可在墙边坐靠。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "沈岚",
+                  "presence": "在控制柜边重新组织救援",
+                  "position": "柜边至泄压轮旁",
+                  "facing": "先朝控制柜后转向众人",
+                  "gaze_target": "红钥匙、辅助拉杆及罗闻"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "许衡",
+                  "presence": "在控制柜附近",
+                  "position": "沈岚对面",
+                  "facing": "朝向沈岚",
+                  "gaze_target": "递来的红钥匙"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "罗闻",
+                  "presence": "腿伤后在泵房墙边",
+                  "position": "靠墙坐下",
+                  "facing": "朝向泄压轮",
+                  "gaze_target": "沈岚"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "江禾",
+                  "presence": "固定相机后在救援绳旁",
+                  "position": "大厅楼梯扶手附近",
+                  "facing": "朝向救援绳及泵房",
+                  "gaze_target": "绳与救援队员"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "小满",
+                  "presence": "留在大厅",
+                  "position": "救援绳标记与水位可观察处",
+                  "facing": "朝向泵房",
+                  "gaze_target": "水位及绳上标记"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 12,
+                  "action": "沈岚从挂钩取回红钥匙，锁上已断电控制柜，把钥匙交给许衡并说：“你守柜，不再复位。”许衡握住钥匙，没有插回柜中。",
+                  "camera": "柜门与锁的特写确认断电后锁闭，跟红钥匙从沈岚腕带移交许衡；停在许衡握钥匙但不插入的手。",
+                  "scene_changes": "控制柜锁上；红钥匙由沈岚转交许衡保管。",
+                  "effects": "锁芯转动声，指示灯保持熄灭。",
+                  "audio": "沈岚说：“你守柜，不再复位。”锁闭声与雨泵声持续。"
+                }
+              ]
+            },
+            "prior_beats_context": [],
+            "selectionScore": 4
+          }
+        ],
+        "problems": []
+      },
+      "path": "results/complex/round-1/A2/result.json",
+      "historicalA": {
+        "result": {
+          "status": "completed",
+          "key": "complex",
+          "round": 1,
+          "version": "A",
+          "inputHash": "54793e96bab1c363c2e9145580d5e102909088b2ef1db4f0048181eefefa48a0",
+          "metrics": {
+            "shotCount": 24,
+            "beatCount": 36,
+            "anchorCount": 19,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 23,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 341,
+            "issues": []
+          }
+        },
+        "finalValid": false,
+        "descriptions": [
+          {
+            "clip_id": "eval_sisters",
+            "text": "14秒，泵房与大厅保持冷白灯光，风雨持续。开场双人近景：江禾与沈岚在泵房附近相对而立，江禾朝向沈岚，沈岚望着姐姐被雨浸湿的相机，目光流露出犹疑与不安。镜头保留两人的目光交流。江禾平静地问：“你怕的是做错，还是只剩你签字？”沈岚承认：“我怕别人替我承担。”她说话时仍看着相机，语气显出害怕。江禾不逼她道歉，随后镜头连续跟随江禾从泵房移到大厅楼梯扶手旁；她将相机固定在扶手上，调整镜头朝向大厅救援绳，确认取景框含救援绳、不含控制柜内部。江禾表示：“那就把我们都写进去。”结尾相机固定在扶手上，画面明确对准救援绳。",
+            "chars": 254,
+            "controlLanguageFlags": [
+              "保持冷白灯光，风雨持续。开场双人近景：江禾与沈岚在泵房附近相对而立，江禾朝向沈岚，沈岚望着姐姐被雨浸湿的相机，目光流露出犹疑与不"
+            ]
+          },
+          {
+            "clip_id": "eval_rescue",
+            "text": "12秒，泵房冷白灯光下，门外控制柜仍可见，检修廊水压持续。承接沈岚已切断自动重发回路、指令灯熄灭的状态：镜头仍在门外中近景连续观察，不切至另一背景区。沈岚从控制柜旁转向检修门，亲手拉门；门只动一指宽，她的掌心磨破。罗闻守在门旁机械泄压轮处压住压轮；门外许衡与江禾在门边合力拉门。门内陈姨依照指示推开卡住脚踝的工具箱。廊内水流突然加大，水声与施力声增强；罗闻旧伤发软，手离开压轮，失去持续按压后门迅速合回，发出撞击声。陈姨没有被夹伤。画面保持门外中近景，连续呈现施力、窄门缝、罗闻手离轮及门合回的先后过程。",
+            "chars": 252,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_keys",
+            "text": "10秒，泵房控制柜已断电，柜旁挂钩仍挂着红钥匙；大厅救援区域有救援绳和辅助拉杆。以红钥匙为画面重点：沈岚在控制柜旁取下红钥匙，将已断电的控制柜锁上，再把钥匙交给许衡。她要求：“你守柜，不再复位。”许衡接过钥匙并握住，不将钥匙插回柜中，也不再操作。镜头特写红钥匙离开挂钩、锁柜、交到许衡手中的连续过程，最后停留确认钥匙未插入；控制柜保持断电并锁闭，由许衡看守。",
+            "chars": 179,
+            "controlLanguageFlags": []
+          }
+        ]
+      }
+    },
+    {
+      "key": "complex",
+      "round": 2,
+      "stages": {
+        "outline": "passed",
+        "shot": "passed"
+      },
+      "metrics": {
+        "shotCount": 28,
+        "beatCount": 56,
+        "missingSegments": [],
+        "missingAnchors": [],
+        "issues": []
+      },
+      "status": "failed",
+      "failedStage": "final",
+      "error": "response：不是有效JSON",
+      "descriptions": [
+        {
+          "clip_id": "eval_sisters",
+          "text": "大厅楼梯旁，地面雨水映着微光，江禾与沈岚相对而立。江禾手持镜头沾湿的相机，双人中近景缓慢推近；他看着沈岚问：“你怕的是做错，还是只剩你签字？”沈岚先看向湿润的相机，短暂停顿，再抬眼看江禾，承认：“我怕别人替我承担。”焦点随镜头推进从相机移到沈岚停顿后的眼神。",
+          "chars": 129,
+          "controlLanguageFlags": []
+        },
+        {
+          "clip_id": "eval_rescue",
+          "text": "泵房检修门已开出通路，门外积水中救援绳持续受力。横向中景呈现协作位置：沈岚在门旁双手持续压住泄压轮；江禾守在门槛外接应；许衡在固定柱旁、罗闻靠外侧墙边以拐杖支撑，两人协作收绳；陈姨在门内沿腰间绳索向出口移动，小满仍在大厅报数。众人随小满报告调整拉力，许衡与罗闻逐步收绳，陈姨稳步靠近门槛，江禾保持接应，沈岚不离开泄压轮。摄影缓慢推向门槛，焦点跟随陈姨脚步，完整呈现她由门内向门槛移动；门缝持续扩大。",
+          "chars": 199,
+          "controlLanguageFlags": [
+            "保持接应，沈岚不"
+          ]
+        },
+        {
+          "clip_id": "eval_keys",
+          "text": "泵房内控制柜已断电，柜旁挂着红钥匙，机械泄压轮在旁可见。柜旁中景落至红钥匙交接特写：沈岚取下红钥匙，将已断电的控制柜锁闭，再把钥匙交给柜边的许衡。许衡接稳钥匙，不将它插回柜中，留在控制柜旁守着。沈岚说：“你守柜，不再复位。”画面清楚显示控制柜由打开转为锁闭，红钥匙离开柜锁并转由许衡持有。",
+          "chars": 144,
+          "controlLanguageFlags": []
+        }
+      ],
+      "selection": {
+        "selected": [
+          {
+            "topic": {
+              "id": "sisters",
+              "label": "姐妹信任变化与表情",
+              "terms": [
+                "江禾",
+                "沈岚",
+                "怕",
+                "相机"
+              ]
+            },
+            "clip": {
+              "id": "eval_sisters",
+              "mode": "文生",
+              "duration_seconds": 12,
+              "sources": [
+                {
+                  "shot_id": "shot_018",
+                  "beat_start": 0,
+                  "beat_end": 0
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_018",
+              "previous_shot_connection": "cut",
+              "story_segment_id": "segment_005",
+              "title": "把我们都写进去",
+              "key_anchor_ids": [
+                "segment_005_anchor_002"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "大厅楼梯旁有雨水反光，江禾相机镜头沾湿；救援绳暂放大厅。",
+                "spatial_setup": "大厅楼梯扶手可固定相机，镜头可朝救援绳而避开控制柜方向；沈岚与江禾在楼梯旁相对。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "江禾",
+                  "presence": "在大厅持相机，刚从救援区域退到楼梯旁。",
+                  "position": "楼梯扶手边。",
+                  "facing": "朝沈岚。",
+                  "gaze_target": "沈岚及相机取景方向。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "沈岚",
+                  "presence": "在大厅与江禾对话。",
+                  "position": "江禾对面。",
+                  "facing": "朝江禾。",
+                  "gaze_target": "江禾被雨打湿的相机。"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 12,
+                  "action": "江禾看着沈岚，问她害怕的是做错还是只剩自己签字；沈岚先看向被雨打湿的相机，再抬眼承认真正顾虑。",
+                  "camera": "双人中近景缓慢推近，焦点从湿润相机转到沈岚停顿后的眼神。",
+                  "scene_changes": "无。",
+                  "effects": "无。",
+                  "audio": "江禾问：“你怕的是做错，还是只剩你签字？”沈岚停顿后说：“我怕别人替我承担。”雨声与大厅底噪持续。"
+                }
+              ]
+            },
+            "prior_beats_context": [],
+            "selectionScore": 4
+          },
+          {
+            "topic": {
+              "id": "rescue",
+              "label": "救援站位、持续动作与水压",
+              "terms": [
+                "压轮",
+                "沈岚",
+                "陈姨",
+                "门"
+              ]
+            },
+            "clip": {
+              "id": "eval_rescue",
+              "mode": "文生",
+              "duration_seconds": 12,
+              "sources": [
+                {
+                  "shot_id": "shot_023",
+                  "beat_start": 0,
+                  "beat_end": 0
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_023",
+              "previous_shot_connection": "continuous",
+              "story_segment_id": "segment_006",
+              "title": "两只脚越过门槛",
+              "key_anchor_ids": [
+                "segment_006_anchor_001",
+                "segment_006_anchor_002"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "泵房检修门开出通路，门外积水与救援绳仍受力；泄压轮必须持续按压。",
+                "spatial_setup": "沈岚在轮旁，江禾在门口接人，许衡与罗闻收绳，陈姨由门内向外移动；小满仍在大厅报数。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "沈岚",
+                  "presence": "仍双手压住泄压轮。",
+                  "position": "门旁。",
+                  "facing": "朝门。",
+                  "gaze_target": "陈姨是否越过门槛。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "江禾",
+                  "presence": "在门外接应。",
+                  "position": "门槛外侧。",
+                  "facing": "朝门内。",
+                  "gaze_target": "陈姨。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "陈姨",
+                  "presence": "沿绳向门外移动。",
+                  "position": "门内门槛前。",
+                  "facing": "朝出口。",
+                  "gaze_target": "江禾。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "许衡",
+                  "presence": "与罗闻共同收绳。",
+                  "position": "门外固定柱旁。",
+                  "facing": "朝门。",
+                  "gaze_target": "绳索与陈姨。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "罗闻",
+                  "presence": "靠墙以拐杖支撑并收绳。",
+                  "position": "门外侧墙边。",
+                  "facing": "朝门。",
+                  "gaze_target": "绳索。"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 12,
+                  "action": "众人按小满报告调整拉力，陈姨沿腰间绳索逐步靠近出口；江禾保持接应位置，许衡与罗闻协作收绳，沈岚不离开泄压轮。",
+                  "camera": "门外横向中景呈现各人协作，再缓慢推向门槛；焦点跟随陈姨脚步而非切碎动作。",
+                  "scene_changes": "陈姨由门内向门槛移动，门缝持续扩大。",
+                  "effects": "无。",
+                  "audio": "小满继续报水位和绳标；绳索摩擦、众人喘息、门后水声交叠。"
+                }
+              ]
+            },
+            "prior_beats_context": [],
+            "selectionScore": 4
+          },
+          {
+            "topic": {
+              "id": "keys",
+              "label": "钥匙交接与物件连续性",
+              "terms": [
+                "红钥匙",
+                "许衡",
+                "沈岚",
+                "交"
+              ]
+            },
+            "clip": {
+              "id": "eval_keys",
+              "mode": "文生",
+              "duration_seconds": 12,
+              "sources": [
+                {
+                  "shot_id": "shot_019",
+                  "beat_start": 0,
+                  "beat_end": 0
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_019",
+              "previous_shot_connection": "cut",
+              "story_segment_id": "segment_005",
+              "title": "钥匙与裂纹",
+              "key_anchor_ids": [
+                "segment_005_anchor_003"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "泵房控制柜已断电，门旁机械泄压轮可见；救援绳从大厅带到泵房。",
+                "spatial_setup": "控制柜旁挂有红钥匙，许衡可在柜边守柜；罗闻在泄压轮附近。泵房出口连大厅，试用绳索的固定柱与辅助拉杆在救援位置。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "沈岚",
+                  "presence": "从柜旁取红钥匙并开始检查绳索方案。",
+                  "position": "控制柜与泵房救援位置之间。",
+                  "facing": "先朝许衡，后朝辅助拉杆。",
+                  "gaze_target": "红钥匙，随后拉杆裂纹。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "许衡",
+                  "presence": "在控制柜边接钥匙。",
+                  "position": "控制柜旁。",
+                  "facing": "朝沈岚。",
+                  "gaze_target": "红钥匙。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "罗闻",
+                  "presence": "在泵房内等待分工。",
+                  "position": "泄压轮附近。",
+                  "facing": "朝沈岚。",
+                  "gaze_target": "她检查的拉杆。"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 12,
+                  "action": "沈岚取下挂在控制柜旁的红钥匙，把已断电的控制柜锁上，再交给许衡；许衡接过后不把钥匙插回柜中，站在柜边守着。",
+                  "camera": "柜旁中景落至红钥匙交接特写，清楚显示钥匙离开柜锁并由许衡持有。",
+                  "scene_changes": "控制柜由打开转为锁闭；红钥匙由沈岚转交许衡。",
+                  "effects": "无。",
+                  "audio": "柜门与锁扣声，钥匙轻响；沈岚说：“你守柜，不再复位。”"
+                }
+              ]
+            },
+            "prior_beats_context": [],
+            "selectionScore": 4
+          }
+        ],
+        "problems": []
+      },
+      "path": "results/complex/round-2/A2/result.json",
+      "historicalA": {
+        "result": {
+          "status": "completed",
+          "key": "complex",
+          "round": 2,
+          "version": "A",
+          "inputHash": "54793e96bab1c363c2e9145580d5e102909088b2ef1db4f0048181eefefa48a0",
+          "metrics": {
+            "shotCount": 22,
+            "beatCount": 46,
+            "anchorCount": 16,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 23,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 461,
+            "issues": []
+          }
+        },
+        "finalValid": true,
+        "descriptions": [
+          {
+            "clip_id": "eval_sisters",
+            "text": "12秒，雨夜大厅双人中近景。大厅楼梯扶手旁，江禾持着被雨水浸湿的相机，面朝楼梯附近的沈岚；沈岚从泵房侧来到大厅，面向江禾，目光落在姐姐湿透的相机上。雨声低底持续，救援仍在进行。摄影保持在大厅内，画面不进入控制柜区域；焦点由江禾转向沈岚。江禾看着沈岚，清晰问：“你怕的是做错，还是只剩你签字？”沈岚注视相机，稍作停顿，神情与声音从只谈规程转为坦率，回答：“我怕别人替我承担。”对话自然略快而清晰，问答期间不切镜；镜头以沈岚及她落在相机上的目光结束。",
+            "chars": 223,
+            "controlLanguageFlags": [
+              "保持在大厅内，画面不",
+              "不切镜"
+            ]
+          },
+          {
+            "clip_id": "eval_rescue",
+            "text": "10秒，承接同一镜头此前切断自动重发回路后的状态：指令灯已停止闪烁，设备提示音已停，检修门仍被水压顶住。摄影从泵房侧中景交代控制柜、门旁机械泄压轮、拉门人员与门缝；沈岚在柜旁亲手拉门，罗闻在门边持续按住机械泄压轮，江禾与许衡一同拉门。镜头推进至沈岚用力拉门的手掌和门缝，门受压呻吟，只短暂打开约一指宽，未能稳定开启；沈岚掌心被磨出血，门仍受水压限制。镜头不切镜，转以声音呈现门内回应：江禾隔门指导陈姨推开卡住脚踝的工具箱，陈姨依照指示将工具箱推开，脚踝脱离。保留拉门动作与门内回应的先后，不复演切断回路的过程。",
+            "chars": 255,
+            "controlLanguageFlags": [
+              "不切镜"
+            ]
+          },
+          {
+            "clip_id": "eval_keys",
+            "text": "10秒，泵房侧控制柜已断电，柜旁挂钩上挂着红钥匙；控制柜、钥匙挂钩和机械泄压轮位于同一区域，泄压轮旁可见辅助拉杆裂纹。沈岚回到柜边，面向控制柜，目光落在红钥匙和柜锁上；许衡在她对面守候，面朝沈岚，注视交来的钥匙。摄影以红钥匙和手部为重点，连续呈现沈岚从挂钩取下红钥匙、用钥匙锁上已经断电的控制柜，再将钥匙交到许衡手中。沈岚说：“你守柜，不再复位。”许衡握住钥匙，没有将它插回柜中。镜头停在许衡持钥匙且柜门已锁的状态，控制柜保持断电并上锁，红钥匙由许衡持有。",
+            "chars": 228,
+            "controlLanguageFlags": []
+          }
+        ]
+      }
+    },
+    {
+      "key": "complex",
+      "round": 3,
+      "stages": {
+        "outline": "passed"
+      },
+      "status": "failed",
+      "failedStage": "shot",
+      "error": "response：不是有效JSON",
+      "descriptions": [],
+      "selection": null,
+      "path": "results/complex/round-3/A2/result.json",
+      "historicalA": {
+        "result": {
+          "status": "failed",
+          "key": "complex",
+          "round": 3,
+          "version": "A",
+          "error": "response：不是有效JSON"
+        },
+        "finalValid": false,
+        "descriptions": []
+      }
+    },
+    {
+      "key": "moon",
+      "round": 1,
+      "stages": {
+        "outline": "passed"
+      },
+      "status": "failed",
+      "failedStage": "shot",
+      "error": "response：不是有效JSON",
+      "descriptions": [],
+      "selection": null,
+      "path": "results/moon/round-1/A2/result.json",
+      "historicalA": {
+        "result": {
+          "status": "completed",
+          "key": "moon",
+          "round": 1,
+          "version": "A",
+          "inputHash": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93",
+          "metrics": {
+            "shotCount": 22,
+            "beatCount": 43,
+            "anchorCount": 9,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 2,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 596,
+            "issues": []
+          }
+        },
+        "finalValid": true,
+        "descriptions": [
+          {
+            "clip_id": "eval_crowd",
+            "text": "12秒，文生视频。麦思敦从栅门内侧朝外，目光锁定人群中的吸烟者；栅门外约三十万人密集围绕栅门，部分人手中或口中有烟卷，大多面朝工业场，石丘远处被烟雾笼罩。栅门保持关闭。镜头贴身跟随麦思敦从栅门内穿出进入人群，不跳至其他背景区域。他挥着小刀在人群中逐一制止吸烟，夺下人们手中和口中的烟卷并熄灭；动作连续清楚，脚步和夺烟、熄烟动作声与画面同步。保持人群喧闹及现场烟雾氛围，不新增对白或特效。",
+            "chars": 193,
+            "controlLanguageFlags": [
+              "保持关闭。镜头贴身跟随麦思敦从栅门内穿出进入人群，不",
+              "保持人群喧闹及现场烟雾氛围，不"
+            ]
+          },
+          {
+            "clip_id": "eval_launch",
+            "text": "14秒，文生视频。夜间平原，哥仑比亚炮炮口朝向夜空，三名旅行者封在弹丸中，观众散布于发射区域；麦思敦独自站在距炮约一百五十码处，面朝炮口与弹丸飞行方向，注视弹丸。镜头从炮口低角度近景承接发射：口令落下，哥仑比亚炮轰然发射，烈火如柱冲出炮口；镜头迅速仰摇追随弹丸像离弦之箭般高速掠入夜空。火光照亮茀罗理窦，随后切换广角呈现火光在高空蓬勃散开。保持发射至高空散开的连续过程与夜间空间关系。",
+            "chars": 192,
+            "controlLanguageFlags": []
+          }
+        ]
+      }
+    },
+    {
+      "key": "moon",
+      "round": 2,
+      "stages": {
+        "outline": "passed",
+        "shot": "passed"
+      },
+      "metrics": {
+        "shotCount": 4,
+        "beatCount": 17,
+        "missingSegments": [
+          "segment_002",
+          "segment_003",
+          "segment_004"
+        ],
+        "missingAnchors": [
+          "segment_002_anchor_001",
+          "segment_002_anchor_002",
+          "segment_003_anchor_001",
+          "segment_003_anchor_002",
+          "segment_004_anchor_001",
+          "segment_004_anchor_002"
+        ],
+        "issues": []
+      },
+      "status": "failed",
+      "failedStage": "final",
+      "error": "无符合主题和时长的样本",
+      "descriptions": [],
+      "selection": {
+        "selected": [],
+        "problems": [
+          {
+            "topic": "crowd",
+            "reason": "无足够相关且时长合法的完整节拍"
+          },
+          {
+            "topic": "farewell",
+            "reason": "无足够相关且时长合法的完整节拍"
+          },
+          {
+            "topic": "launch",
+            "reason": "无足够相关且时长合法的完整节拍"
+          }
+        ]
+      },
+      "path": "results/moon/round-2/A2/result.json",
+      "historicalA": {
+        "result": {
+          "status": "completed",
+          "key": "moon",
+          "round": 2,
+          "version": "A",
+          "inputHash": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93",
+          "metrics": {
+            "shotCount": 42,
+            "beatCount": 67,
+            "anchorCount": 17,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 3,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 824,
+            "issues": []
+          }
+        },
+        "finalValid": true,
+        "descriptions": [
+          {
+            "clip_id": "eval_crowd",
+            "text": "15秒，石丘观众区烟雾笼罩，约三十万人分布在麦思敦前后左右，许多人仍在吸雪茄；栅门和禁区在麦思敦身后，禁烟禁火警告刚刚发出。中近景连续跟拍麦思敦在观众间灵活穿行，他不断朝向身边吸烟者，目光落在他们手中或口中的烟草，挥动小刀般灵活地把烟草一一夺下并熄灭，再堆成一座小丘。夺取、熄灭和堆放连续呈现，不将个别观众扩写为独立事件；被夺下烟草熄灭时产生的烟气逐渐消散，观众区原有烟雾仍可见。观众面向禁区或麦思敦，视线随他的行动，喧闹声逐步减弱，群体渐渐安静。",
+            "chars": 224,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_farewell",
+            "text": "14秒。发射准备仍在继续，十点钟报响后的现场铁索摆动，三名旅行者待入弹丸，社员在后方肃立。巴比堪的弹丸和起重机在近旁，麦思敦站在地面巴比堪面前，朝向并注视他；巴比堪在弹丸旁朝向麦思敦。双人中近景先接住平日强硬的麦思敦终于落泪的表情，再保持两人同框完成问答，弹丸压在背景中。麦思敦眼含泪意，面向巴比堪含泪请求：“你能和我一同前往吗？”巴比堪回应，语气坚定：“弹丸狭小，而你年事已高，不该冒险同行；你应留在地球等候报告。”保持对白自然清晰，依次呈现麦思敦请求与巴比堪回答；场景无变化。",
+            "chars": 240,
+            "controlLanguageFlags": [
+              "保持两人同框完成问答，弹丸压在背景中。麦思敦眼含泪意，面向巴比堪含泪请求：“你能和我一同前往吗？”巴比堪回应，语气坚定：“弹丸狭小，而你年事已高，不"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "moon",
+      "round": 3,
+      "stages": {
+        "outline": "passed",
+        "shot": "passed"
+      },
+      "metrics": {
+        "shotCount": 12,
+        "beatCount": 34,
+        "missingSegments": [],
+        "missingAnchors": [],
+        "issues": []
+      },
+      "status": "failed",
+      "failedStage": "final",
+      "error": "无符合主题和时长的样本",
+      "descriptions": [],
+      "selection": {
+        "selected": [],
+        "problems": [
+          {
+            "topic": "crowd",
+            "reason": "无足够相关且时长合法的完整节拍"
+          },
+          {
+            "topic": "farewell",
+            "reason": "无足够相关且时长合法的完整节拍"
+          },
+          {
+            "topic": "launch",
+            "reason": "无足够相关且时长合法的完整节拍"
+          }
+        ]
+      },
+      "path": "results/moon/round-3/A2/result.json",
+      "historicalA": {
+        "result": {
+          "status": "completed",
+          "key": "moon",
+          "round": 3,
+          "version": "A",
+          "inputHash": "a00c3053adeb65b1bbec43e9357df7f00ca44f944cbce98de9de0cbb31f55e93",
+          "metrics": {
+            "shotCount": 30,
+            "beatCount": 60,
+            "anchorCount": 12,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 7,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 575,
+            "issues": []
+          }
+        },
+        "finalValid": true,
+        "descriptions": [
+          {
+            "clip_id": "eval_crowd",
+            "text": "12秒，文生视频。栅门外人群拥挤喧闹，烟雾浓重，栅栏边界关闭。麦思敦起始在栅门内侧，面朝持烟者；巴比堪留在栅内，面朝栅门外，注视麦思敦与人群。围观者挤在栅外，朝向栅内或身边人群，视线落在麦思敦和手中烟卷上。承接此前警告未能平息喧哗的状态，不重播警告或对白。镜头连续跟随麦思敦冲出栅门进入人群，保持运动；他挥着小刀穿过人群，将人们手中和口边的烟卷一一夺下并熄灭，逐渐堆成一小堆，不夸大刀具用途。人群在他身边挤动，烟卷逐一熄灭，烟火风险随制止吸烟而消退；最后镜头停在熄灭的烟卷堆。",
+            "chars": 238,
+            "controlLanguageFlags": [
+              "不重播",
+              "保持运动；他挥着小刀穿过人群，将人们手中和口边的烟卷一一夺下并熄灭，逐渐堆成一小堆，不"
+            ]
+          },
+          {
+            "clip_id": "eval_farewell",
+            "text": "11秒，文生视频。本镜从两人近景开始：麦思敦在炮旁地面靠近巴比堪，朝向并注视巴比堪，承接此前强忍情绪后已流泪的状态；巴比堪在弹丸入口附近面朝麦思敦。亚电与臬科尔也在弹丸入口附近，朝向并注视入口，三人即将启程。钟声已报到十点，起重机铁索持续摇动。镜头保持两人面对面的近景关系。麦思敦含泪再问：“君不偕余同去么？”巴比堪克制、明确地回应：弹丸狭小，麦思敦年事已高，承受不了旅途艰辛，留在地球等待报告更合适；不扩写对白。麦思敦听后含泪退到一旁，不再阻拦，镜头随后跟随他退开。",
+            "chars": 234,
+            "controlLanguageFlags": [
+              "保持两人面对面的近景关系。麦思敦含泪再问：“君不",
+              "不扩写"
+            ]
+          },
+          {
+            "clip_id": "eval_launch",
+            "text": "10秒，文生视频。夜色笼罩哥仑比亚炮与茀罗理窦平原，平原观众聚集在炮周围及远处，朝向炮口和天空，注视火焰升空方向。承接“放射”声落下的时刻，哥仑比亚炮轰然震响。镜头先从炮口低角度仰拍：火焰如柱冲上天空，随后蓬勃四散；镜头随火焰扩散转为大远景，展现火光照亮茀罗理窦及三百英里内的受照亮区域，夜空与平原骤然明亮，仿佛夜里出现一个火焰世界。火光在爆发过程中持续扩散照亮周围天空。",
+            "chars": 186,
+            "controlLanguageFlags": []
+          }
+        ]
+      }
+    },
+    {
+      "key": "wusong",
+      "round": 1,
+      "stages": {
+        "outline": "passed",
+        "shot": "passed",
+        "final": "passed"
+      },
+      "metrics": {
+        "shotCount": 31,
+        "beatCount": 110,
+        "missingSegments": [],
+        "missingAnchors": [],
+        "issues": []
+      },
+      "status": "completed",
+      "descriptions": [
+        {
+          "clip_id": "eval_medicine",
+          "text": "清晨的武家厨房，灶火加热汤水，药包纸已摊在桌上。潘金莲站在桌与灶台之间，楼上卧房里的武大郎在画外；她面向药碗和楼梯，手微微发抖，将药粉倒入热汤，粉末落下后在汤中溶开。手部近景捕捉药粉入汤，她盯着碗中粉末，端起药碗又迟疑着放回，随后重新端起，连续跟随她走上楼梯，药碗被带上楼。水沸声贯穿，脚步声随她踏上楼梯响起。",
+          "chars": 155,
+          "controlLanguageFlags": []
+        },
+        {
+          "clip_id": "eval_brothers",
+          "text": "染坊院内木板开裂、木梯断裂，蓝色染粉渐渐落地消散，后院门已打开，周巡检与官差在门口。武松压制着地上的西门庆，拳头悬在半空；武大郎已站在弟弟身后，衣肩破损，一只手仍抓着武松手臂。他声音发颤却清楚地说：“二郎，看我。我还活着。”先近拍武大郎的脸，再转至武松侧脸；武松慢慢转头看向哥哥，视线落到破损的肩头和仍在起伏的胸口，急促呼吸逐渐放缓。他终于松开西门庆，悬起的拳头落下。镜头沿视线落到武大郎起伏的胸口，再回到松开的手，周围环境声重新浮现。",
+          "chars": 218,
+          "controlLanguageFlags": []
+        },
+        {
+          "clip_id": "eval_fight",
+          "text": "染坊院内空间狭窄，染缸、木桶、晾布架与矮台围在摆动的长布之间。木桶已翻倒，水摊在两人脚边；武大郎已退到垂布后，武松左臂衣袖被划破。武松在西门庆对面双手持竹竿，竿头已降低；西门庆仍贴近染缸，持短刀压制武大郎的方向。侧向中景连续展示武松用竹竿压住短刀，竿身受力弯曲，刀刃摩擦竿身；西门庆踹翻染缸旁木架，镜头抬摇追随木架倾倒、晾布杆砸下。武松护住头部，竹竿受压断成两截，木架与晾布杆落地。",
+          "chars": 191,
+          "controlLanguageFlags": []
+        }
+      ],
+      "selection": {
+        "selected": [
+          {
+            "topic": {
+              "id": "medicine",
+              "label": "端药犹疑与内心冲突",
+              "terms": [
+                "潘金莲",
+                "碗",
+                "药",
+                "手"
+              ]
+            },
+            "clip": {
+              "id": "eval_medicine",
+              "mode": "文生",
+              "duration_seconds": 8,
+              "sources": [
+                {
+                  "shot_id": "shot_018",
+                  "beat_start": 1,
+                  "beat_end": 1
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_018",
+              "previous_shot_connection": "cut",
+              "story_segment_id": "segment_004",
+              "title": "碗沿被按住",
+              "key_anchor_ids": [
+                "segment_004_anchor_001"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "武家厨房清晨，灶火加热汤水，药包纸摊在桌面，楼上可听见武大郎说话。",
+                "spatial_setup": "灶台与桌在厨房一侧，楼梯由厨房通往楼上卧房；药碗可端上楼。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "潘金莲",
+                  "presence": "在厨房打开药包。",
+                  "position": "桌与灶台之间。",
+                  "facing": "朝药包与楼梯。",
+                  "gaze_target": "药纸和碗"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武大郎",
+                  "presence": "在楼上休息。",
+                  "position": "楼上卧房，画外。",
+                  "facing": "不在镜头内。",
+                  "gaze_target": "楼梯方向"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武松",
+                  "presence": "从窄巷回到后院，随后入楼。",
+                  "position": "开场尚在楼梯外侧。",
+                  "facing": "朝厨房。",
+                  "gaze_target": "潘金莲与药碗"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 8,
+                  "action": "潘金莲手抖，药粉落进碗里并溶开；她盯着粉末，端起碗又放下，最终端碗上楼。",
+                  "camera": "手部近景捕捉药粉入汤与端起放下，随后连续跟随她上楼。",
+                  "scene_changes": "药粉进入热汤并溶开，药碗被端上楼。",
+                  "effects": "无。",
+                  "audio": "药粉落汤轻响，水沸声持续；脚步踏上楼梯。"
+                }
+              ]
+            },
+            "prior_beats_context": [
+              {
+                "duration_seconds": 8,
+                "action": "潘金莲打开药包，读到纸上指示，抬眼望向楼上；武大郎在楼上问水开了能否倒一点。",
+                "camera": "桌面药纸近景清楚呈现字句，再抬到潘金莲望楼梯的视线。",
+                "scene_changes": "药包打开，包装纸摊在桌上。",
+                "effects": "无。",
+                "audio": "纸上写着：“一包尽入热汤，服后莫留渣。”楼上武大郎问水开了能否倒一点；灶水沸响。"
+              }
+            ],
+            "selectionScore": 8
+          },
+          {
+            "topic": {
+              "id": "brothers",
+              "label": "兄弟之间的克制与张力",
+              "terms": [
+                "武大郎",
+                "武松",
+                "我还活着",
+                "拳"
+              ]
+            },
+            "clip": {
+              "id": "eval_brothers",
+              "mode": "文生",
+              "duration_seconds": 8,
+              "sources": [
+                {
+                  "shot_id": "shot_025",
+                  "beat_start": 1,
+                  "beat_end": 1
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_025",
+              "previous_shot_connection": "continuous",
+              "story_segment_id": "segment_005",
+              "title": "我还活着",
+              "key_anchor_ids": [
+                "segment_005_anchor_003"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "染坊院内木板裂开、木梯断裂，后院门方向传来开门声，染粉渐落。",
+                "spatial_setup": "武松压制西门庆在地面，武大郎从后院门方向走来，周巡检与官差进入院内。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武松",
+                  "presence": "拳头悬起，压制西门庆，呼吸急促。",
+                  "position": "西门庆身上方。",
+                  "facing": "朝西门庆。",
+                  "gaze_target": "对手"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武大郎",
+                  "presence": "从后院门进入，衣肩破损。",
+                  "position": "武松身后。",
+                  "facing": "朝武松。",
+                  "gaze_target": "弟弟"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "周巡检",
+                  "presence": "带官差进入染坊院内。",
+                  "position": "后院门口。",
+                  "facing": "朝西门庆与武松。",
+                  "gaze_target": "现场"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "西门庆",
+                  "presence": "被武松压制在地。",
+                  "position": "地面。",
+                  "facing": "仰面朝武松。",
+                  "gaze_target": "武松"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 8,
+                  "action": "武大郎声音发颤但清楚地叫弟弟看自己，说自己还活着；武松拳头悬在半空，慢慢转头，看见哥哥肩头衣服破了、胸口仍在起伏，终于松开手。",
+                  "camera": "武大郎脸部近景后转至武松侧脸，沿他的视线落到哥哥起伏的胸口，再回到松开的手。",
+                  "scene_changes": "武松松开西门庆，拳头落下。",
+                  "effects": "无。",
+                  "audio": "武大郎说：“二郎，看我。我还活着。”武松呼吸由急促逐渐放缓，环境声重新浮现。"
+                }
+              ]
+            },
+            "prior_beats_context": [
+              {
+                "duration_seconds": 7,
+                "action": "后院门打开，周巡检带人进入；武大郎走到武松身后抓住弟弟手臂。武松没有回头，仍举着拳头。",
+                "camera": "由裂板与悬拳拉开，带入打开的后门和官差，再移至武大郎抓住武松手臂。",
+                "scene_changes": "后院门打开，周巡检和官差进入。",
+                "effects": "蓝色粉尘继续落地，逐渐消散。",
+                "audio": "门闩开启、官差脚步进入；武大郎衣袖摩擦武松手臂。"
+              }
+            ],
+            "selectionScore": 4
+          },
+          {
+            "topic": {
+              "id": "fight",
+              "label": "染坊动作与空间互动",
+              "terms": [
+                "染",
+                "竹竿",
+                "西门庆",
+                "刀"
+              ]
+            },
+            "clip": {
+              "id": "eval_fight",
+              "mode": "文生",
+              "duration_seconds": 8,
+              "sources": [
+                {
+                  "shot_id": "shot_022",
+                  "beat_start": 2,
+                  "beat_end": 2
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_022",
+              "previous_shot_connection": "continuous",
+              "story_segment_id": "segment_005",
+              "title": "木桶破局",
+              "key_anchor_ids": [
+                "segment_005_anchor_001",
+                "segment_005_anchor_002"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "染坊院内风吹长布持续摆动，染缸、木桶、晾布架与矮台构成狭窄打斗空间。",
+                "spatial_setup": "武大郎与西门庆贴近染缸，武松正面持竹竿，木桶在武大郎脚边。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武大郎",
+                  "presence": "仍被西门庆控制，已观察木桶。",
+                  "position": "染缸边。",
+                  "facing": "朝西门庆。",
+                  "gaze_target": "西门庆持刀手与脚边木桶"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "西门庆",
+                  "presence": "持刀压制武大郎。",
+                  "position": "武大郎身后侧。",
+                  "facing": "朝武松。",
+                  "gaze_target": "武松"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武松",
+                  "presence": "手持长竹竿，已降低竿头。",
+                  "position": "两人对面。",
+                  "facing": "朝西门庆。",
+                  "gaze_target": "刀腕与武大郎"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 8,
+                  "action": "武松双手持竿压住短刀，竹竿弯曲，刀刃摩擦发出刺耳声；西门庆踹翻染缸旁木架，晾布杆砸下。武松护头，竹竿被压断。",
+                  "camera": "侧向中景展示竿与刀的受力弯曲，随后抬摇追随木架倾倒和武松护头。",
+                  "scene_changes": "木架翻倒，晾布杆砸落；竹竿断成两截。",
+                  "effects": "无。",
+                  "audio": "刀刃摩擦竹竿的刺耳声，木架倒塌巨响，竹竿断裂声。"
+                }
+              ]
+            },
+            "prior_beats_context": [
+              {
+                "duration_seconds": 7,
+                "action": "武大郎突然屈膝下坠，双手抓住西门庆持刀手腕，同时踢翻木桶；水泼到两人脚下，西门庆失衡，刀尖偏开。",
+                "camera": "低角度紧跟武大郎下坠和踢桶，水泼出时快速横移至西门庆失衡的脚步。",
+                "scene_changes": "木桶翻倒，水洒在地面，地面变滑。",
+                "effects": "水流向两人脚边并迅速摊开。",
+                "audio": "木桶翻倒与泼水声，西门庆失衡时短促惊呼，布声和脚步混合。"
+              },
+              {
+                "duration_seconds": 7,
+                "action": "武松一竿挑开刀腕，跨步撞入，将哥哥推到垂布后；西门庆反手划伤武松左臂衣袖。",
+                "camera": "手持近景跟随挑竿、跨步与推人，划袖时落到左臂破口。",
+                "scene_changes": "武大郎退至垂布后；武松左臂衣袖被划破。",
+                "effects": "无。",
+                "audio": "竹竿击中手腕声、脚步踏水声、布料撕裂声。"
+              }
+            ],
+            "selectionScore": 4
+          }
+        ],
+        "problems": []
+      },
+      "path": "results/wusong/round-1/A2/result.json",
+      "historicalA": {
+        "result": {
+          "status": "completed",
+          "key": "wusong",
+          "round": 1,
+          "version": "A",
+          "inputHash": "65d322ccdd69443dbdd5aac5faeab3189f4abbcb1ca7ed99c1880140437188f0",
+          "metrics": {
+            "shotCount": 31,
+            "beatCount": 119,
+            "anchorCount": 18,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 28,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 937,
+            "issues": []
+          }
+        },
+        "finalValid": true,
+        "descriptions": [
+          {
+            "clip_id": "eval_medicine",
+            "text": "7秒，武家厨房清晨。桌上药包已打开，热汤盛在碗中；潘金莲站在桌边，武大郎在楼上卧房内。镜头以她的手和药粉近景开始，跟随药粉落入热汤并在汤中扩散溶开。她的手抖了一下，随后盯着粉末溶开，神情与目光收紧；她端起碗，又将碗放回桌面，碗与桌面轻轻相碰。镜头随药粉与碗的动作，不切镜。楼上武大郎此前问过：“水若开了，能否倒一点？”本片不重复这句已说完的话。厨房声场克制。",
+            "chars": 179,
+            "controlLanguageFlags": [
+              "不切镜",
+              "本片不"
+            ]
+          },
+          {
+            "clip_id": "eval_brothers",
+            "text": "8秒，旧染坊院内，木梯折断、晾布台受损，短刀在西门庆手边；武松脸侧染蓝、左袖破损。武松在晾布台下方制服西门庆，拳头悬停在半空；武大郎在后院门附近，垂布隔开视线，仍在后门处。镜头从武大郎抓住武松手臂的近景，缓慢转到武松悬停的拳与回头视线，最后落在兄弟对视上，保持同一镜头。武大郎声音发颤却清楚地说：“二郎，看我。我还活着。”武松的拳停在半空，慢慢转头，看见哥哥肩头衣服破了、胸口仍在起伏；他终于松开手。火场回响渐退，现场呼吸声回归。",
+            "chars": 215,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_fight",
+            "text": "9秒，旧染坊院内，长布随风摆动，近旁有染缸与已翻倒、地面湿滑的木桶。武松在两丈外双手持长竹竿，已将哥哥推到垂布后方；西门庆在染缸边持刀，武大郎受制于他。镜头承接此前动作，以双人中景展示武松用竹竿压住刀身；竹竿弯曲，刀刃摩擦出刺耳声响。西门庆踹向染缸旁木架，镜头仰摇，木架被踹动，晾布杆坠下；镜头再落回武松护住头部、竹竿被压断为两截。连续呈现动作，不切镜。",
+            "chars": 177,
+            "controlLanguageFlags": [
+              "不切镜"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "wusong",
+      "round": 2,
+      "stages": {
+        "outline": "passed"
+      },
+      "status": "failed",
+      "failedStage": "shot",
+      "error": "response：不是有效JSON",
+      "descriptions": [],
+      "selection": null,
+      "path": "results/wusong/round-2/A2/result.json",
+      "historicalA": {
+        "result": {
+          "status": "completed",
+          "key": "wusong",
+          "round": 2,
+          "version": "A",
+          "inputHash": "65d322ccdd69443dbdd5aac5faeab3189f4abbcb1ca7ed99c1880140437188f0",
+          "metrics": {
+            "shotCount": 41,
+            "beatCount": 138,
+            "anchorCount": 20,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 27,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 755,
+            "issues": []
+          }
+        },
+        "finalValid": true,
+        "descriptions": [
+          {
+            "clip_id": "eval_medicine",
+            "text": "清晨武家厨房，灶火烧着热汤，炉灶旁的碗里药粉已落入并逐渐溶开；潘金莲此前端起又放下碗，此刻在炉灶边重新端碗，朝楼梯上楼。武大郎在楼上房间，画外，朝向楼梯口；武松仍在屋外窄巷绕回后院，未入厨房。镜头随潘金莲端碗上楼，碗始终留在她手中，汤面随步行轻微晃动；进入楼上房间区域后停下，保持两人及碗在同一连续镜头中。武大郎伸手问：“是什么？”潘金莲仍不松碗，低头看着碗，迟疑地回答：“是治伤的药。”她停顿片刻，声音带出犹疑：“你……”最后停在武大郎伸手、潘金莲低头握碗未松的状态。灶火声和步行时汤液轻晃声延续，楼上环境安静。",
+            "chars": 257,
+            "controlLanguageFlags": [
+              "保持两人及碗在同一连续镜头中。武大郎伸手问：“是什么？”潘金莲仍不"
+            ]
+          },
+          {
+            "clip_id": "eval_brothers",
+            "text": "染坊院内后门已经打开，门外晨光照入，尘屑浮在光束中；火场坍塌的混响正在退去。武大郎在后门内侧，踉跄走向晾布台旁压制着西门庆的武松；武松拳头仍抬起，面向西门庆，没有回头。武大郎伸手抓住弟弟抬起的手臂。镜头从抓住手臂的手部缓慢推至武大郎，随后保持两人同框；武松仍不回头。武大郎呼吸急促，声音发颤却清楚地说：“二郎，看我。我还活着。”说话时维持抓握，落在两人同框、武松未回头的状态。随着火场坍塌混响退去，留下两人的呼吸声。",
+            "chars": 208,
+            "controlLanguageFlags": [
+              "保持两人同框；武松仍不"
+            ]
+          },
+          {
+            "clip_id": "eval_fight",
+            "text": "染坊院内地面潮湿，后门仍未完全打开，近旁有染粉，木梯靠近晾布台。武松在后门与西门庆之间，以半截竹竿顶住对方；他脸侧沾着深蓝染粉，眼睛闭着并偏头，凭脚步声应对，背靠木梯。西门庆在他前方，手中短刀被湿布缠住，面向武松。镜头以武松受限视线的近景连续呈现刀势：西门庆趁势猛攻，武松用竹竿连续挡过前两下；第三下竹竿脱手落到潮湿地面。染粉残雾逐渐落定。第三下后以武松失去竹竿的状态收住。两次刀击竹竿发出清脆格挡声，随后竹竿落地；两人呼吸急促。",
+            "chars": 215,
+            "controlLanguageFlags": []
+          }
+        ]
+      }
+    },
+    {
+      "key": "wusong",
+      "round": 3,
+      "stages": {
+        "outline": "passed",
+        "shot": "passed",
+        "final": "passed"
+      },
+      "metrics": {
+        "shotCount": 35,
+        "beatCount": 114,
+        "missingSegments": [],
+        "missingAnchors": [],
+        "issues": []
+      },
+      "status": "completed",
+      "descriptions": [
+        {
+          "clip_id": "eval_medicine",
+          "text": "晨光从武家厨房后门斜照进来，灶上热汤冒着蒸汽，桌面整洁。潘金莲站在灶台与桌边，药粉已溶在热汤中，展开的药纸在旁；楼上房内的武大郎在画外，武松已从后院窄巷折返，位于楼梯下方通路。中景连续跟随碗：潘金莲端起药碗，动作迟疑，随即放回灶旁；楼上传来武大郎问：“是什么？”她答：“治伤的药。”她仍没有马上松开碗，手指紧扣碗沿，目光停在汤面。片刻后她重新端起碗，转身沿楼梯上楼，镜头连续跟拍她和药碗，脚步迟缓，最终随她离开厨房向楼上而去。",
+          "chars": 213,
+          "controlLanguageFlags": []
+        },
+        {
+          "clip_id": "eval_brothers",
+          "text": "染坊地面与晾布台周围散落断梯、木架，武松脸侧沾着深蓝染粉，短刀已被踢到较远处。武松受伤倒地后已起身，正压制着西门庆；西门庆翻身爬起后仍被控制。武大郎站在尚未完全打开的后门边，衣衫破损，胸口起伏。连续镜头从武大郎起伏的胸口推至武松紧绷的眼神，再随武松缓慢转头看向哥哥。武大郎说：“我还活着。”武松看清哥哥仍活着，悬在西门庆上方的拳头停住，呼吸逐渐放缓，终于松开控制西门庆的手。镜头落在武松松开的手上，三人位置保持清晰。",
+          "chars": 208,
+          "controlLanguageFlags": []
+        },
+        {
+          "clip_id": "eval_fight",
+          "text": "染坊院内挂布摆动，染缸旁的地面已有翻倒木桶泼出的水迹，地面湿滑。武大郎在染缸边，西门庆在他侧后方持刀控制他；武松持竹竿站在两丈外。连续中景跟随武松用竹竿挑开西门庆的刀腕，随即横移跟他跨步撞入近身，始终让刀、三人位置与湿滑地面清楚可辨。武松将武大郎推到垂布后避开，西门庆反手挥刀划开武松左臂衣袖，袖口裂开，不强调出血。武松吸气，护送哥哥至挂布遮挡后，自己仍在西门庆近旁。",
+          "chars": 184,
+          "controlLanguageFlags": []
+        }
+      ],
+      "selection": {
+        "selected": [
+          {
+            "topic": {
+              "id": "medicine",
+              "label": "端药犹疑与内心冲突",
+              "terms": [
+                "潘金莲",
+                "碗",
+                "药",
+                "手"
+              ]
+            },
+            "clip": {
+              "id": "eval_medicine",
+              "mode": "文生",
+              "duration_seconds": 8,
+              "sources": [
+                {
+                  "shot_id": "shot_022",
+                  "beat_start": 2,
+                  "beat_end": 2
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_022",
+              "previous_shot_connection": "cut",
+              "story_segment_id": "segment_004",
+              "title": "迟疑的药碗",
+              "key_anchor_ids": [
+                "segment_004_anchor_002"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "武家厨房晨光从后门斜入，灶上热汤冒气，桌面干净。",
+                "spatial_setup": "潘金莲在厨房拆药包，热汤碗在灶旁，楼梯通往武大郎房间；武松由后院窄巷返入。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "潘金莲",
+                  "presence": "在厨房拆开药包。",
+                  "position": "灶台与桌边。",
+                  "facing": "朝向汤碗。",
+                  "gaze_target": "药纸上的字与汤面。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武大郎",
+                  "presence": "在楼上房内，画外。",
+                  "position": "楼上。",
+                  "facing": "未知。",
+                  "gaze_target": "未知。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武松",
+                  "presence": "由窄巷折返后进入厨房区域。",
+                  "position": "楼梯下方通路。",
+                  "facing": "朝向厨房与楼梯。",
+                  "gaze_target": "潘金莲与药碗。"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 8,
+                  "action": "潘金莲端碗抬起又放下，最终端碗上楼；武大郎问是什么，她回答治伤的药，却迟迟不松开碗。",
+                  "camera": "中景跟随碗从灶边抬起、放回再端起，转为楼梯上行的连续跟拍。",
+                  "scene_changes": "潘金莲携药碗从厨房移至楼上。",
+                  "effects": "无。",
+                  "audio": "楼上传来武大郎问：“是什么？”潘金莲答：“治伤的药。”碗与托盘轻碰声，脚步迟缓。"
+                }
+              ]
+            },
+            "prior_beats_context": [
+              {
+                "duration_seconds": 8,
+                "action": "潘金莲拆开药包，读到纸上写着“一包尽入热汤，服后莫留渣。”她盯着字句，手指停在纸边。",
+                "camera": "药纸文字特写，逐字清楚可读，再拉到潘金莲凝住的眼神。",
+                "scene_changes": "药包被拆开，纸面展开。",
+                "effects": "无。",
+                "audio": "纸张展开声；楼上日常动静微弱，灶火低响。"
+              },
+              {
+                "duration_seconds": 8,
+                "action": "楼上传来武大郎叫她水开后倒一点；潘金莲手一抖，药粉落进碗中，她盯着粉末溶开。",
+                "camera": "从楼梯方向声源摇回潘金莲手部，跟随药粉落入热汤与溶散。",
+                "scene_changes": "药粉进入汤碗并溶开。",
+                "effects": "热汤表面粉末扩散后消失。",
+                "audio": "武大郎在楼上叫她水开后倒一点；药粉落汤的轻响被灶火声托住。"
+              }
+            ],
+            "selectionScore": 7
+          },
+          {
+            "topic": {
+              "id": "brothers",
+              "label": "兄弟之间的克制与张力",
+              "terms": [
+                "武大郎",
+                "武松",
+                "我还活着",
+                "拳"
+              ]
+            },
+            "clip": {
+              "id": "eval_brothers",
+              "mode": "文生",
+              "duration_seconds": 8,
+              "sources": [
+                {
+                  "shot_id": "shot_029",
+                  "beat_start": 3,
+                  "beat_end": 3
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_029",
+              "previous_shot_connection": "continuous",
+              "story_segment_id": "segment_005",
+              "title": "拳头停在木板前",
+              "key_anchor_ids": [
+                "segment_005_anchor_002"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "染坊地面与晾布台凌乱，断梯和木架散落，武松脸侧有深蓝染粉，短刀在近旁。",
+                "spatial_setup": "武松与西门庆在晾布台边，武大郎正在后门处，后门尚未完全打开。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武松",
+                  "presence": "受伤倒地后起身。",
+                  "position": "晾布台边地面。",
+                  "facing": "朝向西门庆。",
+                  "gaze_target": "短刀与西门庆。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "西门庆",
+                  "presence": "翻身爬起。",
+                  "position": "短刀旁。",
+                  "facing": "朝向武松。",
+                  "gaze_target": "武松。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武大郎",
+                  "presence": "在后门边。",
+                  "position": "门闩处。",
+                  "facing": "朝向门外。",
+                  "gaze_target": "插销。"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 8,
+                  "action": "武大郎说自己还活着；武松悬拳停住，慢慢转头，看见哥哥衣衫破损、胸口仍起伏，终于松开西门庆。",
+                  "camera": "由武大郎起伏胸口推至武松眼神，缓慢转向哥哥，最后落在武松松开的手。",
+                  "scene_changes": "武松停止压制并松手。",
+                  "effects": "无。",
+                  "audio": "武大郎说：“我还活着。”武松呼吸逐渐放缓，环境打斗声退去。"
+                }
+              ]
+            },
+            "prior_beats_context": [
+              {
+                "duration_seconds": 8,
+                "action": "武松一脚踢开短刀，抓住西门庆伸来的手，压住其肩肘；西门庆威胁杀了自己武松也要偿命。",
+                "camera": "地面低角度跟短刀被踢远，抬至武松控制手臂与西门庆被压制的脸。",
+                "scene_changes": "短刀被踢离两人，落在较远地面。",
+                "effects": "无。",
+                "audio": "刀滑地声；西门庆威胁：“杀了我，你也要偿命。”"
+              },
+              {
+                "duration_seconds": 8,
+                "action": "武松挥拳砸在西门庆耳侧木板上，板面裂开；火场坍塌声在他耳边回响，混着哥哥压抑的痛叫，他再抬拳时只剩愤怒。",
+                "camera": "拳头击板瞬间推近裂纹，随后贴近武松眼部，背景声压迫但画面仍留哥哥所在方向。",
+                "scene_changes": "木板裂开。",
+                "effects": "无。",
+                "audio": "木板裂响与火场坍塌回声短暂叠入，武大郎压抑痛叫混入；不新增清晰对白。"
+              },
+              {
+                "duration_seconds": 8,
+                "action": "武大郎打开后门，周巡检带官差进入；武大郎踉跄上前抓住武松手臂，叫他看自己。武松没有回头，拳头悬在西门庆上方。",
+                "camera": "从武松举拳转焦至打开的后门与周巡检入场，再跟武大郎踉跄抓臂，回到悬拳。",
+                "scene_changes": "后门打开；周巡检与官差进入院内。",
+                "effects": "无。",
+                "audio": "后门开合声与官差脚步进入；武大郎声音发颤却清楚：“二郎，看我。”武松未应。"
+              }
+            ],
+            "selectionScore": 4
+          },
+          {
+            "topic": {
+              "id": "fight",
+              "label": "染坊动作与空间互动",
+              "terms": [
+                "染",
+                "竹竿",
+                "西门庆",
+                "刀"
+              ]
+            },
+            "clip": {
+              "id": "eval_fight",
+              "mode": "文生",
+              "duration_seconds": 7,
+              "sources": [
+                {
+                  "shot_id": "shot_026",
+                  "beat_start": 1,
+                  "beat_end": 1
+                }
+              ]
+            },
+            "shot": {
+              "id": "shot_026",
+              "previous_shot_connection": "continuous",
+              "story_segment_id": "segment_005",
+              "title": "水桶破局",
+              "key_anchor_ids": [
+                "segment_005_anchor_001",
+                "segment_005_anchor_002"
+              ],
+              "scene": {
+                "scene_id": "",
+                "state": "染坊院内挂布摆动，染缸边湿滑区域尚未形成，木桶内有水。",
+                "spatial_setup": "武大郎在西门庆刀下，木桶在其脚边；武松持竹竿相距两丈。"
+              },
+              "characters": [
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武大郎",
+                  "presence": "被挟持但准备行动。",
+                  "position": "染缸边近木桶。",
+                  "facing": "朝向西门庆。",
+                  "gaze_target": "持刀手及武松。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "西门庆",
+                  "presence": "控制武大郎。",
+                  "position": "武大郎侧后方。",
+                  "facing": "朝向武松。",
+                  "gaze_target": "武松。"
+                },
+                {
+                  "character_id": "",
+                  "costume_id": "",
+                  "name": "武松",
+                  "presence": "院中对峙。",
+                  "position": "两丈外。",
+                  "facing": "朝向二人。",
+                  "gaze_target": "刀与武大郎。"
+                }
+              ],
+              "beats": [
+                {
+                  "duration_seconds": 7,
+                  "action": "武松用竹竿挑开刀腕，跨步撞入，将哥哥推到垂布后；西门庆反手划开武松左臂衣袖。",
+                  "camera": "跟随竹竿挑腕横移入近身，保持刀与三人位置可辨，再跟武松护送哥哥至垂布后。",
+                  "scene_changes": "武大郎移至挂布遮挡后；武松左臂衣袖被划开。",
+                  "effects": "衣袖裂口，未强调大量出血。",
+                  "audio": "竹竿击腕声、脚步溅水声、布料撕裂声；武松吸气。"
+                }
+              ]
+            },
+            "prior_beats_context": [
+              {
+                "duration_seconds": 7,
+                "action": "武大郎突然屈膝下坠，双手抓住西门庆持刀手腕，同时踢翻水桶；西门庆脚下失衡，刀尖偏开。",
+                "camera": "中景完整呈现下坠、抓腕与踢桶的连贯动作，随后俯拍水流涌向两人脚下。",
+                "scene_changes": "木桶翻倒，水泼在地面，形成湿滑水迹。",
+                "effects": "水流迅速扩散并沿地面低处流开。",
+                "audio": "桶翻与水泼地声，西门庆失衡踉跄，武大郎用力喘息。"
+              }
+            ],
+            "selectionScore": 3
+          }
+        ],
+        "problems": []
+      },
+      "path": "results/wusong/round-3/A2/result.json",
+      "historicalA": {
+        "result": {
+          "status": "completed",
+          "key": "wusong",
+          "round": 3,
+          "version": "A",
+          "inputHash": "65d322ccdd69443dbdd5aac5faeab3189f4abbcb1ca7ed99c1880140437188f0",
+          "metrics": {
+            "shotCount": 42,
+            "beatCount": 168,
+            "anchorCount": 19,
+            "unreferencedAnchorIds": [],
+            "missingSegmentIds": [],
+            "referenceCoverage": 1,
+            "quotedTextCount": 17,
+            "quotedTextNotFound": [],
+            "quotedTextRecallHeuristic": 1,
+            "estimatedSeconds": 601,
+            "issues": []
+          }
+        },
+        "finalValid": false,
+        "descriptions": [
+          {
+            "clip_id": "eval_medicine",
+            "text": "4秒，武家厨房清晨，冷白光落在桌面空碗与拆开的药包上，楼梯通向楼上，后门通院子。手部近景连续呈现潘金莲朝向碗与药包，手指轻颤着把药粉倒入碗中；粉末落入液体，逐渐溶开。她的视线停在粉末上，呼吸仍浅，随后端起碗，短暂停顿，又将碗放回桌面。碗底轻触桌面，动作收住。",
+            "chars": 129,
+            "controlLanguageFlags": []
+          },
+          {
+            "clip_id": "eval_brothers",
+            "text": "4秒，染坊院内，武大郎站在打开的后院门边，手仍抓着武松手臂；武松压住西门庆，背对武大郎，拳头悬起，尚未回头。周巡检及官差已从门外进入。近景落在武大郎抓手的动作与发声，武松背影留在前景。武大郎声音发颤却清楚，逐字说：“二郎，看我。我还活着。”说话时抓住武松手臂的手不松，视线朝向武松；话音结束后保持原有姿势，不让武松回头或重演此前动作。",
+            "chars": 167,
+            "controlLanguageFlags": [
+              "逐字",
+              "保持原有姿势，不"
+            ]
+          },
+          {
+            "clip_id": "eval_fight",
+            "text": "4秒，废弃染坊院内日光偏暗，染缸与盛水木桶留在院中，未收走的长布垂挂。院口中景建立武松与染缸边西门庆、武大郎之间的距离：武松提着长竹竿从院口进入，朝染缸边前行；西门庆在染缸边持短刀挟持武大郎，武大郎在他身前朝向武松。周巡检及官差仍在后院门外包围，未入院。前景长布被风吹动，间歇遮挡画面和视线，武松与染缸边两人的相对位置保持可辨。",
+            "chars": 164,
+            "controlLanguageFlags": []
+          }
+        ]
+      }
+    }
+  ],
+  "note": "语言模式匹配仅定位待查片段，不是质量评分；可读格式失败结果不计程序成功。"
+}

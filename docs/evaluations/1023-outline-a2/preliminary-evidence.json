@@ -1,0 +1,53 @@
+[
+  {
+    "case": "moon",
+    "round": 1,
+    "kind": "fixed_input",
+    "topic": "crowd",
+    "finding": "压缩后仍同时描述栅门关闭和穿门冲出，未证明连续性改善",
+    "files": [
+      "controls/moon/round-1/A1/response.txt",
+      "controls/moon/round-1/A2/response.txt"
+    ],
+    "quotes": [
+      "栅门保持关闭",
+      "栅门保持关闭，麦思敦从门内挥着小刀冲出栅门"
+    ],
+    "assessment": "未改善",
+    "literalVerified": true
+  },
+  {
+    "case": "wusong",
+    "round": 1,
+    "kind": "fixed_input",
+    "topic": "medicine",
+    "finding": "新版把前一节拍已经说完的人声重新放进当前开场",
+    "files": [
+      "controls/wusong/round-1/source.json",
+      "controls/wusong/round-1/A2/response.txt"
+    ],
+    "quotes": [
+      "武大郎在楼上问",
+      "楼上卧房里传来武大郎的声音"
+    ],
+    "assessment": "出现回退；须与同批A1比较",
+    "literalVerified": true
+  },
+  {
+    "case": "wusong",
+    "round": 1,
+    "kind": "fixed_input",
+    "topic": "brothers",
+    "finding": "新版仍沿用旧开场中刀在手边的状态，未继承此前已被踢离的结果",
+    "files": [
+      "controls/wusong/round-1/source.json",
+      "controls/wusong/round-1/A2/response.txt"
+    ],
+    "quotes": [
+      "短刀被踢离西门庆手边",
+      "短刀在西门庆手边"
+    ],
+    "assessment": "状态累积仍有问题",
+    "literalVerified": true
+  }
+]

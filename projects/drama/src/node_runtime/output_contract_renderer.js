@@ -38,8 +38,18 @@ export function resolveOutputDefinition(reference, definition = nodeDefinitions)
   return follow(reference, new Set(), new Set())
 }
 
-export function outputInstructions(contract) {
+export function outputInstructions(contract, { format = 'schema' } = {}) {
   if (contract.type === 'image') return contract.description
+  if (!['schema', 'template'].includes(format)) invalid('output_format', '未知输出展示格式')
+  if (format === 'template') {
+    const template = schema => {
+      if (schema.type === 'object') return Object.fromEntries(Object.entries(schema.properties).map(([key, value]) => [key, template(value)]))
+      if (schema.type === 'array') return [template(schema.items)]
+      if (!['string', 'number', 'integer', 'boolean', 'null'].includes(schema.type)) invalid('output_format', '该结构不支持JSON模板展示')
+      return `${schema.type}${schema.description ? `（${schema.description}）` : ''}`
+    }
+    return `只返回符合以下结构的完整JSON，不附解释或Markdown围栏。模板中的类型与括号内容是字段说明，不是实际返回值；请替换为对应类型的真实内容，number必须返回数字。所有字段必填，不添加额外字段或output包装；ID为示例，已有对象保留原ID。\n${JSON.stringify(template(contract), null, 2)}`
+  }
   return `只返回符合以下JSON Schema的完整JSON，不附解释或Markdown围栏。字段description解释内容含义；必填、类型、枚举和互斥结构由程序约束，业务规则不能改写输出结构。\n${JSON.stringify(contract, null, 2)}`
 }
 
@@ -55,7 +65,8 @@ export function renderNodeRules(model, action, { definition = nodeDefinitions } 
     const result = text.replace(/\{\{output:([^{}]*?)\}\}/gu, (_, reference) => {
       const resolved = resolveOutputDefinition(reference, source)
       if (typeof resolved === 'string') return resolved
-      return outputInstructions(resolved)
+      const node = reference.slice(2).split('/')[0]
+      return outputInstructions(resolved, { format: reference === `#/${node}/output` ? source[node]?.output_format : undefined })
     })
     if (result.includes('{{output:')) invalid(action, '输出引用未完整展开')
     return result

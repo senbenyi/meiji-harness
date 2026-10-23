@@ -1,0 +1,148 @@
+{
+  "X": {
+    "scores": {
+      "story_quality": 3,
+      "continuity": 3,
+      "coverage": 4,
+      "dialogue": 3,
+      "no_readaptation": 3,
+      "shootability": 3
+    },
+    "issues": [
+      {
+        "severity": "major",
+        "dimension": "coverage",
+        "segment_id": "segment_001",
+        "shot_ids": [
+          "shot_003",
+          "shot_004"
+        ],
+        "evidence": "大纲写许衡在旧仓间“低声承认维修件下周才到”，镜头仅写“许衡说：‘现场没有异常。’”并称“电话内容不清晰、不提供可辨信息”；而shot_003的行动又称江禾误以为他在隐瞒事故。",
+        "explanation": "定稿大纲中许衡承认延期的声音没有落实到镜头；观众只能看到遮挡动作，重要的误解来源和许衡具体隐瞒事项缺少可执行呈现。"
+      },
+      {
+        "severity": "major",
+        "dimension": "coverage",
+        "segment_id": "segment_004",
+        "shot_ids": [
+          "shot_021"
+        ],
+        "evidence": "大纲写“罗闻的右腿旧伤发软，手不由得离开压轮”，镜头只写“手不由得离开压轮”，没有呈现右腿旧伤发软。",
+        "explanation": "镜头未落实罗闻因旧伤失手这一关键因果，可能让第一轮失败看起来像无缘由松手，削弱其无辜且行动受限的呈现。"
+      },
+      {
+        "severity": "minor",
+        "dimension": "coverage",
+        "segment_id": "segment_001",
+        "shot_ids": [
+          "shot_001",
+          "shot_002"
+        ],
+        "evidence": "大纲开场包括江禾质问“你们每次都说没事。上次也是。”；shot_001、shot_002均无这句对白。",
+        "explanation": "姐妹旧怨的直接触发台词未进入镜头，虽有挡镜头动作承接冲突，关系起点仍较弱。"
+      },
+      {
+        "severity": "minor",
+        "dimension": "continuity",
+        "segment_id": "segment_003",
+        "shot_ids": [
+          "shot_019",
+          "shot_020",
+          "shot_021"
+        ],
+        "evidence": "shot_019称自动重发已切断、红钥匙腕带挂柜旁；shot_020随后称沈岚从泵房侧拉门；shot_021延续该动作，但未交代红钥匙/腕带从挂钩处移开。",
+        "explanation": "此处没有明确矛盾，不据此判持物错误；不过腕带挂钩状态缺少承接，拍摄连续性需补明。"
+      }
+    ]
+  },
+  "Y": {
+    "scores": {
+      "story_quality": 4,
+      "continuity": 2,
+      "coverage": 3,
+      "dialogue": 3,
+      "no_readaptation": 2,
+      "shootability": 2
+    },
+    "issues": [
+      {
+        "severity": "critical",
+        "dimension": "continuity",
+        "segment_id": "segment_002",
+        "shot_ids": [
+          "shot_005",
+          "shot_006",
+          "shot_008"
+        ],
+        "evidence": "shot_005把电台设为“小满在大厅使用电台”，并写沈岚在大厅与二层通路附近；shot_006罗闻在泵房内听到三连击；shot_008却将事件定为21:51后、沈岚在泵房控制柜旁处理故障。大纲将沈岚到泵房及开柜定在21:54。",
+        "explanation": "镜头把沈岚到场开柜提前，且电台位置/监听关系不同于大纲已定空间与时序，造成明显的时空和知情顺序冲突。"
+      },
+      {
+        "severity": "major",
+        "dimension": "no_readaptation",
+        "segment_id": "segment_004",
+        "shot_ids": [
+          "shot_018"
+        ],
+        "evidence": "大纲止于“准备由人守住压轮、由其他人拉门救人”，镜头beat直接写“各人重新站定后，沈岚双手压紧泄压轮，江禾和许衡合力拉开检修门”。",
+        "explanation": "镜头将下一段正式救援的执行动作提前到重新分工段，改变段落事件推进并提前启动救援。"
+      },
+      {
+        "severity": "major",
+        "dimension": "shootability",
+        "segment_id": "segment_005",
+        "shot_ids": [
+          "shot_020"
+        ],
+        "evidence": "同一镜先写“许衡与罗闻共同收绳”，随后才写“陈姨……江禾将救援绳一端绕过门外固定柱，另一端递给陈姨”。",
+        "explanation": "收绳发生在绳端固定、扣到陈姨腰间之前，动作因果与绳路无法按所列顺序执行。"
+      },
+      {
+        "severity": "major",
+        "dimension": "no_readaptation",
+        "segment_id": "segment_003",
+        "shot_ids": [
+          "shot_013",
+          "shot_014"
+        ],
+        "evidence": "大纲写罗闻压轮、许衡和江禾拉门，沈岚切断回路后另行拉门；shot_013称“门外人员准备尝试开门”，shot_014又写沈岚、许衡、江禾拉门时罗闻压轮。",
+        "explanation": "镜头将第一轮拉门动作放在沈岚切断回路之前，擅自重排关键操作因果，且使同一轮救援的动作次序与定稿大纲不符。"
+      },
+      {
+        "severity": "major",
+        "dimension": "coverage",
+        "segment_id": "segment_001",
+        "shot_ids": [
+          "shot_003"
+        ],
+        "evidence": "大纲写许衡走进旧仓间才低声承认维修件下周才到；镜头写“切至旧仓间内单独背景区域，许衡压低声音”，但同时写“江禾听不清电话内容”，没有说明许衡说话对象或是否在通话。",
+        "explanation": "具体延期内容被镜头声场排除，许衡的隐瞒及江禾误判未被明确拍成可辨的信息差。"
+      },
+      {
+        "severity": "major",
+        "dimension": "continuity",
+        "segment_id": "segment_003",
+        "shot_ids": [
+          "shot_011",
+          "shot_012",
+          "shot_013"
+        ],
+        "evidence": "shot_011写江禾在旧仓间播放录音；shot_012写她回大厅后与许衡相遇，并在后续动作将蓝钥匙交还罗闻；shot_013却称“蓝钥匙已由罗闻收在胸前透明小袋”，同时该镜没有交还动作。",
+        "explanation": "镜头之间的钥匙状态虽有口头说明但交接动作被省略，实物状态跳变，影响唯一钥匙的连续性。"
+      },
+      {
+        "severity": "minor",
+        "dimension": "coverage",
+        "segment_id": "segment_007",
+        "shot_ids": [
+          "shot_021",
+          "shot_022"
+        ],
+        "evidence": "大纲明确写许衡公开承认延报责任；shot_021只写他贴通知、写时间并交出钥匙和记录本，没有呈现承认责任。",
+        "explanation": "公开承担责任是结尾重要结果，但镜头只落实了记录更新，责任承认未落地。"
+      }
+    ]
+  },
+  "preferred": "X",
+  "reason": "X总体按定稿大纲落实事件、关键对白及救援动作，问题集中在少数漏拍和因果表现偏弱。Y有更明显的时序与动作因果冲突：沈岚到场开柜时点提前、分工段提前执行救援、第一轮拉门次序颠倒，且绳索收紧早于固定与系扣。"
+}

@@ -42,14 +42,20 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
   let settingsReturnPage = 'home', libraryReturnPage = 'home', disposeLibrary, recordView
   const libraryState = { tab: 'assets', category: 'scripts' }
   let projectView, projectViewId, sessionReady = false, eventCursor = null
+  let storyExecution = null
   const projectStates = new Map()
   const clearProject = () => { projectView?.dispose(); projectView = null; projectViewId = null }
   const request = async (path, options, ownerSession = session) => {
+    const ownerEpoch = navigationEpoch
     // 浏览器HTTP/1连接数有限；历史读取先释放自己的SSE连接，避免请求排队。
     if (/^(http-records|task-history)(\?|$)/.test(path)) { stream?.close(); stream = null }
     const response = await fetcher(`/api/drama/${path}${path.includes('?') ? '&' : '?'}session_id=${encodeURIComponent(ownerSession)}`, options)
     const result = await response.json()
     if (!response.ok) throw new Error(result.message)
+    if (path === 'project' && eventCursor === null && ownerSession === session && getSessionId() === ownerSession && navigationEpoch === ownerEpoch) {
+      const initialCursor = response.headers?.get?.('X-Drama-Event-Cursor')
+      if (/^\d+$/.test(initialCursor || '') && Number.isSafeInteger(Number(initialCursor))) eventCursor = Number(initialCursor)
+    }
     return result
   }
   const activate = id => {
@@ -58,22 +64,42 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     selectSession(id)
   }
   const report = error => { if (!disposed) status.textContent = error.message }
-  let starting = null
+  let starting = null, startingContext = null, navigationEpoch = 0
   const startSession = () => {
-    if (starting) return starting
+    const ownerSession = getSessionId(), ownerEpoch = navigationEpoch
+    if (starting && startingContext.session === ownerSession && startingContext.epoch === ownerEpoch) return starting
+    const stillHere = () => !disposed && getSessionId() === ownerSession && navigationEpoch === ownerEpoch
     let requestId
-    try { requestId = globalThis.sessionStorage?.getItem('drama.pending-session') } catch {}
+    try { if (!starting) requestId = globalThis.sessionStorage?.getItem('drama.pending-session') } catch {}
     requestId ||= crypto.randomUUID()
     try { globalThis.sessionStorage?.setItem('drama.pending-session', requestId) } catch {}
     status.textContent = '正在准备会话…'
-    starting = request('sessions', {
+    const attempt = request('sessions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
       body: JSON.stringify({ request_id: requestId }),
-    }).then(result => {
-      if (!disposed && !getSessionId()) activate(result.session_id)
-    }).catch(report).finally(() => { starting = null })
-    return starting
+    }, ownerSession).then(result => {
+      try {
+        if (globalThis.sessionStorage?.getItem('drama.pending-session') === requestId)
+          globalThis.sessionStorage.removeItem('drama.pending-session')
+      } catch {}
+      if (stillHere()) activate(result.session_id)
+    }).catch(error => { if (stillHere()) report(error) }).finally(() => {
+      if (starting === attempt) { starting = null; startingContext = null }
+    })
+    starting = attempt
+    startingContext = { session: ownerSession, epoch: ownerEpoch }
+    return attempt
   }
+  // 宿主默认新会话会复用项目工作区；此处仅适配原生全局新建入口。
+  const newSessionClick = event => {
+    if (disposed || event.defaultPrevented || event.button !== 0 || event.composedPath().includes(root)) return
+    const button = event.composedPath().find(node => node?.tagName === 'BUTTON')
+    if (!button?.matches('button[aria-label="新建会话"], button[aria-label="New session"]')) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    void startSession()
+  }
+  root.ownerDocument.addEventListener('click', newSessionClick, true)
   const openCreate = () => {
     const existing = root.querySelector('#create-project')
     if (existing) return existing
@@ -189,12 +215,18 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       content.append(empty)
       return
     }
-    if (projectView) { projectView.update(project, { scriptExecution, summaryExecution }); return }
+    if (projectView) { projectView.update(project, { scriptExecution, summaryExecution, storyExecution }); return }
     const ownerSession = session, projectId = project.basic_info.id
     projectViewId = projectId
     if (!projectStates.has(projectId)) projectStates.set(projectId, {})
-    projectView = createProjectView(content, { project, scriptExecution, summaryExecution, request: path => request(path, undefined, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
+    projectView = createProjectView(content, { project, scriptExecution, summaryExecution, storyExecution, request: path => request(path, undefined, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
       refresh: () => { void refresh().catch(report) },
+      generateStory: async (instruction, requestId) => {
+        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
+        return request('story-outline', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
+          body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction }),
+        }, ownerSession)
+      },
       optimize: async (instruction, requestId) => {
         if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
         return request('script-optimization', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
@@ -246,6 +278,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
   }
   const refresh = async () => {
     const ticket = ++version
+    const ownerSession = session, ownerEpoch = navigationEpoch
     if (!session) {
       project = null
       status.textContent = starting ? '正在准备会话…' : '开始会话后即可创建项目'
@@ -254,11 +287,12 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       return
     }
     const snapshot = await request('project')
-    if (disposed || ticket !== version) return
+    if (disposed || ticket !== version || session !== ownerSession || getSessionId() !== ownerSession || navigationEpoch !== ownerEpoch) return
     status.textContent = ''
     sessionReady = true
     project = snapshot.project
     scriptExecution = snapshot.script_execution || null
+    storyExecution = snapshot.story_execution || null
     summaryExecution = snapshot.original_summary_execution || null
     if (!['settings', 'library', 'http', 'tasks'].includes(page)) page = project ? 'project' : 'home'
     if (recordView && ['http', 'tasks'].includes(page)) await recordView.refresh()
@@ -274,19 +308,23 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     if (stream || !sessionReady) return
     stream = new Events(`/api/drama/events?session_id=${encodeURIComponent(session)}${eventCursor === null ? '' : `&cursor=${eventCursor}`}`)
     const source = stream
+    const ownerSession = session, ownerEpoch = navigationEpoch
     source.onmessage = event => {
-      if (disposed || source !== stream) return
+      if (disposed || source !== stream || session !== ownerSession || getSessionId() !== ownerSession || navigationEpoch !== ownerEpoch) return
       const data = JSON.parse(event.data)
       if (Number.isSafeInteger(data.cursor)) eventCursor = data.type === 'refresh' ? data.cursor : Math.max(eventCursor ?? 0, data.cursor)
-      void refresh().then(() => {
-        if (!disposed && source === stream && data.type === 'created' && data.session_id !== session)
-          activate(data.session_id)
-      }).catch(report)
+      if (data.type === 'created' && data.session_id && data.session_id !== ownerSession
+        && (!data.source_session_id || data.source_session_id === ownerSession)) {
+        activate(data.session_id)
+        return
+      }
+      void refresh().catch(report)
     }
   }
   const follow = () => {
     const next = getSessionId()
     if (session === next) { syncEvents(); return }
+    navigationEpoch++
     clearProject()
     deletingSession = null
     project = null
@@ -329,5 +367,5 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
   }
   follow()
   const timer = setInterval(follow, 500)
-  return { refresh, dispose() { disposed = true; version++; clearInterval(timer); stream?.close(); disposeLibrary?.(); recordView?.dispose(); clearProject(); root.replaceChildren() } }
+  return { refresh, dispose() { disposed = true; version++; root.ownerDocument.removeEventListener('click', newSessionClick, true); clearInterval(timer); stream?.close(); disposeLibrary?.(); recordView?.dispose(); clearProject(); root.replaceChildren() } }
 }

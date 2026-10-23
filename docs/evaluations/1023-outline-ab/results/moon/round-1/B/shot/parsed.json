@@ -1,0 +1,1879 @@
+{
+  "shots": [
+    {
+      "id": "shot_001",
+      "previous_shot_connection": "opening",
+      "story_segment_id": "segment_001",
+      "title": "炮膛里的险情",
+      "key_anchor_ids": [
+        "segment_001_anchor_001",
+        "segment_001_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "初冬将近，夜间施工尚未开始；哥仑比亚炮及装填工地处于准备状态，环境光线昏暗。",
+        "spatial_setup": "炮膛开口对着工地，炮旁铁道通向装填区域；工人将从铁道一侧把装有引火棉的小箱运至炮旁，起重机位于炮口上方。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "臬科尔",
+          "presence": "在场，站在炮膛旁指向炮内。",
+          "position": "炮口侧边，靠近巴比堪。",
+          "facing": "朝向炮膛及巴比堪。",
+          "gaze_target": "巴比堪和炮膛。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，听取警告。",
+          "position": "炮口旁，面向臬科尔。",
+          "facing": "朝向臬科尔。",
+          "gaze_target": "臬科尔。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 12,
+          "action": "臬科尔指着炮膛，持续怀疑装填的安全性，警告：“哥仑比亚炮中装入引火棉四十万磅，重量如此，燃烧必易，况又加弹丸压力，则引火棉必要生火，酿成奇祸的。”",
+          "camera": "中景建立两人和炮口的相对位置，缓慢推近臬科尔指向炮膛的手，再移焦到他的神情。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "臬科尔语气急切而坚决地说：“哥仑比亚炮中装入引火棉四十万磅，重量如此，燃烧必易，况又加弹丸压力，则引火棉必要生火，酿成奇祸的。”工地环境声低沉持续。"
+        },
+        {
+          "duration_seconds": 4,
+          "action": "巴比堪听完没有退让，转向工人，命令将引火棉分成小份装箱。",
+          "camera": "切至巴比堪中近景，保持炮膛在画面边缘；随他的转身带出工人所在方向。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "巴比堪平稳下令分装；工地人声与器具声开始显现。"
+        }
+      ]
+    },
+    {
+      "id": "shot_002",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_001",
+      "title": "小箱人工运到炮旁",
+      "key_anchor_ids": [
+        "segment_001_anchor_001",
+        "segment_001_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "夜间施工的装填工地，炮旁铁道可见，工人正在按指令准备小箱。",
+        "spatial_setup": "铁道从装填区域通向炮旁，箱子沿轨道运送；起重机位于炮口上方，工人将箱子从轨道末端交由起重机吊运。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，监督装填。",
+          "position": "炮旁铁道末端。",
+          "facing": "朝向搬运路线和炮口。",
+          "gaze_target": "运送小箱的工人。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "工人",
+          "presence": "数人在场，分工装箱、运送和操作起重机。",
+          "position": "分布于装填区域、铁道两侧及炮旁。",
+          "facing": "沿搬运方向朝炮口。",
+          "gaze_target": "小箱、铁道和起重机。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "工人把引火棉分成小份，装进严密封缄的小箱；巴比堪检查封缄后示意继续。",
+          "camera": "中景呈现小份装箱流程，略向下俯拍箱内分装，随后回到巴比堪监督的视线方向。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "箱盖合拢、封缄和工人协作的细碎声；夜间工地环境声持续。"
+        },
+        {
+          "duration_seconds": 9,
+          "action": "工人沿铁道把小箱运到炮旁，不使用机械搬运；巴比堪守在路线末端观察。",
+          "camera": "低机位跟随小箱沿铁道前进，抵达炮旁后抬升带出巴比堪。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "箱子移动、脚步与铁道轻响同步；无对白。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "工人用起重机把小箱吊入炮底，巴比堪持续监督，避免机械摩擦引发危险。",
+          "camera": "从炮旁中景仰拍起重机吊箱，再沿箱体下降方向下摇至炮底。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "起重机运转声低缓，工人用简短呼应控制吊运；环境声持续。"
+        }
+      ]
+    },
+    {
+      "id": "shot_003",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_001",
+      "title": "夜间照明与电气引燃准备",
+      "key_anchor_ids": [
+        "segment_001_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "夜间施工，工地两英里内禁绝烟火；烈日可能聚光引燃火药，因此改在夜间作业。真空发光的灯照亮炮底和装填区。",
+        "spatial_setup": "照明灯布置于炮旁，炮底是火药包排列区域；工人沿炮底作业，金属丝连接各火药包。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，监督安全措施与装药。",
+          "position": "炮旁照明范围边缘。",
+          "facing": "朝向炮底作业区。",
+          "gaze_target": "工人和火药包排列处。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "工人",
+          "presence": "在场，正在炮底排列火药包并连接金属丝。",
+          "position": "炮底及炮旁。",
+          "facing": "朝向作业面。",
+          "gaze_target": "火药包和金属丝。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 6,
+          "action": "夜灯照亮炮底，工人开始将火药包依次排列在引火棉下方。",
+          "camera": "从灯的冷光移向炮底，俯拍排列区域，建立火药包与引火棉的上下关系。",
+          "scene_changes": "夜间照明成为工地持续状态；两英里内禁绝烟火。",
+          "effects": "无。",
+          "audio": "灯具轻微声响与工人作业声；无对白。"
+        },
+        {
+          "duration_seconds": 10,
+          "action": "工人逐一摆放，最终将八百个小火药包排列在引火棉下，并以金属丝相连，等待电气引燃。",
+          "camera": "保持俯拍连续扫过排列中的火药包，沿金属丝走向移动，收于连接处。",
+          "scene_changes": "八百个火药包完成排列，金属丝连接状态持续。",
+          "effects": "无。",
+          "audio": "火药包轻放及金属丝接触声；环境声克制，无对白。"
+        }
+      ]
+    },
+    {
+      "id": "shot_004",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_001",
+      "title": "火药包安然就位",
+      "key_anchor_ids": [
+        "segment_001_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "十一月二十八日，装药工地夜间照明，栅门关闭，炮旁已完成装填。",
+        "spatial_setup": "炮与炮底装填区位于栅内；栅门连接工地与外侧聚集人群，工人可将引火棉箱摆在栅内供人观看。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，正在确认装填完成。",
+          "position": "炮旁栅内。",
+          "facing": "朝向炮底和栅门方向。",
+          "gaze_target": "装填区及工人。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "工人",
+          "presence": "数人在场，完成装填后留在栅内。",
+          "position": "炮旁及栅门附近。",
+          "facing": "朝向炮体或栅门。",
+          "gaze_target": "巴比堪、装填区。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 5,
+          "action": "十一月二十八日，八百个火药包安然就位，工人完成装药。",
+          "camera": "中景从炮底升至巴比堪，呈现作业结束而无意外。",
+          "scene_changes": "无新增变化。",
+          "effects": "无。",
+          "audio": "工人报告装药完成，环境声稍显松动。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "消息传开，附近居民不断涌来；巴比堪关闭栅门。",
+          "camera": "从栅内转向栅外人群，展现聚集规模，再回到关上的栅门。",
+          "scene_changes": "栅门关闭，栅外人群持续增加。",
+          "effects": "无。",
+          "audio": "人群喧嚷渐强，脚步和呼喊混杂。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "三十万观众在栅外喧嚷，巴比堪为稍稍满足众人，让工人把引火棉箱摆在栅内供观看。",
+          "camera": "广角呈现人群压向栅门的景象，再透过栅栏对准栅内展示的小箱。",
+          "scene_changes": "引火棉箱摆在栅内供人观看；观众仍被栅门隔开。",
+          "effects": "无。",
+          "audio": "三十万观众的喧嚷持续，工人搬放箱子的声音近处可闻。"
+        }
+      ]
+    },
+    {
+      "id": "shot_005",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_001",
+      "title": "麦思敦制止吸烟",
+      "key_anchor_ids": [
+        "segment_001_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "十一月二十八日，栅门关闭，栅内有引火棉箱展示，栅外聚集大量观众；工地禁烟火。",
+        "spatial_setup": "巴比堪和麦思敦在栅内巡查，栅门是两人进入观众群的通道；危险区域位于栅内炮旁。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，与巴比堪来回巡视。",
+          "position": "栅内靠近栅门。",
+          "facing": "朝向栅门外观众。",
+          "gaze_target": "观众手中的雪茄和烟卷。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，巡视危险区域。",
+          "position": "栅内炮旁与栅门之间。",
+          "facing": "沿栅内巡视路线。",
+          "gaze_target": "观众和引火棉箱。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "观众",
+          "presence": "大量观众聚集栅外，仍有人吸烟。",
+          "position": "栅门外，拥挤分布。",
+          "facing": "朝向栅内展示区。",
+          "gaze_target": "引火棉箱与栅内人员。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "巴比堪和麦思敦来回巡视，严防有人把烟头扔进危险区域；麦思敦高声警告：“诸君切勿吸烟，防生奇祸！”",
+          "camera": "沿栅内巡视路线侧向跟拍两人，停在麦思敦面向人群的中景。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "麦思敦高声说：“诸君切勿吸烟，防生奇祸！”人群喧嚷与吸烟声持续。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "人群仍烟雾弥漫，置若罔闻。麦思敦忍无可忍，冲出栅门，挥着小刀挤进人群。",
+          "camera": "透过栅栏拍烟雾与无动于衷的观众，随后快速跟随麦思敦冲出栅门并进入人群。",
+          "scene_changes": "麦思敦由栅内进入栅外观众群。",
+          "effects": "无。",
+          "audio": "人群喧嚷不断，麦思敦脚步急促；无新增对白。"
+        },
+        {
+          "duration_seconds": 12,
+          "action": "麦思敦逐一夺下人们手里的雪茄和烟卷，熄灭后堆在一旁；观众被他的怒气镇住，喧哗渐息。",
+          "camera": "中近景跟随他连续收缴、熄灭并放下烟物，末尾切为观众反应与逐渐安静的人群。",
+          "scene_changes": "被熄灭的雪茄和烟卷堆在一旁；人群喧哗渐息。",
+          "effects": "无。",
+          "audio": "烟卷熄灭声与人群声由喧嚷转为低声，最终安静下来。"
+        },
+        {
+          "duration_seconds": 4,
+          "action": "装药工程平安完成，臬科尔的预言暂时落空；发射之日仍是未到来的真正考验。",
+          "camera": "切回栅内炮体和完成装填的工地，缓慢拉远，保持不呈现发射。",
+          "scene_changes": "装填完成状态持续。",
+          "effects": "无。",
+          "audio": "人群声低伏，夜间工地环境声持续；无对白。"
+        }
+      ]
+    },
+    {
+      "id": "shot_006",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_002",
+      "title": "有限空间与物资清单",
+      "key_anchor_ids": [
+        "segment_002_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "装炮之后，旅行者为月界之行准备装备与补给；旅行弹丸空间有限。",
+        "spatial_setup": "旅行者在弹丸旁商议，清单和待装物资位于他们之间；机械箱用于收纳观察器具。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电",
+          "presence": "在场，带着长长的物资清单与巴比堪商议。",
+          "position": "弹丸旁，面向巴比堪。",
+          "facing": "朝向巴比堪和物资。",
+          "gaze_target": "物资清单。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，逐项商议取舍。",
+          "position": "亚电对面、靠近弹丸。",
+          "facing": "朝向亚电和待装物资。",
+          "gaze_target": "清单与弹丸内部。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 6,
+          "action": "亚电担心月界缺少可用资源会断送努力，摊开长长的物资清单，与巴比堪逐项商议。",
+          "camera": "双人中景建立商议关系，俯拍清单再回到两人的认真神情。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "纸张展开声，亚电说明担忧，巴比堪听取；环境声平静。"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "两人将物资向弹丸内安排，器具渐渐塞满，几乎无处落脚；巴比堪开始删减清单。",
+          "camera": "由弹丸入口向内拍摄拥挤物件，再切到巴比堪的手在清单上划去非必要项。",
+          "scene_changes": "待装物资逐渐占据有限空间。",
+          "effects": "无。",
+          "audio": "物件轻放、清单翻动声；无明确对白。"
+        }
+      ]
+    },
+    {
+      "id": "shot_007",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_002",
+      "title": "取舍必需物资",
+      "key_anchor_ids": [
+        "segment_002_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "弹丸空间有限，待装物资已显拥挤；商议继续进行。",
+        "spatial_setup": "物资排列在弹丸入口及旁侧，机械箱在近处；衣物、药品和食物按类别放置，装载方向通向弹丸内部。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，负责删减并决定装载必要品。",
+          "position": "机械箱及物资旁。",
+          "facing": "朝向待装物资。",
+          "gaze_target": "测温器、风雨表、望远镜和清单。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电",
+          "presence": "在场，参与清单讨论。",
+          "position": "巴比堪对面，靠近食物与用品。",
+          "facing": "朝向巴比堪。",
+          "gaze_target": "清单及物资。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 10,
+          "action": "巴比堪只留下真正必要的器具：测温器、风雨表、望远镜和月球地图收进机械箱。",
+          "camera": "近景逐项展示四类器具进入机械箱，再以中景确认箱子装入弹丸。",
+          "scene_changes": "观察器具和月球地图收纳于机械箱。",
+          "effects": "无。",
+          "audio": "器具放入箱中的轻响，巴比堪与亚电继续核对清单。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "旋条枪、猎枪、弹药及防身工具也作准备，随后安排衣物与药品。",
+          "camera": "沿物资排列横移，逐项带过武器、弹药、防身工具、衣物和药品。",
+          "scene_changes": "上述物资纳入待装行列。",
+          "effects": "无。",
+          "audio": "物资轻放与清点声，无额外台词。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "巴比堪安排足供一年的菜、汁、盐、肉、酒，一并装入弹丸。",
+          "camera": "中近景呈现食物分类，跟随容器被送入弹丸，强调数量充足而空间紧凑。",
+          "scene_changes": "足供一年的菜、汁、盐、肉、酒列入装载物资。",
+          "effects": "无。",
+          "audio": "容器放置与清点声；无对白。"
+        }
+      ]
+    },
+    {
+      "id": "shot_008",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_002",
+      "title": "犬只、树木与种子",
+      "key_anchor_ids": [
+        "segment_002_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "物资装载持续，弹丸容积有限；食物、器具和防身物资已纳入计划。",
+        "spatial_setup": "弹丸入口旁是动物与种植用品的安排位置；树木、种子、肥土和绳索可依次装入有限空间。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电",
+          "presence": "在场，提出携带家畜及种植用品。",
+          "position": "待装物资旁。",
+          "facing": "朝向巴比堪。",
+          "gaze_target": "动物与种植用品。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，评估空间并作决定。",
+          "position": "弹丸入口旁。",
+          "facing": "朝向亚电和弹丸。",
+          "gaze_target": "可用空间及物资。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "亚电主张带上牛马犬羊，巴比堪提醒旅行弹丸并非能装下许多家畜的大船。两人笑过。",
+          "camera": "双人中景呈现提议与回应，再轻推两人的笑意，不切入额外事件。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "亚电提出带牛马犬羊；巴比堪答以弹丸空间有限。两人笑声短暂。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "巴比堪仍将臬科尔的爱犬和一匹纽芬兰犬纳入计划，并添上数株小树与数十包种子。",
+          "camera": "近景依次呈现两只犬、数株小树和数十包种子，最后回到两人确认装载。",
+          "scene_changes": "臬科尔的爱犬、纽芬兰犬、小树和种子纳入装载计划。",
+          "effects": "无。",
+          "audio": "轻微犬只活动声与物资搬动声，无对白。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "亚电坚持为树根带上地球肥土，并用绳索固定；巴比堪照办，将有限空间留给旅途中可能派上用场的东西。",
+          "camera": "近景看肥土包裹树根、绳索固定，再跟随小树和种子收妥于弹丸内。",
+          "scene_changes": "树根配有地球肥土并用绳索固定；物资装载状态持续。",
+          "effects": "无。",
+          "audio": "绳索拉紧、物件安放声；无对白。"
+        }
+      ]
+    },
+    {
+      "id": "shot_009",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_002",
+      "title": "对未知之地做好准备",
+      "key_anchor_ids": [
+        "segment_002_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "物资筹备仍在继续，弹丸旁清单和已选物资齐备。",
+        "spatial_setup": "亚电与巴比堪面对面商议，月球地图和已整理的装备位于两人之间，弹丸入口在侧后方。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电",
+          "presence": "在场，提出月界未知风险与旅行使命。",
+          "position": "地图和物资一侧。",
+          "facing": "朝向巴比堪。",
+          "gaze_target": "巴比堪及月球地图。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，先提出自己的判断，后接受提醒。",
+          "position": "亚电对面，靠近弹丸入口。",
+          "facing": "朝向亚电。",
+          "gaze_target": "亚电。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 12,
+          "action": "亚电设想月界或许有居民，既可能以美酒佳果相待，也可能把来客当作猎物；他不愿仅凭猜测便放弃防备。",
+          "camera": "双人中景逐渐推近亚电，月球地图留在两人之间作为讨论参照。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "亚电说明月界居民可能友善也可能危险，语气谨慎而明确。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "巴比堪起初以为月球没有巨兽，理由不过来自小说描写。",
+          "camera": "切至巴比堪中近景，保持亚电在画面边缘聆听。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "巴比堪说明自己的判断来自小说描写；环境声低缓。"
+        },
+        {
+          "duration_seconds": 15,
+          "action": "亚电指出书本不是亲眼所见，不能拿臆测代替准备；此行不只为他们自己，也要把月界实情带回地球。巴比堪接受提醒，答应听取安排。",
+          "camera": "切回亚电近景，随后移焦至认真听取的巴比堪，最后双人同框。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "亚电明确说明不能以书本臆测代替准备，并指出报告月界实情的目标；巴比堪接受并答应听取安排。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "亚电随即承认自己也缺乏旅行经验，坦然请巴比堪共同决断。",
+          "camera": "近景捕捉亚电坦然的神情，镜头缓慢回到双人平视构图。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "亚电坦然说明自己缺乏经验，请巴比堪共同决断。"
+        }
+      ]
+    },
+    {
+      "id": "shot_010",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_002",
+      "title": "收妥物资与地图",
+      "key_anchor_ids": [
+        "segment_002_anchor_001",
+        "segment_002_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "讨论结束，物资和地图待最后收纳；旅行目的与防备安排已达成共识。",
+        "spatial_setup": "地图、武器、种子及必需品分列于弹丸入口旁，装载空间位于两人身前。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电",
+          "presence": "在场，与巴比堪共同整理物资。",
+          "position": "弹丸入口一侧。",
+          "facing": "朝向物资。",
+          "gaze_target": "地图、武器、种子和必需品。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，与亚电共同整理物资。",
+          "position": "亚电对侧。",
+          "facing": "朝向弹丸内部。",
+          "gaze_target": "待装物资。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 10,
+          "action": "两人不再争论谁更懂未知之地，把地图、武器、种子和必需品一一收妥。",
+          "camera": "中景跟随两人分工收纳，近景检查物件进入弹丸，最终定格于收好的空间。",
+          "scene_changes": "地图、武器、种子和必需品收妥；装载计划落实。",
+          "effects": "无。",
+          "audio": "物件归位、箱门与收纳声，环境声平稳。"
+        }
+      ]
+    },
+    {
+      "id": "shot_011",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_002",
+      "title": "弹丸缓缓入膛",
+      "key_anchor_ids": [
+        "segment_002_anchor_003"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "装好的弹丸被运上石丘，工人准备以起重器吊入哥仑比亚炮。",
+        "spatial_setup": "石丘上的起重器对准炮膛，弹丸从炮口上方缓慢下降；地面同伴与工人分布在炮旁安全位置。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，注视弹丸入膛。",
+          "position": "炮旁安全位置。",
+          "facing": "朝向炮膛。",
+          "gaze_target": "下沉中的弹丸。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "工人",
+          "presence": "在场，操作起重器并监看弹丸。",
+          "position": "炮旁及起重器控制处。",
+          "facing": "朝向炮膛。",
+          "gaze_target": "弹丸与吊具。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电",
+          "presence": "在场，随同伴观看。",
+          "position": "炮旁地面人群附近。",
+          "facing": "朝向炮膛。",
+          "gaze_target": "弹丸。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "臬科尔",
+          "presence": "在场，坐在远处观看。",
+          "position": "远处观众位置。",
+          "facing": "朝向石丘和炮膛。",
+          "gaze_target": "弹丸。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 12,
+          "action": "工人用起重器将装好的弹丸缓缓吊入炮膛，众人屏息，看它逐渐下沉。",
+          "camera": "广角建立石丘、炮口和围观者，再沿弹丸下降方向缓慢下摇，保持完整连续过程。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "起重器运转声与吊具轻响；人群屏息，环境声压低。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "弹丸平安抵达炮底，巴比堪仰天喊了一声“上帝”。",
+          "camera": "镜头随弹丸停稳后切至巴比堪近景，捕捉仰头喊声。",
+          "scene_changes": "旅行弹丸已入炮底。",
+          "effects": "无。",
+          "audio": "巴比堪喊：“上帝。”起重器声停下，人群仍安静。"
+        }
+      ]
+    },
+    {
+      "id": "shot_012",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_002",
+      "title": "臬科尔失笑",
+      "key_anchor_ids": [
+        "segment_002_anchor_003"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "弹丸已平安入膛；地面同伴仍在石丘周围，臬科尔坐在远处。",
+        "spatial_setup": "臬科尔所在位置与炮旁人群有一段距离；亚电从炮旁走向他，众人聚在两人周围。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电",
+          "presence": "在场，走向臬科尔。",
+          "position": "开场位于臬科尔近旁。",
+          "facing": "朝向臬科尔。",
+          "gaze_target": "臬科尔。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "臬科尔",
+          "presence": "在场，坐在远处，神色沉重。",
+          "position": "远处座位。",
+          "facing": "朝向炮旁。",
+          "gaze_target": "弹丸及走近的亚电。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "社员与同伴",
+          "presence": "在场，聚集于炮旁。",
+          "position": "亚电与臬科尔周围。",
+          "facing": "朝向两人。",
+          "gaze_target": "亚电和臬科尔。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "亚电走到臬科尔身边，笑说赌金要留给月界国王。社员们笑成一片，臬科尔没有反驳。",
+          "camera": "中景跟随亚电走近，保持两人同框，随后轻移至社员们的笑声反应。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "亚电笑说赌金要留给月界国王；社员们发笑，臬科尔沉默。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "片刻后臬科尔也不觉失笑，起身走回人群中；他的失笑不表示相信实验。",
+          "camera": "回到臬科尔近景捕捉短暂失笑，再跟拍他走回人群。",
+          "scene_changes": "臬科尔由远处座位走回人群。",
+          "effects": "无。",
+          "audio": "人群笑声稍缓，脚步声伴随臬科尔归队；无对白。"
+        }
+      ]
+    },
+    {
+      "id": "shot_013",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_002",
+      "title": "临行告别",
+      "key_anchor_ids": [
+        "segment_002_anchor_003"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "弹丸已入膛，地面同伴聚在炮旁；旅行者即将离开，发射日期逼近。",
+        "spatial_setup": "亚电面向地面朋友告别，麦思敦在朋友中近处；炮膛与弹丸位于告别者侧后方。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电",
+          "presence": "在场，向朋友们告别。",
+          "position": "地面朋友前方，靠近麦思敦。",
+          "facing": "朝向朋友们。",
+          "gaze_target": "麦思敦及朋友们。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，听亚电告别并回应。",
+          "position": "朋友群前侧。",
+          "facing": "朝向亚电。",
+          "gaze_target": "亚电。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "朋友们",
+          "presence": "在场，围聚聆听。",
+          "position": "亚电和麦思敦周围。",
+          "facing": "朝向亚电。",
+          "gaze_target": "亚电。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 12,
+          "action": "亚电郑重说明自己不是诀别，到了月界仍会设法报告实情。",
+          "camera": "双人中近景，保持麦思敦与亚电同框，随后轻推亚电郑重神情。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "亚电向朋友们郑重说明并非诀别，到了月界会设法报告实情。"
+        },
+        {
+          "duration_seconds": 7,
+          "action": "麦思敦笑答：“不必愁，不必愁！余是断不肯以君为著羽衣之天人的。”临行玩笑让离别稍稍轻松，但发射日期已近。",
+          "camera": "切至麦思敦近景说话，随后拉回朋友群和炮膛同框，保留轻松与紧张并存。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "麦思敦笑答：“不必愁，不必愁！余是断不肯以君为著羽衣之天人的。”朋友们带笑回应，远处工地声持续。"
+        }
+      ]
+    },
+    {
+      "id": "shot_014",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_003",
+      "title": "发射窗口将至",
+      "key_anchor_ids": [
+        "segment_003_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "十二月朔日，天尚未亮；石丘附近人山人海，平原上搭起帐篷、高楼和临时住处。",
+        "spatial_setup": "石丘和哥仑比亚炮位于聚集地中心，帐篷、高楼及临时住处散布于周围平原，人群向石丘汇集。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "观众",
+          "presence": "大量观众已在石丘和平原聚集，营地与人群分区密布。",
+          "position": "帐篷、高楼、临时住处及石丘周围。",
+          "facing": "朝向炮位及天空。",
+          "gaze_target": "石丘、炮和月亮升起方向。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "旁观者",
+          "presence": "部分人随时间逼近而显露惶恐，有人想逃离。",
+          "position": "人群中。",
+          "facing": "有的朝向炮位，有的转向离开方向。",
+          "gaze_target": "炮位或离开的通路。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 12,
+          "action": "十二月朔日，决定成败的良宵到来；明确发射窗口为十点四十分四十六秒，错过便要等十八年。",
+          "camera": "大全景展现石丘周围如城市般的营地，再切入人群中传达时间与期限。",
+          "scene_changes": "天色由未亮逐步转向夜幕。",
+          "effects": "无。",
+          "audio": "现场广播或人群传话明确告知：“月球将在十点四十分四十六秒经过天心，且此时最接近地球；错过这次机会，下一次就要等十八年。”此处为剧情规定的信息，不添说话人身份。"
+        },
+        {
+          "duration_seconds": 10,
+          "action": "越接近发射时刻，欢呼被惶恐取代；人群渐渐沉默，甚至有人想逃离。",
+          "camera": "长焦压缩人群，掠过由喧闹转为沉默的面孔，停在转身欲走的人身上。",
+          "scene_changes": "人群整体由欢呼转为沉默，少数人准备离开。",
+          "effects": "无。",
+          "audio": "欢呼声逐渐减弱，低声议论与脚步声突出。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "月亮升起，照亮大地，喝彩声再度轰然响起。",
+          "camera": "仰拍月亮升起后下摇至被月光照亮的人群与平原。",
+          "scene_changes": "月光照亮石丘和周围平原。",
+          "effects": "月光逐渐铺开，无额外特效。",
+          "audio": "人群喝彩声重新轰然响起。"
+        }
+      ]
+    },
+    {
+      "id": "shot_015",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_003",
+      "title": "社员列队走向弹丸",
+      "key_anchor_ids": [
+        "segment_003_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "月夜，发射现场人群聚集，栅门打开，炮旁通道通向弹丸。",
+        "spatial_setup": "栅门与炮位之间是社员列队通道；队伍两侧由巴比堪指挥，臬科尔沉默随行，三名旅行者朝弹丸行进。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，在队伍两侧指挥。",
+          "position": "队列侧边。",
+          "facing": "朝向队伍前进方向。",
+          "gaze_target": "社员与旅行者。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "臬科尔",
+          "presence": "在场，沉默随行。",
+          "position": "队列中。",
+          "facing": "朝向弹丸。",
+          "gaze_target": "前方旅行者。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪、亚电、臬科尔",
+          "presence": "三名旅行者均在场，穿着礼服，依次走向弹丸。",
+          "position": "队伍前方，朝弹丸前进。",
+          "facing": "朝向弹丸。",
+          "gaze_target": "弹丸入口。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，位于弹丸附近送别旅行者。",
+          "position": "通道边，靠近弹丸。",
+          "facing": "朝向旅行者。",
+          "gaze_target": "亚电和弹丸。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 9,
+          "action": "栅门打开，同盟社员列队走出，巴比堪在队伍两侧指挥，臬科尔沉默随行；三名旅行者穿礼服依次走向弹丸。",
+          "camera": "正面广角建立队列和弹丸位置，后退跟拍队伍前进，保持通道空间关系清晰。",
+          "scene_changes": "栅门开启，队伍从门内走向弹丸。",
+          "effects": "无。",
+          "audio": "队伍脚步声与压低的人群声；无对白。"
+        },
+        {
+          "duration_seconds": 10,
+          "action": "亚电向麦思敦告别，劝他别因旁人的嘲笑而停下，继续寻找与远行者通信的办法：“君若待余启行以后，运用奇想，一切旁观者言，均视为狂吠，毫不措意，惟潜思壹志，研究通信之良法，则到底必获成功。”",
+          "camera": "双人中近景，亚电与麦思敦同框；台词中缓慢推近亚电，保持麦思敦听取反应。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "亚电清楚告别并说：“君若待余启行以后，运用奇想，一切旁观者言，均视为狂吠，毫不措意，惟潜思壹志，研究通信之良法，则到底必获成功。”背景人群声压低。"
+        }
+      ]
+    },
+    {
+      "id": "shot_016",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_003",
+      "title": "臬科尔发怒，麦思敦拦住",
+      "key_anchor_ids": [
+        "segment_003_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "月夜发射现场，三名旅行者仍在弹丸旁，社员队列与观众在周围。",
+        "spatial_setup": "亚电与麦思敦位于通往弹丸的通道边；臬科尔从队伍中上前，麦思敦可触及他的手腕。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电",
+          "presence": "在场，刚结束对麦思敦的劝告。",
+          "position": "麦思敦近旁。",
+          "facing": "朝向臬科尔。",
+          "gaze_target": "臬科尔。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "臬科尔",
+          "presence": "在场，听出讥刺后上前争执。",
+          "position": "队列中，正对亚电。",
+          "facing": "朝向亚电。",
+          "gaze_target": "亚电。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，准备制止争执。",
+          "position": "亚电与臬科尔之间侧方。",
+          "facing": "朝向臬科尔。",
+          "gaze_target": "臬科尔。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 10,
+          "action": "臬科尔听出亚电仍在讥刺自己的反对，怒道：“亚电君！今所言者，固皆余之过失，然非君所应讪笑者也。君将远行，乃大笑骂我，以损我之荣誉耶！”他上前欲争。",
+          "camera": "切至臬科尔近景，随他上前转成三人中景，保持弹丸在背景中。",
+          "scene_changes": "臬科尔由队列位置上前，靠近亚电。",
+          "effects": "无。",
+          "audio": "臬科尔愤怒地说：“亚电君！今所言者，固皆余之过失，然非君所应讪笑者也。君将远行，乃大笑骂我，以损我之荣誉耶！”"
+        },
+        {
+          "duration_seconds": 9,
+          "action": "麦思敦握住臬科尔的手腕，喝止道：“君以私愤，遂想妨害大业么？然则为我等之大敌。我等之大敌，即阖地球人类之大敌也！”",
+          "camera": "中近景呈现麦思敦握住手腕的动作，随后推近他的脸，臬科尔在前景受制。",
+          "scene_changes": "麦思敦握住臬科尔手腕，阻止他继续上前。",
+          "effects": "无。",
+          "audio": "麦思敦喝止：“君以私愤，遂想妨害大业么？然则为我等之大敌。我等之大敌，即阖地球人类之大敌也！”周围人群声压低。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "臬科尔被这番话压住，含怒退开，没有再拦路。",
+          "camera": "保持三人中景，臬科尔退回后构图重新显出通往弹丸的路线。",
+          "scene_changes": "臬科尔退开，不再阻拦。",
+          "effects": "无。",
+          "audio": "臬科尔没有回话，脚步退开的声音；现场沉静。"
+        }
+      ]
+    },
+    {
+      "id": "shot_017",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_003",
+      "title": "麦思敦留在地球",
+      "key_anchor_ids": [
+        "segment_003_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "自鸣钟报十点，月夜发射现场；起重机铁索悬在炮旁，弹丸等待旅行者进入。",
+        "spatial_setup": "弹丸入口位于炮旁，起重机铁索在一侧；巴比堪与麦思敦在入口附近交谈，另两名旅行者待在旁边。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，眼含热泪，向巴比堪提出同行。",
+          "position": "弹丸入口旁。",
+          "facing": "朝向巴比堪。",
+          "gaze_target": "巴比堪。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，解释弹丸空间和麦思敦年纪的限制。",
+          "position": "麦思敦对面，靠近弹丸入口。",
+          "facing": "朝向麦思敦。",
+          "gaze_target": "麦思敦。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电、臬科尔",
+          "presence": "在场，等待进入弹丸。",
+          "position": "入口旁后侧。",
+          "facing": "朝向巴比堪和麦思敦。",
+          "gaze_target": "两人。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 5,
+          "action": "自鸣钟报十点，起重机铁索在炮旁摇响；麦思敦眼含热泪，最后问巴比堪是否能一同前往。",
+          "camera": "铁索近景摇动后切至麦思敦含泪的脸，再带出巴比堪。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "自鸣钟报十点，铁索摇响；麦思敦询问能否同行。"
+        },
+        {
+          "duration_seconds": 12,
+          "action": "巴比堪说明弹丸狭小，而麦思敦年事已高，无法承受旅途辛苦，请他留在地球等待报告。麦思敦强忍离别，退到一旁。",
+          "camera": "双人中近景记录说明与克制反应，随后跟拍麦思敦退到一旁。",
+          "scene_changes": "麦思敦退至弹丸入口侧旁，不再处于进入路线。",
+          "effects": "无。",
+          "audio": "巴比堪说明弹丸狭小及麦思敦年事已高，请他等待报告；麦思敦没有争辩，现场仅余铁索与人群低声。"
+        }
+      ]
+    },
+    {
+      "id": "shot_018",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_003",
+      "title": "三名旅行者进入弹丸",
+      "key_anchor_ids": [
+        "segment_003_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "月夜发射现场，麦思敦退到一旁，弹丸入口开启，发射准备继续。",
+        "spatial_setup": "弹丸入口与炮体相连，三名旅行者依次进入；铝门随后关闭，螺旋用于拧紧门。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪",
+          "presence": "在场，准备进入弹丸。",
+          "position": "入口前。",
+          "facing": "朝向弹丸内部。",
+          "gaze_target": "入口内。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "亚电",
+          "presence": "在场，准备进入弹丸。",
+          "position": "巴比堪之后，入口旁。",
+          "facing": "朝向弹丸内部。",
+          "gaze_target": "入口。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "臬科尔",
+          "presence": "在场，准备进入弹丸。",
+          "position": "亚电之后，入口旁。",
+          "facing": "朝向弹丸内部。",
+          "gaze_target": "入口。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，留在地球，位于入口侧旁。",
+          "position": "弹丸外侧。",
+          "facing": "朝向入口。",
+          "gaze_target": "三名旅行者。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 10,
+          "action": "巴比堪、亚电、臬科尔依次进入弹丸。",
+          "camera": "固定中景记录三人逐一进入，不跳过任何一人的行动；麦思敦留在画面边缘。",
+          "scene_changes": "三名旅行者进入弹丸，麦思敦留在外面。",
+          "effects": "无。",
+          "audio": "脚步与进入舱内的轻响，观众保持沉默。"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "三名旅行者关上铝门，将螺旋拧紧。",
+          "camera": "从弹丸外侧近景拍铝门合拢，再转至螺旋拧紧的手部动作。",
+          "scene_changes": "铝门关闭并拧紧，旅行者封闭在弹丸内。",
+          "effects": "无。",
+          "audio": "铝门关闭声与螺旋旋紧声清晰可闻。"
+        }
+      ]
+    },
+    {
+      "id": "shot_019",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_003",
+      "title": "倒数与放射",
+      "key_anchor_ids": [
+        "segment_003_anchor_001",
+        "segment_003_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "弹丸封闭在炮内，月亮逐渐升至天心，万众屏息等待发射。",
+        "spatial_setup": "炮口朝向天空，弹丸在炮膛内；机械师马起孙在炮旁发出倒数，观众位于周围地面。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "马起孙",
+          "presence": "在场，高声倒数并发出放射口令。",
+          "position": "炮旁。",
+          "facing": "朝向炮位与等待人群。",
+          "gaze_target": "炮位。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "观众",
+          "presence": "在场，万众屏息等待。",
+          "position": "炮位周围及平原营地。",
+          "facing": "朝向炮口和天空。",
+          "gaze_target": "炮口。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "巴比堪、亚电、臬科尔",
+          "presence": "三名旅行者已封闭在弹丸内，不可见。",
+          "position": "弹丸内部。",
+          "facing": "朝向舱内。",
+          "gaze_target": "舱内前方。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 9,
+          "action": "月亮逐渐升至天心，现场万众屏息；机械师马起孙高声倒数：“三十五杪——三十六杪——三十七杪——三十八杪——三十九杪——四十杪——放射！”",
+          "camera": "从月亮缓慢下摇至炮口和人群，倒数时稳定在马起孙与炮位的关系上。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "马起孙高声倒数：“三十五杪——三十六杪——三十七杪——三十八杪——三十九杪——四十杪——放射！”人群静默。"
+        },
+        {
+          "duration_seconds": 4,
+          "action": "口令落下，哥仑比亚炮发射，弹丸冲出炮口。",
+          "camera": "炮口侧面远景捕捉发射瞬间，摄影机承受冲击后轻微震动，不切至其他地点。",
+          "scene_changes": "弹丸离开炮膛，进入天空。",
+          "effects": "炮口烈火爆发并向上冲出；冲击波向周围扩散，火焰与烟尘迅速蔓延。",
+          "audio": "一声轰鸣震彻天地，炮声压过其他声音；爆响后伴随强烈风压声。"
+        }
+      ]
+    },
+    {
+      "id": "shot_020",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_003",
+      "title": "冲击席卷发射现场",
+      "key_anchor_ids": [
+        "segment_003_anchor_002",
+        "segment_003_anchor_003"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "发射刚刚发生，石丘周围烈火与烟火照亮夜空，冲击波席卷地面人群。",
+        "spatial_setup": "炮旁和观众区位于冲击波扩散范围内；麦思敦站在炮旁近处，弹丸已升入天空。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，站在炮旁近处，遭冲击抛掷。",
+          "position": "炮旁近处。",
+          "facing": "朝向炮位。",
+          "gaze_target": "炮位上空。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "观众",
+          "presence": "在场，分布于炮旁和周围地面，遭冲击掀翻。",
+          "position": "炮位周围及平原。",
+          "facing": "原先朝向炮口。",
+          "gaze_target": "炮口和天空。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "冲击波掀翻地面观众，视线和听觉一时都被震夺；麦思敦被抛出百二十尺，摔落受伤。",
+          "camera": "广角展现人群倒地，转为麦思敦随冲击飞出并落地；表现距离，不以慢放延长。",
+          "scene_changes": "观众倒地；麦思敦落地受伤。",
+          "effects": "冲击波强烈扩散，烟火照亮石丘周围，随后烟尘弥漫。",
+          "audio": "轰鸣震耳后出现短暂听觉压制，随后传来倒地声、呻吟和呼痛。"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "麦思敦醒来，忍痛呼唤巴比堪、亚电和臬科尔，没有人回应；旅行弹丸已冲入太空。",
+          "camera": "低机位近景拍麦思敦苏醒、忍痛抬头，主观视线扫过无人回应的炮旁。",
+          "scene_changes": "无新增变化。",
+          "effects": "远处烟火仍照亮石丘，烟尘持续；弹丸已不可见。",
+          "audio": "麦思敦忍痛呼唤巴比堪、亚电和臬科尔；没有回应，背景是受伤人群的呻吟。"
+        },
+        {
+          "duration_seconds": 7,
+          "action": "麦思敦和其他观众相继挣扎起身，遍地是受伤、耳聋和呼痛的人群；远处无人能看清弹丸去向。",
+          "camera": "从麦思敦身旁拉远，横扫倒地、扶起和包扎中的观众，再仰望烟火照亮却无弹丸踪迹的夜空。",
+          "scene_changes": "观众陆续苏醒并挣扎起身；受伤与呼痛状态持续。",
+          "effects": "烟火与烟尘逐渐散开，但弹丸去向仍不可见。",
+          "audio": "呻吟、呼痛与耳鸣般的低沉声混杂；无清晰弹丸声。"
+        }
+      ]
+    },
+    {
+      "id": "shot_021",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "震后地面与麦思敦受伤",
+      "key_anchor_ids": [
+        "segment_004_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "发射后的佛罗里达一带如经历大地震；人为暴风和冲击造成地面混乱。",
+        "spatial_setup": "炮位周围遍地倒地者，观众分散在平原与回家通路；麦思敦在一百五十码以内观看区域受伤倒地。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，刚从伤痛中醒来，抚腰呼痛。",
+          "position": "发射现场地面。",
+          "facing": "仰望天空后转向周围人群。",
+          "gaze_target": "天空及同伴所在方向。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "观众",
+          "presence": "大量观众倒地，陆续苏醒；约三千人耳聋。",
+          "position": "炮位周围及平原各处。",
+          "facing": "倒地或挣扎起身。",
+          "gaze_target": "天空、伤处及同伴。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 10,
+          "action": "火药气体掀起人为暴风，数千万观众倒在地上；麦思敦在一百五十码以内观看，被抛出百二十尺，醒来抚着腰大喊疼痛。",
+          "camera": "大全景呈现倒伏的人群和被掀起的尘土，切到麦思敦抚腰喊痛的近景。",
+          "scene_changes": "暴风造成地面遍布倒地者；麦思敦腰部受伤。",
+          "effects": "人为暴风席卷后减弱，尘土仍在空气中。",
+          "audio": "风压声、倒地声及麦思敦疼痛呼喊交叠。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "麦思敦呼唤三名同伴，当然无人回答；观众陆续苏醒，有人包头、扶腰、裹伤。",
+          "camera": "贴近麦思敦呼唤，随后移至周围观众各自处理伤处的连续画面。",
+          "scene_changes": "观众陆续苏醒，开始包头、扶腰、裹伤。",
+          "effects": "尘土渐落，无新增特效。",
+          "audio": "麦思敦呼唤同伴而无人应答；周围呻吟和呼痛持续。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "约三千人耳聋；人们忍痛仰望天空，只见无边黑暗，无法辨认弹丸踪迹，只得扶杖回家等待望远镜消息。",
+          "camera": "仰拍无边黑暗天空，再下摇至观众扶杖、互相搀扶离开。",
+          "scene_changes": "观众开始离开发射现场，等待观测消息。",
+          "effects": "无。",
+          "audio": "呼痛声渐远，脚步和拐杖声延续；无弹丸可闻。"
+        }
+      ]
+    },
+    {
+      "id": "shot_022",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "黑烟遮蔽望远镜",
+      "key_anchor_ids": [
+        "segment_004_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "发射后次日，二十万磅引火棉化成细灰混入空气，黑烟浓密，咫尺难辨。",
+        "spatial_setup": "轮庇克山天象台观测处设有望远镜，望远镜朝向月球所在天空；培儿斐斯负责观测，麦思敦后来骑马赶到。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "培儿斐斯",
+          "presence": "在场，天象台司长，尝试观测。",
+          "position": "望远镜旁。",
+          "facing": "朝向观测方向。",
+          "gaze_target": "望远镜视野。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "开场不在观测处，稍后骑马赶到。",
+          "position": "画外，随后从观测处外进入。",
+          "facing": "入场后朝向培儿斐斯。",
+          "gaze_target": "培儿斐斯和望远镜。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "发射后，二十万磅引火棉化成的细灰混入空气，黑烟迅速蔽天；次日烟雾浓得咫尺难辨。",
+          "camera": "从天象台望向天空，黑烟遮满观测方向，逐步压低能见度。",
+          "scene_changes": "黑烟浓密遮天，观测区域能见度降至咫尺难辨。",
+          "effects": "细灰混入空气形成持续黑烟，烟层蔽天。",
+          "audio": "风声低沉，远处环境声被烟雾压抑；无对白。"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "培儿斐斯尝试通过望远镜观测，但望远镜也无从工作。",
+          "camera": "近景对准目镜与培儿斐斯的观察动作，转向被烟遮蔽的视野。",
+          "scene_changes": "望远镜观测无法进行。",
+          "effects": "黑烟持续遮蔽天空。",
+          "audio": "望远镜调整声和培儿斐斯的短促叹息；无明确对白。"
+        }
+      ]
+    },
+    {
+      "id": "shot_023",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_004",
+      "title": "麦思敦骑马赶到观测处",
+      "key_anchor_ids": [
+        "segment_004_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "天象台被黑烟遮蔽，望远镜不能工作；麦思敦腰脊受伤仍执意前来。",
+        "spatial_setup": "观测处外有通向天象台的道路，麦思敦骑马由道路抵达；培儿斐斯守在望远镜旁。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，骑马赶到，腰脊受伤。",
+          "position": "开场由天象台外道路入画，随后在培儿斐斯旁下马或停留。",
+          "facing": "朝向天象台入口和培儿斐斯。",
+          "gaze_target": "培儿斐斯。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "培儿斐斯",
+          "presence": "在场，在望远镜旁等待。",
+          "position": "观测台内望远镜附近。",
+          "facing": "朝向入口。",
+          "gaze_target": "麦思敦。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "麦思敦忍着腰脊伤痛骑马赶到观测处，向培儿斐斯抱怨自己从制造大炮起便全力投入，临到远行却被留在地球，还被冲击掷出百二十尺。",
+          "camera": "从天象台窗边看麦思敦骑马靠近，跟至他抵达后切入双人中景。",
+          "scene_changes": "麦思敦由画外骑马到达观测处。",
+          "effects": "黑烟仍遮蔽天空。",
+          "audio": "马蹄声由远及近；麦思敦带着愤懑申诉被留下及被抛出百二十尺。"
+        },
+        {
+          "duration_seconds": 7,
+          "action": "他为没有参加旅行而愤懑，也为无法得知同伴下落而焦灼。",
+          "camera": "近景呈现麦思敦压抑的愤怒和焦灼，培儿斐斯在背景静听。",
+          "scene_changes": "无。",
+          "effects": "黑烟持续。",
+          "audio": "麦思敦继续倾诉，声音因伤痛而克制；环境声低沉。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "培儿斐斯问他年纪，麦思敦答六十八岁。",
+          "camera": "双人中近景维持问答关系，不机械拆切。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "培儿斐斯询问年纪；麦思敦回答：“六十八岁。”"
+        }
+      ]
+    },
+    {
+      "id": "shot_024",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_004",
+      "title": "精神不懈的坚持",
+      "key_anchor_ids": [
+        "segment_004_anchor_001",
+        "segment_004_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "天象台望远镜旁黑烟浓密，月球及弹丸仍不可观测。",
+        "spatial_setup": "麦思敦与培儿斐斯在望远镜旁交谈，窗外观测方向被烟雾遮蔽。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，腰脊受伤但仍坚持行动。",
+          "position": "望远镜旁，面向培儿斐斯。",
+          "facing": "朝向培儿斐斯。",
+          "gaze_target": "培儿斐斯。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "培儿斐斯",
+          "presence": "在场，理解麦思敦的不甘。",
+          "position": "麦思敦对面，靠近望远镜。",
+          "facing": "朝向麦思敦。",
+          "gaze_target": "麦思敦。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 15,
+          "action": "培儿斐斯劝麦思敦保重余生，麦思敦坚持：“凡人类者，苟手足自由，运动无滞，则应为世界谋利益，为己身谋利益，肉体可灰，精神不懈，乃成一人类之资格。”",
+          "camera": "从培儿斐斯中近景切至麦思敦近景，完整保留台词，末尾轻推其坚定神情。",
+          "scene_changes": "无。",
+          "effects": "窗外黑烟持续遮蔽观测方向。",
+          "audio": "培儿斐斯劝他保重余生；麦思敦清楚坚持：“凡人类者，苟手足自由，运动无滞，则应为世界谋利益，为己身谋利益，肉体可灰，精神不懈，乃成一人类之资格。”"
+        },
+        {
+          "duration_seconds": 7,
+          "action": "培儿斐斯明白他的不甘，却也只能承认眼下的观测确实束手无策。",
+          "camera": "回到培儿斐斯的反应，轻移至无法工作的望远镜和窗外黑烟。",
+          "scene_changes": "观测仍无法进行。",
+          "effects": "黑烟持续。",
+          "audio": "培儿斐斯承认观测束手无策，语气无奈；环境声持续。"
+        }
+      ]
+    },
+    {
+      "id": "shot_025",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_004",
+      "title": "巨扇方案与太迟的苦笑",
+      "key_anchor_ids": [
+        "segment_004_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "天象台内外仍被浓烟遮蔽，望远镜无法观测。",
+        "spatial_setup": "麦思敦与培儿斐斯站在望远镜旁，窗户朝向被黑烟遮住的天空。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，参与讨论驱散黑云的办法。",
+          "position": "望远镜旁。",
+          "facing": "朝向培儿斐斯。",
+          "gaze_target": "培儿斐斯。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "培儿斐斯",
+          "presence": "在场，提出是否能建造巨型蒸汽扇。",
+          "position": "窗边与望远镜之间。",
+          "facing": "朝向麦思敦。",
+          "gaze_target": "麦思敦。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 9,
+          "action": "两人谈到是否能造一架直径二千四百尺的蒸汽巨扇，把黑云吹散；麦思敦先为办法喝彩。",
+          "camera": "双人中景，窗外黑云作为背景；讨论时缓慢推近麦思敦的短暂兴奋。",
+          "scene_changes": "无。",
+          "effects": "黑云持续遮天。",
+          "audio": "两人讨论直径二千四百尺的蒸汽巨扇；麦思敦为这个办法喝彩。"
+        },
+        {
+          "duration_seconds": 7,
+          "action": "麦思敦随即意识到庞大工程不可能立刻完成，苦笑承认即使办法可行，现在才提出也已太迟。",
+          "camera": "保持麦思敦近景，捕捉由兴奋转为苦笑，再回双人构图。",
+          "scene_changes": "无。",
+          "effects": "黑云持续。",
+          "audio": "麦思敦苦笑承认方案太迟；室内环境声平缓。"
+        }
+      ]
+    },
+    {
+      "id": "shot_026",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "三日至六日的观测徒劳",
+      "key_anchor_ids": [
+        "segment_004_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "十二月三日至六日，美洲烟雾弥漫，欧洲多座天象台也持续观测月球。",
+        "spatial_setup": "画面以美洲观测处及欧洲数座天象台的观测区域交替呈现，望远镜均朝向月球方向。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "美洲观测者",
+          "presence": "在场，受烟雾影响无法有效观测。",
+          "position": "天象台望远镜旁。",
+          "facing": "朝向天空。",
+          "gaze_target": "被烟雾遮挡的月球方向。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "欧洲天象台观测者",
+          "presence": "各地均有人持续观测月球。",
+          "position": "欧洲数座天象台的望远镜旁。",
+          "facing": "朝向月球方向。",
+          "gaze_target": "月球及弹丸可能轨迹。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 10,
+          "action": "三日至六日，美洲烟雾弥漫，观测者无法看清天空；欧洲数座天象台持续观测月球。",
+          "camera": "以日期字幕标记三日至六日，先呈现美洲烟雾，再切至欧洲望远镜观测者。",
+          "scene_changes": "日期推进至十二月三日至六日；烟雾持续遮蔽美洲天空。",
+          "effects": "美洲烟雾持续；欧洲无同样烟雾设定。",
+          "audio": "美洲风声与烟雾环境声，转为欧洲天象台的低声报读和仪器声。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "欧洲观测者的视力仍不足以追踪弹丸，观测无果。",
+          "camera": "望远镜目镜与观测者视线交替，最终停在无法确认目标的天空。",
+          "scene_changes": "无。",
+          "effects": "无。",
+          "audio": "欧洲观测者低声确认仍无法追踪弹丸；环境声持续。"
+        }
+      ]
+    },
+    {
+      "id": "shot_027",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "短暂露日又被黑云压下",
+      "key_anchor_ids": [
+        "segment_004_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "十二月七日清晨，麦思敦与培儿斐斯仍在观测处等待，天空受黑云影响。",
+        "spatial_setup": "天象台窗户朝向天空，望远镜位于室内；麦思敦与培儿斐斯可在窗边共同观察。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，等待观测机会。",
+          "position": "天象台窗边。",
+          "facing": "朝向窗外天空。",
+          "gaze_target": "太阳和云层。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "培儿斐斯",
+          "presence": "在场，与麦思敦商议夜间观测。",
+          "position": "麦思敦旁，靠近望远镜。",
+          "facing": "朝向窗外及望远镜。",
+          "gaze_target": "天空。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 7,
+          "action": "七日清晨，太阳短暂露出半轮，麦思敦和培儿斐斯赶紧商议夜间观测。",
+          "camera": "从窗外黑云切到半轮太阳，回到两人急切商议的双人中景。",
+          "scene_changes": "太阳短暂露出半轮。",
+          "effects": "云隙短暂打开，日光进入；无持久转晴。",
+          "audio": "两人迅速商议夜间观测，环境声短暂明亮。"
+        },
+        {
+          "duration_seconds": 6,
+          "action": "午后黑云再度压下，观测希望中断。",
+          "camera": "窗外云层重新遮蔽天空，缓慢推回室内两人沉默的反应。",
+          "scene_changes": "午后黑云再度压下，天空重新遮蔽。",
+          "effects": "黑云覆盖观测方向并持续。",
+          "audio": "风声加重，两人不再交谈。"
+        }
+      ]
+    },
+    {
+      "id": "shot_028",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "八九日饮酒等待",
+      "key_anchor_ids": [
+        "segment_004_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "十二月八、九两日，天仍未晴，观测条件未恢复。",
+        "spatial_setup": "麦思敦与培儿斐斯在室内窗边和桌旁消磨等待，窗外仍是被云烟遮蔽的天空。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，随培儿斐斯饮酒等待。",
+          "position": "室内桌旁。",
+          "facing": "朝向培儿斐斯及酒杯。",
+          "gaze_target": "桌上酒杯。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "培儿斐斯",
+          "presence": "在场，与麦思敦一起等待。",
+          "position": "麦思敦对面。",
+          "facing": "朝向麦思敦。",
+          "gaze_target": "酒杯及窗外。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 12,
+          "action": "无计可施，两人只得饮酒消磨等待；八、九两日，他们醉醒、歌饮，仍不见天晴。",
+          "camera": "以日期变化呈现两日流逝，保持室内连续空间，切换醉醒与歌饮的自然阶段，不重复动作。",
+          "scene_changes": "八日至九日过去，天空仍未放晴。",
+          "effects": "窗外云烟持续遮蔽。",
+          "audio": "饮酒、短暂歌声与间歇安静交替，窗外风声持续。"
+        }
+      ]
+    },
+    {
+      "id": "shot_029",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "十日仍无消息",
+      "key_anchor_ids": [
+        "segment_004_anchor_002"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "十二月十日，天象台内等待多日，窗外依旧被云烟遮蔽。",
+        "spatial_setup": "麦思敦在室内醒来，培儿斐斯靠近窗户，窗外天空处于观测方向。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，酒醒后重新记起弹丸。",
+          "position": "室内，靠近桌旁。",
+          "facing": "朝向窗户。",
+          "gaze_target": "天空。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "培儿斐斯",
+          "presence": "在场，推窗望向天空。",
+          "position": "窗边。",
+          "facing": "朝向窗外。",
+          "gaze_target": "被遮蔽的天空。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 9,
+          "action": "十日麦思敦酒醒，重新记起弹丸，忍不住向天追问为何连同伴去向都不肯让人知道。",
+          "camera": "近景拍麦思敦清醒后望向窗外，缓慢推近其焦急神情。",
+          "scene_changes": "日期推进至十二月十日。",
+          "effects": "云烟仍遮蔽天空。",
+          "audio": "麦思敦向天追问同伴去向；声音带着焦急和愤懑。"
+        },
+        {
+          "duration_seconds": 5,
+          "action": "培儿斐斯推窗望去，依旧无言。",
+          "camera": "跟随培儿斐斯推窗，停在窗外被遮挡的天空，再回到他的沉默侧脸。",
+          "scene_changes": "窗户打开，观测处与外界连通。",
+          "effects": "云烟持续遮蔽。",
+          "audio": "窗户开启声，培儿斐斯没有回答；外界风声传入。"
+        }
+      ]
+    },
+    {
+      "id": "shot_030",
+      "previous_shot_connection": "cut",
+      "story_segment_id": "segment_004",
+      "title": "十一日强风驱散暗云",
+      "key_anchor_ids": [
+        "segment_004_anchor_003"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "十二月十一日午后，天象台等待多日；暗云仍覆盖天空。",
+        "spatial_setup": "观测处窗户朝向天空，麦思敦与培儿斐斯在窗边，望远镜在室内等待夜间使用。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，等待天气转变。",
+          "position": "窗边附近。",
+          "facing": "朝向天空。",
+          "gaze_target": "暗云。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "培儿斐斯",
+          "presence": "在场，观察天候变化。",
+          "position": "望远镜旁。",
+          "facing": "朝向窗外。",
+          "gaze_target": "云层。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 8,
+          "action": "直到十二月十一日午后，强风卷走暗云，夜空终于澄明如洗，弹丸行迹才有望重新被发现。",
+          "camera": "从暗云密布的天空起镜，风起时保持连续观察云层被卷走，最后展现澄明天空并回到两人。",
+          "scene_changes": "十二月十一日午后，强风驱散暗云；夜空转晴，观测条件恢复。",
+          "effects": "强风推动暗云离开观测方向，云层散尽后持续晴朗。",
+          "audio": "强风呼啸由强转弱，云散后环境声清晰；两人无须对白。"
+        }
+      ]
+    },
+    {
+      "id": "shot_031",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_005",
+      "title": "望远镜重新发现弹丸",
+      "key_anchor_ids": [
+        "segment_005_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "十二月十一日夜，天空晴朗，轮庇克山天象台重新能够观测月球。",
+        "spatial_setup": "望远镜朝向月球，培儿斐斯与麦思敦守在望远镜旁；书写处位于望远镜附近，便于记录观测结果。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "培儿斐斯",
+          "presence": "在场，守候并操作望远镜。",
+          "position": "望远镜旁。",
+          "facing": "朝向目镜及月球方向。",
+          "gaze_target": "望远镜视野。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，守在望远镜旁等待。",
+          "position": "培儿斐斯侧后方。",
+          "facing": "朝向望远镜。",
+          "gaze_target": "培儿斐斯和观测方向。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 9,
+          "action": "十二月十一日夜，天空晴朗；天象台重新对准月球，培儿斐斯与麦思敦在望远镜旁守候，不愿再错过片刻。",
+          "camera": "窗外晴朗夜空起镜，移入望远镜旁的两人，沿望远镜指向月球的方向推进。",
+          "scene_changes": "无，晴朗状态延续。",
+          "effects": "无。",
+          "audio": "夜间环境声微弱，望远镜调整声清晰；两人保持安静。"
+        },
+        {
+          "duration_seconds": 7,
+          "action": "弹丸的踪迹终于显现，培儿斐斯确认并立即记录观测结果。",
+          "camera": "从培儿斐斯眼睛切至目镜，再回到他迅速记录的手部动作。",
+          "scene_changes": "弹丸行迹被重新发现。",
+          "effects": "无。",
+          "audio": "培儿斐斯简短确认发现踪迹，随即书写声响起；麦思敦呼吸稍缓。"
+        }
+      ]
+    },
+    {
+      "id": "shot_032",
+      "previous_shot_connection": "continuous",
+      "story_segment_id": "segment_005",
+      "title": "观测消息传向各地",
+      "key_anchor_ids": [
+        "segment_005_anchor_001"
+      ],
+      "scene": {
+        "scene_id": "",
+        "state": "十二月十一日夜，弹丸行迹已重新发现；地球方面开始传递观测消息，旅行者仍在太空。",
+        "spatial_setup": "培儿斐斯在天象台写信报告侃勃烈其天象台；消息由美洲传往欧洲，再以电报通知各地。"
+      },
+      "characters": [
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "培儿斐斯",
+          "presence": "在场，书写观测报告。",
+          "position": "天象台书写处，望远镜旁。",
+          "facing": "朝向书写桌。",
+          "gaze_target": "报告纸张。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "电报传递者",
+          "presence": "以各地传信人员和电报操作人员呈现。",
+          "position": "美洲至欧洲及各地通信处。",
+          "facing": "朝向书信或电报设备。",
+          "gaze_target": "报告内容及电报设备。"
+        },
+        {
+          "character_id": "",
+          "costume_id": "",
+          "name": "麦思敦",
+          "presence": "在场，终于能将注意力转向同伴下落。",
+          "position": "天象台望远镜旁。",
+          "facing": "朝向培儿斐斯和报告。",
+          "gaze_target": "报告纸张。"
+        }
+      ],
+      "beats": [
+        {
+          "duration_seconds": 9,
+          "action": "培儿斐斯把观测结果写信报告侃勃烈其天象台。",
+          "camera": "近景跟随书写报告的手，再以纸面和收笔动作收束。",
+          "scene_changes": "观测结果形成书面报告。",
+          "effects": "无。",
+          "audio": "笔尖书写声，天象台夜间环境声持续。"
+        },
+        {
+          "duration_seconds": 10,
+          "action": "消息由美洲传向欧洲，再以电报通知各地；等待和猜测终于有了追踪三名旅行者的第一线索。",
+          "camera": "用信件传递及电报操作的连续蒙太奇呈现地域传播，最后停在收到消息的通信端。",
+          "scene_changes": "报告从美洲传至欧洲，并由电报向各地传播。",
+          "effects": "无。",
+          "audio": "信件传递声与电报敲击声依次衔接；电报声由一处延续至各地。"
+        },
+        {
+          "duration_seconds": 8,
+          "action": "麦思敦终于能把注意力从自己的伤痛转向远行同伴的下落；弹丸仍在太空中，月界之旅尚未完成，地球方面继续守候下一次观测。",
+          "camera": "回到麦思敦与培儿斐斯在望远镜旁，缓慢拉远至晴朗夜空；不展示后续旅行结果。",
+          "scene_changes": "观测消息已传出，等待下一次观测的状态持续。",
+          "effects": "无。",
+          "audio": "夜空下的环境声平静，电报声在远处继续；无新增对白。"
+        }
+      ]
+    }
+  ]
+}
