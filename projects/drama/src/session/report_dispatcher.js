@@ -102,7 +102,7 @@ export class ReportDispatcher {
         // 兼容旧账本：已完成的通知不再次唤醒；新步骤可独立记录。
         if (old?.delivered && !old.notification && !old.result) continue
         if (group.source === 'ui') await attempt(`${group.id}:result`, entry, 'result', () => this.display(report, 'result', detail.tasks[0].name))
-        const notify = group.source !== 'ui' || ['rejected', 'failed'].includes(detail.status)
+        const notify = !report.requires_user_decision && (group.source !== 'ui' || ['rejected', 'failed'].includes(detail.status))
         if (notify) await attempt(`${group.id}:notification`, entry, 'notification', () => this.deliver(report))
         Object.assign(entry, { delivered: (group.source !== 'ui' || Boolean(entry.result?.delivered)) && (!notify || Boolean(entry.notification?.delivered)),
           session_id: report.session_id, report_id: report.report_id, task_id: report.task_id,

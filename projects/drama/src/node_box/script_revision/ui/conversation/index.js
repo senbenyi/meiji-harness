@@ -24,7 +24,7 @@ export const conversation = {
     }
   },
   appendActions(actions, group, finalReference, { get, modal, payload, node, document, button }) {
-    if (group.status === 'completed' && group.context.saved) {
+    if (group.context.saved) {
       actions.append(button('查看本次剧本', async () => {
         const data = await get(finalReference)
         if (!data.final_output?.actual_script) throw new Error('本次剧本暂不可读')

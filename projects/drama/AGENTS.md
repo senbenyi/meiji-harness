@@ -13,7 +13,7 @@
 
 - 剧本优化入口为 `src/tools/optimize_script_tool.js`，执行器为 `src/node_box/script_revision/executor.js`；运行用独立有界模型请求，生成/本地审核/修订使用文本模型，项目审核使用主Agent模型。
 
-- 故事大纲入口为 `src/tools/generate_story_outline_tool.js`，Service/Executor位于 `src/node_box/story_segments/`；面板及会话共用生成入口。输入为basic_info（仅actual_script/summary/estimated_duration_seconds）、current_outline、instruction、output_language，与规则中的basic_info.actual_script路径一致。优化剧本可选，有工作稿即可生成。完整集合严格校验且拒绝空集合、重复段/锚点ID，审核通过才替换segments；本地内容问题最多修订3轮，失败/取消保留原结果。意见、规则、记录、结束摘要、下游过期及专属UI见开发方向“故事大纲生成”。
+- 故事大纲入口为 `src/tools/generate_story_outline_tool.js`，Service/Executor位于 `src/node_box/story_segments/`；面板及会话共用生成入口。输入为basic_info（仅actual_script/summary/estimated_duration_seconds）、current_outline、instruction、output_language，与规则中的basic_info.actual_script路径一致。优化剧本可选，有工作稿即可生成。完整集合严格校验且拒绝空集合、重复段/锚点ID，每次结构有效的生成/修订立即替换segments并同步Task；本地内容问题最多修订3轮，失败/取消保留最新已保存结果与各轮记录。意见、规则、记录、结束摘要、下游过期及专属UI见开发方向“故事大纲生成”。
 
 - `src/harness_server/` 只提供harness-http路由、认证、静态资源和SSE，不承载盒子业务。根插件组装项目管理、剧本优化服务及共享记录；不设顶层service转发层，也不保留旧目录代理。HTTP分类和记录归属统一遵守根开发指引的“HTTP术语与记录归属”。
 
@@ -25,7 +25,7 @@
 
 - 节点共用运行机制统一在 `src/node_runtime/`，职责与文件名见 `docs/开发方向.md` 的“节点运行层”；`node_initializer.js`初始化空节点，`output_response_parser.js`解析校验实际响应，`output_contract_renderer.js`选择/展开输出结构并渲染规则。`src/node_runtime/node_prompt_composer.js`继续负责提示词组装，不将这些机制复制到盒子或公共包。
 
-- 盒子步骤结束后将完整结果写入任务固定所属会话，仅展示、不进入模型上下文。审核有问题显示红色“未通过”，保留每轮修改及复审；面板受理、各步骤和盒子终态各用稳定ID去重。面板操作统一展示请求、聚合执行组及最终保存结果，空/正常会话复用client/ui/task-operation组件；正常会话附加于对应原生command公开座位并仅隐藏本组原生展示，不伪造聊天轮次。盒子输入取metadata.input_snapshot，步骤输入取step.prompt.input；完整内容随会话首次加载预载，eager/after轮询只补新增详情及pending任务终态；展开优先同步使用缓存，compact消息列表不携带正文/规则/输出，历史不读取最新项目补造。展示和主Agent通知独立持久化与重试：成功/取消不唤醒AI，最终rejected/failed才发drama-box-report规划消息；中间审核失败仅展示。不创建任务专用或失败兜底会话；创建尚未产生项目会话时归来源会话，创建成功后归项目会话。详见开发方向“面板任务与会话交接”。
+- 盒子步骤结束后将完整结果写入任务固定所属会话，仅展示、不进入模型上下文。审核有问题显示红色“未通过”，保留每轮修改及复审；面板受理、各步骤和盒子终态各用稳定ID去重。面板操作统一展示请求、聚合执行组及最终保存结果，空/正常会话复用client/ui/task-operation组件，失败终态单独挂载client/ui/failure-decision卡片，显示真实保存事实与用户操作；正常会话附加于对应原生command公开座位并仅隐藏本组原生展示，不伪造聊天轮次。盒子输入取metadata.input_snapshot，步骤输入取step.prompt.input；完整内容随会话首次加载预载，eager/after轮询只补新增详情及pending任务终态；展开优先同步使用缓存，compact消息列表不携带正文/规则/输出，历史不读取最新项目补造。展示和主Agent通知独立持久化与重试：成功/取消不唤醒AI，最终rejected/failed才发drama-box-report规划消息，但终态content_issue或执行failed只展示并等待用户选择继续修改、停止或重新生成，不唤醒主Agent；中间审核失败仅展示。不创建任务专用或失败兜底会话；创建尚未产生项目会话时归来源会话，创建成功后归项目会话。详见开发方向“面板任务与会话交接”。
 
 - 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；按project/definition.js契约保存basic_info.summary及estimated_duration_seconds，创建状态使用basic_info.create_project_node；失败仅警告、不撤回主操作。优化稿继续随正文返回摘要和估时，并在审核通过后同步到basic_info，不新增摘要调用。
 
@@ -34,7 +34,7 @@
 - 原稿入库及沙盒来源文件由project/script_files.js维护；创建和导入保留原始文件名并自动入素材库，basic_info.original_script_file_path只保存沙盒相对路径，正文初始化basic_info.actual_script。后续生产和按意见优化统一使用当前工作正文，不回读原文件作为模型输入。原始查看由鉴权harness-http读取项目内文件，禁止任意路径读取。
 
 - 项目实例不保存output包装；AI意见、动作规则、补充能力集中于node_state.opinion/rules/supports_supplement。剧本优化状态在basic_info.script_revision_node，其余生产节点使用各自node_state；公共RulesModel通过node_runtime/node_state.js的nodeRules适配。
-- 优化候选只存Task步骤，审核通过才提交actual_script、summary、estimated_duration_seconds；失败/取消保留先前工作稿。last_execution以Task终态为事实，经node_runtime/execution_state.js统一投影并共用项目写队列落盘，读取时补齐遗漏摘要。轻量轮询接口为harness-http的/api/drama/node-states；完整加载仍使用project接口。
+- 优化的每次有效输出自动提交actual_script、summary、estimated_duration_seconds并记录Task；审核失败/取消保留最新已保存结果，不撤销写入。保存与审核通过独立，只有审核通过才清除对应意见。last_execution以Task终态为事实，经node_runtime/execution_state.js统一投影并共用项目写队列落盘，读取时补齐遗漏摘要。轻量轮询接口为harness-http的/api/drama/node-states；完整加载仍使用project接口。
 
 - 会话项目归属由ProjectService.projectIdForSession统一判断：保留显式绑定；宿主刷新恢复同项目工作区另一会话时，基于workspaceRegistry公开成员关系和已完成项目登记的工作区ID/path解析，不按名称猜测，不关联未完成/删除项目。snapshot、编辑、删除、优化共用该判断，同工作区SSE更新亦可同步。
 

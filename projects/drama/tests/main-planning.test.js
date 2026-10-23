@@ -27,7 +27,7 @@ async function fixture(t, kind = 'rule') {
     const action = system.match(/动作：(\w+)/)[1], input = JSON.parse(body.messages.find(message => message.role === 'user').content.split('# 本次资料\n')[1])
     calls.push({ action, body })
     const passed = kind === 'pass' || (kind === 'rule' ? system.includes('冲突修复已授权') : input.current_script.actual_script === '修复后的原始剧本')
-    const output = action === 'review' ? passed ? { status: 'passed', issues: [] } : issue(kind === 'rule' ? 'rule_conflict' : 'upstream_issue') : {...candidate,...(input.current_script.actual_script==='修复后的原始剧本'?{actual_script:'修复后的原始剧本'}:{})}
+    const output = action === 'review' ? passed ? { status: 'passed', issues: [] } : issue(kind === 'rule' ? 'rule_conflict' : kind === 'content' ? 'content_issue' : 'upstream_issue') : {...candidate,...(input.current_script.actual_script==='修复后的原始剧本'?{actual_script:'修复后的原始剧本'}:{})}
     res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) }, finish_reason: 'stop' }] }))
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -47,7 +47,7 @@ async function fixture(t, kind = 'rule') {
 test('创建记录程序任务并交接真实目标；规则冲突报告→原生授权→保存规则→关联新任务', async t => {
   const f = await fixture(t), { report, exec } = f
   assert.equal(f.created.report.goal, '创建项目并按我的要求优化')
-  assert.equal(report.decision, 'rule_conflict'); assert.equal(report.saved, false)
+  assert.equal(report.decision, 'rule_conflict'); assert.equal(report.saved, true)
   assert.equal(report.review_packet.current_script.actual_script, '用户原稿')
   assert.equal(f.calls.length, 2)
   const reader = new PlanningContextTool({ projects: f.projects, records: f.records })
@@ -348,4 +348,19 @@ test('会话展示读取当次盒子/步骤输入，历史项目改变不污染�
   await f.projects.edit({ kind: 'import_script', value: '后来用户导入的新正文', previousValue: (await f.projects.snapshot(f.created.session_id)).project.basic_info.original_script_file_path }, { sessionId: f.created.session_id, projectId: f.created.project_id })
   const old = (await display.read(f.created.session_id, { id: start.id }))[0]
   assert.equal(old.box_input.current_script.actual_script, '本次优化前工作稿')
+})
+
+test('终态内容审核失败只展示用户决策，不唤醒主Agent或发起新任务', async t => {
+  const f = await fixture(t, 'content'), notifications = [], displays = []
+  assert.equal(f.report.requires_user_decision, true)
+  const accepted = await f.scripts.optimizeScript({ instruction: '面板生成剧本' }, { sessionId: f.created.session_id, requestId: 'panel-content', source: 'ui' })
+  const report = await f.scripts.waitScriptOptimization(accepted.group_id, f.created.session_id)
+  const count = f.calls.length
+  const dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver: async report => notifications.push(report), display: async (report, phase) => { displays.push({ report, phase }); return {} } })
+  await dispatcher.flush(); await dispatcher.flush(); await dispatcher.dispose()
+  assert.ok(displays.some(row => row.phase === 'result' && row.report.group_id === report.group_id && row.report.requires_user_decision))
+  assert.ok(!notifications.some(row => row.group_id === report.group_id))
+  assert.equal(f.calls.length, count)
+  const ledger = JSON.parse(await readFile(join(f.root, 'main-agent-deliveries.json')))
+  assert.equal(ledger[report.group_id].delivered, true)
 })

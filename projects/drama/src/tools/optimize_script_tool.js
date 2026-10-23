@@ -3,7 +3,7 @@ export class OptimizeScriptTool {
   constructor({ scriptRevision }) {
     this.scriptRevision = scriptRevision
     this.name = 'drama-optimize-script'
-    this.description = '仅按用户明确要求优化或修改当前会话绑定项目的剧本。只传本次具体改编意见，不传完整剧本、项目ID或规则；程序读取原稿、已有稿和项目规则。没有原稿会明确失败。工具等待生成、审核及必要修订结束后返回任务状态；只有completed才可声称优化完成。不会执行其他制作节点或修改规则。'
+    this.description = '仅按用户明确要求优化或修改当前会话绑定项目的剧本。只传本次具体改编意见，不传完整剧本、项目ID或规则；程序读取原稿、已有稿和项目规则。没有原稿会明确失败。工具等待生成、审核及必要修订结束后返回任务状态；有效结果自动保存，saved与审核状态独立；只有completed才可声称审核通过。不会执行其他制作节点或修改规则。'
     this.parameters = { type: 'object', additionalProperties: false, properties: { retry_of: { type: 'string', minLength: 1, description: '修复规则或上游后，关联原盒子报告的group_id；创建全新任务ID，原目标保留。' }, instruction: { type: 'string', minLength: 1, maxLength: 10000, description: '用户本次明确的优化要求；如用户仅说优化剧本，保留这一目标，不自行添加风格或情节要求。' } }, required: ['instruction'] }
     this.output = { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }
   }

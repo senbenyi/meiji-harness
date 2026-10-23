@@ -168,8 +168,8 @@ test('失败明确停止原因和原稿保留，成功才能显示查看本次�
   assert.deepEqual([...root.querySelectorAll('mark')].map(mark => mark.textContent), ['旧', '新'])
   rows = rows.map(row => ({ ...row, operation_status: 'rejected', status: row.phase === 'result' ? 'rejected' : row.status, saved: false, stop_reason: '自动修订次数达到上限', stopped_at: '4. 本地审核' }))
   await f.ui.refresh(); root = f.operation()
-  assert.match(root.querySelector('.outcome').textContent, /次数达到上限/)
-  assert.match(root.querySelector('.outcome').textContent, /原工作稿保留，本次未更新/)
+  assert.match(root.querySelector('drama-failure-decision').shadowRoot.textContent, /次数达到上限/)
+  assert.match(root.querySelector('drama-failure-decision').shadowRoot.textContent, /已有结果仍保留/)
   assert.ok(![...root.querySelectorAll('.actions button')].some(button => button.textContent === '查看本次剧本'))
 })
 
@@ -280,6 +280,40 @@ test('执行提示在过程收起后仍可见，随步骤更新；排队及各�
     rows = messages.map(row => ({ ...row, operation_status: terminal, status: row.phase === 'result' ? terminal : row.status }))
     await f.ui.refresh()
     assert.equal(f.operation().querySelector('[role="status"]'), null)
-    assert.ok(f.operation().querySelector('.outcome'))
+    assert.ok(f.operation().querySelector(['failed', 'rejected'].includes(terminal) ? 'drama-failure-decision' : '.outcome'))
   }
+})
+
+for (const action of ['continue', 'regenerate', 'stop']) test(`审核失败卡片等待用户${action}，只在点击后提交且防连点`, async t => {
+  const original = structuredClone(messages)
+  t.after(() => messages.splice(0, messages.length, ...original))
+  messages.at(-1).operation_status = 'rejected'; messages.at(-1).status = 'rejected'
+  messages.at(-1).requires_user_decision = true; messages.at(-1).saved = true
+  let posts = [], release
+  const response = new Promise(resolve => { release = resolve })
+  const f = uiFixture(t, { fetcher: async (url, options) => {
+    if (options?.method === 'POST') { posts.push({ url, body: JSON.parse(options.body) }); await response; return { ok: true, json: async () => ({ status: 'queued' }) } }
+    return { ok: true, json: async () => ({ messages: structuredClone(messages) }) }
+  } })
+  await f.ui.refresh()
+  assert.equal(posts.length, 0); assert.match(f.operation().querySelector('drama-failure-decision').shadowRoot.textContent, /等待你的选择/)
+  const label = { continue: '继续修改', regenerate: '重新生成', stop: '停止' }[action]
+  const failure = f.operation().querySelector('drama-failure-decision').shadowRoot
+  const controls = [...failure.querySelectorAll('button')], control = controls.find(button => button.textContent === label)
+  assert.ok(control); control.click(); control.click(); await tick()
+  if (action === 'stop') { assert.equal(posts.length, 0); assert.match(failure.textContent, /已停止后续处理，已保存结果保留/); return }
+  assert.equal(posts.length, 1); assert.equal(posts[0].body.retry_action, action); assert.equal(posts[0].body.retry_of, 'g')
+  assert.ok(posts[0].body.request_id); assert.ok(control.disabled)
+  release(); await tick(); assert.match(failure.textContent, /已提交/)
+})
+
+test('独立失败卡片区分审核未通过和已保存，提供本次结果及用户操作', async t => {
+  const rows = messages.map(row => ({ ...row, operation_status: 'rejected', status: row.phase === 'result' ? 'rejected' : row.status, saved: true, requires_user_decision: true, stop_reason: '全部三轮仍有跨段矛盾' }))
+  const f = uiFixture(t, { fetcher: async () => ({ ok: true, json: async () => ({ messages: rows }) }) })
+  await f.ui.refresh()
+  const card = f.operation().querySelector('drama-failure-decision').shadowRoot
+  assert.match(card.textContent, /最新有效结果已自动保存/)
+  assert.match(card.textContent, /审核未通过/)
+  assert.deepEqual([...card.querySelectorAll('button')].map(button => button.textContent), ['继续修改', '停止', '重新生成', '任务详情'])
+  assert.ok([...f.operation().querySelectorAll('button')].some(button => button.textContent === '查看本次剧本'))
 })

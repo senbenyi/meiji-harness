@@ -29,7 +29,7 @@ export function displayContext(detail, task, step) {
     },
     operation_status: task.task_status,
     active_step: active ? { name: active.name, seq: active.seq, round: active.round } : null,
-    saved: report.saved, stop_reason: task.end_reason || '',
+    requires_user_decision: report.requires_user_decision, can_continue: Boolean(report.review_packet?.candidate), saved: report.saved, decision: report.decision, stop_reason: report.reason,
     stopped_at: last ? `${last.seq}. ${last.name}${last.round ? `（第${last.round}轮）` : ''}` : '尚未开始执行步骤',
     revision_count: detail.steps.filter(row => row.task_id === task.id && row.kind === 'revise' && row.round > 0 && row.step_status === 'done').length,
     duration_seconds: duration,
@@ -37,7 +37,7 @@ export function displayContext(detail, task, step) {
     box_input: structuredClone(boxInput),
     input: input === null ? null : structuredClone(input),
     rules: structuredClone(snapshotRules || null),
-    final_output: task.task_status === 'completed' && report.saved ? structuredClone(candidate || null) : null,
+    final_output: report.saved ? structuredClone(candidate || null) : null,
     step_name: step?.name || '',
   }
 }

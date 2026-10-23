@@ -1,5 +1,6 @@
 import { showToast } from '@agent-modules/ui'
 import { nodeUi } from './node-registry.js'
+import { createFailureDecision } from './failure-decision.js'
 
 const labels = { queued: '排队中', running: '执行中', completed: '已完成', rejected: '未通过', failed: '执行失败', cancelled: '已取消' }
 
@@ -20,17 +21,17 @@ export function groupTaskMessages(messages) {
   })
 }
 
-const css = `:host{display:block;min-width:0;color:var(--dsw-alias-label-primary,#17191f);font:14px/1.65 system-ui}*{box-sizing:border-box}.operation{padding:12px 0 20px}.request{margin:0 0 10px;padding:8px 12px;background:var(--dsw-alias-bg-l1,#f6f7f9);border:1px solid var(--dsw-alias-border-l3,#e6e8ec);border-radius:12px}.eyebrow,.muted{font-size:12px;color:var(--dsw-alias-label-secondary,#737780)}.request h3{font-size:14px;margin:3px 0;font-weight:600}.request .meta{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.request .input-summary{font-size:12px;color:var(--dsw-alias-label-secondary,#737780)}.request>details>summary{padding:2px 0;font-size:12px}.request p{margin:4px 0}.goal{margin:0 0 8px;white-space:pre-wrap;overflow-wrap:anywhere}summary{display:flex;gap:8px;align-items:baseline;cursor:pointer;list-style:none;min-width:0;padding:5px 0;color:var(--dsw-alias-label-secondary,#737780)}summary::-webkit-details-marker{display:none}summary:before{content:'›';flex:none}details[open]>summary:before{transform:rotate(90deg)}.line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.body{padding:8px 0 8px 16px}.step{border-left:1px solid var(--dsw-alias-border-l3,#ddd);padding-left:12px}.badge{flex:none;font-size:12px}.error{color:var(--dsw-alias-state-error-primary,#dc2626)}.success{color:var(--dsw-alias-state-success-primary,#258454)}.execution-status{display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--dsw-alias-label-secondary,#737780)}.execution-spinner{display:inline-block;width:12px;height:12px;flex:0 0 12px;padding:0;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:drama-executing .9s linear infinite}.execution-dot{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:currentColor}@keyframes drama-executing{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.execution-spinner{animation:none}}.outcome{margin-top:12px}.outcome strong{font-size:15px}.outcome p{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}button{font:inherit;color:inherit;background:transparent;border:1px solid var(--dsw-alias-border-l3,#ddd);border-radius:7px;padding:4px 10px;cursor:pointer}button:hover{background:var(--dsw-alias-bg-l1,#f6f7f9)}button:disabled{opacity:.6;cursor:wait}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:340px;overflow:auto;font:12px/1.6 ui-monospace,monospace;margin:8px 0}h4{font-size:13px;margin:10px 0 4px}.payload{border-top:1px solid var(--dsw-alias-border-l3,#eee);margin-top:8px}dialog{width:min(960px,calc(100vw - 48px));max-height:85vh;border:1px solid var(--dsw-alias-border-l3,#ddd);border-radius:14px;color:var(--dsw-alias-label-primary,#17191f);background:var(--dsw-alias-bg-base,#fff);padding:20px}dialog::backdrop{background:#0005}.dialog-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.dialog-head h3{margin:0}.compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}.compare pre{max-height:60vh}mark{color:inherit;background:#ffd86b66}@media(max-width:640px){.compare{grid-template-columns:1fr}.request{padding:8px 10px}}`
+const css = `:host{display:block;min-width:0;color:var(--dsw-alias-label-primary,#17191f);font:14px/1.65 system-ui}*{box-sizing:border-box}.operation{padding:12px 0 20px}.request{margin:0 0 10px;padding:8px 12px;background:var(--dsw-alias-bg-layer-1,#f6f7f9);border:1px solid var(--dsw-alias-border-l3,#e6e8ec);border-radius:12px}.eyebrow,.muted{font-size:12px;color:var(--dsw-alias-label-secondary,#737780)}.request h3{font-size:14px;margin:3px 0;font-weight:600}.request .meta{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.request .input-summary{font-size:12px;color:var(--dsw-alias-label-secondary,#737780)}.request>details>summary{padding:2px 0;font-size:12px}.request p{margin:4px 0}.goal{margin:0 0 8px;white-space:pre-wrap;overflow-wrap:anywhere}summary{display:flex;gap:8px;align-items:baseline;cursor:pointer;list-style:none;min-width:0;padding:5px 0;color:var(--dsw-alias-label-secondary,#737780)}summary::-webkit-details-marker{display:none}summary:before{content:'›';flex:none}details[open]>summary:before{transform:rotate(90deg)}.line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.body{padding:8px 0 8px 16px}.step{border-left:1px solid var(--dsw-alias-border-l3,#ddd);padding-left:12px}.badge{flex:none;font-size:12px}.error{color:var(--dsw-alias-state-error-primary,#dc2626)}.success{color:var(--dsw-alias-state-success-primary,#258454)}.execution-status{display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--dsw-alias-label-secondary,#737780)}.execution-spinner{display:inline-block;width:12px;height:12px;flex:0 0 12px;padding:0;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:drama-executing .9s linear infinite}.execution-dot{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:currentColor}@keyframes drama-executing{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.execution-spinner{animation:none}}.outcome{margin-top:12px}.outcome strong{font-size:15px}.outcome p{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}button{font:inherit;color:inherit;background:transparent;border:1px solid var(--dsw-alias-border-l3,#ddd);border-radius:7px;padding:4px 10px;cursor:pointer}button:hover{background:var(--dsw-alias-bg-layer-1,#f6f7f9)}button:disabled{opacity:.6;cursor:wait}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:340px;overflow:auto;font:12px/1.6 ui-monospace,monospace;margin:8px 0}h4{font-size:13px;margin:10px 0 4px}.payload{border-top:1px solid var(--dsw-alias-border-l3,#eee);margin-top:8px}dialog{width:min(960px,calc(100vw - 48px));max-height:85vh;border:1px solid var(--dsw-alias-border-l3,#ddd);border-radius:14px;color:var(--dsw-alias-label-primary,#17191f);background:var(--dsw-alias-bg-base,#fff);padding:20px}dialog::backdrop{background:#0005}.dialog-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.dialog-head h3{margin:0}.compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}.compare pre{max-height:60vh}mark{color:inherit;background:#ffd86b66}@media(max-width:640px){.compare{grid-template-columns:1fr}.request{padding:8px 10px}}`
 
 /** 空会话与正常会话共用容器；节点内容经注册模块展示，展开优先使用预载快照。 */
-export function createTaskOperation(document, { loadMessage, getMessage, copy, loadHistory, onNotify = showToast }) {
+export function createTaskOperation(document, { loadMessage, getMessage, copy, loadHistory, onDecision, onNotify = showToast }) {
   const element = document.createElement('drama-task-operation'), root = element.attachShadow({ mode: 'open' })
   const style = document.createElement('style'); style.textContent = css
   const content = document.createElement('div'); content.className = 'operation'
   root.append(style, content)
   let group, signature, generation = 0, processTouched = false
   let renderer = {}
-  const cache = new Map()
+  const cache = new Map(), decisions = new Map()
   const node = (tag, text, cls) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (cls) el.className = cls; return el }
   const button = (text, action) => { const el = node('button', text); el.type = 'button'; el.onclick = async () => { el.disabled = true; try { await action() } catch (error) { el.textContent = error.message || '读取失败，点击重试' } finally { el.disabled = false } }; return el }
   const copyControl = (label, read) => {
@@ -170,7 +171,20 @@ export function createTaskOperation(document, { loadMessage, getMessage, copy, l
       status.append(indicator, node('span', running ? active?.name ? `正在执行：${active.name}` : '正在执行中…' : '等待执行…'))
       fragment.append(status)
     }
-    if (terminal) {
+    if (terminal && ['rejected', 'failed'].includes(group.status)) {
+      const owner = group
+      fragment.append(createFailureDecision(document, { group, decision: decisions.get(group.id),
+        onDecision: onDecision ? async action => {
+          await onDecision(owner, action)
+          const text = action === 'stop' ? '已停止后续处理，已保存结果保留。' : action === 'continue' ? '已提交继续修改，等待新任务结果。' : '已提交重新生成，等待新任务结果。'
+          decisions.set(owner.id, text); return text
+        } : undefined,
+        onDetails: async () => { const detail = await loadHistory(owner.id); modal('本次任务记录', body => payload(body, '任务记录', detail)) },
+      }))
+      const actions = node('div', undefined, 'actions')
+      renderer.appendActions?.(actions, group, group.result || group.messages.at(-1), tools)
+      if (actions.childElementCount) fragment.append(actions)
+    } else if (terminal) {
       const outcome = node('section', undefined, 'outcome')
       const saved = group.context.saved
       const presentation = renderer.outcome?.(group) || {}

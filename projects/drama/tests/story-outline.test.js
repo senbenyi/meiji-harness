@@ -113,23 +113,23 @@ test('本地内容问题自动修订后通过，完整候选与审核意见传�
   assert.equal((await f.projects.snapshot(f.context.sessionId)).project.story_segments.segments[0].id, 'seg_1')
 })
 
-for (const status of ['rule_conflict', 'upstream_issue', 'repeated', 'limit']) test(`审核停止${status}保留上次通过结果和本次候选，终止原因准确`, async t => {
+for (const status of ['rule_conflict', 'upstream_issue', 'repeated', 'limit']) test(`审核停止${status}自动保存本次有效结果，终止原因准确`, async t => {
   let reject = false, n = 0
   const f = await fixture(t, call => call.action === 'review' ? reject ? issue(status === 'limit' || status === 'repeated' ? 'content_issue' : status) : passed : candidate(reject ? status === 'repeated' ? '重复候选' : `候选${++n}` : '旧通过结果'))
   await run(f)
   const before = (await f.projects.snapshot(f.context.sessionId)).project
   reject = true; f.context.requestId = 'rejected'
   const report = await run(f), after = (await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(report.status, 'rejected'); assert.equal(report.saved, false)
-  assert.deepEqual(storyOutput(after), storyOutput(before)); assert.equal(after.story_segments.node_state.status, 'generated')
+  assert.equal(report.status, 'rejected'); assert.equal(report.saved, true)
+  assert.notDeepEqual(storyOutput(after), storyOutput(before)); assert.equal(after.story_segments.node_state.status, 'rejected')
   const last = after.story_segments.node_state.last_execution
-  assert.equal(last.stop_code, status === 'limit' ? 'revision_limit_reached' : status === 'repeated' ? 'content_issue' : status)
+  assert.equal(last.stop_code, ['limit', 'repeated'].includes(status) ? 'content_issue' : status)
   const detail = f.records.tasks.detail('drama', report.group_id)
   if (status === 'limit') assert.equal(detail.steps.length, 8)
-  if (status === 'repeated') assert.match(report.reason, /重复/)
+  if (status === 'repeated') assert.equal(detail.steps.length, 4)
   const output = taskHistoryPresentation.taskOutput(detail.tasks[0], detail.steps)
   assert.equal(output.result, null); assert.ok(output.partial_result.output.segments.length)
-  assert.equal(displayContext(detail, detail.tasks[0]).final_output, null)
+  assert.deepEqual(displayContext(detail, detail.tasks[0]).final_output, storyOutput(after))
 })
 
 test('空集合/重复ID/缺字段/异常响应不保存；缺剧本与非法入参不创建任务', async t => {
@@ -205,7 +205,7 @@ test('审核期间上游被外部改变时拒绝迟到提交；正常新意见�
     else await f.projects.edit({ kind: 'node_opinion', node_type: 'story_segments', previousValue: '', value: '新意见' }, f.context)
     release(); const report = await f.stories.waitStoryOutline(accepted.group_id, f.context.sessionId)
     const project = (await f.projects.snapshot(f.context.sessionId)).project
-    if (changed === 'script') { assert.equal(report.status, 'failed'); assert.deepEqual(project.story_segments.segments, []) }
+    if (changed === 'script') { assert.equal(report.status, 'failed'); assert.deepEqual(storyOutput(project), candidate()) }
     else { assert.equal(report.status, 'completed'); assert.equal(project.story_segments.node_state.opinion, '新意见') }
   })
 })
@@ -279,4 +279,57 @@ test('既有旧ID读取、修改和保存均保留；新增锚点仍需段前缀
   assert.deepEqual(storyOutput((await f.projects.snapshot(f.context.sessionId)).project), modified)
   const detail = f.records.tasks.detail('drama', report.group_id)
   assert.deepEqual(detail.tasks[0].metadata.input_snapshot.current_outline, old)
+})
+
+for (const retryAction of ['continue', 'regenerate']) test(`内容审核未通过由用户${retryAction}，不再要求无关上游改动`, async t => {
+  let allow = false
+  const f = await fixture(t, call => call.action === 'review' ? allow ? passed : issue('content_issue') : candidate())
+  f.stories.maxRevisionRounds = 0
+  const first = await run(f)
+  assert.equal(first.requires_user_decision, true)
+  const old = f.records.tasks.detail('drama', first.group_id)
+  assert.deepEqual(storyOutput((await f.projects.snapshot(f.context.sessionId)).project), candidate())
+  await assert.rejects(f.stories.generateStoryOutline({ instruction: '生成故事大纲', retry_of: first.group_id }, { ...f.context, requestId: 'auto' }), /尚未变化/)
+  await assert.rejects(f.stories.generateStoryOutline({ instruction: '生成故事大纲', retry_of: first.group_id }, { ...f.context, source: 'conversation', retryAction, requestId: 'fake' }), /需由用户/)
+  allow = true
+  const response = await f.request(`/api/drama/story-outline?session_id=${f.context.sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' }, body: JSON.stringify({ instruction: '生成故事大纲', retry_of: first.group_id, retry_action: retryAction, request_id: 'user-retry' }) })
+  assert.equal(response.status, 202)
+  const accepted = await response.json(), report = await f.stories.waitStoryOutline(accepted.group_id, f.context.sessionId)
+  assert.equal(report.status, 'completed'); assert.equal(report.parent_group_id, first.group_id)
+  const next = f.records.tasks.detail('drama', report.group_id), input = next.steps[0].prompt.input
+  assert.equal(next.steps[0].kind, retryAction === 'continue' ? 'revise' : 'generate')
+  if (retryAction === 'continue') {
+    assert.deepEqual(input.current_outline, old.steps[0].result.output)
+    assert.deepEqual(input.review_issues, old.steps[1].result.review.issues)
+  } else {
+    assert.deepEqual(input.current_outline, candidate()); assert.equal(input.review_issues, undefined)
+  }
+  assert.equal(f.records.tasks.detail('drama', first.group_id).status, 'rejected')
+  const count = f.calls.length
+  const again = await f.stories.generateStoryOutline({ instruction: '生成故事大纲', retry_of: first.group_id }, { ...f.context, requestId: 'user-retry', source: 'ui', retryAction })
+  assert.equal(again.group_id, accepted.group_id); assert.equal(f.calls.length, count)
+})
+
+test('一次审核收到全部故事段，多个段的问题完整进入同一次修订', async t => {
+  const output = candidate(), second = structuredClone(output.segments[0]); second.id = 'seg_2'; second.key_anchors[0].id = 'seg_2_anchor_001'; second.title = '后续'; output.segments.push(second)
+  const issues = [{ location: 'seg_1.body', reason: '缺少交接', suggestion: '补足交接' }, { location: 'seg_2.continuity.opening', reason: '后段持物状态矛盾', suggestion: '同步持物状态' }]
+  let reviews = 0
+  const f = await fixture(t, call => call.action === 'review' ? ++reviews === 1 ? { status: 'content_issue', issues } : passed : output)
+  const report = await run(f), detail = f.records.tasks.detail('drama', report.group_id)
+  assert.equal(report.status, 'completed')
+  const review = detail.steps.find(step => step.kind === 'review'), revise = detail.steps.find(step => step.kind === 'revise')
+  assert.deepEqual(review.prompt.input.current_outline.segments.map(segment => segment.id), ['seg_1', 'seg_2'])
+  assert.deepEqual(revise.prompt.input.review_issues, issues)
+  const system = f.calls.find(call => call.action === 'review').messages[0].content
+  assert.match(system, /全部2个故事段.*seg_1、seg_2/); assert.match(system, /发现首个问题后不得提前结束/); assert.match(system, /一次性汇总到issues/)
+  assert.match(f.calls.find(call => call.action === 'revise').messages[0].content, /逐项处理review_issues中的全部问题/)
+})
+
+test('有效大纲先自动保存，随后审核网络失败仍保留结果及失败状态', async t => {
+  const f = await fixture(t, call => { if (call.action === 'review') throw new Error('审核服务暂不可用'); return candidate('网络失败前已生成') })
+  const report = await run(f), project = (await f.projects.snapshot(f.context.sessionId)).project
+  assert.equal(report.status, 'failed'); assert.equal(report.saved, true); assert.equal(report.requires_user_decision, true)
+  assert.deepEqual(storyOutput(project), candidate('网络失败前已生成'))
+  assert.equal(project.story_segments.node_state.status, 'rejected')
+  assert.equal(project.story_segments.node_state.last_execution.status, 'failed')
 })

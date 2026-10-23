@@ -18,29 +18,28 @@ export function projectExecutions(records, projectId) {
   return [...latest.values()].map(task => {
     const detail = records.tasks.detail(records.scope, task.group_id)
     const steps = detail.steps.filter(step => step.task_id === task.id)
-    const explicit = steps.findLast(step => step.result?.stop_code)?.result.stop_code
     const review = steps.findLast(step => step.result?.review)?.result.review
     const failed = steps.findLast(step => step.step_status === 'failed')
     const requestFailed = failed?.http?.some(row => row.ok === false)
     const stop_code = task.task_status === 'completed' ? 'completed'
       : task.task_status === 'cancelled' ? 'cancelled'
       : task.task_status === 'failed' ? requestFailed ? 'request_failed' : 'execution_error'
-      : explicit || (['rule_conflict', 'upstream_issue', 'content_issue'].includes(review?.status) ? review.status : 'validation_failed')
+      : (['rule_conflict', 'upstream_issue', 'content_issue'].includes(review?.status) ? review.status : 'validation_failed')
     const warning = steps.findLast(step => step.result?.summary_error)?.result.summary_error
-    return { type: task.node_type, execution: {
+    return { type: task.node_type, saved: steps.some(step => step.result?.saved), execution: {
       task_id: task.id, status: task.task_status, stop_code,
-      message: task.end_reason || (task.task_status === 'completed' ? `${task.name}已完成${warning ? `；${warning}` : ''}` : '执行已停止'),
+      message: (task.task_status === 'rejected' && review ? review.issues.map(issue => `${issue.location}：${issue.reason}；${issue.suggestion}`).join('\n') : task.end_reason) || (task.task_status === 'completed' ? `${task.name}已完成${warning ? `；${warning}` : ''}` : '执行已停止'),
       finished_at: task.ended_at,
     } }
   })
 }
 
 export function applyExecutionStates(project, executions) {
-  for (const { type, execution } of executions) {
+  for (const { type, execution, saved } of executions) {
     const state = nodeState(project, type)
     if (!state) continue
     const changed = state.last_execution?.task_id !== execution.task_id
-    if (changed && execution.status === 'rejected' && ['empty', 'rejected'].includes(state.status)) {
+    if ((changed || state.status === 'rejected') && (execution.status === 'rejected' || saved && ['failed', 'cancelled'].includes(execution.status))) {
       state.status = 'rejected'; state.reason = execution.message
     }
     Object.assign(state, new NodeStateModel({ ...state, last_execution: execution }).toJSON())

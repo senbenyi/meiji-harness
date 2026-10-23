@@ -14,10 +14,10 @@ export const conversation = {
   outcome(group) {
     const saved = group.context.saved
     return { headline: saved ? '大纲完成，已保存' : '操作已完成', description: saved ? '审核通过，故事大纲已更新。' : '本次未更新故事大纲。',
-      retained: '原故事大纲保留，本次未更新。' }
+      retained: saved ? '最新故事大纲已自动保存，审核状态单独记录。' : '本次尚未产生可保存的有效结果。' }
   },
   appendActions(actions, group, finalReference, { get, modal, node, button }) {
-    if (group.status !== 'completed' || !group.context.saved) return
+    if (!group.context.saved) return
     actions.append(button('查看本次大纲', async () => {
       const data = await get(finalReference)
       if (!Array.isArray(data.final_output?.segments)) throw new Error('本次大纲暂不可读')

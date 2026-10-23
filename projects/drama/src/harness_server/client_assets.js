@@ -17,6 +17,7 @@ export const clientAssets = new Map([
   ['client/ui/production-node.js', new URL('../client/ui/production-node.js', import.meta.url)],
   ['client/ui/readable.js', new URL('../client/ui/readable.js', import.meta.url)],
   ['client/ui/settings-ui.js', new URL('../client/ui/settings-ui.js', import.meta.url)],
+  ['client/ui/failure-decision.js', new URL('../client/ui/failure-decision.js', import.meta.url)],
   ['client/ui/task-operation.js', new URL('../client/ui/task-operation.js', import.meta.url)],
   ['client/ui/task-presentation.js', new URL('../client/ui/task-presentation.js', import.meta.url)],
   ['client/workbench.js', new URL('../client/workbench.js', import.meta.url)],

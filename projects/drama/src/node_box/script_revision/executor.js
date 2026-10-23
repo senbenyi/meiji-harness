@@ -24,7 +24,7 @@ export class ScriptRevisionExecutor {
     if (!project || project.basic_info.id !== metadata.project_id) throw new Error('项目已删除或会话归属已改变')
     if (scriptFingerprint(project) !== metadata.input_hash) throw new Error('剧本资料或规则已变化，请重新提交')
     const generated = previousResults.findLast(row => ['generate', 'revise'].includes(row.kind))
-    const expectedOutput = metadata.output_hash
+    const expectedOutput = generated ? digest(generated.result.output) : metadata.output_hash
     if (digest(scriptOutput(project)) !== expectedOutput) throw new Error('优化稿已被其他操作修改，请重新提交')
     const config = await this.models.read(), kind = ctx.step.kind, action = kind
     const lastReview = previousResults.findLast(row => row.result?.review)
@@ -33,7 +33,7 @@ export class ScriptRevisionExecutor {
       current_script: generated ? generated.result.output : savedInput.current_script,
       output_language: savedInput.output_language,
       instruction: savedInput.instruction,
-      ...(kind === 'revise' && lastReview ? { review_issues: lastReview.result.review.issues } : {}),
+      ...(kind === 'revise' && (lastReview || metadata.retry_review_issues) ? { review_issues: lastReview?.result.review.issues || metadata.retry_review_issues } : {}),
     }
     const prompt = composeNodePrompt({ nodeType: 'script_revision', action, rules: nodeRules(project.basic_info.script_revision_node), input, goal: metadata.instruction })
     const model = config.text.model
@@ -53,7 +53,8 @@ export class ScriptRevisionExecutor {
     signal.throwIfAborted()
     const output = parseNodeOutput('script_revision', action, response)
     if (kind === 'generate' || kind === 'revise') {
-      return { result: { output }, nextSteps: [step('review', ctx.step.round)] }
+      await this.projects.saveScriptCandidate(ctx, output, { expectedOutput })
+      return { result: { output, saved: true }, nextSteps: [step('review', ctx.step.round)] }
     }
     const review = output
     if (review.status === 'passed') {
@@ -64,9 +65,8 @@ export class ScriptRevisionExecutor {
     const repeated = previousResults.some(row => row.result?.signature === signature)
     const limit = this.getMaxRevisionRounds()
     const exhausted = ctx.step.round >= limit
-    const reason = (repeated ? '相同内容与规则下重复出现相同审核问题，已停止修订。\n'
-      : exhausted && review.status === 'content_issue' ? `已达到最大修订轮次（${limit}轮），仍未通过审核。\n` : '') + issueReason(review)
-    if (review.status !== 'content_issue' || repeated || exhausted) return { status: 'rejected', reason, result: { review, signature, stop_code: exhausted && review.status === 'content_issue' ? 'revision_limit_reached' : review.status } }
+    const reason = issueReason(review)
+    if (review.status !== 'content_issue' || repeated || exhausted) return { status: 'rejected', reason, result: { review, signature, stop_code: review.status } }
     return { result: { review, signature }, nextSteps: [step('revise', ctx.step.round + 1)] }
   }
 }

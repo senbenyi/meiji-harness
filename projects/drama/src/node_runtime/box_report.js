@@ -29,16 +29,19 @@ export function boxReport(detail) {
   const decision = detail.status === 'completed' ? 'passed'
     : detail.status === 'cancelled' ? 'cancelled'
       : detail.status === 'rejected' ? review?.status || 'content_issue' : 'failed'
+  const saved = Boolean(created || changed || candidate && detail.status === 'completed' || detail.steps.some(step => step.result?.saved))
   return {
     report_id: detail.group.id, group_id: detail.group.id, task_id: task.id,
     project_id: metadata.project_id, session_id: created ? metadata.target_session_id : metadata.session_id || metadata.source_session_id,
     source_session_id: metadata.source_session_id || metadata.session_id,
     node_type: task.node_type, action: task.action, status: detail.status, decision,
-    goal: metadata.goal || metadata.instruction || '创建项目', reason: detail.reason || '',
+    requires_user_decision: ['script_revision', 'story_segments'].includes(task.node_type) && (detail.status === 'failed' || detail.status === 'rejected' && decision === 'content_issue'),
+    goal: metadata.goal || metadata.instruction || '创建项目',
+    reason: detail.status === 'rejected' && review ? review.issues.map(issue => `${issue.location}：${issue.reason}；${issue.suggestion}`).join('\n') : detail.reason || '',
     parent_group_id: metadata.parent_group_id || null,
     issues: structuredClone(review?.issues || []),
     related_nodes: decision === 'upstream_issue' ? task.node_type === 'story_segments' ? ['script_revision'] : ['project'] : decision === 'rule_conflict' ? [task.node_type] : [],
-    saved: Boolean(created || (candidate && detail.status === 'completed') || changed), result_reference: created ? '#/basic_info' : candidate && detail.status === 'completed' ? task.node_type === 'story_segments' ? '#/story_segments/segments' : '#/basic_info/actual_script' : changed?.reference || null,
+    saved, result_reference: created ? '#/basic_info' : candidate && saved ? task.node_type === 'story_segments' ? '#/story_segments/segments' : '#/basic_info/actual_script' : changed?.reference || null,
     ...(created ? { result: created } : {}),
     ...(basicOutput ? { summary: basicOutput.summary, estimated_duration_seconds: basicOutput.estimated_duration_seconds, output: basicOutput } : originalSummary ? { summary: originalSummary } : {}),
     ...(warning ? { warning } : {}),
@@ -46,4 +49,14 @@ export function boxReport(detail) {
       review_packet: { goal: metadata.goal || metadata.instruction, instruction: metadata.instruction,
         ...structuredClone(metadata.input_snapshot || {}), candidate: structuredClone(candidate) } } : {}),
   }
+}
+
+/** 重试决策来自面板点击；模型Tool不可将自身调用伪装为用户选择。 */
+export function userRetry(parent, { source, action }) {
+  if (action === undefined) return null
+  if (source !== 'ui' || !['continue', 'regenerate'].includes(action) || !parent || !boxReport(parent).requires_user_decision)
+    throw new Error('需由用户选择内容审核失败任务的继续修改或重新生成')
+  const candidate = parent.steps.findLast(step => step.result?.output)?.result.output
+  if (action === 'continue' && !candidate) throw new Error('没有可继续修改的有效结果，请选择重新生成')
+  return { candidate: structuredClone(candidate || null), issues: structuredClone(parent.steps.findLast(step => step.result?.review)?.result.review.issues || []) }
 }

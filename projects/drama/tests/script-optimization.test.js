@@ -136,7 +136,7 @@ for (const status of ['rule_conflict','upstream_issue','repeated']) test('审核
   const f = await fixture(t, call => ['generate','revise'].includes(call.action) ? candidate() : issue(status === 'repeated' ? 'content_issue' : status))
   const before = (await f.projects.snapshot(f.context.sessionId)).project
   const result = await run(f), after = (await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(result.status, 'rejected'); assert.deepEqual(scriptOutput(after), scriptOutput(before))
+  assert.equal(result.status, 'rejected'); assert.equal(result.saved, true); assert.deepEqual(scriptOutput(after), candidate())
   assert.deepEqual(f.projects.records.tasks.detail('drama',result.group_id).steps.findLast(step=>step.result?.output)?.result.output,candidate())
   assert.deepEqual(after.basic_info.script_revision_node.rules, before.basic_info.script_revision_node.rules); assert.equal(after.basic_info.original_script_file_path, before.basic_info.original_script_file_path)
   assert.equal(after.basic_info.script_revision_node.status, 'rejected')
@@ -198,11 +198,11 @@ test('Service属性限定三轮自动修订，到上限仍不通过则保留候�
   const f = await fixture(t, call => ['generate','revise'].includes(call.action) ? candidate('版本' + (++generation)) : issue())
   assert.equal(f.scriptRevision.maxRevisionRounds,3)
   const result=await run(f)
-  assert.equal(result.status,'rejected');assert.match(result.reason,/最大修订轮次（3轮）/)
+  assert.equal(result.status,'rejected');assert.equal(result.decision,'content_issue');assert.doesNotMatch(result.reason,/最大修订轮次/)
   assert.equal(generation,4);assert.equal(f.calls.length,8)
   const detail=f.projects.records.tasks.detail('drama',result.group_id)
   assert.deepEqual(detail.steps.filter(step=>step.kind==='revise').map(step=>step.round),[1,2,3])
-  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.basic_info.actual_script,'原稿：主角走进房间。')
+  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.basic_info.actual_script,'版本4')
 })
 
 test('第三轮审核通过可成功，Executor读取Service属性而不是自己的固定轮数', async t => {
@@ -212,7 +212,7 @@ test('第三轮审核通过可成功，Executor读取Service属性而不是自�
   const shorter=await fixture(t,(call,n)=>['generate','revise'].includes(call.action)?candidate('稿'+n):issue())
   shorter.scriptRevision.maxRevisionRounds=1
   const stopped=await run(shorter)
-  assert.equal(stopped.status,'rejected');assert.equal(shorter.calls.length,4);assert.match(stopped.reason,/1轮/)
+  assert.equal(stopped.status,'rejected');assert.equal(shorter.calls.length,4);assert.equal(stopped.decision,'content_issue');assert.doesNotMatch(stopped.reason,/1轮/)
 })
 
 test('已有稿首次按意见修改不占自动修订轮数，后续仍最多三轮', async t => {
@@ -457,7 +457,7 @@ test('Service显式输入契约：当前稿、要求、语言必选，工作稿�
   assert.equal((await f.projects.snapshot(f.context.sessionId)).project.basic_info.script_revision_node.status,'generated','参考时长不再是本节点依赖')
 })
 
-test('停止摘要与内容状态独立：再次未通过保留成功正文，轻量轮询不泄露正文和规则，过期不改停止结论', async t => {
+test('停止摘要与内容状态独立：再次未通过保存最新正文，轻量轮询不泄露正文和规则，过期不改停止结论', async t => {
   let reject = false
   const f = await fixture(t, call => ['generate', 'revise'].includes(call.action) ? candidate(reject ? '未经审核候选' : '已确认工作正文') : reject ? issue('rule_conflict') : passed)
   const first = await run(f)
@@ -466,8 +466,8 @@ test('停止摘要与内容状态独立：再次未通过保留成功正文，�
   reject = true; f.context.requestId = 'second-attempt'
   const second = await run(f, '再次改写')
   const current = (await f.projects.snapshot(f.context.sessionId)).project
-  assert.deepEqual(scriptOutput(current), scriptOutput(accepted))
-  assert.equal(current.basic_info.script_revision_node.status, 'generated')
+  assert.deepEqual(scriptOutput(current), candidate('未经审核候选'))
+  assert.equal(current.basic_info.script_revision_node.status, 'rejected')
   const last = current.basic_info.script_revision_node.last_execution
   assert.equal(last.task_id, second.task_id); assert.notEqual(last.task_id, first.task_id)
   assert.equal(last.status, 'rejected'); assert.equal(last.stop_code, 'rule_conflict'); assert.match(last.message, /动作与要求/)
@@ -551,4 +551,33 @@ test('同工作区恢复会话可执行优化，任务归当前会话且写回�
   assert.equal(project.basic_info.id,f.context.projectId)
   assert.deepEqual(scriptOutput(project),candidate())
   assert.equal((await f.projects.snapshot(f.created.session_id)).project.basic_info.script_revision_node.last_execution.task_id,report.task_id)
+})
+
+for (const retryAction of ['continue', 'regenerate']) test(`用户${retryAction}优化任务沿用正确输入并保持旧任务`, async t => {
+  let allow = false
+  const f = await fixture(t, call => call.action === 'review' ? allow ? passed : issue() : candidate('最后候选稿'))
+  f.scriptRevision.maxRevisionRounds = 0
+  const first = await run(f)
+  assert.equal(first.requires_user_decision, true)
+  const old = f.projects.records.tasks.detail('drama', first.group_id)
+  allow = true
+  const accepted = await f.scriptRevision.optimizeScript({ instruction: '人物改为缓慢转身', retry_of: first.group_id }, { ...f.context, source: 'ui', retryAction, requestId: 'user-retry' })
+  const report = await f.scriptRevision.waitScriptOptimization(accepted.group_id, f.context.sessionId)
+  assert.equal(report.status, 'completed')
+  const next = f.projects.records.tasks.detail('drama', report.group_id), input = next.steps[0].prompt.input
+  assert.equal(input.current_script.actual_script, '最后候选稿')
+  if (retryAction === 'continue') assert.deepEqual(input.review_issues, old.steps[1].result.review.issues)
+  else assert.equal(input.review_issues, undefined)
+  const count = f.calls.length
+  const again = await f.scriptRevision.optimizeScript({ instruction: '人物改为缓慢转身', retry_of: first.group_id }, { ...f.context, source: 'ui', retryAction, requestId: 'user-retry' })
+  assert.equal(again.group_id, accepted.group_id); assert.equal(f.calls.length, count)
+  assert.equal(f.projects.records.tasks.detail('drama', first.group_id).status, 'rejected')
+})
+
+test('有效剧本先自动保存，审核服务失败不撤销结果或清空意见', async t => {
+  const f = await fixture(t, call => { if (call.action === 'review') throw new Error('审核暂不可用'); return candidate('自动保存的剧本') })
+  const report = await run(f), project = (await f.projects.snapshot(f.context.sessionId)).project
+  assert.equal(report.status, 'failed'); assert.equal(report.saved, true); assert.equal(report.requires_user_decision, true)
+  assert.deepEqual(scriptOutput(project), candidate('自动保存的剧本'))
+  assert.equal(project.basic_info.script_revision_node.last_execution.status, 'failed')
 })

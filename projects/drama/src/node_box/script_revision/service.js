@@ -1,5 +1,5 @@
 import { scriptOutput, nodeRules } from '../../node_runtime/node_state.js'
-import { boxReport, waitBoxTask } from '../../node_runtime/box_report.js'
+import { boxReport, waitBoxTask, userRetry } from '../../node_runtime/box_report.js'
 import { RuleChangeExecutor } from './rule_change_executor.js'
 import { join } from 'node:path'
 import { NodeStateModel } from '@agent-modules/task/models'
@@ -45,7 +45,7 @@ export class ScriptRevisionService {
 
   /** 调用参数instruction必选，retry_of可选；上下文sessionId/requestId必选，projectId/source可选。
    * 原稿、已有稿、语言由Service从绑定项目和设置解析，再交executionInput验证。 */
-  optimizeScript({ instruction, retry_of, ...unknown } = {}, { sessionId, projectId, requestId, source = 'api' } = {}) {
+  optimizeScript({ instruction, retry_of, ...unknown } = {}, { sessionId, projectId, requestId, source = 'api', retryAction } = {}) {
     if (Object.keys(unknown).length) throw new TypeError('只允许提交instruction和retry_of')
     if (typeof instruction !== 'string' || !instruction.trim() || instruction.length > 10000) throw new TypeError('请提供1—10000字的剧本优化要求')
     if (typeof sessionId !== 'string' || !sessionId.trim()) throw new TypeError('sessionId必选，需提供有效会话ID')
@@ -58,31 +58,36 @@ export class ScriptRevisionService {
       if (!project || (projectId && project.basic_info.id !== projectId)) throw Object.assign(new Error('当前会话未绑定此项目'), { code: 'PROJECT_SCOPE' })
       projectId = project.basic_info.id
       const parent = retry_of ? this.records.tasks.detail(this.records.scope, retry_of) : null
-      if (retry_of && (!parent || parent.tasks[0].node_type !== 'script_revision' || parent.tasks[0].metadata.session_id !== sessionId
-        || parent.tasks[0].metadata.project_id !== projectId || ['queued', 'running'].includes(parent.status)))
-        throw Object.assign(new Error('原任务不属于当前会话或尚未结束'), { code: 'PROJECT_SCOPE' })
-      if (parent && parent.tasks[0].metadata.input_hash === scriptFingerprint(project)
-        && !(parent.status === 'completed' && instruction.trim() !== parent.tasks[0].metadata.instruction))
-        throw new Error('上游资料或规则尚未变化，请先修复后再派发新任务')
+      if (retryAction && parent) instruction = parent.tasks[0].metadata.instruction
       const id = digest(['script_revision', sessionId, requestId])
       const old = this.records.tasks.detail(this.records.scope, id)
       if (old) {
-        if (old.tasks[0].metadata.instruction !== instruction.trim() || (old.tasks[0].metadata.parent_group_id || undefined) !== retry_of) throw new Error('同一请求ID不能用于不同优化要求')
+        if (old.tasks[0].metadata.instruction !== instruction.trim() || (old.tasks[0].metadata.parent_group_id || undefined) !== retry_of || (old.tasks[0].metadata.retry_action || undefined) !== retryAction) throw new Error('同一请求ID不能用于不同优化要求')
         return { project_id: projectId, group_id: id, status: old.status }
       }
+      if (retry_of && (!parent || parent.tasks[0].node_type !== 'script_revision' || parent.tasks[0].metadata.session_id !== sessionId
+        || parent.tasks[0].metadata.project_id !== projectId || ['queued', 'running'].includes(parent.status)))
+        throw Object.assign(new Error('原任务不属于当前会话或尚未结束'), { code: 'PROJECT_SCOPE' })
+      const retry = userRetry(parent, { source, action: retryAction })
+      if (retryAction === 'continue' && parent.tasks[0].metadata.input_hash !== scriptFingerprint(project)) throw new Error('原任务的资料或规则已变化，请选择重新生成')
+      if (!retry && parent && parent.tasks[0].metadata.input_hash === scriptFingerprint(project)
+        && !(parent.status === 'completed' && instruction.trim() !== parent.tasks[0].metadata.instruction))
+        throw new Error('上游资料或规则尚未变化，请先修复后再派发新任务')
       if (!project.basic_info.actual_script.trim()) throw new Error('请先导入原始剧本，再执行优化')
       if (this.projects.activeExecution(projectId)) throw Object.assign(new Error('该项目已有排队或执行中的剧本任务'), { code: 'PROJECT_ACTIVE' })
       const config = await this.scriptModels.read()
       const input = this.executionInput({ current_script: scriptOutput(project),
         instruction, output_language: config.output_language })
+      if (retryAction === 'continue') input.current_script = retry.candidate
       const metadata = { project_id: projectId, project_name: project.basic_info.name, session_id: sessionId, instruction: instruction.trim(), request_id: requestId,
         node_state_before: structuredClone(project.basic_info.script_revision_node),
         input_hash: scriptFingerprint(project), output_hash: digest(scriptOutput(project)), language: config.output_language,
+        retry_action: retryAction || null, retry_review_issues: retryAction === 'continue' ? retry.issues : null,
         parent_group_id: retry_of || null, goal: parent?.tasks[0].metadata.goal || instruction.trim(),
         input_snapshot: { ...input, rules: nodeRules(project.basic_info.script_revision_node) },
       }
       this.records.tasks.submit(this.records.scope, { group: { id, name: '按要求优化剧本', source, metadata: { project_id: projectId, notify_main: source === 'ui', parent_group_id: retry_of || null } },
-        tasks: [{ node_type: 'script_revision', name: '剧本优化', action: project.basic_info.script_revision_node.status === 'empty' ? 'generate' : 'revise', metadata }],
+        tasks: [{ node_type: 'script_revision', name: '剧本优化', action: retryAction ? retryAction === 'continue' ? 'revise' : 'generate' : project.basic_info.script_revision_node.status === 'empty' ? 'generate' : 'revise', metadata }],
       })
       this.projects.watchProjectTask(id)
       return { project_id: projectId, group_id: id, status: 'queued' }
@@ -119,7 +124,6 @@ export class ScriptRevisionService {
 
 
   saveScriptCandidate(ctx, output, { expectedOutput, passed = false, reason = '' }) {
-    if (!passed) return Promise.resolve()
     const run = this.projects.writes.run(async () => {
       ctx.signal.throwIfAborted()
       const { project_id: id, session_id: sessionId, input_hash: inputHash } = ctx.task.metadata
