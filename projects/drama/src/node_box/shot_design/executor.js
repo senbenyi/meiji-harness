@@ -1,8 +1,9 @@
+import { isDeepStrictEqual } from 'node:util'
 import { nodeRules } from '../../node_runtime/node_state.js'
 import { modelClient } from '@agent-modules/http-client'
 import { composeNodePrompt } from '../../node_runtime/node_prompt_composer.js'
 import { parseNodeOutput } from '../../node_runtime/output_response_parser.js'
-import { digest, shotFingerprint, shotOutput, parseShotCandidate } from './state.js'
+import { parseShotCandidate } from './state.js'
 import { shotReviewHistory } from './review_context.js'
 
 const step = (kind, round = 0) => ({ kind, round, name: { generate: '生成分镜', revise: '按意见修订分镜', review: '分镜本地审核' }[kind], executor: 'ai' })
@@ -23,10 +24,7 @@ export class ShotDesignExecutor {
     const { task, signal, previousResults } = ctx, metadata = task.metadata
     const snapshot = await this.projects.snapshot(metadata.session_id), project = snapshot.project
     if (!project || project.basic_info.id !== metadata.project_id) throw new Error('项目已删除或会话归属已改变')
-    if (shotFingerprint(project) !== metadata.input_hash) throw new Error('分镜输入或规则已变化，请重新提交')
     const generated = previousResults.findLast(row => ['generate', 'revise'].includes(row.kind))
-    const expectedOutput = generated ? digest(generated.result.output) : metadata.output_hash
-    if (digest(shotOutput(project)) !== expectedOutput) throw new Error('分镜已被其他操作修改，请重新提交')
     const config = await this.models.read(), kind = ctx.step.kind, action = kind
     const lastReview = previousResults.findLast(row => row.result?.review)
     const savedInput = metadata.input_snapshot
@@ -58,16 +56,16 @@ export class ShotDesignExecutor {
     signal.throwIfAborted()
     const output = kind === 'review' ? parseNodeOutput('shot_design', action, response) : parseShotCandidate(response, savedInput)
     if (kind === 'generate' || kind === 'revise') {
-      await this.projects.saveShotCandidate(ctx, output, { expectedOutput })
+      await this.projects.saveShotCandidate(ctx, output)
       return { result: { output, saved: true }, nextSteps: [step('review', ctx.step.round)] }
     }
     const review = output
     if (review.status === 'passed') {
-      await this.projects.saveShotCandidate(ctx, generated.result.output, { expectedOutput, passed: true })
+      await this.projects.saveShotCandidate(ctx, generated.result.output, { passed: true })
       return { result: { review } }
     }
-    const signature = digest({ input: metadata.input_hash, candidate: digest(generated.result.output), issues: [...review.issues].sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), status: review.status })
-    const repeated = previousResults.some(row => row.result?.signature === signature)
+    const signature = { candidate: generated.result.output, issues: [...review.issues].sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), status: review.status }
+    const repeated = previousResults.some(row => isDeepStrictEqual(row.result?.signature, signature))
     const limit = this.getMaxRevisionRounds()
     const exhausted = ctx.step.round >= limit
     const reason = issueReason(review)

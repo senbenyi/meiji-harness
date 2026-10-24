@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 import { requestData, sendChat, withRequestTrace, redactJson, publicHeaders, createDispatcher } from '../src/index.js';
-import { getGlobalDispatcher, setGlobalDispatcher } from 'undici';
+import { EnvHttpProxyAgent } from 'undici';
+import { createServer } from 'node:http';
+import { createServer as createTcpServer } from 'node:net';
+import { once } from 'node:events';
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status });
 
@@ -49,6 +52,40 @@ test('读取响应期间超时或外部取消会中止，失败留存原错误',
   await assert.rejects(requestData({ url: 'http://example/' }, { signal: controller.signal, fetchImpl: () => assert.fail('不得发送') }), /外部停止/);
 });
 
+test('普通HTTP连接失败1秒后只重试一次，成功正常记录；响应错误不重试', async () => {
+  let attempts = 0;
+  const started = Date.now(), rows = [];
+  const result = await requestData({ url: 'http://example/reconnect' }, {
+    record: row => rows.push(structuredClone(row)),
+    fetchImpl: async () => {
+      if (++attempts === 1) throw new TypeError('fetch failed', { cause: Object.assign(new Error('refused'), { code: 'ECONNREFUSED' }) });
+      assert.ok(Date.now() - started >= 950);
+      return json({ ok: true });
+    },
+  });
+  assert.equal(attempts, 2); assert.deepEqual(result.data, { ok: true });
+  assert.equal(rows.at(-1).ok, true);
+  attempts = 0;
+  const error = new Error('读取响应失败');
+  await assert.rejects(requestData({ url: 'http://example/body-error' }, {
+    fetchImpl: async () => { attempts++; return { ok: true, status: 200, text: async () => { throw error; } }; },
+  }), thrown => thrown === error);
+  assert.equal(attempts, 1);
+});
+
+test('连接重试等待期间取消，立即结束且不再发请求', async () => {
+  const controller = new AbortController(); let attempts = 0;
+  const pending = requestData({ url: 'http://example/reconnect' }, {
+    signal: controller.signal, fetchImpl: async () => {
+      attempts++;
+      setTimeout(() => controller.abort(new Error('取消重试')), 10);
+      throw Object.assign(new Error('refused'), { code: 'ECONNREFUSED' });
+    },
+  });
+  await assert.rejects(pending, /取消重试/);
+  assert.equal(attempts, 1);
+});
+
 test('文本 503 可重试且每次独立记录，400 和非完整输出不自动重试', async () => {
   const rows = []; let calls = 0;
   const request = { url: 'http://example/chat/completions', headers: {}, body: {} };
@@ -73,15 +110,47 @@ test('并发记录上下文互相隔离，可删除不需保留的轮询记录',
   assert.deepEqual(events, [undefined, { drop: true }]);
 });
 
-test('请求 dispatcher 沿用当前全局代理并设置头/体等待时限', () => {
-  const original = getGlobalDispatcher(); let captured;
-  try {
-    setGlobalDispatcher({ dispatch(options) { captured = options; return true; }, close: async () => {}, destroy: async () => {} });
-    createDispatcher(1234).dispatch({ origin: 'http://example', path: '/' }, {});
-    assert.equal(captured.headersTimeout, 1234); assert.equal(captured.bodyTimeout, 1234);
-  } finally { setGlobalDispatcher(original); }
+test('请求 dispatcher 使用环境代理并保留头/体等待时限', async t => {
+  let captured;
+  t.mock.method(EnvHttpProxyAgent.prototype, 'dispatch', options => { captured = options; return true; });
+  const dispatcher = createDispatcher(1234);
+  t.after(() => dispatcher.close());
+  dispatcher.dispatch({ origin: 'http://example', path: '/' }, {});
+  assert.equal(captured.headersTimeout, 1234); assert.equal(captured.bodyTimeout, 1234);
   assert.equal(publicHeaders({ Authorization: 'secret' }).Authorization, '[已隐藏]');
   assert.equal(redactJson(undefined), null);
+});
+
+test('每次连接5秒超时且1秒后仅重试一次，已连接后慢响应仍成功', async t => {
+  const previous = process.env.no_proxy;
+  process.env.no_proxy = '*';
+  t.after(() => { if (previous === undefined) delete process.env.no_proxy; else process.env.no_proxy = previous; });
+  const dispatcher = createDispatcher();
+  t.after(() => dispatcher.destroy());
+  const sockets = new Set();
+  const stalled = createTcpServer(socket => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); });
+  const slow = createServer(async (req, res) => {
+    if (req.url === '/body') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.write('{"ok":'); }
+    await delay(5500);
+    res.end(req.url === '/body' ? 'true}' : '{"ok":true}');
+  });
+  t.after(() => { for (const socket of sockets) socket.destroy(); stalled.close(); slow.closeAllConnections(); slow.close(); });
+  stalled.listen(0, '127.0.0.1'); slow.listen(0, '127.0.0.1');
+  await Promise.all([once(stalled, 'listening'), once(slow, 'listening')]);
+  const started = Date.now();
+  await Promise.all([
+    assert.rejects(requestData({ url: `https://127.0.0.1:${stalled.address().port}` }, { dispatcher }), error => {
+      assert.equal(error.code, 'NETWORK_CONNECTION_FAILED');
+      assert.equal(error.cause?.cause?.code, 'UND_ERR_CONNECT_TIMEOUT');
+      assert.ok(Date.now() - started >= 10500);
+      assert.ok(Date.now() - started < 14000);
+      return true;
+    }),
+    ...['headers', 'body'].map(async path => {
+      const result = await requestData({ url: `http://127.0.0.1:${slow.address().port}/${path}` }, { dispatcher });
+      assert.deepEqual(result.data, { ok: true });
+    }),
+  ]);
 });
 
 for (const mode of ['requestData', 'sendChat']) {

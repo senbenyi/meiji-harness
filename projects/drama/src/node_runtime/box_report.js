@@ -1,3 +1,5 @@
+import { taskEndReason, TASK_END_REASONS } from '@agent-modules/task/models'
+
 /** 等待程序盒子终态；取消归任务管理器处理，不把未完成结果当成功。 */
 export async function waitBoxTask(records, groupId, signal) {
   if (!records.tasks.detail(records.scope, groupId)) throw new Error('任务不存在')
@@ -30,11 +32,13 @@ export function boxReport(detail) {
     : detail.status === 'cancelled' ? 'cancelled'
       : detail.status === 'rejected' ? review?.status || 'content_issue' : 'failed'
   const saved = Boolean(created || changed || candidate && detail.status === 'completed' || detail.steps.some(step => step.result?.saved))
+  const reasonType = taskEndReason(task, detail.steps)
   return {
     report_id: detail.group.id, group_id: detail.group.id, task_id: task.id,
     project_id: metadata.project_id, session_id: created ? metadata.target_session_id : metadata.session_id || metadata.source_session_id,
     source_session_id: metadata.source_session_id || metadata.session_id,
     node_type: task.node_type, action: task.action, status: detail.status, decision,
+    reason_type: reasonType, reason_label: reasonType ? TASK_END_REASONS[reasonType].label : '',
     requires_user_decision: ['script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image', 'scene_image', 'shot_design'].includes(task.node_type) && (detail.status === 'failed' || detail.status === 'rejected' && decision === 'content_issue'),
     goal: metadata.goal || metadata.instruction || '创建项目',
     reason: detail.status === 'rejected' && review ? review.issues.map(issue => `${issue.location}：${issue.reason}；${issue.suggestion}`).join('\n') : detail.reason || '',

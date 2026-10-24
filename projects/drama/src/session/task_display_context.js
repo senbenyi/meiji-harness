@@ -30,6 +30,7 @@ export function displayContext(detail, task, step) {
     operation_status: task.node_type === 'costume_image' ? detail.status : task.task_status,
     active_step: active ? { name: active.name, seq: active.seq, round: active.round } : null,
     requires_user_decision: report.requires_user_decision, can_continue: task.node_type !== 'costume_image' && Boolean(report.review_packet?.candidate), saved: report.saved, decision: report.decision, stop_reason: report.reason,
+    reason_type: report.reason_type, reason_label: report.reason_label,
     stopped_at: last ? `${last.seq}. ${last.name}${last.round ? `（第${last.round}轮）` : ''}` : '尚未开始执行步骤',
     revision_count: detail.steps.filter(row => row.task_id === task.id && row.kind === 'revise' && row.round > 0 && row.step_status === 'done').length,
     duration_seconds: duration,

@@ -10,7 +10,6 @@ import { ProjectService } from '../src/node_box/project/service.js'
 import { ShotDesignService } from '../src/node_box/shot_design/service.js'
 import { changedShotFields, shotReviewHistory } from '../src/node_box/shot_design/review_context.js'
 import { validateShotCandidate, parseShotCandidate } from '../src/node_box/shot_design/state.js'
-import { expireStoryDependents } from '../src/node_box/story_segments/state.js'
 import { createRecordService } from '../src/records/service.js'
 import { createProjectHttpHandler } from '../src/harness_server/project_routes.js'
 import { GenerateShotsTool } from '../src/tools/generate_shots_tool.js'
@@ -126,7 +125,7 @@ test('分镜达到修订上限后停止，用户继续/重新生成沿用明确�
   assert.equal((await g.run()).status,'failed');assert.deepEqual((await g.projects.snapshot(g.context.sessionId)).project.shot_design.shots,before)
 })
 
-test('分镜harness-http鉴权标识、scope、幂等和互斥，晚到候选不覆盖变化的上游',async t=>{
+test('分镜harness-http鉴权标识、scope、幂等和互斥，候选不通过上游hash拦截',async t=>{
   let release;const held=new Promise(r=>release=r),f=await fixture(t,async(_body,action)=>{if(action==='generate')await held;return action==='review'?passed:candidate()})
   const post=(body,header=true,session=f.context.sessionId)=>fetch(`${f.origin}/api/drama/shots?session_id=${session}`,{method:'POST',headers:{'Content-Type':'application/json',...(header?{'X-Drama-Request':'1'}:{})},body:JSON.stringify(body)})
   const args={project_id:f.context.projectId,request_id:'http',instruction:'突出动作'}
@@ -136,13 +135,13 @@ test('分镜harness-http鉴权标识、scope、幂等和互斥，晚到候选不
   await assert.rejects(f.scenes.waitShots(a.group_id,'other'),/当前会话/)
   const snapshot=await(await fetch(`${f.origin}/api/drama/project?session_id=${f.context.sessionId}`)).json();assert.equal(snapshot.shot_execution.group_id,a.group_id)
   await f.edit(p=>{p.story_segments.segments[0].body+='后来离开。'});release()
-  const report=await f.scenes.waitShots(a.group_id,f.context.sessionId);assert.equal(report.status,'failed');assert.equal(report.saved,false)
-  assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.shot_design.shots,[])
+  const report=await f.scenes.waitShots(a.group_id,f.context.sessionId);assert.equal(report.status,'completed');assert.equal(report.saved,true)
+  assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.shot_design.shots,candidate().shots)
   assert.equal((await fetch(`${f.origin}/plugins/drama/src/node_box/shot_design/ui/conversation/history.js`)).status,200)
   assert.equal((await fetch(`${f.origin}/plugins/drama/src/node_box/shot_design/service.js`)).status,404)
 })
 
-test('分镜修改和重新生成动作明确，意见传入模型，下游过期而原资料/图片保留',async t=>{
+test('分镜修改和重新生成动作明确，意见传入模型，暂不触发下游过期且原资料/图片保留',async t=>{
   const f=await fixture(t);await f.run()
   await f.edit(p=>{p.clip_arrangement.node_state.status='generated';p.video_prompt.node_state.status='generated';p.shot_design.node_state.opinion='提高表演张力'})
   const a=await f.scenes.generateShots({instruction:'提高表演张力',regenerate:true},{...f.context,requestId:'regen'});await f.scenes.waitShots(a.group_id,f.context.sessionId)
@@ -151,7 +150,7 @@ test('分镜修改和重新生成动作明确，意见传入模型，下游过�
   const old=(await f.projects.snapshot(f.context.sessionId)).project
   await f.projects.edit({kind:'rules',node_type:'shot_design',action:'generate',field:'supplement',value:'更明确摄影角度',previousValue:''},{...f.context})
   const p=(await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(p.shot_design.node_state.status,'expired');assert.equal(p.clip_arrangement.node_state.status,'expired');assert.equal(p.video_prompt.node_state.status,'expired');assert.deepEqual(p.scene_extraction,old.scene_extraction)
+  assert.equal(p.shot_design.node_state.status,'generated');assert.equal(p.clip_arrangement.node_state.status,'generated');assert.equal(p.video_prompt.node_state.status,'generated');assert.deepEqual(p.scene_extraction,old.scene_extraction)
 })
 
 test('分镜规则冲突须授权且校验旧值，修改后不自动重跑',async t=>{

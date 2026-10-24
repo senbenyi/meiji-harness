@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import { RulesModel } from '@agent-modules/prompt-composer'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
-import { expireCharacterDependents } from './state.js'
 
 export function validateRulePatch(patch) {
   if (!patch || Object.keys(patch).some(key => !['action', 'field', 'value', 'previous_value'].includes(key))
@@ -42,7 +41,6 @@ export class CharacterRulesExecutor {
         project.character_extraction.node_state.rules = new RulesModel(data).toJSON().rules
         project.character_extraction.node_state = new NodeStateModel({ ...project.character_extraction.node_state,
           status: project.character_extraction.characters.length ? 'expired' : 'empty', reason: project.character_extraction.characters.length ? '规则已修改，等待主Agent重新派发' : '' }).toJSON()
-        expireCharacterDependents(project)
       })
       ctx.signal.throwIfAborted()
       await manager.model.update()

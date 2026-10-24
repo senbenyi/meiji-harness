@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import { RulesModel } from '@agent-modules/prompt-composer'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
-import { expireStoryDependents } from './state.js'
 
 export function validateRulePatch(patch) {
   if (!patch || Object.keys(patch).some(key => !['action', 'field', 'value', 'previous_value'].includes(key))
@@ -42,7 +41,6 @@ export class StoryRulesExecutor {
         project.story_segments.node_state.rules = new RulesModel(data).toJSON().rules
         project.story_segments.node_state = new NodeStateModel({ ...project.story_segments.node_state,
           status: project.story_segments.segments.length ? 'expired' : 'empty', reason: project.story_segments.segments.length ? '规则已修改，等待主Agent重新派发' : '' }).toJSON()
-        expireStoryDependents(project)
       })
       ctx.signal.throwIfAborted()
       await manager.model.update()

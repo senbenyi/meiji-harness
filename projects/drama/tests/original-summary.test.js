@@ -34,6 +34,30 @@ async function fixture(t) {
 
 const create = (f, script = '') => f.projects.create({ name: '摘要测试', original_script: script }, { sessionId: 'source', requestId: randomUUID() })
 
+test('模型拒绝连接时HTTP层1秒后重试一次，面板摘要终态停止loading并保留原稿', { timeout: 5000 }, async t => {
+  const f = await fixture(t), unavailable = createServer()
+  await new Promise(resolve => unavailable.listen(0, '127.0.0.1', resolve))
+  const baseUrl = `http://127.0.0.1:${unavailable.address().port}/v1`
+  await new Promise(resolve => unavailable.close(resolve))
+  f.projects.configureOriginalSummary({ read: async () => ({ baseUrl, text: { model: 'writer' }, output_language: 'zh-CN' }) })
+  const started = Date.now()
+  const created = await f.projects.create({ name: '连接失败仍保留', original_script: '已保存的原稿' }, { sessionId: 'source', requestId: 'connection-failure', source: 'ui' })
+  await f.records.tasks.idle(f.records.scope)
+  assert.ok(Date.now() - started >= 950)
+  const snapshot = await f.projects.snapshot(created.session_id)
+  assert.equal(snapshot.project.basic_info.actual_script, '已保存的原稿')
+  assert.equal(snapshot.project.basic_info.summary, '')
+  assert.equal(snapshot.original_summary_execution, null)
+  const detail = f.records.tasks.detail(f.records.scope, created.group_id)
+  assert.equal(detail.status, 'failed')
+  assert.match(detail.reason, /网络连接失败/)
+  assert.equal(detail.steps.find(step => step.kind === 'extract_summary').step_status, 'failed')
+  assert.equal(detail.steps.find(step => step.kind === 'extract_summary').result.error_code, 'NETWORK_CONNECTION_FAILED')
+  assert.equal(snapshot.project.basic_info.create_project_node.last_execution.stop_code, 'network_connection_failed')
+  assert.equal(f.records.tasks.activeGroups(f.records.scope).length, 0)
+  assert.equal(f.records.http.list().at(-1).ok, false)
+})
+
 test('创建有原稿提取一次摘要、无原稿跳过；任务/提示词/调用关联，重试不重复提取', async t => {
   const f = await fixture(t), context = { sessionId: 'source', requestId: 'one' }
   const created = await f.projects.create({ name: '有原稿', original_script: '小雨归还雨伞。' }, context)
@@ -191,7 +215,7 @@ test('项目节点两字段为完整输出，缺失或无效估时不保存半�
   })
 })
 
-test('原稿不变但优化结果已同步时，后台提取不得覆盖较新项目output',async t=>{
+test('原稿未变化时摘要保存不再使用hash阻止结果写入',async t=>{
   const f=await fixture(t)
   let release,entered
   const gate=new Promise(resolve=>{release=resolve}),started=new Promise(resolve=>{entered=resolve})
@@ -204,6 +228,6 @@ test('原稿不变但优化结果已同步时，后台提取不得覆盖较新�
   manager.change(project=>{Object.assign(project.basic_info,output)})
   await manager.model.update();release()
   const result=await pending
-  assert.match(result.warning,/拒绝覆盖较新结果/)
-  assert.deepEqual(scriptSummary((await f.projects.snapshot(created.session_id)).project),output)
+  assert.equal(result.warning,undefined)
+  assert.deepEqual(scriptSummary((await f.projects.snapshot(created.session_id)).project),{summary:'旧原稿摘要',estimated_duration_seconds:90})
 })

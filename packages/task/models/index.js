@@ -1,6 +1,33 @@
 export const TASK_STATUS = Object.freeze(['queued', 'running', 'completed', 'rejected', 'failed', 'cancelled']);
 export const STEP_STATUS = Object.freeze(['ready', 'running', 'done', 'rejected', 'failed', 'skipped', 'cancelled']);
 export const NODE_STATUS = Object.freeze(['empty', 'generated', 'rejected', 'expired']);
+export const TASK_END_REASONS = Object.freeze(Object.fromEntries([
+  ['completed', '完成', ['completed']],
+  ['cancelled', '取消', ['cancelled']],
+  ['network_connection_failed', '网络连接失败', ['failed']],
+  ['request_failed', '请求失败', ['failed']],
+  ['validation_failed', '输出校验失败', ['failed', 'rejected']],
+  ['execution_error', '执行错误', ['failed']],
+  ['content_issue', '内容问题', ['rejected']],
+  ['upstream_issue', '上游资料问题', ['rejected']],
+  ['rule_conflict', '规则冲突', ['rejected']],
+  ['revision_limit_reached', '修订次数耗尽', ['rejected']],
+].map(([code, label, statuses]) => [code, Object.freeze({ label, statuses: Object.freeze(statuses) })])));
+
+/** 只按已持久化的步骤事实分类，不根据错误文案猜测原因。 */
+export function taskEndReason(task, steps) {
+  if (['queued', 'running'].includes(task.task_status)) return null;
+  if (['completed', 'cancelled'].includes(task.task_status)) return task.task_status;
+  const own = steps.filter(step => step.task_id === task.id);
+  if (task.task_status === 'rejected') {
+    const review = own.findLast(step => step.result?.review)?.result.review;
+    return TASK_END_REASONS[review?.status]?.statuses.includes('rejected') ? review.status : 'validation_failed';
+  }
+  const failed = own.findLast(step => step.step_status === 'failed');
+  if (failed?.result?.error_code === 'NETWORK_CONNECTION_FAILED') return 'network_connection_failed';
+  if (failed?.result?.error_code === 'INVALID_NODE_OUTPUT') return 'validation_failed';
+  return failed?.http?.some(row => row.ok === false) ? 'request_failed' : 'execution_error';
+}
 export const terminalTask = task => !['queued', 'running'].includes(task.task_status);
 export const terminalStep = step => !['ready', 'running'].includes(step.step_status);
 export const createId = () => globalThis.crypto.randomUUID();
@@ -121,8 +148,7 @@ export class NodeStateModel extends Model {
       if (Object.keys(e).sort().join(',') !== 'finished_at,message,status,stop_code,task_id') invalid('last_execution', '结束摘要字段不完整或包含未知字段');
       text(e.task_id, 'last_execution.task_id', true); text(e.message, 'last_execution.message', true);
       timestamp(e.finished_at, 'last_execution.finished_at');
-      const statuses = { completed: ['completed'], rejected: ['revision_limit_reached', 'content_issue', 'rule_conflict', 'upstream_issue', 'validation_failed'], failed: ['request_failed', 'execution_error'], cancelled: ['cancelled'] };
-      if (!statuses[e.status]?.includes(e.stop_code)) invalid('last_execution.stop_code', '与执行终态不一致');
+      if (!TASK_END_REASONS[e.stop_code]?.statuses.includes(e.status)) invalid('last_execution.stop_code', '与执行终态不一致');
     }
     if (!NODE_STATUS.includes(v.status)) invalid('status', '未知节点数据状态');
     text(v.reason, 'reason'); text(v.dependency_hash, 'dependency_hash');

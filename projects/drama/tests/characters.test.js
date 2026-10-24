@@ -112,7 +112,7 @@ test('一键全部生成三张定妆照，保存即完成且不请求审核，�
   assert.equal(traversal.status, 422)
 })
 
-test('角色内容问题修订后审核；再次提取保留照片，上游变化标记过期', async t => {
+test('角色内容问题修订后审核；再次提取保留照片，未接入HashService不自动过期', async t => {
   let reviewed = false
   const f = await fixture(t, (_body, action) => {
     if (action !== 'review') return candidate()
@@ -127,7 +127,7 @@ test('角色内容问题修订后审核；再次提取保留照片，上游变�
   await f.extract('again')
   assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.character_extraction.assets, before)
   await f.projects.edit({ kind: 'rules', node_type: 'character_extraction', action: 'generate', field: 'supplement', value: '保留姓名', previousValue: '' }, f.context)
-  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.character_extraction.node_state.status, 'expired')
+  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.character_extraction.node_state.status, 'generated')
 })
 
 test('定妆照生图失败保留旧图片，并停止后续批次', async t => {
@@ -170,7 +170,7 @@ test('角色tab包含定妆照子盒子、一键全部和每套单张按钮，�
   assert.match(root.textContent, /正在生成定妆照/)
 })
 
-test('图片生成期间角色变化，拒绝迟到结果覆盖项目；面板路由隔离并支持单角色重试', async t => {
+test('图片生成期间角色变化不做hash拦截；面板路由隔离并支持单角色重试', async t => {
   let f, changeDuringImage = false
   f = await fixture(t, async (_body, action) => {
     if (action === 'image' && changeDuringImage) await f.edit(project => { project.character_extraction.characters[0].facial_features = '新确认的疤痕' })
@@ -184,8 +184,8 @@ test('图片生成期间角色变化，拒绝迟到结果覆盖项目；面板�
   assert.equal((await post('characters', { project_id: 'other', request_id: 'other', instruction: '提取' })).status, 403)
   const accepted = await (await post('costume-images', { project_id: f.context.projectId, request_id: 'late-image', character_id: '林舟', costume_id: 'coat' })).json()
   const report = await f.images.wait(accepted.group_id, f.context.sessionId)
-  assert.equal(report.status, 'failed'); assert.equal(report.saved, false)
-  assert.equal(imageTargets((await f.projects.snapshot(f.context.sessionId)).project, '林舟', 'coat')[0].image.address, '')
+  assert.equal(report.status, 'completed'); assert.equal(report.saved, true)
+  assert.ok(imageTargets((await f.projects.snapshot(f.context.sessionId)).project, '林舟', 'coat')[0].image.address)
   changeDuringImage = false
   const retry = await (await post('costume-images', { project_id: f.context.projectId, request_id: 'retry-late', retry_of: accepted.group_id, retry_action: 'regenerate' })).json()
   assert.equal((await f.images.wait(retry.group_id, f.context.sessionId)).status, 'completed')
@@ -239,7 +239,7 @@ test('团队与人物输出各自严格校验，旧人物投影不修改源资�
   assert.deepEqual(projected.characters[0].group_ids,[]);assert.equal(projected.characters[0].costumes[0].group_id,'');assert.deepEqual(legacy,before)
 })
 
-test('团队会话Tool独立生成保存，人物只引用团队，图片继承选定制服并按实际关联过期', async t => {
+test('团队会话Tool独立生成保存，人物只引用团队，图片继承选定制服但暂不自动过期', async t => {
   let output=teamCandidate()
   const f=await fixture(t,(_body,action)=>action==='review'?passed:output)
   await f.edit(project=>{project.group_setting.node_state.status='empty';project.scene_extraction.scenes=[{id:'station',name:'高寒救援站',layout:'进门左侧装备架'}]})
@@ -261,13 +261,13 @@ test('团队会话Tool独立生成保存，人物只引用团队，图片继承�
   const before=await portrait(f)
   output.groups[0].costumes[1].description='另一套夏装'
   await groupRun(f,'unselected');assert.equal((await portrait(f)).node_state.status,'generated')
-  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.character_extraction.node_state.status,'expired')
+  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.character_extraction.node_state.status,'generated')
   await f.extract('confirm-person')
   output.groups.push({...structuredClone(output.groups[0]),id:'other',name:'其他队伍',appearance:'与林舟无关的团队形象'})
   await groupRun(f,'unrelated');assert.equal((await portrait(f)).node_state.status,'generated')
   output.groups[0].appearance='成年男女，面部有冻伤，体格各异'
   await groupRun(f,'related')
-  const after=await portrait(f);assert.equal(after.address,before.address);assert.equal(after.node_state.status,'expired')
+  const after=await portrait(f);assert.equal(after.address,before.address);assert.equal(after.node_state.status,'generated')
   assert.equal(f.calls.filter(row=>row.action==='image').length,1)
   const states=await f.projects.nodeStates(f.context.sessionId);assert.equal(states.nodes.group_setting.status,'generated');assert.equal(states.nodes.group_setting.last_execution.status,'completed')
 })
@@ -286,7 +286,7 @@ test('空团队独立审核有效，不自动生成人物或图片，人物与�
   const changed=(await f.projects.snapshot(f.context.sessionId)).project
   assert.equal(changed.group_setting.node_state.opinion,'团队意见');assert.equal(changed.group_setting.node_state.rules.generate.supplement,'团队补充')
   assert.equal(changed.character_extraction.node_state.opinion,'');assert.equal(changed.character_extraction.node_state.rules.generate.supplement,'')
-  assert.equal(changed.group_setting.node_state.status,'expired')
+  assert.equal(changed.group_setting.node_state.status,'generated')
 })
 
 test('团队候选审核未通过仍保存，用户继续修改单独关联原任务；规则修复受授权约束', async t => {
@@ -360,7 +360,7 @@ test('三卡各有独立操作和loading，团队连点只提交一次，不触�
   release();await new Promise(resolve=>setImmediate(resolve));assert.match(root.querySelector('[data-node-type=group_setting] [aria-live]').textContent,/排队中/)
 })
 
-test('团队更新期间旧人物和图片结果拒绝覆盖，旧场景输入变化也拒绝团队结果', async t => {
+test('团队与场景变化不通过hash拦截人物和图片结果', async t => {
   let f,mutate=''
   f=await fixture(t,async(_body,action,_calls,nodeType)=>{
     if(action==='image'&&mutate==='image')await f.edit(project=>{project.group_setting.groups[0].appearance='新的团队形象'})
@@ -370,10 +370,10 @@ test('团队更新期间旧人物和图片结果拒绝覆盖，旧场景输入�
   })
   await groupRun(f);await f.extract();mutate='image'
   const accepted=await f.images.generate({character_id:'林舟',costume_id:'coat'},{...f.context,requestId:'late-image'})
-  const image=await f.images.wait(accepted.group_id,f.context.sessionId);assert.equal(image.status,'failed');assert.equal(image.saved,false);assert.equal((await portrait(f)).address,'')
-  mutate='person';const person=await f.extract('late-person');assert.equal(person.status,'failed');assert.equal(person.saved,false)
-  mutate='scene';const team=await groupRun(f,'late-team');assert.equal(team.status,'failed');assert.equal(team.saved,false)
-  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.group_setting.groups[0].appearance,'再次变更的团队形象')
+  const image=await f.images.wait(accepted.group_id,f.context.sessionId);assert.equal(image.status,'completed');assert.equal(image.saved,true);assert.ok((await portrait(f)).address)
+  mutate='person';const person=await f.extract('late-person');assert.equal(person.status,'completed');assert.equal(person.saved,true)
+  mutate='scene';const team=await groupRun(f,'late-team');assert.equal(team.status,'completed');assert.equal(team.saved,true)
+  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.group_setting.groups[0].appearance,teamCandidate().groups[0].appearance)
 })
 
 test('旧合并团队资料只在读取时补独立节点，新大纲可修复旧段落引用', async t => {

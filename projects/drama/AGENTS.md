@@ -1,6 +1,8 @@
 # drama 开发入口
 
 - 遵守根 `AGENTS.md` 与 `.agents/agent-harness-dev.md`。
+- 盒子结束原因统一使用`@agent-modules/task/models`的`TASK_END_REASONS`枚举和`taskEndReason`；Task终态与原因类型分开，报告携带`reason_type/reason_label`，界面不将所有failed映射为执行错误。网络连接失败（network_connection_failed）对所有盒子仅展示结果、不唤醒主Agent；旧错误码通过records.sqlite显式一次性迁移。
+- 内容指纹、跨盒子一致性与下游过期处理集中于`src/project_runtime/hash-service.js`的`HashService`，目前未接入生产执行链。盒子Service/Executor不生成或读取input_hash/output_hash，不按内容hash拒绝保存或自动使下游/照片过期；资产state仅维护ID映射与历史资源。请求幂等ID和原稿文件身份由`request-identity.js`维护，审核重复问题用直接内容比较，保留项目归属、活动Task、取消与字段校验。
 - 当前架构见 `docs/开发方向.md`；项目结构说明见 `docs/project_detail.json`，程序不得读取该文档作为运行时模板。
 - 业务代码放 `src/`；公共规则与状态分别使用 `@agent-modules/prompt-composer`、`@agent-modules/task/models`。不导入 meiji 业务模块。
 - 项目 JSON 经 `ProjectManager` / `ProjectModel.update()` 写入 `$DSH_HOME/storages/drama/projects/<id>/project.json`；工作区/会话及创建请求索引单独保存于 `bindings.json`。
@@ -13,11 +15,11 @@
 
 - 剧本优化入口为 `src/tools/optimize_script_tool.js`，执行器为 `src/node_box/script_revision/executor.js`；运行用独立有界模型请求，生成/本地审核/修订使用文本模型，项目审核使用主Agent模型。
 
-- 故事大纲入口为 `src/tools/generate_story_outline_tool.js`，Service/Executor位于 `src/node_box/story_segments/`；面板及会话共用生成入口。输入为basic_info（仅actual_script/summary/estimated_duration_seconds）、current_outline、instruction、output_language，与规则中的basic_info.actual_script路径一致。优化剧本可选，有工作稿即可生成。完整集合严格校验且拒绝空集合、重复段/锚点ID，每次结构有效的生成/修订立即替换segments并同步Task；本地内容问题最多修订3轮，失败/取消保留最新已保存结果与各轮记录。意见、规则、记录、结束摘要、下游过期及专属UI见开发方向“故事大纲生成”。
+- 故事大纲入口为 `src/tools/generate_story_outline_tool.js`，Service/Executor位于 `src/node_box/story_segments/`；面板及会话共用生成入口。输入为basic_info（仅actual_script/summary/estimated_duration_seconds）、current_outline、instruction、output_language，与规则中的basic_info.actual_script路径一致。优化剧本可选，有工作稿即可生成。完整集合严格校验且拒绝空集合、重复段/锚点ID，每次结构有效的生成/修订立即替换segments并同步Task；本地内容问题最多修订3轮，失败/取消保留最新已保存结果与各轮记录。意见、规则、记录、结束摘要、下游过期设计及专属UI见开发方向“故事大纲生成”。
 
 - 场景提取是独立 `scene_extraction` 文本盒子，`src/node_box/scene_extraction/`维护Service/Executor/状态/规则修复及panel/conversation。面板 `/api/drama/scenes` 与会话 `drama-extract-scenes` 共用入口，输入story_outline/current_scenes/instruction/output_language；沿用既有字段，仅输出scenes，允许有效空集合、拒绝重复ID。结构有效候选即时保存，审核/修订/失败用户决策与其他文本盒子一致。场景资产按scene_id保留和过期，不自动生图；更新联动团队、人物和后续生产状态。详见开发方向“场景提取”。
 
-- 团队设定是独立 `group_setting` AI盒子，Service/Executor及panel/conversation在 `src/node_box/group_setting/`；面板 `/api/drama/groups` 与会话 `drama-generate-groups` 共用入口，完整生成/审核/修订后只保存groups。人物提取只保存characters，读取已确认团队并校验成员/制服/故事段引用；无团队也先执行团队盒子得到通过的空集合。角色tab保持团队设定、人物提取、定妆照三卡；任务、意见、规则和状态独立，不自动串行执行或生图。团队变化使人物/下游过期，照片按实际关联过期；旧合并数据读取时补独立节点，私有规则不覆盖。详见开发方向“团队设定、人物提取与定妆照”。
+- 团队设定是独立 `group_setting` AI盒子，Service/Executor及panel/conversation在 `src/node_box/group_setting/`；面板 `/api/drama/groups` 与会话 `drama-generate-groups` 共用入口，完整生成/审核/修订后只保存groups。人物提取只保存characters，读取已确认团队并校验成员/制服/故事段引用；无团队也先执行团队盒子得到通过的空集合。角色tab保持团队设定、人物提取、定妆照三卡；任务、意见、规则和状态独立，不自动串行执行或生图。团队/人物/照片的依赖过期逻辑已移入未接入的HashService；旧合并数据读取时补独立节点，私有规则不覆盖。详见开发方向“团队设定、人物提取与定妆照”。
 
 - `src/harness_server/` 只提供harness-http路由、认证、静态资源和SSE，不承载盒子业务。根插件组装项目管理、剧本优化服务及共享记录；不设顶层service转发层，也不保留旧目录代理。HTTP分类和记录归属统一遵守根开发指引的“HTTP术语与记录归属”。
 
@@ -31,7 +33,7 @@
 
 - 盒子步骤结束后将完整结果写入任务固定所属会话，仅展示、不进入模型上下文。审核有问题显示红色“未通过”，保留每轮修改及复审；面板受理、各步骤和盒子终态各用稳定ID去重。面板操作统一展示请求、聚合执行组及最终保存结果，空/正常会话复用client/ui/task-operation组件，失败终态单独挂载client/ui/failure-decision卡片，显示真实保存事实与用户操作；正常会话附加于对应原生command公开座位并仅隐藏本组原生展示，不伪造聊天轮次。盒子输入取metadata.input_snapshot，步骤输入取step.prompt.input；完整内容随会话首次加载预载，eager/after轮询只补新增详情及pending任务终态；展开优先同步使用缓存，compact消息列表不携带正文/规则/输出，历史不读取最新项目补造。展示和主Agent通知独立持久化与重试：成功/取消不唤醒AI，最终rejected/failed才发drama-box-report规划消息，但终态content_issue或执行failed只展示并等待用户选择继续修改、停止或重新生成，不唤醒主Agent；中间审核失败仅展示。不创建任务专用或失败兜底会话；创建尚未产生项目会话时归来源会话，创建成功后归项目会话。详见开发方向“面板任务与会话交接”。
 
-- 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；按project/definition.js契约保存basic_info.summary及estimated_duration_seconds，创建状态使用basic_info.create_project_node；失败仅警告、不撤回主操作。优化稿继续随正文返回摘要和估时，并在审核通过后同步到basic_info，不新增摘要调用。
+- 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；按project/definition.js契约保存basic_info.summary及estimated_duration_seconds，创建状态使用basic_info.create_project_node；输出校验等摘要失败仅警告、不撤回主操作；网络连接失败在HTTP层等待1秒重试一次，仍失败则结束盒子，任务failed、原因“网络连接失败”，保留已保存原稿，不进入审核或修订。优化稿继续随正文返回摘要和估时，并在审核通过后同步到basic_info，不新增摘要调用。
 
 - 盒子执行边界：Service创建/提交Task并返回结果；Executor注册节点、声明/追加Step并使用执行上下文记录提示词和调用；公共TaskManager统一写状态、时间与步骤结果，双方不直接写任务数据库。一次业务盒子执行一个Task，内部修订追加Step，重新派发才新建Task；TaskGroup只是任务组织容器。项目盒子的ProjectExecutor与创建程序子执行器位于project/executor.js，Service仅提供受理及数据读写能力。
 

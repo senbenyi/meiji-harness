@@ -12,7 +12,7 @@ import { GenerateStoryOutlineTool } from '../src/tools/generate_story_outline_to
 import { ChangeRulesTool } from '../src/tools/planning_tools.js'
 import { createRecordService } from '../src/records/service.js'
 import { createProjectHttpHandler } from '../src/harness_server/project_routes.js'
-import { storyOutput, storyFingerprint, validateStoryCandidate } from '../src/node_box/story_segments/state.js'
+import { storyOutput, validateStoryCandidate } from '../src/node_box/story_segments/state.js'
 import { displayContext } from '../src/session/task_display_context.js'
 import { taskHistoryPresentation } from '../src/client/ui/task-presentation.js'
 
@@ -64,7 +64,7 @@ test('会话Tool生成、审核、保存完整大纲；输入有界，记录关�
   assert.equal(report.status, 'completed'); assert.equal(report.saved, true); assert.equal(report.result_reference, '#/story_segments/segments')
   const project = (await f.projects.snapshot(f.context.sessionId)).project
   assert.deepEqual(storyOutput(project), candidate()); assert.equal(project.story_segments.node_state.status, 'generated')
-  assert.equal(project.story_segments.node_state.dependency_hash, storyFingerprint(project))
+  assert.equal(project.story_segments.node_state.dependency_hash, '')
   assert.equal(project.basic_info.script_revision_node.status, 'empty', '不强制先优化')
   assert.equal(project.basic_info.actual_script, '林舟在旧车站把信交还陈叔。')
   assert.deepEqual(f.calls.map(row => [row.action, row.model]), [['generate', 'writer-test'], ['review', 'writer-test']])
@@ -94,7 +94,7 @@ test('会话Tool生成、审核、保存完整大纲；输入有界，记录关�
   assert.equal(project.story_segments.node_state.last_execution.stop_code, 'completed')
 })
 
-test('本地内容问题自动修订后通过，完整候选与审核意见传入；修改保留ID、消费原意见且过期下游', async t => {
+test('本地内容问题自动修订后通过，完整候选与审核意见传入；修改保留ID、消费原意见且保留下游状态', async t => {
   let reviews = 0, generations = 0
   const f = await fixture(t, call => call.action === 'review' ? (++reviews === 1 ? issue() : passed) : candidate(`第${++generations}稿`))
   await f.projects.edit({ kind: 'node_opinion', node_type: 'story_segments', previousValue: '', value: '补全递信' }, f.context)
@@ -105,7 +105,7 @@ test('本地内容问题自动修订后通过，完整候选与审核意见传�
   assert.deepEqual(detail.steps[2].prompt.input.review_issues, issue().issues)
   assert.equal(detail.steps[2].prompt.input.current_outline.segments[0].body, '第1稿')
   const project = (await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(project.story_segments.node_state.opinion, ''); assert.equal(project.character_extraction.node_state.status, 'expired')
+  assert.equal(project.story_segments.node_state.opinion, ''); assert.equal(project.character_extraction.node_state.status, 'generated')
   assert.equal(project.character_extraction.characters[0].name, '林舟')
   f.context.requestId = 'next'
   const modified = await run(f, '继续完善')
@@ -139,7 +139,8 @@ test('空集合/重复ID/缺字段/异常响应不保存；缺剧本与非法入
     const f = await fixture(t, () => value), report = await run(f)
     assert.equal(report.status, 'failed'); assert.equal(report.saved, false)
     const project = (await f.projects.snapshot(f.context.sessionId)).project
-    assert.deepEqual(project.story_segments.segments, []); assert.equal(project.story_segments.node_state.last_execution.stop_code, 'execution_error')
+    assert.deepEqual(project.story_segments.segments, []); assert.equal(project.story_segments.node_state.last_execution.stop_code,
+      typeof value === 'string' || value.segments[0]?.title === '缺字段' ? 'validation_failed' : 'execution_error')
   })
   const f = await fixture(t, undefined, '')
   await assert.rejects(f.stories.generateStoryOutline({ instruction: '生成' }, f.context), /导入剧本/)
@@ -194,7 +195,7 @@ test('取消不保存迟到结果，执行期间的新意见保留，Task终态�
   await reopened.writes.run(() => {}); await records.dispose()
 })
 
-test('审核期间上游被外部改变时拒绝迟到提交；正常新意见不会被成功消费', async t => {
+test('审核期间不通过上游hash拦截结果；正常新意见不会被成功消费', async t => {
   for (const changed of ['script', 'opinion']) await t.test(changed, async t => {
     let entered, release
     const started = new Promise(resolve => entered = resolve), gate = new Promise(resolve => release = resolve)
@@ -205,7 +206,7 @@ test('审核期间上游被外部改变时拒绝迟到提交；正常新意见�
     else await f.projects.edit({ kind: 'node_opinion', node_type: 'story_segments', previousValue: '', value: '新意见' }, f.context)
     release(); const report = await f.stories.waitStoryOutline(accepted.group_id, f.context.sessionId)
     const project = (await f.projects.snapshot(f.context.sessionId)).project
-    if (changed === 'script') { assert.equal(report.status, 'failed'); assert.deepEqual(storyOutput(project), candidate()) }
+    if (changed === 'script') { assert.equal(report.status, 'completed'); assert.deepEqual(storyOutput(project), candidate()) }
     else { assert.equal(report.status, 'completed'); assert.equal(project.story_segments.node_state.opinion, '新意见') }
   })
 })
@@ -214,7 +215,8 @@ test('规则冲突按报告节点请求授权，拒绝不写；获准修改后�
   let conflict = true
   const f = await fixture(t, call => call.action === 'review' ? conflict ? issue('rule_conflict') : passed : candidate())
   const report = await run(f), project = (await f.projects.snapshot(f.context.sessionId)).project
-  await assert.rejects(f.stories.generateStoryOutline({ instruction: '生成故事大纲', retry_of: report.group_id }, { ...f.context, requestId: 'blind' }), /尚未变化/)
+  const sameInput = await f.stories.generateStoryOutline({ instruction: '生成故事大纲', retry_of: report.group_id }, { ...f.context, requestId: 'blind' })
+  assert.equal((await f.stories.waitStoryOutline(sameInput.group_id, f.context.sessionId)).decision, 'rule_conflict')
   const previous = project.story_segments.node_state.rules.review.base
   const changer = new ChangeRulesTool({ projects: f.projects, records: f.records, storySegments: f.stories, scriptRevision: f.scripts })
   let allowed = false, prompt
@@ -233,7 +235,7 @@ test('规则冲突按报告节点请求授权，拒绝不写；获准修改后�
   const before = (await f.projects.snapshot(f.context.sessionId)).project
   await f.projects.edit({ kind: 'rules', node_type: 'story_segments', action: 'generate', field: 'supplement', previousValue: '', value: '保留完整对白' }, f.context)
   const after = (await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(after.story_segments.node_state.status, 'expired'); assert.deepEqual(storyOutput(after), storyOutput(before))
+  assert.equal(after.story_segments.node_state.status, 'generated'); assert.deepEqual(storyOutput(after), storyOutput(before))
   assert.equal(after.story_segments.node_state.last_execution.stop_code, 'completed')
 })
 
@@ -289,7 +291,7 @@ for (const retryAction of ['continue', 'regenerate']) test(`内容审核未通�
   assert.equal(first.requires_user_decision, true)
   const old = f.records.tasks.detail('drama', first.group_id)
   assert.deepEqual(storyOutput((await f.projects.snapshot(f.context.sessionId)).project), candidate())
-  await assert.rejects(f.stories.generateStoryOutline({ instruction: '生成故事大纲', retry_of: first.group_id }, { ...f.context, requestId: 'auto' }), /尚未变化/)
+  await assert.rejects(f.stories.generateStoryOutline({ instruction: '生成故事大纲', retry_of: first.group_id }, { ...f.context, requestId: 'auto' }), /需由用户/)
   await assert.rejects(f.stories.generateStoryOutline({ instruction: '生成故事大纲', retry_of: first.group_id }, { ...f.context, source: 'conversation', retryAction, requestId: 'fake' }), /需由用户/)
   allow = true
   const response = await f.request(`/api/drama/story-outline?session_id=${f.context.sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' }, body: JSON.stringify({ instruction: '生成故事大纲', retry_of: first.group_id, retry_action: retryAction, request_id: 'user-retry' }) })

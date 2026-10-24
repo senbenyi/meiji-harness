@@ -73,7 +73,7 @@ test('创建记录程序任务并交接真实目标；规则冲突报告→原�
   assert.equal(f.calls.length, 4)
 })
 
-test('拒绝授权、无授权服务调用及跨会话不能改规则；未修复不能盲目重试', async t => {
+test('拒绝授权、无授权服务调用及跨会话不能改规则；再次派发不再依赖hash变化', async t => {
   const f = await fixture(t), before = (await f.projects.snapshot(f.exec.agent.session.id)).project
   const patch = { action: 'review', field: 'base', previous_value: before.basic_info.script_revision_node.rules.review.base, value: '新规则' }
   const tool = new ChangeRulesTool({ projects: f.projects, records: f.records, scriptRevision: f.scripts })
@@ -83,7 +83,8 @@ test('拒绝授权、无授权服务调用及跨会话不能改规则；未修�
   assert.deepEqual((await f.projects.snapshot(f.exec.agent.session.id)).project, before)
   await assert.rejects(f.scripts.changeRules(patch, { sessionId: f.exec.agent.session.id, requestId: 'bad', reportId: f.report.report_id }), /授权/)
   await assert.rejects(tool.execute({ report_id: f.report.report_id, ...patch }, { agent: { session: { id: 'source' } } }), /没有项目|当前项目会话/)
-  await assert.rejects(f.optimize.execute({ instruction: '重试', retry_of: f.report.group_id }, { ...f.exec, callId: 'unchanged' }), /尚未变化/)
+  const retried = JSON.parse(await f.optimize.execute({ instruction: '重试', retry_of: f.report.group_id }, { ...f.exec, callId: 'unchanged' }))
+  assert.equal(retried.decision, 'rule_conflict')
 })
 
 test('上游报告→修改项目资料任务→过期事实→重派原目标，旧报告不变', async t => {

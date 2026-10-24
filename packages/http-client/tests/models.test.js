@@ -117,6 +117,27 @@ test('受理响应丢失时查询同一请求，网络未知继续查询，缺�
   }
 });
 
+for (const phase of ['submit', 'poll', 'result']) {
+  for (const code of ['UND_ERR_CONNECT_TIMEOUT', 'ECONNREFUSED']) {
+    test(`异步任务${phase}连接失败${code}等待1秒重试一次，再失败结束`, async () => {
+      const error = new TypeError('fetch failed', { cause: Object.assign(new Error(code), { code }) });
+      const seen = [];
+      const started = Date.now();
+      await assert.rejects(requestRemoteTask({ url: `${baseUrl}/chat/completions`, headers: remoteTaskHeaders({}, 'connection-error'), body: {} }, {
+        id: 'connection-error', signal: AbortSignal.timeout(3000), pollIntervalMs: 1,
+        fetchImpl: async (url, options) => {
+          const current = options.method === 'POST' ? 'submit' : String(url).endsWith('/result') ? 'result' : 'poll';
+          seen.push(current);
+          if (current === phase) throw error;
+          return current === 'submit' ? json({}, 202) : json({ status: 'succeeded' });
+        },
+      }), thrown => thrown.code === 'NETWORK_CONNECTION_FAILED' && thrown.cause === error && /网络连接失败/.test(thrown.message));
+      assert.deepEqual(seen, [...['submit', 'poll', 'result'].slice(0, ['submit', 'poll', 'result'].indexOf(phase)), phase, phase]);
+      assert.ok(Date.now() - started >= 950);
+    });
+  }
+}
+
 test('恢复缺少稳定请求标识或原请求地址时拒绝，不能退回同步生成', async () => {
   for (const change of [{ requestId: undefined }, { resumeFrom: undefined }]) {
     await assert.rejects(modelClient.generateImage({ baseUrl, model: 'gpt-image', prompt: '原海报', requestId: 'original', recovering: true,

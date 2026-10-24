@@ -1,7 +1,7 @@
-import { shotFingerprint, expireShotDependents } from '../shot_design/state.js'
+import { requestIdentity } from '../../project_runtime/request-identity.js'
 import { applyExecutionStates, projectExecutions, stateSummary } from '../../node_runtime/execution_state.js'
 import { nodeState } from '../../node_runtime/node_state.js'
-import { scriptOutput, originalFilename, scriptSummary } from '../../node_runtime/node_state.js'
+import { originalFilename } from '../../node_runtime/node_state.js'
 import { saveProjectScript, readProjectScript } from './script_files.js'
 import { editProject } from './edit_project.js'
 import { EventEmitter } from 'node:events'
@@ -11,13 +11,7 @@ import { randomUUID } from 'node:crypto'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
 import { CreateProjectExecutor, ProjectExecutor } from './executor.js'
 import { projectInfo } from './create_project.js'
-import { NodeStateModel } from '@agent-modules/task/models'
 import { createWriteQueue } from '../../project_runtime/write_queue.js'
-import { digest, scriptFingerprint, expireScriptDependents } from '../script_revision/state.js'
-import { sceneFingerprint, expireSceneDependents } from '../scene_extraction/state.js'
-import { groupFingerprint, expireGroupDependents } from '../group_setting/state.js'
-import { characterFingerprint, expireCharacterDependents } from '../character_extraction/state.js'
-import { storyFingerprint, expireStoryDependents } from '../story_segments/state.js'
 import { waitBoxTask } from '../../node_runtime/box_report.js'
 
 /** 会话与面板共用项目服务：绑定、事件和创建/编辑/删除共享串行队列。 */
@@ -155,33 +149,8 @@ export class ProjectService extends EventEmitter {
       const manager = await ProjectManager.open(join(this.root, 'projects', projectId, 'project.json'))
       if (command.kind !== 'node_opinion' && this.activeExecution(projectId, undefined, operationGroupId)) throw Object.assign(new Error('项目任务正在执行，请结束后再修改资料或规则'), { code: 'PROJECT_ACTIVE' })
       const previous = manager.read(), next = editProject(previous, command)
-      if (storyFingerprint(previous) !== storyFingerprint(next) && previous.story_segments.segments.length) {
-        next.story_segments.node_state = new NodeStateModel({ ...next.story_segments.node_state, status: 'expired', reason: '大纲资料或规则已变化，需重新生成' }).toJSON()
-        expireStoryDependents(next)
-      }
-      if (sceneFingerprint(previous) !== sceneFingerprint(next) && previous.scene_extraction.node_state.status !== 'empty') {
-        next.scene_extraction.node_state = new NodeStateModel({ ...next.scene_extraction.node_state, status: 'expired', reason: '场景资料或规则已变化，需重新生成' }).toJSON()
-        expireSceneDependents(next)
-      }
-      if (groupFingerprint(previous) !== groupFingerprint(next) && previous.group_setting.node_state.status !== 'empty') {
-        next.group_setting.node_state = new NodeStateModel({ ...next.group_setting.node_state, status: 'expired', reason: '团队资料或规则已变化，需重新生成' }).toJSON()
-        expireGroupDependents(next)
-      }
-      if (characterFingerprint(previous) !== characterFingerprint(next) && previous.character_extraction.characters.length) {
-        next.character_extraction.node_state = new NodeStateModel({ ...next.character_extraction.node_state, status: 'expired', reason: '角色资料或规则已变化，需重新生成' }).toJSON()
-        expireCharacterDependents(next)
-      }
-      if (shotFingerprint(previous) !== shotFingerprint(next) && previous.shot_design.shots.length) {
-        next.shot_design.node_state = new NodeStateModel({...next.shot_design.node_state, status:'expired', reason:'分镜资料或规则已变化，需重新生成'}).toJSON()
-        expireShotDependents(next)
-      }
-      if (command.kind !== 'import_script' && scriptFingerprint(previous) !== scriptFingerprint(next) && previous.basic_info.actual_script) {
-        next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'expired', reason: '剧本资料或规则已变化，需重新优化' }).toJSON()
-        expireScriptDependents(next)
-      }
       if (command.kind === 'import_script') {
         await saveProjectScript(this.root, projectId, { body: command.value, originalName: originalFilename(next.basic_info) })
-        expireScriptDependents(next)
       }
       if (JSON.stringify(next) === JSON.stringify(previous)) return { project: previous }
       const row = Object.values(state.requests).find(item => item.project_id === projectId)
@@ -237,7 +206,7 @@ export class ProjectService extends EventEmitter {
   configureOriginalSummary(models) { this.summaryModels = models }
 
   async importScript(command, { sessionId, projectId, requestId = randomUUID(), source }) {
-    const id = digest(['project-import', sessionId, requestId])
+    const id = requestIdentity(['project-import', sessionId, requestId])
     await this.writes.run(async () => {
       const snapshot = await this.snapshot(sessionId)
       if (!snapshot.project || snapshot.project.basic_info.id !== projectId) throw Object.assign(new Error('当前会话未绑定此项目'), { code: 'PROJECT_SCOPE' })
@@ -265,14 +234,13 @@ export class ProjectService extends EventEmitter {
   }
 
   /** 仅提供数据提交能力；步骤编排与模型调用由Executor负责。 */
-  saveOriginalSummary({ sessionId, projectId, originalScript, output, expectedOutput, expectedScriptOutput, expectedSource, signal }) {
+  saveOriginalSummary({ sessionId, projectId, originalScript, output, expectedSource, signal }) {
     return this.writes.run(async () => {
       signal.throwIfAborted()
       const snapshot = await this.snapshot(sessionId)
       if (!snapshot.project || snapshot.project.basic_info.id !== projectId) throw new Error('项目已删除或会话归属改变')
       const manager = await ProjectManager.open(join(this.root, 'projects', projectId, 'project.json'))
       if (manager.read().basic_info.original_script_file_path !== expectedSource || manager.read().basic_info.actual_script !== originalScript) throw new Error('原稿已变化，摘要未写入')
-      if (digest(scriptSummary(manager.read())) !== digest(expectedOutput) || digest(scriptOutput(manager.read())) !== digest(expectedScriptOutput)) throw new Error('项目摘要或预估时长已变化，拒绝覆盖较新结果')
       signal.throwIfAborted()
       manager.change(project => {
         Object.assign(project.basic_info, structuredClone(output))
@@ -385,7 +353,7 @@ export class ProjectService extends EventEmitter {
       await this.#saveBindings(state)
       let attempt = 0, id, old
       do {
-        id = digest(['project', sessionId, requestId, attempt++])
+        id = requestIdentity(['project', sessionId, requestId, attempt++])
         old = this.records.tasks.detail(this.records.scope, id)
         if (old && ['queued', 'running', 'completed'].includes(old.status)) return id
       } while (old)
@@ -417,7 +385,7 @@ export class ProjectService extends EventEmitter {
       throw Object.assign(new Error('需提供当前会话的上游问题报告'), { code: 'PROJECT_SCOPE' })
     if (!['basic_info', 'import_script'].includes(command?.kind)) throw new TypeError('只允许修复项目基本资料或导入用户提供的原稿')
     const projectId = previous.tasks[0].metadata.project_id
-    const id = digest(['project-edit', sessionId, requestId])
+    const id = requestIdentity(['project-edit', sessionId, requestId])
     await this.writes.run(async () => {
       if (!this.records.tasks.detail(this.records.scope, id)) this.records.tasks.submit(this.records.scope, {
         group: { id, name: '修复项目上游资料', source: 'conversation', metadata: { parent_group_id: reportId } },

@@ -1,8 +1,9 @@
+import { isDeepStrictEqual } from 'node:util'
 import { nodeRules } from '../../node_runtime/node_state.js'
 import { modelClient } from '@agent-modules/http-client'
 import { composeNodePrompt } from '../../node_runtime/node_prompt_composer.js'
 import { parseNodeOutput } from '../../node_runtime/output_response_parser.js'
-import { digest, storyFingerprint, storyOutput, validateStoryCandidate } from './state.js'
+import { validateStoryCandidate } from './state.js'
 
 const step = (kind, round = 0) => ({ kind, round, name: { generate: '生成故事大纲', revise: '按意见修订大纲', review: '大纲本地审核' }[kind], executor: 'ai' })
 const issueReason = review => review.issues.map(issue => `${issue.location}：${issue.reason}；${issue.suggestion}`).join('\n')
@@ -22,10 +23,7 @@ export class StorySegmentsExecutor {
     const { task, signal, previousResults } = ctx, metadata = task.metadata
     const snapshot = await this.projects.snapshot(metadata.session_id), project = snapshot.project
     if (!project || project.basic_info.id !== metadata.project_id) throw new Error('项目已删除或会话归属已改变')
-    if (storyFingerprint(project) !== metadata.input_hash) throw new Error('大纲输入或规则已变化，请重新提交')
     const generated = previousResults.findLast(row => ['generate', 'revise'].includes(row.kind))
-    const expectedOutput = generated ? digest(generated.result.output) : metadata.output_hash
-    if (digest(storyOutput(project)) !== expectedOutput) throw new Error('大纲已被其他操作修改，请重新提交')
     const config = await this.models.read(), kind = ctx.step.kind, action = kind
     const lastReview = previousResults.findLast(row => row.result?.review)
     const savedInput = metadata.input_snapshot
@@ -66,16 +64,16 @@ export class StorySegmentsExecutor {
     const output = parseNodeOutput('story_segments', action, response)
     if (kind !== 'review') validateStoryCandidate(output, { previousOutline: savedInput.current_outline })
     if (kind === 'generate' || kind === 'revise') {
-      await this.projects.saveStoryCandidate(ctx, output, { expectedOutput })
+      await this.projects.saveStoryCandidate(ctx, output)
       return { result: { output, saved: true }, nextSteps: [step('review', ctx.step.round)] }
     }
     const review = output
     if (review.status === 'passed') {
-      await this.projects.saveStoryCandidate(ctx, generated.result.output, { expectedOutput, passed: true })
+      await this.projects.saveStoryCandidate(ctx, generated.result.output, { passed: true })
       return { result: { review } }
     }
-    const signature = digest({ input: metadata.input_hash, candidate: digest(generated.result.output), issues: [...review.issues].sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), status: review.status })
-    const repeated = previousResults.some(row => row.result?.signature === signature)
+    const signature = { candidate: generated.result.output, issues: [...review.issues].sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), status: review.status }
+    const repeated = previousResults.some(row => isDeepStrictEqual(row.result?.signature, signature))
     const limit = this.getMaxRevisionRounds()
     const exhausted = ctx.step.round >= limit
     const reason = issueReason(review)

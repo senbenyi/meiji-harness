@@ -33,7 +33,7 @@ export function editProject(project, command) {
     if (project.basic_info.original_script_file_path !== command.previousValue) conflict()
     Object.assign(next.basic_info, scriptSourceInfo(command.value, command.originalName || originalFilename(project.basic_info)))
     Object.assign(next.basic_info, { actual_script: command.value, summary: '', estimated_duration_seconds: 0 })
-    next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'empty', reason: '', opinion: '', dependency_hash: '' }).toJSON()
+    next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'empty', reason: '', opinion: '' }).toJSON()
   } else if (command.kind === 'node_opinion') {
     text(command.value); text(command.previousValue)
     const type = command.node_type ?? 'script_revision'

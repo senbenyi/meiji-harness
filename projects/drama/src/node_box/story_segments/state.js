@@ -1,11 +1,7 @@
-import { NodeStateModel } from '@agent-modules/task/models'
 import { validateNodeOutput } from '../../node_runtime/output_response_parser.js'
-import { scriptOutput, nodeRules } from '../../node_runtime/node_state.js'
-import { digest } from '../script_revision/state.js'
 
-export { digest }
 export const storyOutput = project => ({ segments: structuredClone(project.story_segments.segments) })
-export const storyFingerprint = project => digest({ basic_info: scriptOutput(project), rules: nodeRules(project.story_segments.node_state) })
+
 
 export function validateStoryCandidate(value, { previousOutline } = {}) {
   const output = validateNodeOutput('story_segments', 'generate', value)
@@ -25,13 +21,4 @@ export function validateStoryCandidate(value, { previousOutline } = {}) {
     }
   }
   return output
-}
-
-export function expireStoryDependents(project) {
-  const visit = value => {
-    if (!value || typeof value !== 'object') return
-    if (value.node_state && value.node_state.status !== 'empty') value.node_state = new NodeStateModel({ ...value.node_state, status: 'expired', reason: '上游故事大纲已变化，需重新确认或生成' }).toJSON()
-    for (const [key, child] of Object.entries(value)) if (!['node_state', 'rules'].includes(key)) visit(child)
-  }
-  for (const key of ['group_setting', 'character_extraction', 'scene_extraction', 'shot_design', 'clip_arrangement', 'video_prompt', 'videos', 'episodes']) visit(project[key])
 }

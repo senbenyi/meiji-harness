@@ -28,7 +28,7 @@ async function fixture(t,respond=()=>({data:[{b64_json:png.toString('base64')}]}
  const created=await projects.create({name:'场景图测试',original_script:'基地内交接。'},{sessionId:'source',requestId:'create'})
  const context={sessionId:created.session_id,projectId:created.project_id,requestId:'image'},file=join(root,'projects',created.project_id,'project.json')
  const edit=fn=>projects.writes.run(async()=>{const p=JSON.parse(await readFile(file,'utf8'));await fn(p);await writeFile(file,JSON.stringify(p))})
- await edit(async p=>{p.scene_extraction.scenes=[scene,{...scene,id:'scene_b',name:'基地外部'}];p.scene_extraction.node_state.status='generated';p.scene_extraction.assets=await reconcileSceneAssets([],[],p.scene_extraction.scenes,p.basic_info.aspect_ratio)})
+ await edit(async p=>{p.scene_extraction.scenes=[scene,{...scene,id:'scene_b',name:'基地外部'}];p.scene_extraction.node_state.status='generated';p.scene_extraction.assets=await reconcileSceneAssets([],p.scene_extraction.scenes,p.basic_info.aspect_ratio)})
  t.after(async()=>{await handler.dispose();server.closeAllConnections();mock.closeAllConnections();await Promise.all([new Promise(r=>server.close(r)),new Promise(r=>mock.close(r))]);await rm(root,{recursive:true,force:true})})
  const origin=`http://127.0.0.1:${server.address().port}`
  const post=(path,body,marker=true)=>fetch(`${origin}/api/drama/${path}?session_id=${context.sessionId}`,{method:'POST',headers:{'Content-Type':'application/json',...(marker?{'X-Drama-Request':'1'}:{})},body:JSON.stringify({project_id:context.projectId,...body})})
@@ -92,7 +92,7 @@ test('参考校验、冲突、会话归属、场景前置及项目互斥拒绝�
  f.config.image.model='krea2 turbo V2.5';await assert.rejects(f.images.generate({scene_id:'scene_a'},f.context),/不支持参考图/);assert.equal(f.calls.length,0)
 })
 
-test('运行快照可定位场景；修改输入和并发任务拒绝，场景变化拒绝迟到图片',async t=>{
+test('运行快照可定位场景；修改输入和并发任务拒绝，场景变化不通过hash拦截图片',async t=>{
  let entered,release;const started=new Promise(r=>{entered=r})
  const f=await fixture(t,async()=>{entered();await new Promise(r=>{release=r});return{data:[{b64_json:png.toString('base64')}]}})
  const accepted=await f.images.generate({scene_id:'scene_a'},f.context);await started
@@ -102,8 +102,8 @@ test('运行快照可定位场景；修改输入和并发任务拒绝，场景�
  await assert.rejects(f.images.generate({scene_id:'scene_b'},{...f.context,requestId:'concurrent'}),/已有/)
  await assert.rejects(f.images.saveInputs({scene_id:'scene_a',instruction:'变化',reference_image:'',previous_instruction:'',previous_reference_image:''},f.context),/正在执行/)
  await f.edit(p=>{p.scene_extraction.scenes[0].layout='主门改为东侧'})
- release();const report=await f.images.wait(accepted.group_id,f.context.sessionId);assert.equal(report.status,'failed');assert.equal(report.saved,false)
- assert.equal((await f.snapshot()).scene_extraction.assets[0].image_generation.address,'')
+ release();const report=await f.images.wait(accepted.group_id,f.context.sessionId);assert.equal(report.status,'completed');assert.equal(report.saved,true)
+ assert.ok((await f.snapshot()).scene_extraction.assets[0].image_generation.address)
 })
 
 test('场景卡片参考/结果同排，上传保存、要求传入、连点去重、切会话不回写',async t=>{

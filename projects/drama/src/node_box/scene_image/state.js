@@ -1,13 +1,9 @@
-import { digest } from '../scene_extraction/state.js'
-import { nodeRules } from '../../node_runtime/node_state.js'
-export { digest }
 export function sceneImageTarget(project, sceneId) {
   const scene = project.scene_extraction.scenes.find(row => row.id === sceneId)
   const image = project.scene_extraction.assets.find(row => row.scene_id === sceneId)?.image_generation
   return scene && image ? { scene, image } : null
 }
-export const sceneImageFingerprint = (project, target) => digest({ scene: target.scene, aspect_ratio: project.basic_info.aspect_ratio,
-  reference_image: target.image.reference_image, opinion: target.image.node_state.opinion, rules: nodeRules(target.image.node_state) })
+
 export function referenceImage(value) {
   if (typeof value !== 'string') throw new TypeError('参考图需为图片data URL')
   if (!value) return null

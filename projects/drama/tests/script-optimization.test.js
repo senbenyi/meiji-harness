@@ -49,6 +49,37 @@ async function run(f, instruction = '人物改为缓慢转身') {
   return f.scriptRevision.waitScriptOptimization(result.group_id, f.context.sessionId)
 }
 
+for (const phase of ['generate', 'review']) test(`${phase}网络连接失败重试后跳出盒子，不追加审核或修订`, { timeout: 5000 }, async t => {
+  const f = await fixture(t, () => candidate())
+  const unavailable = createServer()
+  await new Promise(resolve => unavailable.listen(0, '127.0.0.1', resolve))
+  const baseUrl = `http://127.0.0.1:${unavailable.address().port}/v1`
+  await new Promise(resolve => unavailable.close(resolve))
+  const config = await f.models.read()
+  f.models.read = async () => phase === 'generate' || f.calls.length ? { ...config, baseUrl } : config
+  const result = await run(f)
+  assert.equal(result.status, 'failed')
+  assert.match(result.reason, /网络连接失败/)
+  assert.equal(result.saved, phase === 'review')
+  const detail = f.projects.records.tasks.detail('drama', result.group_id)
+  assert.deepEqual(detail.steps.map(step => step.kind), phase === 'generate' ? ['generate'] : ['generate', 'review'])
+  assert.equal(detail.steps.at(-1).step_status, 'failed')
+  assert.deepEqual(f.calls.map(call => call.action), phase === 'generate' ? [] : ['generate'])
+  assert.equal(f.projects.records.tasks.activeGroups('drama').length, 0)
+})
+
+test('模型返回正文/时长/摘要字段乱序，保存后正常审核且不记录内容hash', async t => {
+  const output = { estimated_duration_seconds: 180, summary: '乱序摘要', actual_script: '乱序字段正文' }
+  const f = await fixture(t, call => call.action === 'review' ? passed : output)
+  const result = await run(f)
+  assert.equal(result.status, 'completed')
+  assert.deepEqual(f.calls.map(call => call.action), ['generate', 'review'])
+  const detail = f.projects.records.tasks.detail('drama', result.group_id)
+  assert.equal(Object.hasOwn(detail.tasks[0].metadata, 'input_hash'), false)
+  assert.equal(Object.hasOwn(detail.tasks[0].metadata, 'output_hash'), false)
+  assert.deepEqual(scriptOutput((await f.projects.snapshot(f.context.sessionId)).project), output)
+})
+
 test('优化生成/本地审核真实模拟HTTP并返回主Agent报告，字段保存且记录关联、幂等、源会话隔离', async t => {
   const f = await fixture(t, call => call.action === 'generate' ? candidate() : passed)
   const tool = new OptimizeScriptTool({ scriptRevision: f.scriptRevision })
@@ -162,7 +193,7 @@ test('结构错误不保存，缺原稿不发请求，已有任务阻止重复�
   assert.equal((await slow.projects.snapshot(slow.context.sessionId)).project.basic_info.actual_script, '原稿：主角走进房间。')
 })
 
-test('优化HTTP鉴权/绑定/请求标识、异步返回与完成后快照；下游保留内容并过期', async t => {
+test('优化HTTP鉴权/绑定/请求标识、异步返回与完成后快照；下游保留内容且暂不自动过期', async t => {
   const f = await fixture(t, call => call.action === 'generate' ? candidate() : passed)
   const file = join(f.root, 'projects', f.context.projectId, 'project.json')
   const data = JSON.parse(await readFile(file, 'utf8')); data.story_segments.node_state.status = 'generated'; data.story_segments.segments = [{ id: 'old', body: '旧内容' }]
@@ -175,7 +206,7 @@ test('优化HTTP鉴权/绑定/请求标识、异步返回与完成后快照；�
   const response = await f.request(path, options); assert.equal(response.status, 202)
   const result = await response.json(); await f.scriptRevision.waitScriptOptimization(result.group_id, f.context.sessionId)
   const project = (await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(project.story_segments.node_state.status, 'expired'); assert.equal(project.story_segments.segments[0].body, '旧内容')
+  assert.equal(project.story_segments.node_state.status, 'generated'); assert.equal(project.story_segments.segments[0].body, '旧内容')
 })
 
 test('页面按意见改编使用当前输入和稳定请求ID，执行状态禁用按钮，详情与历史入口保留', async t => {
@@ -225,16 +256,16 @@ test('已有稿首次按意见修改不占自动修订轮数，后续仍最多�
   assert.deepEqual(detail.steps.filter(step=>step.kind==='revise').map(step=>step.round),[0,1,2,3])
 })
 
-test('执行期间外部原稿变化拒绝晚结果覆盖；中断任务重开恢复为失败，不自动重放', async t => {
+test('执行期间不做内容hash拦截；中断任务重开恢复为失败，不自动重放', async t => {
   let release, entered
   const gate = new Promise(r => { release = r }), started = new Promise(r => { entered = r })
-  const f = await fixture(t, async () => { entered(); await gate; return candidate() })
+  const f = await fixture(t, async call => { entered(); await gate; return call.action === 'review' ? passed : candidate() })
   const accepted = await f.scriptRevision.optimizeScript({ instruction: '优化' }, f.context); await started
   const file = join(f.root, 'projects', f.context.projectId, 'project.json'), project = JSON.parse(await readFile(file, 'utf8'))
   project.basic_info.original_script_file_path = '外部更新原稿'
   const { writeFile } = await import('node:fs/promises'); await writeFile(file, JSON.stringify(project)); release()
-  assert.equal((await f.scriptRevision.waitScriptOptimization(accepted.group_id, f.context.sessionId)).status, 'failed')
-  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.basic_info.actual_script, '原稿：主角走进房间。')
+  assert.equal((await f.scriptRevision.waitScriptOptimization(accepted.group_id, f.context.sessionId)).status, 'completed')
+  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.basic_info.actual_script, candidate().actual_script)
   const records = f.projects.records
   const pending = records.tasks.submit('drama', { tasks: [{ node_type: 'script_revision', metadata: { project_id: f.context.projectId } }] })
   records.tasks.store.transaction('drama', data => { const task = data.tasks.find(row => row.group_id === pending.group.id); task.task_status = 'running'; task.started_at = new Date().toISOString() })
@@ -457,7 +488,7 @@ test('Service显式输入契约：当前稿、要求、语言必选，工作稿�
   assert.equal((await f.projects.snapshot(f.context.sessionId)).project.basic_info.script_revision_node.status,'generated','参考时长不再是本节点依赖')
 })
 
-test('停止摘要与内容状态独立：再次未通过保存最新正文，轻量轮询不泄露正文和规则，过期不改停止结论', async t => {
+test('停止摘要与内容状态独立：再次未通过保存最新正文，轻量轮询不泄露正文和规则，规则编辑不通过hash改变停止结论', async t => {
   let reject = false
   const f = await fixture(t, call => ['generate', 'revise'].includes(call.action) ? candidate(reject ? '未经审核候选' : '已确认工作正文') : reject ? issue('rule_conflict') : passed)
   const first = await run(f)
@@ -483,7 +514,7 @@ test('停止摘要与内容状态独立：再次未通过保存最新正文，�
   assert.deepEqual(saved.basic_info.script_revision_node.last_execution, last)
   await f.projects.edit({kind:'rules',node_type:'script_revision',action:'generate',field:'supplement',previousValue:'',value:'新增规则'}, f.context)
   const expired = (await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(expired.basic_info.script_revision_node.status, 'expired')
+  assert.equal(expired.basic_info.script_revision_node.status, 'rejected')
   assert.deepEqual(expired.basic_info.script_revision_node.last_execution, last)
 })
 
@@ -537,7 +568,7 @@ test('请求失败与结构异常分别归因，刷新和重启按Task恢复缺�
   await reopenedRecords.dispose()
   const invalid = await fixture(t, () => ({actual_script:'缺少必填字段'}))
   await run(invalid)
-  assert.equal((await invalid.projects.snapshot(invalid.context.sessionId)).project.basic_info.script_revision_node.last_execution.stop_code, 'execution_error')
+  assert.equal((await invalid.projects.snapshot(invalid.context.sessionId)).project.basic_info.script_revision_node.last_execution.stop_code, 'validation_failed')
 })
 
 test('同工作区恢复会话可执行优化，任务归当前会话且写回同一项目', async t => {

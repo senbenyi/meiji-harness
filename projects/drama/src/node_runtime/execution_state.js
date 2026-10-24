@@ -1,4 +1,4 @@
-import { NodeStateModel } from '@agent-modules/task/models'
+import { NodeStateModel, taskEndReason } from '@agent-modules/task/models'
 import { nodeState } from './node_state.js'
 
 /** 结束摘要从Task事实恢复；按受理顺序取最新终态，迟到通知不携带旧状态覆盖项目。 */
@@ -20,12 +20,7 @@ export function projectExecutions(records, projectId) {
     const detail = records.tasks.detail(records.scope, task.group_id)
     const steps = detail.steps.filter(step => step.task_id === task.id)
     const review = steps.findLast(step => step.result?.review)?.result.review
-    const failed = steps.findLast(step => step.step_status === 'failed')
-    const requestFailed = failed?.http?.some(row => row.ok === false)
-    const stop_code = task.task_status === 'completed' ? 'completed'
-      : task.task_status === 'cancelled' ? 'cancelled'
-      : task.task_status === 'failed' ? requestFailed ? 'request_failed' : 'execution_error'
-      : (['rule_conflict', 'upstream_issue', 'content_issue'].includes(review?.status) ? review.status : 'validation_failed')
+    const stop_code = taskEndReason(task, steps)
     const warning = steps.findLast(step => step.result?.summary_error)?.result.summary_error
     return { type: task.node_type, ...(task.node_type === 'scene_image' ? {scene_id:task.metadata.scene_id} : {}), character_id: task.metadata.character_id, costume_id: task.metadata.costume_id, saved: steps.some(step => step.result?.saved), execution: {
       task_id: task.id, status: task.task_status, stop_code,

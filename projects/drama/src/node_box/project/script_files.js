@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { fileIdentity } from '../../project_runtime/request-identity.js'
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 import { createLibraryStore } from '../../library/library_store.js'
@@ -8,8 +8,8 @@ export function scriptSourceInfo(body, originalName = '') {
   if (!body.trim()) return { original_script_file_path: '' }
   originalName ||= '剧本.txt'
   if (typeof originalName !== 'string' || originalName.length > 200 || /[\\/\x00-\x1f]/.test(originalName) || !/\.(txt|text|md)$/i.test(originalName)) throw new TypeError('请选择TXT或Markdown剧本文件')
-  const hash = createHash('sha256').update(body).digest('hex')
-  return { original_script_file_path: `sources/${hash}/${originalName}` }
+  const sourceId = fileIdentity(body)
+  return { original_script_file_path: `sources/${sourceId}/${originalName}` }
 }
 
 /** 原稿只作为沙盒来源文件；正文工作副本由script_revision持有。 */
