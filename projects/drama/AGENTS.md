@@ -1,6 +1,7 @@
 # drama 开发入口
 
 - 遵守根 `AGENTS.md` 与 `.agents/agent-harness-dev.md`。
+- 大纲审核仅判断最新候选当前有据可核的问题；不把历史审核意见当新锁定要求，不因原稿未写、语义等价措辞或未反复重申持续状态否决；不自行锁定原稿未明确的精确时间。修订逐项核实意见，只修仍成立的问题，允许保留有效内容不变后重新审核。已有项目规则须显式更新，不由默认规则自动覆盖。
 - 盒子结束原因统一使用`@agent-modules/task/models`的`TASK_END_REASONS`枚举和`taskEndReason`；Task终态与原因类型分开，报告携带`reason_type/reason_label`，界面不将所有failed映射为执行错误。网络连接失败（network_connection_failed）对所有盒子仅展示结果、不唤醒主Agent；旧错误码通过records.sqlite显式一次性迁移。
 - 内容指纹、跨盒子一致性与下游过期处理集中于`src/project_runtime/hash-service.js`的`HashService`，目前未接入生产执行链。盒子Service/Executor不生成或读取input_hash/output_hash，不按内容hash拒绝保存或自动使下游/照片过期；资产state仅维护ID映射与历史资源。请求幂等ID和原稿文件身份由`request-identity.js`维护，审核重复问题用直接内容比较，保留项目归属、活动Task、取消与字段校验。
 - 当前架构见 `docs/开发方向.md`；项目结构说明见 `docs/project_detail.json`，程序不得读取该文档作为运行时模板。
@@ -53,3 +54,5 @@
 - 创建交接通过project响应头游标接续SSE，校验来源和导航后立即切换，迟到快照不抢切。模型响应先严格解析，仅在失败时无损归一化字符串内部原始LF/CR/TAB，再严格解析及Schema校验；保留原始调用记录，不补结构或字段。详见开发方向“创建交接与模型响应解析”。
 
 - 分镜是独立shot_design文本盒子，面板/api/drama/shots与会话drama-generate-shots共用Service；读取已确认大纲及现有已确认资产，不需要生图，不重复改编剧情。生成/审核/修订、引用校验、候选保存、规则修复与会话展示详见开发方向“分镜盒子”。
+
+- 大纲面板已有候选或未通过原因时提供重新生成和按意见修改；重新生成透传regenerate=true并创建generate首步，修改创建revise首步并携带当前原因供核实。两动作共享执行互斥，请求幂等区分动作；无有效候选时禁用修改。

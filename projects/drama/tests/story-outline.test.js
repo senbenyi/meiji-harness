@@ -57,6 +57,32 @@ const editDisk = async (f, change) => f.projects.writes.run(async () => {
   const project = JSON.parse(await readFile(f.file, 'utf8')); change(project); await writeFile(f.file, JSON.stringify(project))
 })
 
+test('大纲HTTP重新生成首步generate，修改首步revise，幂等请求区分动作', async t => {
+  const f = await fixture(t)
+  await run(f)
+  await editDisk(f, project => Object.assign(project.story_segments.node_state, { status: 'rejected', reason: '当前时间关系需核实' }))
+  const before = storyOutput((await f.projects.snapshot(f.context.sessionId)).project)
+  const send = body => f.request(`/api/drama/story-outline?session_id=${f.context.sessionId}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
+    body: JSON.stringify({ project_id: f.context.projectId, request_id: 'panel-regenerate', instruction: '重新生成完整大纲', ...body }),
+  })
+  const response = await send({ regenerate: true }); assert.equal(response.status, 202)
+  const accepted = await response.json()
+  assert.equal((await f.stories.waitStoryOutline(accepted.group_id, f.context.sessionId)).status, 'completed')
+  const detail = f.records.tasks.detail('drama', accepted.group_id)
+  assert.equal(detail.tasks[0].metadata.regenerate, true)
+  assert.equal(detail.steps[0].kind, 'generate')
+  assert.deepEqual(detail.steps[0].prompt.input.current_outline, before)
+  assert.equal((await send({ regenerate: true })).status, 202)
+  assert.notEqual((await send({ regenerate: false })).status, 202)
+  const modified = await send({ request_id: 'panel-modify', regenerate: false, instruction: '修改当前大纲' })
+  assert.equal(modified.status, 202)
+  const changed = await modified.json(); await f.stories.waitStoryOutline(changed.group_id, f.context.sessionId)
+  assert.equal(f.records.tasks.detail('drama', changed.group_id).steps[0].kind, 'revise')
+  assert.throws(() => f.stories.generateStoryOutline({ instruction: '生成', regenerate: 'true' }, f.context), /布尔/)
+  assert.throws(() => f.stories.generateStoryOutline({ instruction: '生成', regenerate: true, retry_of: 'old' }, f.context), /不能同时/)
+})
+
 test('会话Tool生成、审核、保存完整大纲；输入有界，记录关联，幂等与项目隔离', async t => {
   const f = await fixture(t), tool = new GenerateStoryOutlineTool({ storySegments: f.stories })
   const exec = { callId: 'outline', agent: { session: { id: f.context.sessionId } } }
@@ -324,7 +350,43 @@ test('一次审核收到全部故事段，多个段的问题完整进入同一�
   assert.deepEqual(revise.prompt.input.review_issues, issues)
   const system = f.calls.find(call => call.action === 'review').messages[0].content
   assert.match(system, /全部2个故事段.*seg_1、seg_2/); assert.match(system, /发现首个问题后不得提前结束/); assert.match(system, /一次性汇总到issues/)
-  assert.match(f.calls.find(call => call.action === 'revise').messages[0].content, /逐项处理review_issues中的全部问题/)
+  assert.match(f.calls.find(call => call.action === 'revise').messages[0].content, /逐项核实review_issues中的全部意见/)
+})
+
+test('修订可保留被误报的有效内容，复审仅按最新候选重新判断', async t => {
+  const output = candidate('旅客带上两只犬，甲犬一匹、乙犬一匹，共两匹。旅客关上舱门后发射。')
+  const issues = [
+    { location: 'seg_1.body', reason: '只写了一匹犬', suggestion: '补写第二匹犬' },
+    { location: 'seg_1.body', reason: '没有反复声明舱门持续关闭', suggestion: '增加舱门全程关闭的约束' },
+  ]
+  let reviews = 0
+  const f = await fixture(t, call => {
+    const input = JSON.parse(call.messages.find(message => message.role === 'user').content.split('# 本次资料\n')[1])
+    const system = call.messages[0].content
+    if (call.action === 'generate') {
+      assert.match(system, /状态持续不要求反复声明/)
+      assert.match(system, /不把原稿未明确的精确时点自行绑定/)
+      return output
+    }
+    if (call.action === 'revise') {
+      assert.deepEqual(input.current_outline, output)
+      assert.deepEqual(input.review_issues, issues)
+      assert.match(system, /审核意见是待核对的问题报告/)
+      assert.match(system, /允许返回内容不变的完整候选/)
+      return output
+    }
+    assert.deepEqual(input.current_outline, output)
+    assert.equal(Object.hasOwn(input, 'review_issues'), false)
+    assert.equal(Object.hasOwn(input, 'review_history'), false)
+    assert.match(system, /每条未通过意见必须引用最新候选中的具体表述/)
+    assert.match(system, /不为维持旧意见而否决最新文本/)
+    assert.doesNotMatch(system, /必须逐一追踪人物、物件、舱门/)
+    return reviews++ === 0 ? { status: 'content_issue', issues } : passed
+  })
+  const report = await run(f)
+  assert.equal(report.status, 'completed')
+  assert.deepEqual(f.calls.map(call => call.action), ['generate', 'review', 'revise', 'review'])
+  assert.deepEqual(storyOutput((await f.projects.snapshot(f.context.sessionId)).project), output)
 })
 
 test('有效大纲先自动保存，随后审核网络失败仍保留结果及失败状态', async t => {

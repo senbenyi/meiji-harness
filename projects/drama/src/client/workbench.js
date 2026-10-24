@@ -250,10 +250,10 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
         if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
         return request('costume-images', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' }, body: JSON.stringify({ project_id: projectId, request_id: requestId, ...payload }) }, ownerSession)
       },
-      generateStory: async (instruction, requestId) => {
+      generateStory: async (instruction, requestId, { regenerate = false } = {}) => {
         if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
         return request('story-outline', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
-          body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction }),
+          body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction, ...(regenerate ? { regenerate: true } : {}) }),
         }, ownerSession)
       },
       optimize: async (instruction, requestId) => {

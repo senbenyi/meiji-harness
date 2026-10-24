@@ -17,6 +17,40 @@ async function setup(t, options = {}) {
 }
 const button = (root, label) => [...root.querySelectorAll('button')].find(node => node.textContent === label)
 
+test('大纲未通过同时提供重新生成和修改，动作分开且执行中互斥', async t => {
+  const calls = []; let entered, release
+  const started = new Promise(resolve => { entered = resolve }), gate = new Promise(resolve => { release = resolve })
+  const { root, project, view } = await setup(t, { generateStory: async (...args) => { calls.push(args); entered(); await gate; return { group_id: 'g', status: 'queued' } } })
+  t.after(() => release())
+  const failed = structuredClone(project)
+  failed.story_segments.segments = [segment]
+  Object.assign(failed.story_segments.node_state, { status: 'rejected', reason: 'seg_1.body：时间衔接不清' })
+  view.update(failed)
+  assert.deepEqual([...root.querySelectorAll('.node-ui-execution button')].map(node => node.textContent), ['重新生成', '按意见修改'])
+  const pending = button(root, '重新生成').onclick(); await started
+  assert.equal(button(root, '重新生成').disabled, true)
+  assert.equal(button(root, '按意见修改').disabled, true)
+  await button(root, '按意见修改').onclick(); assert.equal(calls.length, 1)
+  assert.deepEqual(calls[0][2], { regenerate: true })
+  assert.match(calls[0][0], /现有大纲.*不作为必须保留/)
+  release(); await pending
+  view.update(failed, { storyExecution: null })
+  await button(root, '按意见修改').onclick()
+  assert.equal(calls.length, 2); assert.notEqual(calls[0][1], calls[1][1])
+  assert.equal(calls[1].length, 2)
+  assert.match(calls[1][0], /请先核实，只修仍成立的问题.*时间衔接不清/)
+})
+
+test('未通过但没有有效大纲时显示两个入口，仅重新生成可用', async t => {
+  const { root, project, view } = await setup(t, { generateStory: async () => ({}) })
+  const failed = structuredClone(project)
+  Object.assign(failed.story_segments.node_state, { status: 'rejected', reason: '未保存有效候选' })
+  view.update(failed)
+  assert.equal(button(root, '重新生成').disabled, false)
+  assert.equal(button(root, '按意见修改').disabled, true)
+  assert.match(button(root, '按意见修改').title, /暂无有效大纲/)
+})
+
 test('面板生成提交当前意见，连点守卫、稳定请求ID重试、执行步骤及完成状态', async t => {
   let fail = true, calls = [], entered, release
   const gate = new Promise(resolve => release = resolve), start = new Promise(resolve => entered = resolve)

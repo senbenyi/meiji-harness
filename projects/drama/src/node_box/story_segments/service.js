@@ -37,8 +37,10 @@ export class StorySegmentsService {
     return structuredClone({ basic_info, current_outline, instruction: instruction.trim(), output_language })
   }
 
-  generateStoryOutline({ instruction, retry_of, ...unknown } = {}, { sessionId, projectId, requestId, source = 'api', retryAction } = {}) {
-    if (Object.keys(unknown).length) throw new TypeError('只允许提交instruction和retry_of')
+  generateStoryOutline({ instruction, retry_of, regenerate = false, ...unknown } = {}, { sessionId, projectId, requestId, source = 'api', retryAction } = {}) {
+    if (Object.keys(unknown).length) throw new TypeError('只允许提交instruction、retry_of和regenerate')
+    if (typeof regenerate !== 'boolean') throw new TypeError('regenerate需为布尔值')
+    if (regenerate && (retry_of || retryAction)) throw new TypeError('重新生成不能同时指定失败任务重试')
     if (typeof instruction !== 'string' || !instruction.trim() || instruction.length > 10000) throw new TypeError('请提供1—10000字的大纲要求')
     if (typeof sessionId !== 'string' || !sessionId.trim()) throw new TypeError('sessionId必选')
     if (typeof requestId !== 'string' || !requestId.trim() || requestId.length > 200) throw new TypeError('缺少有效大纲请求ID')
@@ -52,7 +54,7 @@ export class StorySegmentsService {
       if (retryAction && parent) instruction = parent.tasks[0].metadata.instruction
       const id = requestIdentity(['story_segments', sessionId, requestId]), old = this.records.tasks.detail(this.records.scope, id)
       if (old) {
-        if (old.tasks[0].metadata.instruction !== instruction.trim() || (old.tasks[0].metadata.parent_group_id || undefined) !== retry_of || (old.tasks[0].metadata.retry_action || undefined) !== retryAction) throw new Error('同一请求ID不能用于不同大纲要求')
+        if (!!old.tasks[0].metadata.regenerate !== regenerate || old.tasks[0].metadata.instruction !== instruction.trim() || (old.tasks[0].metadata.parent_group_id || undefined) !== retry_of || (old.tasks[0].metadata.retry_action || undefined) !== retryAction) throw new Error('同一请求ID不能用于不同大纲要求')
         return { project_id: projectId, group_id: id, status: old.status }
       }
       if (retry_of && (!parent || parent.tasks[0].node_type !== 'story_segments' || parent.tasks[0].metadata.session_id !== sessionId
@@ -66,12 +68,12 @@ export class StorySegmentsService {
       const input = this.executionInput({ basic_info: scriptOutput(project), current_outline: storyOutput(project), instruction, output_language: config.output_language })
       if (retryAction === 'continue') input.current_outline = retry.candidate
       const metadata = { project_id: projectId, project_name: project.basic_info.name, session_id: sessionId, request_id: requestId,
-        instruction: input.instruction, language: input.output_language, goal: parent?.tasks[0].metadata.goal || input.instruction,
+        regenerate, instruction: input.instruction, language: input.output_language, goal: parent?.tasks[0].metadata.goal || input.instruction,
         retry_action: retryAction || null, retry_review_issues: retryAction === 'continue' ? retry.issues : null,
         parent_group_id: retry_of || null, node_state_before: structuredClone(project.story_segments.node_state),
         input_snapshot: { ...input, rules: nodeRules(project.story_segments.node_state) } }
       this.records.tasks.submit(this.records.scope, { group: { id, name: '生成故事大纲', source, metadata: { project_id: projectId, notify_main: source === 'ui', parent_group_id: retry_of || null } },
-        tasks: [{ node_type: 'story_segments', name: '故事大纲', action: retryAction ? retryAction === 'continue' ? 'revise' : 'generate' : project.story_segments.segments.length ? 'revise' : 'generate', metadata }] })
+        tasks: [{ node_type: 'story_segments', name: '故事大纲', action: regenerate ? 'generate' : retryAction ? retryAction === 'continue' ? 'revise' : 'generate' : project.story_segments.segments.length ? 'revise' : 'generate', metadata }] })
       this.projects.watchProjectTask(id)
       return { project_id: projectId, group_id: id, status: 'queued' }
     })
