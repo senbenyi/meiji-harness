@@ -10,8 +10,9 @@ export function projectExecutions(records, projectId) {
     for (const task of page.tasks) {
       if (task.metadata.project_id !== projectId || ['queued', 'running'].includes(task.task_status)) continue
       const type = task.node_type
-      if (!['project', 'script_revision', 'story_segments'].includes(type)) continue
-      if (!latest.has(type) || latest.get(type).queue_order < task.queue_order) latest.set(type, task)
+      if (!['project', 'script_revision', 'story_segments', 'character_extraction', 'costume_image'].includes(type)) continue
+      const key = type === 'costume_image' ? `${type}:${task.metadata.character_id}:${task.metadata.costume_id}` : type
+      if (!latest.has(key) || latest.get(key).queue_order < task.queue_order) latest.set(key, task)
     }
     if (offset + page.tasks.length >= page.total) break
   }
@@ -26,7 +27,7 @@ export function projectExecutions(records, projectId) {
       : task.task_status === 'failed' ? requestFailed ? 'request_failed' : 'execution_error'
       : (['rule_conflict', 'upstream_issue', 'content_issue'].includes(review?.status) ? review.status : 'validation_failed')
     const warning = steps.findLast(step => step.result?.summary_error)?.result.summary_error
-    return { type: task.node_type, saved: steps.some(step => step.result?.saved), execution: {
+    return { type: task.node_type, character_id: task.metadata.character_id, costume_id: task.metadata.costume_id, saved: steps.some(step => step.result?.saved), execution: {
       task_id: task.id, status: task.task_status, stop_code,
       message: (task.task_status === 'rejected' && review ? review.issues.map(issue => `${issue.location}：${issue.reason}；${issue.suggestion}`).join('\n') : task.end_reason) || (task.task_status === 'completed' ? `${task.name}已完成${warning ? `；${warning}` : ''}` : '执行已停止'),
       finished_at: task.ended_at,
@@ -35,8 +36,8 @@ export function projectExecutions(records, projectId) {
 }
 
 export function applyExecutionStates(project, executions) {
-  for (const { type, execution, saved } of executions) {
-    const state = nodeState(project, type)
+  for (const { type, character_id, costume_id, execution, saved } of executions) {
+    const state = type === 'costume_image' ? project.character_extraction.assets.find(row => row.character_id === character_id)?.costume_images.find(row => row.costume_id === costume_id)?.node_state : nodeState(project, type)
     if (!state) continue
     const changed = state.last_execution?.task_id !== execution.task_id
     if ((changed || state.status === 'rejected') && (execution.status === 'rejected' || saved && ['failed', 'cancelled'].includes(execution.status))) {

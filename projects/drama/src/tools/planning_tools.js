@@ -13,7 +13,7 @@ export class PlanningContextTool {
   constructor({ projects, records }) {
     Object.assign(this, { projects, records })
     this.name = 'drama-planning-context'
-    this.description = '读取当前项目的盒子报告、项目上游资料、剧本和故事大纲规则及输出、依赖和过期状态。project、script_revision、story_segments可执行，其他节点暂不能派发。不要猜测依赖或直接读写项目文件。'
+    this.description = '读取当前项目的盒子报告、项目上游资料、剧本和故事大纲规则及输出、依赖和过期状态。project、script_revision、story_segments、character_extraction、costume_image可执行，其他节点暂不能派发。不要猜测依赖或直接读写项目文件。'
     this.parameters = { type: 'object', additionalProperties: false, properties: { report_id: text } }
     this.output = output
   }
@@ -43,8 +43,8 @@ export class UpdateProjectTool {
 }
 
 export class ChangeRulesTool {
-  constructor({ projects, records, scriptRevision, storySegments }) {
-    Object.assign(this, { projects, records, scriptRevision, storySegments })
+  constructor({ projects, records, scriptRevision, storySegments, characterExtraction }) {
+    Object.assign(this, { projects, records, scriptRevision, storySegments, characterExtraction })
     this.name = 'drama-change-rules'
     this.description = '根据当前项目rule_conflict报告提出单个动作的规则修改。必须提供准确旧值和完整新值；工具通过Harness请求用户对这份具体修改的一次授权，拒绝则不保存。成功后由主Agent携带原报告ID重新派发优化任务。'
     this.parameters = { type: 'object', additionalProperties: false, properties: { report_id: text,
@@ -59,13 +59,13 @@ export class ChangeRulesTool {
     const context = await planningContext(this.projects, this.records, { sessionId: id, reportId: report_id })
     if (context.report.decision !== 'rule_conflict') throw new Error('报告不是规则冲突')
     const type = context.report.node_type
-    if (!['script_revision', 'story_segments'].includes(type)) throw new Error('此节点暂不支持规则修复')
+    if (!['script_revision', 'story_segments', 'character_extraction'].includes(type)) throw new Error('此节点暂不支持规则修复')
     if (context[type].rules.rules[patch.action][patch.field] !== patch.previous_value) throw new Error('规则已变化，请重新读取')
-    const title = type === 'story_segments' ? '故事大纲' : '剧本优化'
+    const title = type === 'character_extraction' ? '角色' : type === 'story_segments' ? '故事大纲' : '剧本优化'
     const approval = await exec.agent.ctx?.approval?.request({ agent: exec.agent, toolName: this.name, callId: exec.callId, signal: exec.signal,
       reason: `修改${title} ${patch.action}.${patch.field}\n原规则：\n${patch.previous_value}\n新规则：\n${patch.value}` }) || 'unavailable'
     if (approval !== 'allowed-once') return JSON.stringify({ status: 'rejected', decision: 'authorization_required', approval, report_id, saved: false })
-    const service = type === 'story_segments' ? this.storySegments : this.scriptRevision
+    const service = type === 'character_extraction' ? this.characterExtraction : type === 'story_segments' ? this.storySegments : this.scriptRevision
     return JSON.stringify(await service.changeRules(patch, { sessionId: id, requestId: exec.callId, reportId: report_id, approval, signal: exec.signal }))
   }
 }

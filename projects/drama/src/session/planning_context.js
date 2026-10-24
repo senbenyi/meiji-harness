@@ -13,7 +13,7 @@ const dependencies = {
 /** 依赖和过期状态由代码提供；执行顺序和修复位置交主Agent判断。 */
 export function dependencyFacts(project) {
   return Object.entries(dependencies).map(([node_type, upstream]) => ({ node_type, upstream,
-    executable: ['project', 'script_revision', 'story_segments'].includes(node_type),
+    executable: ['project', 'script_revision', 'story_segments', 'character_extraction', 'costume_image'].includes(node_type),
     state: node_type === 'project' ? 'ready' : nodeState(project, node_type)?.status || 'empty',
   }))
 }
@@ -34,7 +34,8 @@ export async function planningContext(projects, records, { sessionId, reportId }
       node_state: project.basic_info.script_revision_node, opinion: project.basic_info.script_revision_node.opinion },
     story_segments: { output: { segments: project.story_segments.segments }, rules: nodeRules(project.story_segments.node_state),
       node_state: project.story_segments.node_state, opinion: project.story_segments.node_state.opinion },
-    executable_boxes: ['project', 'script_revision', 'story_segments'],
+    character_extraction: { output: { characters: project.character_extraction.characters }, rules: nodeRules(project.character_extraction.node_state), node_state: project.character_extraction.node_state },
+    executable_boxes: ['project', 'script_revision', 'story_segments', 'character_extraction', 'costume_image'],
   }
 }
 

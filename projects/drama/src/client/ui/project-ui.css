@@ -246,3 +246,21 @@ header,main,[role=status]{padding:16px}header{display:flex;align-items:center;ju
 .original-script-heading{flex-wrap:wrap;row-gap:0}
 .original-script-heading>.project-script-import{display:block;flex-basis:100%;min-width:0;order:1}
 .original-script-heading .script-picker,.original-script-heading .error{flex-basis:100%}
+
+/* 定妆照缩略图保持162px高，固定竖版画框，服装照片横向排列。 */
+.project-production .costume-images{min-width:0}
+.project-production .costume-image-list{display:flex;gap:8px;overflow-x:auto;padding:0 0 8px;max-width:100%;overscroll-behavior-x:contain}
+.project-production .costume-image-list>.costume-image-card{flex:0 0 auto;width:121.5px;box-sizing:border-box;margin:0;padding:0;border:0;border-radius:0;background:none}
+.project-production .costume-image-content>p:first-child{margin:0 0 6px;font-size:13px;overflow-wrap:anywhere}
+.project-production .costume-image-frame{display:flex;width:121.5px;height:162px;aspect-ratio:3/4;align-items:center;justify-content:center;overflow:hidden;background:#191b20;border-radius:6px}
+.project-production .costume-image-frame img{display:block;width:100%;height:100%;object-fit:contain}
+.project-production .costume-image-placeholder{box-sizing:border-box;border:0;color:#9299a5;font-size:13px}
+.project-production .costume-image-list>.costume-image-card>button{display:inline-flex;align-items:center;justify-content:center;width:auto;margin-top:10px;max-width:100%;min-height:0;height:32px;padding:6px 10px;font-size:13px;line-height:18px;border:1px solid #e8c58c;border-radius:6px;background:#e8c58c;color:#24201a;white-space:nowrap}
+.project-production .costume-image-card>.error:empty{display:none}
+
+.costume-image-preview>img{display:block;width:100%;max-height:calc(100dvh - 140px);object-fit:contain;margin-top:16px}
+.project-production a.costume-image-frame{cursor:zoom-in}
+
+.project-production .costume-image-content{border:0;padding:0}
+
+.project-production .costume-image-list>.costume-image-card>button:hover:not(:disabled){background:#f2d5a8;border-color:#f2d5a8}

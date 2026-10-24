@@ -13,6 +13,7 @@ import { projectInfo } from './create_project.js'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { createWriteQueue } from '../../project_runtime/write_queue.js'
 import { digest, scriptFingerprint, expireScriptDependents } from '../script_revision/state.js'
+import { characterFingerprint, expireCharacterDependents } from '../character_extraction/state.js'
 import { storyFingerprint, expireStoryDependents } from '../story_segments/state.js'
 import { waitBoxTask } from '../../node_runtime/box_report.js'
 
@@ -152,6 +153,10 @@ export class ProjectService extends EventEmitter {
       if (storyFingerprint(previous) !== storyFingerprint(next) && previous.story_segments.segments.length) {
         next.story_segments.node_state = new NodeStateModel({ ...next.story_segments.node_state, status: 'expired', reason: '大纲资料或规则已变化，需重新生成' }).toJSON()
         expireStoryDependents(next)
+      }
+      if (characterFingerprint(previous) !== characterFingerprint(next) && previous.character_extraction.characters.length) {
+        next.character_extraction.node_state = new NodeStateModel({ ...next.character_extraction.node_state, status: 'expired', reason: '角色资料或规则已变化，需重新生成' }).toJSON()
+        expireCharacterDependents(next)
       }
       if (command.kind !== 'import_script' && scriptFingerprint(previous) !== scriptFingerprint(next) && previous.basic_info.actual_script) {
         next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'expired', reason: '剧本资料或规则已变化，需重新优化' }).toJSON()
@@ -318,14 +323,14 @@ export class ProjectService extends EventEmitter {
       const detail = this.records.tasks.detail(this.records.scope, id)
       const task = detail?.tasks[0]
       if (!task) return
-      const signature = JSON.stringify([task.task_status, detail.steps.map(step => [step.id, step.step_status])])
+      const signature = JSON.stringify([detail.tasks.map(row => row.task_status), detail.steps.map(step => [step.id, step.step_status])])
       if (signature !== last) {
         last = signature
         const m = task.metadata
         if (task.action !== 'create' || detail.steps.some(step => step.result?.created))
           this.emit('updated', { project_id: m.project_id, session_ids: [m.session_id, m.target_session_id, m.source_session_id].filter(Boolean) })
       }
-      if (!['queued', 'running'].includes(task.task_status)) { unsubscribe(); this.#taskWatches.delete(id) }
+      if (!detail.tasks.some(row => ['queued', 'running'].includes(row.task_status))) { unsubscribe(); this.#taskWatches.delete(id) }
     }
     const unsubscribe = this.records.tasks.store.subscribe(scope => { if (scope === this.records.scope) notify() })
     this.#taskWatches.set(id, unsubscribe)

@@ -1,9 +1,11 @@
+import { history as costumeImages } from '../../node_box/costume_image/ui/conversation/history.js'
 import { history as project } from '../../node_box/project/ui/conversation/history.js'
 import { history as script, rulesHistory } from '../../node_box/script_revision/ui/conversation/history.js'
+import { history as characters } from '../../node_box/character_extraction/ui/conversation/history.js'
 import { history as story } from '../../node_box/story_segments/ui/conversation/history.js'
 
-const presentations = { project, script_revision: { ...script, ownsInput: true }, script_rules: rulesHistory,
-  story_segments: { ...story, ownsInput: true }, story_rules: rulesHistory }
+const presentations = { costume_image: { ...costumeImages, ownsInput: true }, project, script_revision: { ...script, ownsInput: true }, script_rules: rulesHistory,
+  character_extraction: { ...characters, ownsInput: true }, character_rules: rulesHistory, story_segments: { ...story, ownsInput: true }, story_rules: rulesHistory }
 const presentation = type => Object.hasOwn(presentations, type) ? presentations[type] : null
 
 /** 历史只读业务适配；只从当次记录恢复输入，不读取现在的项目Model。 */

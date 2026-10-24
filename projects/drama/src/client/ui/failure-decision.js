@@ -17,7 +17,7 @@ export function createFailureDecision(document, { group, decision, onDecision, o
   const hint = node('p', decision || (group.context.requires_user_decision ? '自动修订已停止。继续修改会沿用最后结果和审核意见；重新生成会读取当前项目资料。' : '请查看任务详情，确认需要处理的问题。'), 'hint')
   hint.setAttribute('role', 'status'); hint.setAttribute('aria-live', 'polite'); card.append(hint)
   const actions = node('div', null, 'actions'), controls = []
-  if (!decision && onDecision) for (const [action, label] of group.context.requires_user_decision ? [...(group.context.can_continue || saved ? [['continue', '继续修改']] : []), ['stop', '停止'], ['regenerate', '重新生成']] : [['stop', '停止']]) {
+  if (!decision && onDecision) for (const [action, label] of group.context.requires_user_decision ? [...(group.context.can_continue ?? saved ? [['continue', '继续修改']] : []), ['stop', '停止'], ['regenerate', '重新生成']] : [['stop', '停止']]) {
     const control = node('button', label, action === 'continue' ? 'primary' : ''); control.type = 'button'
     control.onclick = async () => {
       controls.forEach(button => { button.disabled = true })

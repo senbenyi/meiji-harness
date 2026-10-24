@@ -12,7 +12,7 @@ export function displayContext(detail, task, step) {
   const last = detail.steps.findLast(row => row.task_id === task.id && !['ready', 'running', 'skipped'].includes(row.step_status))
   const active = detail.steps.find(row => row.task_id === task.id && row.step_status === 'running')
   const report = boxReport(detail)
-  const candidate = detail.steps.findLast(row => row.task_id === task.id && (row.result?.output?.actual_script || row.result?.output?.segments))?.result.output
+  const candidate = detail.steps.findLast(row => row.task_id === task.id && (row.result?.output?.actual_script || row.result?.output?.segments || row.result?.output?.characters || row.result?.output?.address))?.result.output
   const duration = task.started_at && task.ended_at ? Math.max(0, Math.round((Date.parse(task.ended_at) - Date.parse(task.started_at)) / 1000)) : null
   const name = metadata.project_name || metadata.info?.name || ''
   return {
@@ -27,9 +27,9 @@ export function displayContext(detail, task, step) {
       has_rules: Boolean(metadata.input_snapshot?.rules),
       has_review_issues: Boolean(input?.review_issues?.length),
     },
-    operation_status: task.task_status,
+    operation_status: task.node_type === 'costume_image' ? detail.status : task.task_status,
     active_step: active ? { name: active.name, seq: active.seq, round: active.round } : null,
-    requires_user_decision: report.requires_user_decision, can_continue: Boolean(report.review_packet?.candidate), saved: report.saved, decision: report.decision, stop_reason: report.reason,
+    requires_user_decision: report.requires_user_decision, can_continue: task.node_type !== 'costume_image' && Boolean(report.review_packet?.candidate), saved: report.saved, decision: report.decision, stop_reason: report.reason,
     stopped_at: last ? `${last.seq}. ${last.name}${last.round ? `（第${last.round}轮）` : ''}` : '尚未开始执行步骤',
     revision_count: detail.steps.filter(row => row.task_id === task.id && row.kind === 'revise' && row.round > 0 && row.step_status === 'done').length,
     duration_seconds: duration,
