@@ -8,6 +8,8 @@ export function apply(ctx) {
   ctx.effect(() => ctx.tools.register(ctx.drama.optimizeScriptTool), 'drama: optimize script tool')
   if (ctx.drama.generateStoryOutlineTool) ctx.effect(() => ctx.tools.register(ctx.drama.generateStoryOutlineTool), 'drama: generate story outline tool')
   if (ctx.drama.generateCostumeImagesTool) ctx.effect(() => ctx.tools.register(ctx.drama.generateCostumeImagesTool), 'drama: generate costume images tool')
+  if (ctx.drama.extractScenesTool) ctx.effect(() => ctx.tools.register(ctx.drama.extractScenesTool), 'drama: extract scenes tool')
+  if (ctx.drama.generateGroupsTool) ctx.effect(() => ctx.tools.register(ctx.drama.generateGroupsTool), 'drama: group setting tool')
   if (ctx.drama.extractCharactersTool) ctx.effect(() => ctx.tools.register(ctx.drama.extractCharactersTool), 'drama: extract characters tool')
   for (const tool of ctx.drama.planningTools || []) ctx.effect(() => ctx.tools.register(tool), `drama: ${tool.name}`)
   ctx.effect(() => ctx.systemPrompt.section({ name: 'drama:box-planning',

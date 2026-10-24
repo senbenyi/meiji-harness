@@ -4,6 +4,7 @@ import { NodeStateModel } from '@agent-modules/task/models'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
 import { nodeRules } from '../../node_runtime/node_state.js'
 import { waitBoxTask, boxReport } from '../../node_runtime/box_report.js'
+import { groupOutput } from '../group_setting/state.js'
 import { digest, reconcileCharacterAssets } from '../character_extraction/state.js'
 import { imageTargets, imageFingerprint } from './state.js'
 import { CostumeImageExecutor } from './executor.js'
@@ -40,7 +41,8 @@ export class CostumeImageService {
       }
       if (this.projects.activeExecution(projectId)) throw Object.assign(new Error('该项目已有排队或执行中的任务'), { code: 'PROJECT_ACTIVE' })
       if (project.character_extraction.node_state.status !== 'generated') throw new Error('请先生成并确认角色资料')
-      project.character_extraction.assets = await reconcileCharacterAssets(project.character_extraction.assets, project.character_extraction.characters, project.character_extraction.characters)
+      if (project.group_setting?.node_state.status !== 'generated') throw new Error('请先完成并确认团队设定')
+      project.character_extraction.assets = await reconcileCharacterAssets(project.character_extraction.assets, project.character_extraction.characters, project.character_extraction.characters, groupOutput(project).groups, groupOutput(project).groups)
       const targets = imageTargets(project, character_id, costume_id)
       if (!targets.length) throw new Error('没有可生成定妆照的角色或服装')
       const manager = await ProjectManager.open(join(this.projects.root, 'projects', projectId, 'project.json'))
@@ -50,7 +52,7 @@ export class CostumeImageService {
         tasks: targets.map(target => ({ node_type: 'costume_image', action: target.image.address ? 'revise' : 'generate', name: `${target.character.name} · ${target.costume?.name || '人物定妆照'}`,
           metadata: { project_id: projectId, project_name: project.basic_info.name, session_id: sessionId, request_id: requestId, request_signature: signature, parent_group_id: retry_of || null, selection: { ...(character_id ? { character_id } : {}), ...(costume_id !== undefined ? { costume_id } : {}) },
             character_id: target.character.id, costume_id: target.costume?.id ?? null, instruction, goal: instruction, input_hash: imageFingerprint(project, target),
-            input_snapshot: { character: target.character, costume: target.costume, reference_image: target.image.reference_image,
+            input_snapshot: { character: target.character, costume: target.costume, groups: target.groups, reference_image: target.image.reference_image,
               aspect_ratio: '3:4', instruction, output_language: config.output_language, rules: nodeRules(target.image.node_state) } } })) })
       this.projects.watchProjectTask(id)
       return { project_id: projectId, group_id: id, status: 'queued' }

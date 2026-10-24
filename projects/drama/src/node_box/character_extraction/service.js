@@ -1,11 +1,13 @@
 import { join } from 'node:path'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
+import { validateNodeOutput } from '../../node_runtime/output_response_parser.js'
 import { nodeRules } from '../../node_runtime/node_state.js'
 import { boxReport, waitBoxTask, userRetry } from '../../node_runtime/box_report.js'
 import { CharacterExtractionExecutor } from './executor.js'
 import { CharacterRulesExecutor } from './rule_change_executor.js'
-import { digest, characterFingerprint, characterOutput, validateCharacterCandidate, expireCharacterDependents, reconcileCharacterAssets } from './state.js'
+import { groupOutput } from '../group_setting/state.js'
+import { digest, normalizeCharacterOutput, characterFingerprint, characterOutput, validateCharacterCandidate, expireCharacterDependents, reconcileCharacterAssets } from './state.js'
 
 /** 面板与会话共用入口；每轮有效结果同步项目与步骤记录，审核结论不控制结果保存。 */
 export class CharacterExtractionService {
@@ -20,15 +22,20 @@ export class CharacterExtractionService {
     }, records, models, getMaxRevisionRounds: () => this.maxRevisionRounds })
   }
 
-  executionInput({ story_outline, current_characters, instruction, output_language, ...unknown } = {}) {
+  executionInput({ story_outline, scene_extraction = { scenes: [] }, group_setting = { groups: [] }, current_characters, instruction, output_language, ...unknown } = {}) {
     if (Object.keys(unknown).length) throw new TypeError('角色输入含未声明字段')
     if (!story_outline || !Array.isArray(story_outline.segments) || !story_outline.segments.length) throw new TypeError('请先生成故事大纲')
     // 空集合表示尚未生成；已有集合必须符合节点契约。
-    if (!current_characters || Object.keys(current_characters).length !== 1 || !Array.isArray(current_characters.characters)) throw new TypeError('current_characters需为完整角色')
-    if (current_characters.characters.length) validateCharacterCandidate(current_characters)
+    if (!current_characters || Object.keys(current_characters).some(key => key !== 'characters') || !Array.isArray(current_characters.characters)) throw new TypeError('current_characters需为完整角色')
+    if (!scene_extraction || !Array.isArray(scene_extraction.scenes) || Object.keys(scene_extraction).some(key => key !== 'scenes')) throw new TypeError('scene_extraction需为场景资料')
+    current_characters = normalizeCharacterOutput(current_characters)
+    // 当前资料可能来自旧大纲；允许模型修复旧故事段引用，新候选保存时再严格核对当前段落。
+    if (!group_setting || !Array.isArray(group_setting.groups) || Object.keys(group_setting).some(key => key !== 'groups')) throw new TypeError('group_setting需为团队资料')
+    // 已有成员/制服可能随团队上游改变，交模型修复；只验证其结构。
+    validateNodeOutput('character_extraction', 'generate', current_characters)
     if (typeof instruction !== 'string' || !instruction.trim() || instruction.length > 10000) throw new TypeError('instruction必选，需为1—10000字的角色要求')
     if (typeof output_language !== 'string' || !output_language.trim()) throw new TypeError('output_language必选')
-    return structuredClone({ story_outline, current_characters, instruction: instruction.trim(), output_language })
+    return structuredClone({ story_outline, scene_extraction, group_setting, current_characters, instruction: instruction.trim(), output_language })
   }
 
   extractCharacters({ instruction, retry_of, ...unknown } = {}, { sessionId, projectId, requestId, source = 'api', retryAction } = {}) {
@@ -57,9 +64,10 @@ export class CharacterExtractionService {
       if (!retry && parent && parent.tasks[0].metadata.input_hash === characterFingerprint(project)
         && !(parent.status === 'completed' && instruction.trim() !== parent.tasks[0].metadata.instruction)) throw new Error('上游资料或规则尚未变化，请先修复后再派发新任务')
       if (!project.story_segments.segments.length) throw new Error('请先生成故事大纲，再提取角色')
+      if (project.group_setting?.node_state.status !== 'generated') throw new Error('请先完成并确认团队设定；无团队也需返回空集合并审核通过')
       if (this.projects.activeExecution(projectId)) throw Object.assign(new Error('该项目已有排队或执行中的任务'), { code: 'PROJECT_ACTIVE' })
       const config = await this.models.read()
-      const input = this.executionInput({ story_outline: { segments: structuredClone(project.story_segments.segments) }, current_characters: characterOutput(project), instruction, output_language: config.output_language })
+      const input = this.executionInput({ story_outline: { segments: structuredClone(project.story_segments.segments) }, scene_extraction: { scenes: structuredClone(project.scene_extraction?.scenes || []) }, group_setting: groupOutput(project), current_characters: characterOutput(project), instruction, output_language: config.output_language })
       if (retryAction === 'continue') input.current_characters = retry.candidate
       const metadata = { project_id: projectId, project_name: project.basic_info.name, session_id: sessionId, request_id: requestId,
         instruction: input.instruction, language: input.output_language, goal: parent?.tasks[0].metadata.goal || input.instruction,
@@ -83,16 +91,17 @@ export class CharacterExtractionService {
   }
 
   saveCharacterCandidate(ctx, value, { expectedOutput, passed = false }) {
-    const output = validateCharacterCandidate(value)
+    const output = validateNodeOutput('character_extraction', 'generate', value)
     return this.projects.writes.run(async () => {
       ctx.signal.throwIfAborted()
       const { project_id: id, session_id: sessionId, input_hash: inputHash } = ctx.task.metadata
       const { project } = await this.projects.snapshot(sessionId)
       if (!project || project.basic_info.id !== id || characterFingerprint(project) !== inputHash || digest(characterOutput(project)) !== expectedOutput) throw new Error('项目内容已变化，拒绝覆盖角色结果')
+      validateCharacterCandidate(output, { segments: project.story_segments.segments, groups: groupOutput(project).groups })
       const detail = this.records.tasks.detail(this.records.scope, ctx.task.group_id)
       if (detail.tasks.find(task => task.id === ctx.task.id)?.task_status !== 'running') throw new Error('任务已结束，拒绝写入')
       const manager = await ProjectManager.open(join(this.projects.root, 'projects', id, 'project.json'))
-      const assets = await reconcileCharacterAssets(project.character_extraction.assets, project.character_extraction.characters, output.characters)
+      const assets = await reconcileCharacterAssets(project.character_extraction.assets, project.character_extraction.characters, output.characters, groupOutput(project).groups, groupOutput(project).groups)
       manager.change(next => {
         if (digest(characterOutput(next)) !== digest(output)) expireCharacterDependents(next)
         next.character_extraction.characters = output.characters

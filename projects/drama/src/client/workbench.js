@@ -42,7 +42,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
   let settingsReturnPage = 'home', libraryReturnPage = 'home', disposeLibrary, recordView
   const libraryState = { tab: 'assets', category: 'scripts' }
   let projectView, projectViewId, sessionReady = false, eventCursor = null
-  let characterExecution = null, imageExecution = null
+  let sceneExecution = null, groupExecution = null, characterExecution = null, imageExecution = null
   let storyExecution = null
   const projectStates = new Map()
   const clearProject = () => { projectView?.dispose(); projectView = null; projectViewId = null }
@@ -216,12 +216,20 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       content.append(empty)
       return
     }
-    if (projectView) { projectView.update(project, { scriptExecution, summaryExecution, storyExecution, characterExecution, imageExecution }); return }
+    if (projectView) { projectView.update(project, { scriptExecution, summaryExecution, storyExecution, sceneExecution, groupExecution, characterExecution, imageExecution }); return }
     const ownerSession = session, projectId = project.basic_info.id
     projectViewId = projectId
     if (!projectStates.has(projectId)) projectStates.set(projectId, {})
-    projectView = createProjectView(content, { project, scriptExecution, summaryExecution, storyExecution, characterExecution, imageExecution, request: path => request(path, undefined, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
+    projectView = createProjectView(content, { project, scriptExecution, summaryExecution, storyExecution, sceneExecution, groupExecution, characterExecution, imageExecution, request: path => request(path, undefined, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
       refresh: () => { void refresh().catch(report) },
+      extractScenes: async (instruction, requestId, { regenerate = false } = {}) => {
+        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
+        return request('scenes', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' }, body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction, ...(regenerate ? { regenerate: true } : {}) }) }, ownerSession)
+      },
+      generateGroups: async (instruction, requestId) => {
+        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
+        return request('groups', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' }, body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction }) }, ownerSession)
+      },
       generateCharacters: async (instruction, requestId) => {
         if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
         return request('characters', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' }, body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction }) }, ownerSession)
@@ -302,6 +310,8 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     project = snapshot.project
     scriptExecution = snapshot.script_execution || null
     storyExecution = snapshot.story_execution || null
+    sceneExecution = snapshot.scene_execution || null
+    groupExecution = snapshot.group_execution || null
     characterExecution = snapshot.character_execution || null; imageExecution = snapshot.image_execution || null
     summaryExecution = snapshot.original_summary_execution || null
     if (!['settings', 'library', 'http', 'tasks'].includes(page)) page = project ? 'project' : 'home'

@@ -15,6 +15,10 @@
 
 - 故事大纲入口为 `src/tools/generate_story_outline_tool.js`，Service/Executor位于 `src/node_box/story_segments/`；面板及会话共用生成入口。输入为basic_info（仅actual_script/summary/estimated_duration_seconds）、current_outline、instruction、output_language，与规则中的basic_info.actual_script路径一致。优化剧本可选，有工作稿即可生成。完整集合严格校验且拒绝空集合、重复段/锚点ID，每次结构有效的生成/修订立即替换segments并同步Task；本地内容问题最多修订3轮，失败/取消保留最新已保存结果与各轮记录。意见、规则、记录、结束摘要、下游过期及专属UI见开发方向“故事大纲生成”。
 
+- 场景提取是独立 `scene_extraction` 文本盒子，`src/node_box/scene_extraction/`维护Service/Executor/状态/规则修复及panel/conversation。面板 `/api/drama/scenes` 与会话 `drama-extract-scenes` 共用入口，输入story_outline/current_scenes/instruction/output_language；沿用既有字段，仅输出scenes，允许有效空集合、拒绝重复ID。结构有效候选即时保存，审核/修订/失败用户决策与其他文本盒子一致。场景资产按scene_id保留和过期，不自动生图；更新联动团队、人物和后续生产状态。详见开发方向“场景提取”。
+
+- 团队设定是独立 `group_setting` AI盒子，Service/Executor及panel/conversation在 `src/node_box/group_setting/`；面板 `/api/drama/groups` 与会话 `drama-generate-groups` 共用入口，完整生成/审核/修订后只保存groups。人物提取只保存characters，读取已确认团队并校验成员/制服/故事段引用；无团队也先执行团队盒子得到通过的空集合。角色tab保持团队设定、人物提取、定妆照三卡；任务、意见、规则和状态独立，不自动串行执行或生图。团队变化使人物/下游过期，照片按实际关联过期；旧合并数据读取时补独立节点，私有规则不覆盖。详见开发方向“团队设定、人物提取与定妆照”。
+
 - `src/harness_server/` 只提供harness-http路由、认证、静态资源和SSE，不承载盒子业务。根插件组装项目管理、剧本优化服务及共享记录；不设顶层service转发层，也不保留旧目录代理。HTTP分类和记录归属统一遵守根开发指引的“HTTP术语与记录归属”。
 
 - 项目管理专属的输入字段、创建和编辑/导入校验分别在 `src/node_box/project/create_project.js`、`edit_project.js`。`src/project_runtime/`保留整个项目共享的Manager、Model和写入队列；其中 `project_manager.js`、`project_model.js` 不随盒子迁移。节点专属界面归 `src/node_box/<节点>/ui/panel/`（右侧面板）与 `ui/conversation/`（会话）；公共组件、样式、全局片库/设置与历史适配归 `src/client/ui/`。`src/client/` 保留工作台、项目视图/阶段编排及会话挂载控制器。服务端Schema和校验不当作UI迁入。

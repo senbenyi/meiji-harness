@@ -5,6 +5,8 @@ import { conversation as projectConversation } from '../../node_box/project/ui/c
 import { conversation as scriptConversation } from '../../node_box/script_revision/ui/conversation/index.js'
 import { panel as story_segmentsPanel } from '../../node_box/story_segments/ui/panel/index.js'
 import { conversation as story_segmentsConversation } from '../../node_box/story_segments/ui/conversation/index.js'
+import { panel as groupPanel } from '../../node_box/group_setting/ui/panel/index.js'
+import { conversation as groupConversation } from '../../node_box/group_setting/ui/conversation/index.js'
 import { panel as character_extractionPanel } from '../../node_box/character_extraction/ui/panel/index.js'
 import { conversation as character_extractionConversation } from '../../node_box/character_extraction/ui/conversation/index.js'
 import { panel as scene_extractionPanel } from '../../node_box/scene_extraction/ui/panel/index.js'
@@ -25,6 +27,7 @@ const registry = {
   project: { panel: projectPanel, conversation: projectConversation },
   script_revision: { panel: scriptPanel, conversation: scriptConversation },
   story_segments: { panel: story_segmentsPanel, conversation: story_segmentsConversation },
+  group_setting: { panel: groupPanel, conversation: groupConversation },
   character_extraction: { panel: character_extractionPanel, conversation: character_extractionConversation },
   scene_extraction: { panel: scene_extractionPanel, conversation: scene_extractionConversation },
   shot_design: { panel: shot_designPanel, conversation: shot_designConversation },
@@ -34,6 +37,6 @@ const registry = {
   clip_composition: { panel: clip_compositionPanel, conversation: clip_compositionConversation },
 }
 
-export const productionStages = ['story_segments', 'character_extraction', 'scene_extraction', 'shot_design', 'video_prompt', 'clip_video', 'merge_video'].map(type => registry[type])
+export const productionStages = ['story_segments', 'scene_extraction', 'character_extraction', 'shot_design', 'video_prompt', 'clip_video', 'merge_video'].map(type => registry[type])
 export function nodeUi(type) { return Object.hasOwn(registry, type) ? registry[type] : {} }
 export function nodeUiForStage(key) { return productionStages.find(entry => entry.panel.key === key) }

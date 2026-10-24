@@ -3,6 +3,7 @@ import basic_info from '../node_box/project/definition.js'
 import script_revision from '../node_box/script_revision/definition.js'
 import story_segments from '../node_box/story_segments/definition.js'
 import character_extraction from '../node_box/character_extraction/definition.js'
+import group_setting from '../node_box/group_setting/definition.js'
 import scene_extraction from '../node_box/scene_extraction/definition.js'
 import shot_design from '../node_box/shot_design/definition.js'
 import video_prompt from '../node_box/video_prompt/definition.js'
@@ -19,6 +20,7 @@ export const nodeDefinitions = {
   script_revision,
   story_segments,
   character_extraction,
+  group_setting,
   scene_extraction,
   shot_design,
   video_prompt,

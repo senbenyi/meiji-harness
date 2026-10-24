@@ -16,6 +16,7 @@ export default { kind: "text", initial: { assets: [] }, output: object({
       "hairstyle": string("发型。"),
       "voice": string("稳定声线特征；具体台词与发声时序写入分镜。"),
       "relationships": string("人物之间已确认的稳定关系。"),
+      "group_ids": array(string("明确所属的团队ID；无所属团队为空数组。")),
       "signature_props": array(object({
         "id": string("稳定标识；已有对象保留原ID。", { minLength: 1 }),
         "name": string("对象名称。", { minLength: 1 }),
@@ -25,7 +26,10 @@ export default { kind: "text", initial: { assets: [] }, output: object({
       "costumes": array(object({
         "id": string("稳定标识；已有对象保留原ID。", { minLength: 1 }),
         "name": string("对象名称。", { minLength: 1 }),
-        "description": string("对象完整外观或环境身份描述。")
+        "description": string("完整个人服装设计或在所引用团队制服上的个人差异，不重复改造共同制服。"),
+        "group_id": string("引用的团队ID；个人独立服装为空字符串。"),
+        "group_costume_id": string("引用的团队服装版本ID；与group_id同时为空或同时有效。"),
+        "story_segment_ids": array(string("适用故事段ID；空数组表示通用。"))
       }))
     }))
   }) }

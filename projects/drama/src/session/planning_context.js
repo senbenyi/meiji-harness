@@ -1,11 +1,14 @@
 import { scriptOutput, nodeRules, nodeState } from '../node_runtime/node_state.js'
+import { sceneOutput } from '../node_box/scene_extraction/state.js'
+import { groupOutput } from '../node_box/group_setting/state.js'
+import { characterOutput } from '../node_box/character_extraction/state.js'
 import { boxReport } from '../node_runtime/box_report.js'
 
 const dependencies = {
   project: [], script_revision: ['project'], story_segments: ['project', 'script_revision'],
-  character_extraction: ['story_segments'], scene_extraction: ['story_segments'],
-  costume_image: ['character_extraction'], scene_image: ['scene_extraction'],
-  shot_design: ['story_segments', 'character_extraction', 'scene_extraction'],
+  group_setting: ['story_segments'], character_extraction: ['story_segments', 'group_setting'], scene_extraction: ['story_segments'],
+  costume_image: ['group_setting', 'character_extraction'], scene_image: ['scene_extraction'],
+  shot_design: ['story_segments', 'scene_extraction', 'group_setting', 'character_extraction'],
   clip_arrangement: ['shot_design'], video_prompt: ['clip_arrangement', 'shot_design', 'costume_image', 'scene_image'],
   videos: ['video_prompt'], episodes: ['videos'],
 }
@@ -13,7 +16,7 @@ const dependencies = {
 /** 依赖和过期状态由代码提供；执行顺序和修复位置交主Agent判断。 */
 export function dependencyFacts(project) {
   return Object.entries(dependencies).map(([node_type, upstream]) => ({ node_type, upstream,
-    executable: ['project', 'script_revision', 'story_segments', 'character_extraction', 'costume_image'].includes(node_type),
+    executable: ['project', 'script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image'].includes(node_type),
     state: node_type === 'project' ? 'ready' : nodeState(project, node_type)?.status || 'empty',
   }))
 }
@@ -34,8 +37,10 @@ export async function planningContext(projects, records, { sessionId, reportId }
       node_state: project.basic_info.script_revision_node, opinion: project.basic_info.script_revision_node.opinion },
     story_segments: { output: { segments: project.story_segments.segments }, rules: nodeRules(project.story_segments.node_state),
       node_state: project.story_segments.node_state, opinion: project.story_segments.node_state.opinion },
-    character_extraction: { output: { characters: project.character_extraction.characters }, rules: nodeRules(project.character_extraction.node_state), node_state: project.character_extraction.node_state },
-    executable_boxes: ['project', 'script_revision', 'story_segments', 'character_extraction', 'costume_image'],
+    scene_extraction: { output: sceneOutput(project), rules: nodeRules(project.scene_extraction.node_state), node_state: project.scene_extraction.node_state },
+    group_setting: { output: groupOutput(project), rules: nodeRules(project.group_setting.node_state), node_state: project.group_setting.node_state },
+    character_extraction: { output: characterOutput(project), rules: nodeRules(project.character_extraction.node_state), node_state: project.character_extraction.node_state },
+    executable_boxes: ['project', 'script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image'],
   }
 }
 

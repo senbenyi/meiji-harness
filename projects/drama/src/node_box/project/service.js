@@ -13,6 +13,8 @@ import { projectInfo } from './create_project.js'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { createWriteQueue } from '../../project_runtime/write_queue.js'
 import { digest, scriptFingerprint, expireScriptDependents } from '../script_revision/state.js'
+import { sceneFingerprint, expireSceneDependents } from '../scene_extraction/state.js'
+import { groupFingerprint, expireGroupDependents } from '../group_setting/state.js'
 import { characterFingerprint, expireCharacterDependents } from '../character_extraction/state.js'
 import { storyFingerprint, expireStoryDependents } from '../story_segments/state.js'
 import { waitBoxTask } from '../../node_runtime/box_report.js'
@@ -119,7 +121,7 @@ export class ProjectService extends EventEmitter {
   async nodeStates(sessionId) {
     const { project } = await this.snapshot(sessionId)
     if (!project) return { project_id: null, nodes: {} }
-    const types = ['project', 'script_revision', 'story_segments', 'character_extraction', 'scene_extraction', 'shot_design', 'clip_arrangement', 'video_prompt']
+    const types = ['project', 'script_revision', 'story_segments', 'group_setting', 'character_extraction', 'scene_extraction', 'shot_design', 'clip_arrangement', 'video_prompt']
     const nodes = Object.fromEntries(types.map(type => [type, { ...stateSummary(nodeState(project, type)), active_execution: (() => { const active = this.activeExecution(project.basic_info.id, type); if (!active) return null; const { node_state_before, ...summary } = active; return summary })() }]))
     const visit = (value, path) => {
       if (!value || typeof value !== 'object') return
@@ -153,6 +155,14 @@ export class ProjectService extends EventEmitter {
       if (storyFingerprint(previous) !== storyFingerprint(next) && previous.story_segments.segments.length) {
         next.story_segments.node_state = new NodeStateModel({ ...next.story_segments.node_state, status: 'expired', reason: '大纲资料或规则已变化，需重新生成' }).toJSON()
         expireStoryDependents(next)
+      }
+      if (sceneFingerprint(previous) !== sceneFingerprint(next) && previous.scene_extraction.node_state.status !== 'empty') {
+        next.scene_extraction.node_state = new NodeStateModel({ ...next.scene_extraction.node_state, status: 'expired', reason: '场景资料或规则已变化，需重新生成' }).toJSON()
+        expireSceneDependents(next)
+      }
+      if (groupFingerprint(previous) !== groupFingerprint(next) && previous.group_setting.node_state.status !== 'empty') {
+        next.group_setting.node_state = new NodeStateModel({ ...next.group_setting.node_state, status: 'expired', reason: '团队资料或规则已变化，需重新生成' }).toJSON()
+        expireGroupDependents(next)
       }
       if (characterFingerprint(previous) !== characterFingerprint(next) && previous.character_extraction.characters.length) {
         next.character_extraction.node_state = new NodeStateModel({ ...next.character_extraction.node_state, status: 'expired', reason: '角色资料或规则已变化，需重新生成' }).toJSON()

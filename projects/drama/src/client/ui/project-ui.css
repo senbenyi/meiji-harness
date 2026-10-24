@@ -217,6 +217,10 @@ header,main,[role=status]{padding:16px}header{display:flex;align-items:center;ju
 .project-production .production-section.script-node>.section-head{justify-content:flex-start;margin:0}
 .project-production .production-count{margin-left:auto}
 .project-production .production-section>.production-empty,.project-production .production-section>.production-card{margin-top:16px}
+.project-production .role-module-card{margin-top:20px;padding:16px;border:1px solid #34363d;border-radius:10px;background:#101114;min-width:0}
+.project-production .role-module-card>.production-card{background:#15161a}
+.project-production .role-module-card>.production-card:last-child{margin-bottom:0}
+.project-production .role-module-card>h3{margin-bottom:12px}
 .project-production .script-node .node-ui-failure:empty{display:none}
 
 /* AI生成与修改使用相同的亮金色操作样式。 */

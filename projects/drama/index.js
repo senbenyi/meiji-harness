@@ -5,6 +5,10 @@ import { OptimizeScriptTool } from './src/tools/optimize_script_tool.js'
 import { CreateProjectTool } from './src/tools/creat_project_tool.js'
 import { ProjectService } from './src/node_box/project/service.js'
 import { ScriptRevisionService } from './src/node_box/script_revision/service.js'
+import { SceneExtractionService } from './src/node_box/scene_extraction/service.js'
+import { ExtractScenesTool } from './src/tools/extract_scenes_tool.js'
+import { GroupSettingService } from './src/node_box/group_setting/service.js'
+import { GenerateGroupsTool } from './src/tools/generate_groups_tool.js'
 import { CharacterExtractionService } from './src/node_box/character_extraction/service.js'
 import { CostumeImageService } from './src/node_box/costume_image/service.js'
 import { GenerateCostumeImagesTool } from './src/tools/generate_costume_images_tool.js'
@@ -36,13 +40,17 @@ export function apply(ctx) {
   const scriptRevision = new ScriptRevisionService({ projects: tool, records: tool.records, models: tool.models })
   tool.optimizeScriptTool = new OptimizeScriptTool({ scriptRevision })
   const storySegments = new StorySegmentsService({ projects: tool, records: tool.records, models: tool.models })
+  const sceneExtraction = new SceneExtractionService({ projects: tool, records: tool.records, models: tool.models })
+  tool.extractScenesTool = new ExtractScenesTool({ sceneExtraction })
+  const groupSetting = new GroupSettingService({ projects: tool, records: tool.records, models: tool.models })
+  tool.generateGroupsTool = new GenerateGroupsTool({ groupSetting })
   const characterExtraction = new CharacterExtractionService({ projects: tool, records: tool.records, models: tool.models })
   const costumeImages = new CostumeImageService({ projects: tool, records: tool.records, models: tool.models })
   tool.generateCostumeImagesTool = new GenerateCostumeImagesTool({ costumeImages })
   tool.extractCharactersTool = new ExtractCharactersTool({ characterExtraction })
   tool.generateStoryOutlineTool = new GenerateStoryOutlineTool({ storySegments })
   tool.planningTools = [new PlanningContextTool({ projects: tool, records: tool.records }), new UpdateProjectTool({ projects: tool }),
-    new ChangeRulesTool({ projects: tool, records: tool.records, scriptRevision, storySegments, characterExtraction })]
+    new ChangeRulesTool({ projects: tool, records: tool.records, scriptRevision, storySegments, sceneExtraction, groupSetting, characterExtraction })]
   tool.applyMainAgent = async sessionId => {
     await tool.ready
     const config = await tool.models.read()
@@ -61,7 +69,7 @@ export function apply(ctx) {
     try { await display(boxReport(detail), 'start', detail.tasks[0].name) }
     catch (error) { ctx.logger.warn('面板开始消息展示失败：%s', error.message) }
   }
-  const handler = createProjectHttpHandler(tool, { authorize: req => ctx.connection.requestRejection(req), models: tool.models, scriptRevision, storySegments, characterExtraction, costumeImages })
+  const handler = createProjectHttpHandler(tool, { authorize: req => ctx.connection.requestRejection(req), models: tool.models, scriptRevision, storySegments, sceneExtraction, groupSetting, characterExtraction, costumeImages })
   ctx.on('llm/stream', (options, next) => tool.records.models.stream(options, next))
   for (const path of ['/plugins/drama/src/client', '/plugins/drama/src/node_box', '/plugins/drama/packages', '/api/drama'])
     ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path, handler }), `drama: ${path}`)

@@ -6,7 +6,7 @@ import { nodeDefinitions, renderNodeRules, resolveOutputDefinition, composeNodeP
 import { outputInstructions } from '../src/node_runtime/output_contract_renderer.js'
 import { createProject } from '../src/node_box/project/create_project.js'
 
-const names = ['script_revision', 'story_segments', 'character_extraction', 'scene_extraction', 'shot_design', 'video_prompt', 'costume_image', 'scene_image']
+const names = ['script_revision', 'story_segments', 'group_setting', 'character_extraction', 'scene_extraction', 'shot_design', 'video_prompt', 'costume_image', 'scene_image']
 const rules = async name => JSON.parse(await readFile(new URL(`../skills/${name}.json`, import.meta.url), 'utf8'))
 
 test('新项目保存大纲定稿及镜头转译规则，六动作查看和提示词沿用各自快照', async () => {
@@ -38,7 +38,7 @@ test('新项目保存大纲定稿及镜头转译规则，六动作查看和提�
   }
 })
 
-test('24动作只保存规则和引用，使用运行时定义展开，不复制Schema', async () => {
+test('27动作只保存规则和引用，使用运行时定义展开，不复制Schema', async () => {
   for (const name of names) {
     const input = await rules(name), model = new RulesModel(input)
     for (const action of ['generate', 'review', 'revise']) {

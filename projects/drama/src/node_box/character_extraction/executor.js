@@ -31,6 +31,8 @@ export class CharacterExtractionExecutor {
     const savedInput = metadata.input_snapshot
     const input = {
       story_outline: savedInput.story_outline,
+      scene_extraction: savedInput.scene_extraction || { scenes: [] },
+      group_setting: savedInput.group_setting || { groups: [] },
       current_characters: generated ? generated.result.output : savedInput.current_characters,
       output_language: savedInput.output_language,
       instruction: savedInput.instruction,
@@ -52,8 +54,8 @@ export class CharacterExtractionExecutor {
       messages: prompt.messages, signal, requestId: ctx.step.id, record,
     })
     signal.throwIfAborted()
-    const output = parseNodeOutput('character_extraction', action, response)
-    if (kind !== 'review') validateCharacterCandidate(output)
+    let output = parseNodeOutput('character_extraction', action, response)
+    if (kind !== 'review') output = validateCharacterCandidate(output, { segments: savedInput.story_outline.segments, groups: savedInput.group_setting?.groups || [] })
     if (kind === 'generate' || kind === 'revise') {
       await this.projects.saveCharacterCandidate(ctx, output, { expectedOutput })
       return { result: { output, saved: true }, nextSteps: [step('review', ctx.step.round)] }

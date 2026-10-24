@@ -13,6 +13,14 @@ export default { kind: "text", output: object({
         "state": string("本镜开场环境状态及光照。"),
         "spatial_setup": string("本镜背景区域的固定空间关系。")
       }),
+      "groups": array(object({
+        "group_id": string("明确关联的团队ID。", { minLength: 1 }),
+        "costume_id": string("该团队中选定的服装版本ID；无统一服装时为空。"),
+        "presence": string("本镜开场群体在场、可见范围与规模，不将团队成员画成同一张脸。"),
+        "position": string("群体开场所在区域与分布。"),
+        "facing": string("群体主要朝向及必要差异。"),
+        "gaze_target": string("群体主要注视对象。")
+      })),
       "characters": array(object({
         "character_id": string("关联人物ID；无资产时为空。"),
         "costume_id": string("选定服装ID；无服装目录时为空。"),

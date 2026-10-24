@@ -16,10 +16,10 @@ const editIcon = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path 
 const button = (label, action, name) => { const node = element('button', label); node.type = 'button'; node.onclick = action; if (name) node.setAttribute('aria-label', name); return node }
 
 /** meiji风格的基本资料/剧本视图；state由外层保存，所有写入通过save回调。 */
-export function createProjectView(root, { project: initialProject, save, refresh, request, remove, optimize, generateStory, generateCharacters, generateImages, characterExecution: initialCharacterExecution = null, imageExecution: initialImageExecution = null, storyExecution: initialStoryExecution = null, scriptExecution: initialExecution = null, summaryExecution: initialSummaryExecution = null, confirmDelete = message => root.ownerDocument.defaultView.confirm(message), dialogRoot = root, state = {} } = {}) {
+export function createProjectView(root, { project: initialProject, save, refresh, request, remove, optimize, generateStory, extractScenes, generateGroups, generateCharacters, generateImages, sceneExecution: initialSceneExecution = null, groupExecution: initialGroupExecution = null, characterExecution: initialCharacterExecution = null, imageExecution: initialImageExecution = null, storyExecution: initialStoryExecution = null, scriptExecution: initialExecution = null, summaryExecution: initialSummaryExecution = null, confirmDelete = message => root.ownerDocument.defaultView.confirm(message), dialogRoot = root, state = {} } = {}) {
   let sourceRead = 0
   let project = initialProject, execution = initialExecution, summaryExecution = initialSummaryExecution, disposed = false, recordView, disposeImport
-  let characterExecution = initialCharacterExecution, imageExecution = initialImageExecution
+  let sceneExecution = initialSceneExecution, groupExecution = initialGroupExecution, characterExecution = initialCharacterExecution, imageExecution = initialImageExecution
   let storyExecution = initialStoryExecution
   state.mode ||= 'overview'
   const ownedDialogs = new Set()
@@ -65,9 +65,9 @@ export function createProjectView(root, { project: initialProject, save, refresh
       const ruleState = nodeType === 'script_revision' ? project.basic_info.script_revision_node : project[nodeType].node_state
       root.append(renderRulesPanel({ supports_supplement: ruleState.supports_supplement, rules: ruleState.rules }, { title: `${nodeTitle}规则`, document: root.ownerDocument, onNotify: message => showToast(message),
         loadCurrentBases: request ? async () => (await request(`node-rules?${new URLSearchParams({ node_type: nodeType })}`)).bases : undefined,
-        baseLabel: '基础规则', ruleNote: `输出引用已展开为具体字段、类型、必填项及说明。${['script_revision', 'story_segments', 'character_extraction'].includes(nodeType) ? '各动作的补充规则独立保存。' : '当前仅供查看。'}`,
+        baseLabel: '基础规则', ruleNote: `输出引用已展开为具体字段、类型、必填项及说明。${['script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction'].includes(nodeType) ? '各动作的补充规则独立保存。' : '当前仅供查看。'}`,
         onBack: () => go(['script', 'production'].includes(state.ruleReturn) ? state.ruleReturn : 'overview'),
-        onSave: ['script_revision', 'story_segments', 'character_extraction'].includes(nodeType) ? change => persist({ kind: 'rules', node_type: nodeType, ...change }) : undefined,
+        onSave: ['script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction'].includes(nodeType) ? change => persist({ kind: 'rules', node_type: nodeType, ...change }) : undefined,
       }))
       return
     }
@@ -75,6 +75,8 @@ export function createProjectView(root, { project: initialProject, save, refresh
     root.append(view)
     if (state.mode === 'production') {
       renderProjectProduction(view, project, { state, onBack: () => go('overview'),
+        scenes: { execution: sceneExecution, generate: extractScenes, refresh, repaint: paint, isCurrent: () => !disposed, setExecution: value => { sceneExecution = value } },
+        groups: { execution: groupExecution, generate: generateGroups, refresh, repaint: paint, isCurrent: () => !disposed, setExecution: value => { groupExecution = value } },
         characters: { execution: characterExecution, generate: generateCharacters, refresh, repaint: paint, isCurrent: () => !disposed, setExecution: value => { characterExecution = value } },
         images: { execution: imageExecution, generate: generateImages, refresh, isCurrent: () => !disposed, setExecution: value => { imageExecution = value }, openTasks: () => openRecords('tasks', 'costume_image', '定妆照') },
         story: { execution: storyExecution, generate: generateStory, refresh, repaint: paint, isCurrent: () => !disposed,
@@ -160,12 +162,14 @@ export function createProjectView(root, { project: initialProject, save, refresh
     view.append(script)
   }
   paint()
-  return { get isShowingRecords() { return ['tasks', 'http'].includes(state.mode) }, update(next, { scriptExecution = execution, summaryExecution: nextSummaryExecution = summaryExecution, storyExecution: nextStoryExecution = storyExecution, characterExecution: nextCharacterExecution = characterExecution, imageExecution: nextImageExecution = imageExecution } = {}) { if (disposed) return; const unchanged = JSON.stringify(characterExecution) === JSON.stringify(nextCharacterExecution) && JSON.stringify(imageExecution) === JSON.stringify(nextImageExecution) && JSON.stringify(project) === JSON.stringify(next) && JSON.stringify(execution) === JSON.stringify(scriptExecution) && JSON.stringify(storyExecution) === JSON.stringify(nextStoryExecution) && JSON.stringify(summaryExecution) === JSON.stringify(nextSummaryExecution); if (next.basic_info.script_revision_node?.status === 'generated' && next.basic_info.script_revision_node.opinion === ''
+  return { get isShowingRecords() { return ['tasks', 'http'].includes(state.mode) }, update(next, { scriptExecution = execution, summaryExecution: nextSummaryExecution = summaryExecution, storyExecution: nextStoryExecution = storyExecution, sceneExecution: nextSceneExecution = sceneExecution, groupExecution: nextGroupExecution = groupExecution, characterExecution: nextCharacterExecution = characterExecution, imageExecution: nextImageExecution = imageExecution } = {}) { if (disposed) return; const unchanged = JSON.stringify(sceneExecution) === JSON.stringify(nextSceneExecution) && JSON.stringify(groupExecution) === JSON.stringify(nextGroupExecution) && JSON.stringify(characterExecution) === JSON.stringify(nextCharacterExecution) && JSON.stringify(imageExecution) === JSON.stringify(nextImageExecution) && JSON.stringify(project) === JSON.stringify(next) && JSON.stringify(execution) === JSON.stringify(scriptExecution) && JSON.stringify(storyExecution) === JSON.stringify(nextStoryExecution) && JSON.stringify(summaryExecution) === JSON.stringify(nextSummaryExecution); if (next.basic_info.script_revision_node?.status === 'generated' && next.basic_info.script_revision_node.opinion === ''
       && project.basic_info.script_revision_node.opinion && state.opinionDraft === project.basic_info.script_revision_node.opinion) state.opinionDraft = ''
     if (next.story_segments.node_state.status === 'generated' && !next.story_segments.node_state.opinion && project.story_segments.node_state.opinion
       && state.nodeOpinions?.story_segments === project.story_segments.node_state.opinion) state.nodeOpinions.story_segments = ''
     if (next.character_extraction.node_state.status === 'generated' && !next.character_extraction.node_state.opinion && project.character_extraction.node_state.opinion && state.nodeOpinions?.character_extraction === project.character_extraction.node_state.opinion) state.nodeOpinions.character_extraction = ''
-    project = next; characterExecution = nextCharacterExecution; imageExecution = nextImageExecution; execution = scriptExecution; storyExecution = nextStoryExecution; summaryExecution = nextSummaryExecution; if (!unchanged && !['rules', 'tasks', 'http'].includes(state.mode)) paint() }, dispose() {
+    if (next.group_setting?.node_state.status === 'generated' && !next.group_setting.node_state.opinion && project.group_setting?.node_state.opinion && state.nodeOpinions?.group_setting === project.group_setting.node_state.opinion) state.nodeOpinions.group_setting = ''
+    if (next.scene_extraction.node_state.status === 'generated' && !next.scene_extraction.node_state.opinion && project.scene_extraction.node_state.opinion && state.nodeOpinions?.scene_extraction === project.scene_extraction.node_state.opinion) state.nodeOpinions.scene_extraction = ''
+    project = next; sceneExecution = nextSceneExecution; groupExecution = nextGroupExecution; characterExecution = nextCharacterExecution; imageExecution = nextImageExecution; execution = scriptExecution; storyExecution = nextStoryExecution; summaryExecution = nextSummaryExecution; if (!unchanged && !['rules', 'tasks', 'http'].includes(state.mode)) paint() }, dispose() {
     if (disposed) return
     disposed = true
     recordView?.dispose()

@@ -34,7 +34,7 @@ export async function createProject(input, id = `p_${randomUUID()}`) {
   const script = await createNode('script_revision')
   const project = { basic_info: { id, ...metadata, ...scriptSourceInfo(original_script, original_script_filename), actual_script: original_script, summary: '', estimated_duration_seconds: 0,
     create_project_node: new NodeStateModel({ status: 'generated' }).toJSON(), script_revision_node: script.node_state } }
-  for (const type of ['story_segments', 'character_extraction', 'scene_extraction', 'shot_design', 'video_prompt'])
+  for (const type of ['story_segments', 'group_setting', 'character_extraction', 'scene_extraction', 'shot_design', 'video_prompt'])
     project[type] = await createNode(type)
   project.clip_arrangement = { clips: [], node_state: new NodeStateModel().toJSON() }
   project.videos = []

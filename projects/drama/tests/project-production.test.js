@@ -21,11 +21,11 @@ const tab = (root, name) => [...root.querySelectorAll('[role=tab]')].find(node =
 test('下一步进入当前项目七阶段，空模型可切换并返回原详情，保留选中阶段', async t => {
   const { root, state } = await setup(t)
   assert.equal(state.mode, 'production')
-  assert.deepEqual([...root.querySelectorAll('[role=tab]')].map(b => b.textContent), ['故事大纲','角色','场景','分镜','提示词','成片','分集'])
-  for (const name of ['故事大纲','角色','场景','分镜','提示词','成片','分集']) {
+  assert.deepEqual([...root.querySelectorAll('[role=tab]')].map(b => b.textContent), ['故事大纲','场景','角色','分镜','提示词','成片','分集'])
+  for (const name of ['故事大纲','场景','角色','分镜','提示词','成片','分集']) {
     tab(root, name).click()
     assert.equal(root.querySelector('[role=tab][aria-selected=true]').textContent, name)
-    assert.ok(root.querySelector('[role=tabpanel]').textContent.includes(`暂无${name}`))
+    assert.ok(root.querySelector('[role=tabpanel]').textContent.includes(name === '角色' ? '暂无人物资料' : `暂无${name}`))
   }
   root.querySelector('[aria-label="返回项目详情"]').click()
   assert.equal(state.mode, 'overview')
@@ -66,9 +66,9 @@ test('节点数据正确分区，模型更新不跳页，输出按纯文本展�
 test('键盘切换同步焦点与内容，重新挂载各项目独立保存自己的视图状态', async t => {
   const {root,project,view,state,window}=await setup(t)
   tab(root,'故事大纲').dispatchEvent(new window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}))
-  assert.equal(document.activeElement.textContent,'角色')
-  assert.ok(root.querySelector('[role=tabpanel]').textContent.includes('暂无角色'))
-  tab(root,'角色').dispatchEvent(new window.KeyboardEvent('keydown',{key:'End',bubbles:true,cancelable:true}))
+  assert.equal(document.activeElement.textContent,'场景')
+  assert.ok(root.querySelector('[role=tabpanel]').textContent.includes('暂无场景'))
+  tab(root,'场景').dispatchEvent(new window.KeyboardEvent('keydown',{key:'End',bubbles:true,cancelable:true}))
   assert.equal(document.activeElement.textContent,'分集')
   const panel=root.querySelector('[role=tabpanel]')
   assert.equal(panel.getAttribute('aria-labelledby'),document.activeElement.id)
@@ -87,9 +87,9 @@ test('AI节点历史和规则接入公共UI，过滤项目/节点并返回原tab
   const paths=[]
   const {root,state,project,window}=await setup(t,{request:async path=>{paths.push(path);if(path.startsWith('node-rules?'))return {bases:Object.fromEntries(['generate','review','revise'].map(action=>[action,renderNodeRules(project.character_extraction.node_state,action).base]))};return {tasks:[],total:0}},save:async()=>{}})
   tab(root,'角色').click()
-  const input=root.querySelector('input');input.value='保持角色外貌';input.dispatchEvent(new window.Event('input'))
-  const actions=root.querySelector('.node-ui-buttons')
-  assert.deepEqual([...actions.querySelectorAll('button')].map(b=>b.textContent),['任务历史','查看规则','AI生成'])
+  const input=root.querySelector('[data-node-type=character_extraction] input');input.value='保持角色外貌';input.dispatchEvent(new window.Event('input'))
+  const actions=root.querySelector('[data-node-type=character_extraction] .node-ui-buttons')
+  assert.deepEqual([...actions.querySelectorAll('button')].map(b=>b.textContent),['任务历史','查看规则','提取人物'])
   assert.ok([...actions.querySelectorAll('.node-ui-execution button')].every(button=>button.disabled))
   assert.match(actions.querySelector('.node-ui-execution button').title,/请先生成故事大纲/)
   actions.querySelector('.node-ui-records button').click()
@@ -99,15 +99,15 @@ test('AI节点历史和规则接入公共UI，过滤项目/节点并返回原tab
   let panel=root.firstElementChild.shadowRoot
   assert.equal(panel.querySelector('h2').textContent,'角色 · 任务记录')
   assert.ok(panel.textContent.includes('暂无任务记录'));panel.querySelector('header button').click()
-  assert.equal(state.mode,'production');assert.equal(state.productionTab,'character_extraction');assert.equal(root.querySelector('input').value,'保持角色外貌')
-  root.querySelectorAll('.node-ui-records button')[1].click()
+  assert.equal(state.mode,'production');assert.equal(state.productionTab,'character_extraction');assert.equal(root.querySelector('[data-node-type=character_extraction] input').value,'保持角色外貌')
+  root.querySelectorAll('[data-node-type=character_extraction] .node-ui-records button')[1].click()
   await new Promise(resolve=>setImmediate(resolve))
   panel=root.firstElementChild.shadowRoot
   assert.equal(panel.querySelector('h2').textContent,'角色规则')
   assert.equal(panel.querySelector('[data-action=generate] .skill-text').textContent,renderNodeRules(project.character_extraction.node_state,'generate').base)
   assert.ok([...panel.querySelectorAll('textarea')].some(input=>!input.readOnly))
   panel.querySelector('header button').click()
-  assert.equal(state.mode,'production');assert.equal(root.querySelector('input').value,'保持角色外貌')
+  assert.equal(state.mode,'production');assert.equal(root.querySelector('[data-node-type=character_extraction] input').value,'保持角色外貌')
   assert.equal(root.textContent.includes('按意见改编'),false)
 })
 
@@ -166,4 +166,58 @@ test('大纲规则查看显示字段，读取失败可重试，补充规则仍�
   assert.match(panel.querySelector('[data-action=review] .skill-text').textContent, /"issues"/)
   assert.match(project.story_segments.node_state.rules.generate.base, /\{\{output:/)
   panel.querySelector('header button').click(); assert.equal(root.querySelector('[aria-selected=true]').textContent, '故事大纲')
+})
+
+test('团队卡单独打开团队规则和历史，返回保持团队意见草稿', async t => {
+  const paths=[]
+  const {root,state,project,window}=await setup(t,{request:async path=>{paths.push(path);if(path.startsWith('node-rules?'))return {bases:Object.fromEntries(['generate','review','revise'].map(action=>[action,renderNodeRules(project.group_setting.node_state,action).base]))};return{tasks:[],total:0}},save:async()=>{}})
+  tab(root,'角色').click()
+  const input=root.querySelector('[data-node-type=group_setting] input');input.value='保持团队气质';input.dispatchEvent(new window.Event('input'))
+  root.querySelector('[data-node-type=group_setting] .node-ui-records button').click()
+  await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(new URL(paths.at(-1),'http://test/').searchParams.get('node_type'),'group_setting')
+  let overlay=root.firstElementChild.shadowRoot
+  assert.equal(overlay.querySelector('h2').textContent,'团队 · 任务记录');overlay.querySelector('header button').click()
+  root.querySelectorAll('[data-node-type=group_setting] .node-ui-records button')[1].click()
+  await new Promise(resolve=>setImmediate(resolve))
+  overlay=root.firstElementChild.shadowRoot
+  assert.equal(overlay.querySelector('h2').textContent,'团队规则')
+  assert.equal(overlay.querySelector('[data-action=generate] .skill-text').textContent,renderNodeRules(project.group_setting.node_state,'generate').base)
+  overlay.querySelector('header button').click()
+  assert.equal(state.productionTab,'character_extraction')
+  assert.equal(root.querySelector('[data-node-type=group_setting] input').value,'保持团队气质')
+  assert.equal(root.querySelector('[data-node-type=character_extraction] input').value,'')
+})
+
+test('场景标签通过项目视图发起独立任务，运行状态和生成结果更新不跳页',async t=>{
+  const calls=[]
+  const {root,project,view,window}=await setup(t,{extractScenes:async(instruction,id)=>{calls.push({instruction,id});return{group_id:'scene-ui',status:'queued'}}})
+  const ready=structuredClone(project);ready.story_segments.segments=[{id:'segment_1',body:'车站内多次会面'}];view.update(ready);tab(root,'场景').click()
+  const input=root.querySelector('input');input.value='保持站台与大厅连通';input.dispatchEvent(new window.Event('input'))
+  const run=root.querySelector('.node-ui-execution button');run.click();run.click();await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(calls.length,1);assert.equal(calls[0].instruction,'保持站台与大厅连通');assert.match(root.querySelector('[aria-live]').textContent,/排队中/)
+  const completed=structuredClone(ready);completed.scene_extraction.scenes=[{id:'station',name:'车站',layout:'大厅北侧通往站台'}];completed.scene_extraction.node_state.status='generated'
+  view.update(completed,{sceneExecution:null})
+  assert.equal(root.querySelector('[aria-selected=true]').textContent,'场景');assert.ok(root.querySelector('.production-text').textContent.includes('大厅北侧通往站台'))
+  assert.equal(root.querySelector('.node-ui-execution button').disabled,false);assert.equal(root.querySelector('.node-data-tag').textContent,'已生成')
+})
+
+test('已有场景显示重新生成和修改，重新生成传递独立模式并阻止执行中再次提交',async t=>{
+  const calls=[];let complete
+  const {root,project,view,window}=await setup(t,{extractScenes:(...args)=>{calls.push(args);return new Promise(resolve=>{complete=resolve})}})
+  const ready=structuredClone(project)
+  ready.story_segments.segments=[{id:'segment_1',body:'车站内会面'}]
+  ready.scene_extraction.scenes=[{id:'station',name:'车站',layout:'大厅北侧通往站台'}]
+  ready.scene_extraction.node_state.status='expired'
+  view.update(ready);tab(root,'场景').click()
+  const input=root.querySelector('input');input.value='保留大厅';input.dispatchEvent(new window.Event('input'))
+  const buttons=[...root.querySelectorAll('.node-ui-execution button')]
+  assert.deepEqual(buttons.map(b=>b.textContent),['重新生成','按意见修改'])
+  buttons[0].click();buttons[1].click();buttons[0].click()
+  await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(calls.length,1);assert.deepEqual(calls[0][2],{regenerate:true});assert.match(calls[0][0],/保留大厅/)
+  assert.equal([...root.querySelectorAll('.node-ui-execution button')].every(b=>b.disabled),true)
+  complete({group_id:'regenerate-ui',status:'queued'});await new Promise(resolve=>setImmediate(resolve))
+  assert.match(root.querySelector('[aria-live]').textContent,/排队中/)
+  assert.ok(root.querySelector('.production-text').textContent.includes('大厅北侧通往站台'))
 })

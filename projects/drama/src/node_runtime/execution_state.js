@@ -10,7 +10,7 @@ export function projectExecutions(records, projectId) {
     for (const task of page.tasks) {
       if (task.metadata.project_id !== projectId || ['queued', 'running'].includes(task.task_status)) continue
       const type = task.node_type
-      if (!['project', 'script_revision', 'story_segments', 'character_extraction', 'costume_image'].includes(type)) continue
+      if (!['project', 'script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image'].includes(type)) continue
       const key = type === 'costume_image' ? `${type}:${task.metadata.character_id}:${task.metadata.costume_id}` : type
       if (!latest.has(key) || latest.get(key).queue_order < task.queue_order) latest.set(key, task)
     }

@@ -16,7 +16,7 @@ import { mount } from '../src/client/workbench.js'
 
 const supplement = (value, action = 'generate') => ({kind:'rules',node_type:'script_revision',action,field:'supplement',previousValue:'',value})
 
-test('编辑白名单、旧值冲突与规则只允许剧本补充，不改输出及其他节点', async () => {
+test('编辑白名单、旧值冲突与规则只允许已接入节点补充，不改输出及其他节点', async () => {
   const project = await createProject({name:'测试'})
   const next = editProject(project, supplement('独立补充'))
   assert.equal(next.basic_info.script_revision_node.rules.generate.supplement,'独立补充')
@@ -24,7 +24,7 @@ test('编辑白名单、旧值冲突与规则只允许剧本补充，不改输�
   assert.deepEqual(scriptOutput(next),scriptOutput(project))
   assert.throws(()=>editProject(next,supplement('覆盖')),/已被修改/)
   assert.throws(()=>editProject(project,{...supplement('覆盖'),field:'base'}),/只允许/)
-  assert.throws(()=>editProject(project,{...supplement('覆盖'),node_type:'scene_extraction'}),/节点不存在/)
+  assert.throws(()=>editProject(project,{...supplement('覆盖'),node_type:'scene_image'}),/节点不存在/)
   assert.throws(()=>editProject(project,{kind:'basic_info',values:{id:'other'},previous:{}}),/不允许/)
   project.basic_info.script_revision_node.supports_supplement=false
   assert.throws(()=>editProject(project,supplement('覆盖')))

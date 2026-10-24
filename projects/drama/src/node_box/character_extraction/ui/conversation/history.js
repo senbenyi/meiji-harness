@@ -24,7 +24,7 @@ export const history = {
       ...actual,
     }
     // 盒子外部入参的明确契约；内部规则/审核/步骤快照不能作为输入资料透出。
-    return Object.fromEntries(['story_outline', 'current_characters', 'output_language', 'instruction']
+    return Object.fromEntries(['story_outline', 'scene_extraction', 'group_setting', 'current_characters', 'output_language', 'instruction']
       .filter(key => Object.hasOwn(values, key)).map(key => [key, values[key]]))
 
   },

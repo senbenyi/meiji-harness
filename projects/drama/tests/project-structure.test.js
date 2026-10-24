@@ -18,7 +18,7 @@ test('新项目实际字段对应结构文档，独立节点规则状态无outpu
   assert.equal(project.basic_info.script_revision_node.type,1)
   assert.equal(project.basic_info.script_revision_node.last_execution,null)
   assert.deepEqual(keys(nodeContract('script_revision').schema.properties),['actual_script','estimated_duration_seconds','summary'])
-  for (const type of ['story_segments','character_extraction','scene_extraction','shot_design','video_prompt']) {
+  for (const type of ['story_segments','group_setting','character_extraction','scene_extraction','shot_design','video_prompt']) {
     assert.deepEqual(keys(project[type]),keys(document[type]))
     assert.equal(project[type].node_state.type,1)
     assert.deepEqual(keys(project[type].node_state),keys(document.$defs.node_state))

@@ -1,5 +1,5 @@
 {
-  "$comment": "开发文档：AI字段由src/node_box/<节点名>/definition.js维护，经src/node_runtime/node_definition_registry.js汇总，提示词组装、空节点初始化和响应校验均使用运行时定义。本文件不被运行时读取；下面的字段解释和样例仅用于开发阅读，描述目标结构；不表示运行时Model已完成迁移，实施时需同步节点定义、读写和调用方。\n\n本次统一节点边界：业务内容直接保存在所属节点，不再使用output包装。basic_info保存项目元数据、原稿路径、当前工作剧本、摘要及预估时长；create_project_node和script_revision_node分别引用node_state，独立记录创建与剧本优化状态，二者共享actual_script这份当前工作正文。其他节点将opinion、rules及状态集中于node_state，不在业务字段旁重复保存。人物输出在character_extraction.characters，人工参考图和照片节点在character_extraction.assets，按character_id关联；场景输出在scene_extraction.scenes，图片节点在scene_extraction.assets，按scene_id关联。图片节点的address由媒体接口适配器保存，不是语言模型JSON返回字段。video_prompt.items只保存clip_id及选定模式的prompt，引用既有视频模式定义的prompt部分；视频接口请求结构、参数及程序节点保留。项目实例保存真实字段值，不保存这些类型说明或$defs。\n\n本文件为目标项目结构说明，非运行时项目实例。所有有序集合均以数组顺序表示排列及播放顺序。枚举字段的示例值在括号内列出完整取值及含义，实际保存和请求仅使用选中的枚举值；模型相关参数以项目约定和所选模型支持能力为准。$defs和$ref仅复用字段定义，实际节点各自保存独立状态；AI节点的规则位于node_state.rules。node_state.type实际保存数字：创建项目、分片编排、视频接口执行及合片节点为0；剧本优化、故事分段、人物提取、场景提取、镜头设计、视频提示词及人物/场景图片生成节点为1。程序节点不执行AI规则，node_state.opinion保存空字符串、rules保存空对象；共享定义中的三动作规则适用于AI节点，未启用的动作不新增执行步骤。story_segments为一次性生成全部故事分段的AI节点，仅包含segments和node_state两个字段；segments保存完整故事分段数组，生成、审核与修订均以完整分段集合为单位，单个故事段保存内容，规则和状态统一归属story_segments.node_state。镜头与生成分片拆开：项目顶层shot_design、clip_arrangement、video_prompt依次为镜头设计、分片编排、视频提示词生成三个独立节点，替代旧分片内的镜头设计、分镜和文本提示词流程。shot_design与video_prompt为AI节点，clip_arrangement为程序节点，无AI规则。镜头shots按数组顺序排列，一个shot为单一背景区域内的连续摄影，不限制4–15秒；同一场景资产中的大厅、门口等独立背景区域分别建立shot，可共用scene_id。本区域内的走动、景别或构图变化可保留在同一shot。previous_shot_connection仅取opening、continuous、cut：opening用于整段内容首镜，独立建立起始视听状态；continuous用于延续前镜时间、动作或空间移动，首节拍承接前镜实际结束状态；cut用于直接进入另一事件、地点或时刻，首节拍建立新的起始状态并交代声音接续。continuous表示叙事与动作连续，两个shot之间仍按切镜设计。beats至少一项，每项包含duration_seconds、action、camera、scene_changes、effects、audio六个字段。action保存人物及背景群体的行动、表情、反应、入离场、移动、朝向与目光变化、动作速度和互动密度；camera保存景别、构图、焦点及连续运镜的发展；scene_changes保存本阶段需独立追踪的环境变化及持久状态，继承scene开场基准及此前节拍累积状态，普通动作的直接结果随action表达；effects保存特效触发动作、可见过程、强度与消散或持续状态，持久环境变化由scene_changes说明；audio保存对白旁白原文、说话人、发声方式、环境声、动作音效及配乐的开始、持续、变化与结束，逐字保留原话和标点。动作作为时间主线，摄影、场景变化、特效与声音以具体动作或阶段关联，明确先后与同步关系；各字段继承此前有效状态，本阶段没有新增内容时填空字符串。节拍按行动、反应或视听阶段划分，不按说话人机械拆分；快速接话、打断或同时发声可在同一节拍描述，人物切换和摄影连续转向可换节拍但不代表切镜。简单镜头一个节拍，复杂镜头多个。镜头时长由节拍相加，不重复保存。clip_arrangement.clips按sources顺序引用shot_id及镜头内start_beat、end_beat节拍序号；序号从1开始，起止均包含，每个source引用连续完整节拍，分片duration_seconds由sources所选全部节拍的duration_seconds相加计算并保存，必须为4–15整数秒。所有镜头节拍按叙事顺序完整覆盖一次，保留正常播放速度。短镜头可合并、长镜头可跨分片，合并还需考虑场景、参考素材和复杂度，无法合规编排时报告原因。切分点必须落在节拍结束处，并检查后续余量，使每片均为4–15秒；现有节拍无法合规编排时，调整节拍设计或报告原因。示例16秒镜头拆成两个8秒分片；同一shot跨分片保持摄影连续，长镜头无缝效果仍需生成后检查。分片clips保存id、duration_seconds、mode、sources，以数组顺序排序，衔接依据来自镜头首节拍和此前节拍累积状态；生成video_prompt时读取来源镜头公共资料、关联资产、所选节拍及起始前的有效状态。video_prompt.items与分片以clip_id一一关联，规则和状态归属生成节点；videos按clip_id关联分片，episodes按clip_ids合片。人物资产记录中的costume_images[i]与该人物characters资料中的costumes[i]按位置一一对应，costume_id等于该服装ID；服装增删重排时同步调整两个数组。没有服装目录时costumes为空，保留一张costume_id为空的定妆照，不编造服装。 人物不设默认服装或默认定妆照。后续节点选用人物定妆照时，必须显式使用character_id与costume_id定位该人物assets记录的costume_images对应项，不按默认值或数组首项自动选图；视频编排按明确选择保存参考素材。无服装目录时，显式指定character_id并令costume_id为空，定位该人物唯一的未绑定服装定妆照。可见人物仍允许不绑定并按文字推断；已明确选择的图片不可被其他服装图片自动替代。 视频生成节点的地址、实际时长和keyframes均平铺保存，不设result包装。关键帧为按视频时间升序排列的图片地址数组，必须包含实际最后一帧；需要尾帧时取最后一项，不再保存重复的tail_frame_address，也不建立独立尾帧提取节点。 分片编排时确定mode，完整枚举为文生、首尾帧、多模态；按明确选用的素材与开场接续方式选择。视频提示词统一保存于顶层video_prompt节点，与videos生成结果分开。video_prompt.items每项保存clip_id，并按分片类型仅保存对应的一个字段：文生使用text_to_video.prompt引用#/$defs/text_to_video/prompt，多模态使用multimodal.prompt引用#/$defs/multimodal/prompt，首尾帧使用first_last_frame.prompt引用#/$defs/first_last_frame/prompt；这些AI输出引用仅选择已有结构的prompt部分，视频接口请求仍使用原完整定义，由程序执行；示例中的不同字段表示类型选择，实际每项仅使用所选类型的字段。mode仅保存于clip_arrangement.clips中，三个引用结构依据关联分片的mode选择；发送接口请求时从分片读取mode并组装请求体。三个引用定义为独立结构，不混合不同模式的字段。多模态prompt按subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music六段顺序拼接；文生prompt按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接；首尾帧prompt将instruction置于首行，再按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接。各命名段按字段名、换行及内容组织，段间空一行。图片以带MIME前缀的完整Base64字符串保存，图片节点提供裸Base64时补齐MIME前缀；视频与音频参考使用接口支持的HTTPS地址、mm_file://地址或对应媒体Base64 data URL。首尾帧结构中first_frame必填，last_frame仅在有明确目标尾帧时保存；实际生成后视频尾帧仍由keyframes最后一项提供。分片类型为首尾帧且已选择前片尾帧时，video_prompt在前片有效实际尾帧可用后填入first_frame，保留本片既定类型及节拍开场设计。文生结构使用纯文字，多模态结构保存images、videos、audios参考，首尾帧结构保存first_frame与可选last_frame。业务人物、服装等ID用于资料关联，接口正文使用对应外观与素材标签；模型由本地服务配置。 镜头scene平铺保存三个字符串字段：scene_id绑定场景资产，state保存开场环境状态与光照，spatial_setup保存本镜使用的地标、通道及互动轴线。characters保存人物开场在场、站位、朝向和目光状态；首节拍camera建立初始景别、主体、前中后景与视觉焦点，后续camera描述摄影变化；所有节拍继承项目风格，信息、情绪和节奏落实到节拍的动作、摄影及声音中；剧情依据通过story_segment_id和key_anchor_ids关联story_segments.segments中的上游故事段及其锚点，具体过程统一由beats展开。动态发展按职责写入beats对应字段，镜头外层提供各节拍共用的身份、剧情关联、与前镜的衔接类型、场景和人物初始资料；beats保存实际拍摄的动作、摄影、环境变化、特效与声音。初始资料作为节拍起点，后续节拍承接已发生变化后的最新状态。首节拍与后续节拍按发生顺序明确承接前镜及本镜已有状态；需要结尾交接摘要时，从开场状态和全部节拍累积结果提取并核对。镜头characters统一保存主要人物、后景关系人物和背景群体，允许人物与服装ID为空；有服装目录且绑定人物时明确选择该人物服装。对白及旁白原文在镜头设计内仅保存于对应beats.audio。环境声、动作音效和配乐从开始出现的节拍写入audio，明确持续范围、变化与结束；贯穿全镜的声音在首节拍建立，后续节拍继承有效声音状态并记录变化。原话按发声进程展开，已说完的原话保持在原节拍。最终提示词按来源范围展开原话、发声方式与声音时序，保留完整性；需要对白清单时从节拍提取，不另维护副本。\n\n节点轮询与结束摘要：node_state.status和reason描述当前内容，last_execution只保存最近一次已结束执行的摘要；从未结束过执行时last_execution实际保存null。活动任务的排队、运行、步骤进度由任务系统按项目及节点路径查询，轻量node-states轮询接口返回内容状态、活动任务摘要及last_execution，不返回整套rules或完整业务正文；project接口仍用于完整加载与SSE刷新。新任务开始时保留上一份结束摘要，面板可同时展示当前执行进度与上次停止原因；活动任务已结束而摘要尚未同步时，以该Task的终态为依据，不将旧摘要误认为本次结果。结束摘要以任务系统终态为唯一事实来源，由节点运行层统一投影和幂等落盘，Service和Executor不分别维护任务状态；进程中断后读取时按Task终态恢复摘要。任务终态与项目JSON分属不同存储；任务终态提交后投影摘要，读取时以Task事实补齐尚未落盘的摘要，重复处理同一Task保持幂等。stop_code与执行结果对应：completed对应completed；request_failed、execution_error对应failed；cancelled对应cancelled；其余代码对应rejected。只有Task已真正结束才更新last_execution，单次审核问题或自动重试中的请求错误不提前发布停止结论。生成失败、取消或业务未通过时保留此前已确认的业务结果和依赖指纹，内容仍有效则保持generated，已过期则保持expired；首次执行无可用结果且业务未通过时才置rejected，请求异常或取消且从无结果时保持empty。结果因后续上游修改过期时只改内容状态和reason，不改最近执行的成功结论。写入结果及摘要前按当前受理的Task身份核对，旧任务迟到回调不得覆盖新任务的结果或摘要；不同任务对basic_info.actual_script的更新还需核对共同正文版本，避免创建任务与优化任务互相覆盖。\n\n当前工作稿提交：创建/导入将正文写入basic_info.actual_script；摘要提取只更新basic_info.summary和estimated_duration_seconds。剧本优化AI返回actual_script、summary、estimated_duration_seconds三个字段，候选仅保留在Task步骤，审核通过后才整体提交到basic_info，未通过、取消和请求失败均保留先前工作结果。script_revision_node.status描述优化结果状态，导入正文不代表已完成优化。原始文件名从original_script_file_path末段获取，不重复保存。运行时契约定义使用output作为Schema容器，项目实例不保存output包装。",
+  "$comment": "开发文档：AI字段由src/node_box/<节点名>/definition.js维护，经src/node_runtime/node_definition_registry.js汇总，提示词组装、空节点初始化和响应校验均使用运行时定义。本文件不被运行时读取；下面的字段解释和样例仅用于开发阅读，描述目标结构；不表示运行时Model已完成迁移，实施时需同步节点定义、读写和调用方。\n\n本次统一节点边界：业务内容直接保存在所属节点，不再使用output包装。basic_info保存项目元数据、原稿路径、当前工作剧本、摘要及预估时长；create_project_node和script_revision_node分别引用node_state，独立记录创建与剧本优化状态，二者共享actual_script这份当前工作正文。其他节点将opinion、rules及状态集中于node_state，不在业务字段旁重复保存。团队设定输出在group_setting.groups；人物输出在character_extraction.characters，人工参考图和照片节点在character_extraction.assets，按character_id关联；场景提取盒子独立生成/审核/修订，输出在scene_extraction.scenes；图片节点在scene_extraction.assets，按scene_id关联，仅维护资产对应关系，不随提取自动生图。图片节点的address由媒体接口适配器保存，不是语言模型JSON返回字段。video_prompt.items只保存clip_id及选定模式的prompt，引用既有视频模式定义的prompt部分；视频接口请求结构、参数及程序节点保留。项目实例保存真实字段值，不保存这些类型说明或$defs。\n\n本文件为目标项目结构说明，非运行时项目实例。所有有序集合均以数组顺序表示排列及播放顺序。枚举字段的示例值在括号内列出完整取值及含义，实际保存和请求仅使用选中的枚举值；模型相关参数以项目约定和所选模型支持能力为准。$defs和$ref仅复用字段定义，实际节点各自保存独立状态；AI节点的规则位于node_state.rules。node_state.type实际保存数字：创建项目、分片编排、视频接口执行及合片节点为0；剧本优化、故事分段、人物提取、场景提取、镜头设计、视频提示词及人物/场景图片生成节点为1。程序节点不执行AI规则，node_state.opinion保存空字符串、rules保存空对象；共享定义中的三动作规则适用于AI节点，未启用的动作不新增执行步骤。story_segments为一次性生成全部故事分段的AI节点，仅包含segments和node_state两个字段；segments保存完整故事分段数组，生成、审核与修订均以完整分段集合为单位，单个故事段保存内容，规则和状态统一归属story_segments.node_state。镜头与生成分片拆开：项目顶层shot_design、clip_arrangement、video_prompt依次为镜头设计、分片编排、视频提示词生成三个独立节点，替代旧分片内的镜头设计、分镜和文本提示词流程。shot_design与video_prompt为AI节点，clip_arrangement为程序节点，无AI规则。镜头shots按数组顺序排列，一个shot为单一背景区域内的连续摄影，不限制4–15秒；同一场景资产中的大厅、门口等独立背景区域分别建立shot，可共用scene_id。本区域内的走动、景别或构图变化可保留在同一shot。previous_shot_connection仅取opening、continuous、cut：opening用于整段内容首镜，独立建立起始视听状态；continuous用于延续前镜时间、动作或空间移动，首节拍承接前镜实际结束状态；cut用于直接进入另一事件、地点或时刻，首节拍建立新的起始状态并交代声音接续。continuous表示叙事与动作连续，两个shot之间仍按切镜设计。beats至少一项，每项包含duration_seconds、action、camera、scene_changes、effects、audio六个字段。action保存人物及背景群体的行动、表情、反应、入离场、移动、朝向与目光变化、动作速度和互动密度；camera保存景别、构图、焦点及连续运镜的发展；scene_changes保存本阶段需独立追踪的环境变化及持久状态，继承scene开场基准及此前节拍累积状态，普通动作的直接结果随action表达；effects保存特效触发动作、可见过程、强度与消散或持续状态，持久环境变化由scene_changes说明；audio保存对白旁白原文、说话人、发声方式、环境声、动作音效及配乐的开始、持续、变化与结束，逐字保留原话和标点。动作作为时间主线，摄影、场景变化、特效与声音以具体动作或阶段关联，明确先后与同步关系；各字段继承此前有效状态，本阶段没有新增内容时填空字符串。节拍按行动、反应或视听阶段划分，不按说话人机械拆分；快速接话、打断或同时发声可在同一节拍描述，人物切换和摄影连续转向可换节拍但不代表切镜。简单镜头一个节拍，复杂镜头多个。镜头时长由节拍相加，不重复保存。clip_arrangement.clips按sources顺序引用shot_id及镜头内start_beat、end_beat节拍序号；序号从1开始，起止均包含，每个source引用连续完整节拍，分片duration_seconds由sources所选全部节拍的duration_seconds相加计算并保存，必须为4–15整数秒。所有镜头节拍按叙事顺序完整覆盖一次，保留正常播放速度。短镜头可合并、长镜头可跨分片，合并还需考虑场景、参考素材和复杂度，无法合规编排时报告原因。切分点必须落在节拍结束处，并检查后续余量，使每片均为4–15秒；现有节拍无法合规编排时，调整节拍设计或报告原因。示例16秒镜头拆成两个8秒分片；同一shot跨分片保持摄影连续，长镜头无缝效果仍需生成后检查。分片clips保存id、duration_seconds、mode、sources，以数组顺序排序，衔接依据来自镜头首节拍和此前节拍累积状态；生成video_prompt时读取来源镜头公共资料、关联资产、所选节拍及起始前的有效状态。video_prompt.items与分片以clip_id一一关联，规则和状态归属生成节点；videos按clip_id关联分片，episodes按clip_ids合片。人物资产记录中的costume_images[i]与该人物characters资料中的costumes[i]按位置一一对应，costume_id等于该服装ID；服装增删重排时同步调整两个数组。没有服装目录时costumes为空，保留一张costume_id为空的定妆照，不编造服装。 人物不设默认服装或默认定妆照。后续节点选用人物定妆照时，必须显式使用character_id与costume_id定位该人物assets记录的costume_images对应项，不按默认值或数组首项自动选图；视频编排按明确选择保存参考素材。无服装目录时，显式指定character_id并令costume_id为空，定位该人物唯一的未绑定服装定妆照。可见人物仍允许不绑定并按文字推断；已明确选择的图片不可被其他服装图片自动替代。 视频生成节点的地址、实际时长和keyframes均平铺保存，不设result包装。关键帧为按视频时间升序排列的图片地址数组，必须包含实际最后一帧；需要尾帧时取最后一项，不再保存重复的tail_frame_address，也不建立独立尾帧提取节点。 分片编排时确定mode，完整枚举为文生、首尾帧、多模态；按明确选用的素材与开场接续方式选择。视频提示词统一保存于顶层video_prompt节点，与videos生成结果分开。video_prompt.items每项保存clip_id，并按分片类型仅保存对应的一个字段：文生使用text_to_video.prompt引用#/$defs/text_to_video/prompt，多模态使用multimodal.prompt引用#/$defs/multimodal/prompt，首尾帧使用first_last_frame.prompt引用#/$defs/first_last_frame/prompt；这些AI输出引用仅选择已有结构的prompt部分，视频接口请求仍使用原完整定义，由程序执行；示例中的不同字段表示类型选择，实际每项仅使用所选类型的字段。mode仅保存于clip_arrangement.clips中，三个引用结构依据关联分片的mode选择；发送接口请求时从分片读取mode并组装请求体。三个引用定义为独立结构，不混合不同模式的字段。多模态prompt按subject_definitions、summary、retention_analysis、detailed_description、overall_soundscape、non_diegetic_music六段顺序拼接；文生prompt按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接；首尾帧prompt将instruction置于首行，再按integrated_multimodal_description、overall_soundscape、non_diegetic_music三段拼接。各命名段按字段名、换行及内容组织，段间空一行。图片以带MIME前缀的完整Base64字符串保存，图片节点提供裸Base64时补齐MIME前缀；视频与音频参考使用接口支持的HTTPS地址、mm_file://地址或对应媒体Base64 data URL。首尾帧结构中first_frame必填，last_frame仅在有明确目标尾帧时保存；实际生成后视频尾帧仍由keyframes最后一项提供。分片类型为首尾帧且已选择前片尾帧时，video_prompt在前片有效实际尾帧可用后填入first_frame，保留本片既定类型及节拍开场设计。文生结构使用纯文字，多模态结构保存images、videos、audios参考，首尾帧结构保存first_frame与可选last_frame。业务人物、服装等ID用于资料关联，接口正文使用对应外观与素材标签；模型由本地服务配置。 镜头scene平铺保存三个字符串字段：scene_id绑定场景资产，state保存开场环境状态与光照，spatial_setup保存本镜使用的地标、通道及互动轴线。characters保存人物开场在场、站位、朝向和目光状态；首节拍camera建立初始景别、主体、前中后景与视觉焦点，后续camera描述摄影变化；所有节拍继承项目风格，信息、情绪和节奏落实到节拍的动作、摄影及声音中；剧情依据通过story_segment_id和key_anchor_ids关联story_segments.segments中的上游故事段及其锚点，具体过程统一由beats展开。动态发展按职责写入beats对应字段，镜头外层提供各节拍共用的身份、剧情关联、与前镜的衔接类型、场景和人物初始资料；beats保存实际拍摄的动作、摄影、环境变化、特效与声音。初始资料作为节拍起点，后续节拍承接已发生变化后的最新状态。首节拍与后续节拍按发生顺序明确承接前镜及本镜已有状态；需要结尾交接摘要时，从开场状态和全部节拍累积结果提取并核对。镜头characters统一保存主要人物、后景关系人物和背景群体，允许人物与服装ID为空；有服装目录且绑定人物时明确选择该人物服装。对白及旁白原文在镜头设计内仅保存于对应beats.audio。环境声、动作音效和配乐从开始出现的节拍写入audio，明确持续范围、变化与结束；贯穿全镜的声音在首节拍建立，后续节拍继承有效声音状态并记录变化。原话按发声进程展开，已说完的原话保持在原节拍。最终提示词按来源范围展开原话、发声方式与声音时序，保留完整性；需要对白清单时从节拍提取，不另维护副本。\n\n节点轮询与结束摘要：node_state.status和reason描述当前内容，last_execution只保存最近一次已结束执行的摘要；从未结束过执行时last_execution实际保存null。活动任务的排队、运行、步骤进度由任务系统按项目及节点路径查询，轻量node-states轮询接口返回内容状态、活动任务摘要及last_execution，不返回整套rules或完整业务正文；project接口仍用于完整加载与SSE刷新。新任务开始时保留上一份结束摘要，面板可同时展示当前执行进度与上次停止原因；活动任务已结束而摘要尚未同步时，以该Task的终态为依据，不将旧摘要误认为本次结果。结束摘要以任务系统终态为唯一事实来源，由节点运行层统一投影和幂等落盘，Service和Executor不分别维护任务状态；进程中断后读取时按Task终态恢复摘要。任务终态与项目JSON分属不同存储；任务终态提交后投影摘要，读取时以Task事实补齐尚未落盘的摘要，重复处理同一Task保持幂等。stop_code与执行结果对应：completed对应completed；request_failed、execution_error对应failed；cancelled对应cancelled；其余代码对应rejected。只有Task已真正结束才更新last_execution，单次审核问题或自动重试中的请求错误不提前发布停止结论。生成失败、取消或业务未通过时保留此前已确认的业务结果和依赖指纹，内容仍有效则保持generated，已过期则保持expired；首次执行无可用结果且业务未通过时才置rejected，请求异常或取消且从无结果时保持empty。结果因后续上游修改过期时只改内容状态和reason，不改最近执行的成功结论。写入结果及摘要前按当前受理的Task身份核对，旧任务迟到回调不得覆盖新任务的结果或摘要；不同任务对basic_info.actual_script的更新还需核对共同正文版本，避免创建任务与优化任务互相覆盖。\n\n当前工作稿提交：创建/导入将正文写入basic_info.actual_script；摘要提取只更新basic_info.summary和estimated_duration_seconds。剧本优化AI返回actual_script、summary、estimated_duration_seconds三个字段，候选仅保留在Task步骤，审核通过后才整体提交到basic_info，未通过、取消和请求失败均保留先前工作结果。script_revision_node.status描述优化结果状态，导入正文不代表已完成优化。原始文件名从original_script_file_path末段获取，不重复保存。运行时契约定义使用output作为Schema容器，项目实例不保存output包装。",
   "$defs": {
     "node_state": {
       "type": "number（枚举：0为程序节点，1为AI节点；按节点职责固定，实际保存数字。）",
@@ -136,8 +136,8 @@
   "character_extraction": {
     "characters": [
       {
-        "id": "string（character_001）",
-        "name": "string（角色甲（人物名称示例。）",
+        "id": "string（稳定标识；已有对象保留原ID。）",
+        "name": "string（对象名称。）",
         "social_role": "string（身份、职位或社会角色。）",
         "age_range": "string（有依据的年龄段，不推算精确年龄。）",
         "nationality": "string（国籍或所属族群。）",
@@ -149,11 +149,14 @@
         "hairstyle": "string（发型。）",
         "voice": "string（稳定声线特征；具体台词与发声时序写入分镜。）",
         "relationships": "string（人物之间已确认的稳定关系。）",
+        "group_ids": [
+          "string（明确所属的团队ID；无所属团队为空数组。）"
+        ],
         "signature_props": [
           {
-            "id": "string（prop_001）",
-            "name": "string（人物道具名称。）",
-            "description": "string（道具完整描述，包含有依据的外观、材质、颜色及特征；当前实际持有、使用及归属按剧情和最近状态确定，不因人物资料列有道具就默认一直持有。）"
+            "id": "string（稳定标识；已有对象保留原ID。）",
+            "name": "string（对象名称。）",
+            "description": "string（对象完整外观或环境身份描述。）"
           }
         ],
         "immutable_traits": [
@@ -161,9 +164,14 @@
         ],
         "costumes": [
           {
-            "id": "string（costume_001）",
-            "name": "string（常服（服装名称示例。）",
-            "description": "string（服装完整外观描述，统一写款式、颜色、材质、纹理与有依据的细节；未明确的内容不编造。人物道具保存在人物signature_props，不写入服装字段。）"
+            "id": "string（稳定标识；已有对象保留原ID。）",
+            "name": "string（对象名称。）",
+            "description": "string（完整个人服装设计或在所引用团队制服上的个人差异，不重复改造共同制服。）",
+            "group_id": "string（引用的团队ID；个人独立服装为空字符串。）",
+            "group_costume_id": "string（引用的团队服装版本ID；与group_id同时为空或同时有效。）",
+            "story_segment_ids": [
+              "string（适用故事段ID；空数组表示通用。）"
+            ]
           }
         ]
       }
@@ -269,6 +277,16 @@
             "scene_changes": "string（）",
             "effects": "string（）",
             "audio": "string（B决定出牌时画内说：‘就这张。’落牌声与牌接触桌面同步；本节拍结束时对白和落牌声均已结束，承接首节拍持续的雨声。）"
+          }
+        ],
+        "groups": [
+          {
+            "group_id": "string（明确关联的团队ID。）",
+            "costume_id": "string（该团队中选定的服装版本ID；无统一服装时为空。）",
+            "presence": "string（本镜开场群体在场、可见范围与规模，不将团队成员画成同一张脸。）",
+            "position": "string（群体开场所在区域与分布。）",
+            "facing": "string（群体主要朝向及必要差异。）",
+            "gaze_target": "string（群体主要注视对象。）"
           }
         ]
       }
@@ -382,5 +400,35 @@
         "$ref": "#/$defs/node_state"
       }
     }
-  ]
+  ],
+  "group_setting": {
+    "groups": [
+      {
+        "id": "string（团队稳定标识；已有团队保留原ID。）",
+        "name": "string（来源中的团队、组织或背景群体名称，不虚构组织。）",
+        "social_role": "string（团队身份、职责、社会位置与剧情作用。）",
+        "era": "string（时代及世界观背景。）",
+        "region": "string（地域、气候及文化环境。）",
+        "appearance": "string（基本团队形象：年龄与体型分布、面部与发式仪容、共同特征及合理个体差异；不只描述衣服。）",
+        "demeanor": "string（稳定的群体气质、姿态与行为风格，不替代镜头中的即时表演。）",
+        "visual_identity": "string（可识别的团队视觉标识、配色与等级区分；无统一标识时明确说明。）",
+        "immutable_traits": [
+          "string（来源明确锁定的团队特征。）"
+        ],
+        "costumes": [
+          {
+            "id": "string（团队内稳定的服装版本ID。）",
+            "name": "string（按场合、等级或岗位区分的服装名称。）",
+            "description": "string（完整共同服装设计：内外层、鞋履头饰、材质色彩、版型纹样、标识及新旧程度。）",
+            "story_segment_ids": [
+              "string（适用故事段ID；空数组表示通用，不能据此新增换装剧情。）"
+            ]
+          }
+        ]
+      }
+    ],
+    "node_state": {
+      "$ref": "#/$defs/node_state"
+    }
+  }
 }

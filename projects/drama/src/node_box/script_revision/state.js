@@ -15,5 +15,5 @@ export function expireScriptDependents(project) {
     if (value.node_state && value.node_state.status !== 'empty') value.node_state = new NodeStateModel({ ...value.node_state, status: 'expired', reason: '上游剧本已变化，需重新确认或生成' }).toJSON()
     for (const [key, child] of Object.entries(value)) if (!['node_state', 'rules', 'output'].includes(key)) visit(child)
   }
-  for (const key of ['story_segments', 'character_extraction', 'scene_extraction', 'shot_design', 'clip_arrangement', 'video_prompt', 'videos', 'episodes']) visit(project[key])
+  for (const key of ['story_segments', 'group_setting', 'character_extraction', 'scene_extraction', 'shot_design', 'clip_arrangement', 'video_prompt', 'videos', 'episodes']) visit(project[key])
 }

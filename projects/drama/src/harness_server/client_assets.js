@@ -2,6 +2,10 @@
 export const clientAssets = new Map([
   ['node_box/costume_image/ui/conversation/index.js', new URL('../node_box/costume_image/ui/conversation/index.js', import.meta.url)],
   ['node_box/costume_image/ui/conversation/history.js', new URL('../node_box/costume_image/ui/conversation/history.js', import.meta.url)],
+  ['node_box/scene_extraction/ui/conversation/history.js', new URL('../node_box/scene_extraction/ui/conversation/history.js', import.meta.url)],
+  ['node_box/group_setting/ui/conversation/history.js', new URL('../node_box/group_setting/ui/conversation/history.js', import.meta.url)],
+  ['node_box/group_setting/ui/conversation/index.js', new URL('../node_box/group_setting/ui/conversation/index.js', import.meta.url)],
+  ['node_box/group_setting/ui/panel/index.js', new URL('../node_box/group_setting/ui/panel/index.js', import.meta.url)],
   ['node_box/character_extraction/ui/conversation/history.js', new URL('../node_box/character_extraction/ui/conversation/history.js', import.meta.url)],
   ['node_box/costume_image/ui/panel/index.js', new URL('../node_box/costume_image/ui/panel/index.js', import.meta.url)],
   ['node_box/project/ui/conversation/history.js', new URL('../node_box/project/ui/conversation/history.js', import.meta.url)],

@@ -11,7 +11,7 @@ export function mountTaskMessages({ document = globalThis.document, getSessionId
   root.append(local, list)
   const layout = document.createElement('style')
   layout.textContent = `
-    [data-conversation-scroll]:has(> drama-task-messages){justify-content:flex-start}
+    [data-conversation-content][data-content-phase="hero"] > [data-conversation-scroll]:has(> drama-task-messages){justify-content:flex-start}
     [data-conversation-scroll]:has(> drama-task-messages) > [data-composer-seat]{position:sticky;bottom:0;margin-top:auto;z-index:7;background:var(--dsw-alias-bg-base,#fff)}
     [data-drama-task-hero]{display:none!important}
     [data-drama-task-composer]{padding-bottom:12px!important}
@@ -112,7 +112,7 @@ export function mountTaskMessages({ document = globalThis.document, getSessionId
               if (action === 'stop') return
               const key = `${group.id}:${action}`
               if (!requests.has(key)) requests.set(key, globalThis.crypto.randomUUID())
-              const endpoint = { script_revision: 'script-optimization', story_segments: 'story-outline', character_extraction: 'characters', costume_image: 'costume-images' }[group.context.node_type]
+              const endpoint = { script_revision: 'script-optimization', story_segments: 'story-outline', scene_extraction: 'scenes', group_setting: 'groups', character_extraction: 'characters', costume_image: 'costume-images' }[group.context.node_type]
               if (!endpoint) throw new Error('此任务不支持重试')
               const response = await fetcher(`/api/drama/${endpoint}?session_id=${encodeURIComponent(id)}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },

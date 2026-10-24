@@ -20,7 +20,7 @@ export async function waitBoxTask(records, groupId, signal) {
 export function boxReport(detail) {
   const task = detail.tasks[0], metadata = task.metadata
   const review = detail.steps.findLast(step => step.result?.review)?.result.review
-  const candidate = ['script_revision', 'story_segments', 'character_extraction', 'costume_image'].includes(task.node_type) ? detail.steps.findLast(step => step.result?.output)?.result.output : null
+  const candidate = ['script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image'].includes(task.node_type) ? detail.steps.findLast(step => step.result?.output)?.result.output : null
   const basicOutput = task.node_type === 'project' ? detail.steps.findLast(step => step.kind === 'extract_summary' && step.result?.output)?.result.output : null
   const created = detail.steps.findLast(step => step.result?.created)?.result.created
   const originalSummary = detail.steps.findLast(step => step.result?.original_script_summary)?.result.original_script_summary
@@ -35,13 +35,13 @@ export function boxReport(detail) {
     project_id: metadata.project_id, session_id: created ? metadata.target_session_id : metadata.session_id || metadata.source_session_id,
     source_session_id: metadata.source_session_id || metadata.session_id,
     node_type: task.node_type, action: task.action, status: detail.status, decision,
-    requires_user_decision: ['script_revision', 'story_segments', 'character_extraction', 'costume_image'].includes(task.node_type) && (detail.status === 'failed' || detail.status === 'rejected' && decision === 'content_issue'),
+    requires_user_decision: ['script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image'].includes(task.node_type) && (detail.status === 'failed' || detail.status === 'rejected' && decision === 'content_issue'),
     goal: metadata.goal || metadata.instruction || '创建项目',
     reason: detail.status === 'rejected' && review ? review.issues.map(issue => `${issue.location}：${issue.reason}；${issue.suggestion}`).join('\n') : detail.reason || '',
     parent_group_id: metadata.parent_group_id || null,
     issues: structuredClone(review?.issues || []),
-    related_nodes: decision === 'upstream_issue' ? task.node_type === 'character_extraction' ? ['story_segments'] : task.node_type === 'story_segments' ? ['script_revision'] : ['project'] : decision === 'rule_conflict' ? [task.node_type] : [],
-    saved, result_reference: created ? '#/basic_info' : candidate && saved ? task.node_type === 'character_extraction' ? '#/character_extraction/characters' : task.node_type === 'costume_image' ? '#/character_extraction/assets' : task.node_type === 'story_segments' ? '#/story_segments/segments' : '#/basic_info/actual_script' : changed?.reference || null,
+    related_nodes: decision === 'upstream_issue' ? ['scene_extraction', 'group_setting'].includes(task.node_type) ? ['story_segments'] : task.node_type === 'character_extraction' ? ['group_setting', 'story_segments'] : task.node_type === 'story_segments' ? ['script_revision'] : ['project'] : decision === 'rule_conflict' ? [task.node_type] : [],
+    saved, result_reference: created ? '#/basic_info' : candidate && saved ? task.node_type === 'scene_extraction' ? '#/scene_extraction/scenes' : task.node_type === 'group_setting' ? '#/group_setting/groups' : task.node_type === 'character_extraction' ? '#/character_extraction/characters' : task.node_type === 'costume_image' ? '#/character_extraction/assets' : task.node_type === 'story_segments' ? '#/story_segments/segments' : '#/basic_info/actual_script' : changed?.reference || null,
     ...(created ? { result: created } : {}),
     ...(basicOutput ? { summary: basicOutput.summary, estimated_duration_seconds: basicOutput.estimated_duration_seconds, output: basicOutput } : originalSummary ? { summary: originalSummary } : {}),
     ...(warning ? { warning } : {}),

@@ -21,13 +21,13 @@ function runButton(label, payload, { state, images, busy, repaint }, error) {
 export function renderImageBatch(root, project, options) {
   const box = element('section', '', 'production-section'), error = element('p', options.state.imageError || '', 'error')
   error.setAttribute('role', 'status')
-  box.append(element('h3', '角色定妆照'), runButton('一键生成所有角色定妆照', { instruction: '生成所有角色及其各套服装的定妆照' },
-    { ...options, busy: options.busy || !project.character_extraction.characters.length || project.character_extraction.node_state.status !== 'generated' }, error))
+  box.append(element('h3', '定妆照'), runButton('一键生成所有角色定妆照', { instruction: '生成所有角色及其各套服装的定妆照' },
+    { ...options, busy: options.busy || !project.character_extraction.characters.length || project.character_extraction.node_state.status !== 'generated' || project.group_setting?.node_state.status !== 'generated' }, error))
   if (options.images.execution || options.state.imageSubmitting) {
     const progress = element('p', options.state.imageSubmitting ? '正在提交定妆照任务…' : '正在生成定妆照，可在任务历史查看进度。'); progress.setAttribute('role', 'status'); box.append(progress)
   }
   if (options.images.openTasks) { const history = element('button', '定妆照任务历史'); history.type = 'button'; history.onclick = options.images.openTasks; box.append(history) }
-  box.append(error); root.append(box)
+  box.append(error); root.append(box); return box
 }
 export function renderCostumeImages(root, character, project, options) {
   const box = element('section', '', 'costume-images'), asset = project.character_extraction.assets.find(row => row.character_id === character.id)
@@ -63,7 +63,7 @@ export function renderCostumeImages(root, character, project, options) {
     if (image?.node_state.last_execution && ['failed', 'rejected', 'cancelled'].includes(image.node_state.last_execution.status)) row.append(element('p', image.node_state.last_execution.message, 'error'))
     const error = element('p', '', 'error')
     row.append(runButton(image?.address ? '重新生成' : '生成定妆照', { character_id: character.id, costume_id: costume?.id ?? null, instruction: `生成${character.name}${costume ? `穿着${costume.name}` : ''}的定妆照` },
-      { ...options, busy: options.busy || project.character_extraction.node_state.status !== 'generated' }, error), error)
+      { ...options, busy: options.busy || project.character_extraction.node_state.status !== 'generated' || project.group_setting?.node_state.status !== 'generated' }, error), error)
     list.append(row)
   }
   root.append(box)

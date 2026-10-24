@@ -1,3 +1,4 @@
+import { panel as groupPanel } from '../../../group_setting/ui/panel/index.js'
 import { element } from '../../../../client/ui/panel-dom.js'
 import { renderCostumeImages, renderImageBatch } from '../../../costume_image/ui/panel/index.js'
 import { readable } from '../../../../client/ui/readable.js'
@@ -8,25 +9,28 @@ const button = (text, action) => { const node = element('button', text); node.ty
 
 export const panel = {
   type: 'character_extraction', key: 'character_extraction', title: '角色',
-  render(root, project, { state, openTasks, openRules, saveOpinion, characters = {}, images = {} }) {
-    const node = project.character_extraction, rows = node.characters, local = state.characterUi ||= {}
+  render(root, project, { state, openTasks, openRules, saveOpinion, groups: groupOperation = {}, characters = {}, images = {} }) {
+    const groups = project.group_setting?.groups || project.character_extraction.groups || []
+    groupPanel.render(root, project, { state, openTasks, openRules, saveOpinion, groups: groupOperation,
+      otherBusy: !!characters.execution || !!images.execution || !!state.characterUi?.submitting || !!state.imageSubmitting })
+    const node = project.character_extraction, rows = node.characters, hasRows = rows.length, local = state.characterUi ||= {}
     const incoming = ['queued', 'running'].includes(characters.execution?.status) ? characters.execution : null
     if (!incoming || incoming.group_id !== local.runningExecution?.group_id) local.runningExecution = null
     if (incoming?.status === 'running') local.runningExecution = structuredClone(incoming)
     const active = incoming?.status === 'queued' && local.runningExecution?.group_id === incoming.group_id ? local.runningExecution : incoming
     const busy = !!active || !!local.submitting
     const dataState = busy ? active?.node_state_before || local.nodeBefore || node.node_state : node.node_state
-    const section = element('section', '', 'production-section script-node'), head = element('div', '', 'section-head')
-    section.dataset.nodeType = 'character_extraction'; section.dataset.status = dataState.status
-    head.append(element('h3', '角色'), element('span', labels[dataState.status] || '未生成', 'node-data-tag'))
-    if (rows.length) head.append(element('span', `${rows.length} 位角色`, 'production-count'))
+    const section = element('section', '', 'production-section script-node role-module-card'), head = element('div', '', 'section-head')
+    section.dataset.roleModule = 'characters'; section.dataset.nodeType = 'character_extraction'; section.dataset.status = dataState.status
+    head.append(element('h3', '人物提取'), element('span', labels[dataState.status] || '未生成', 'node-data-tag'))
+    if (hasRows) head.append(element('span', `${rows.length} 位人物`, 'production-count'))
     section.append(head)
     const ui = element('div', '', 'node-ui'), buttons = element('div', '', 'node-ui-buttons'), records = element('nav', '', 'node-ui-records'), actions = element('div', '', 'node-ui-execution')
     records.setAttribute('aria-label', '角色记录与规则')
     if (openTasks) records.append(button('任务历史', () => openTasks('character_extraction', '角色')))
     if (openRules) records.append(button('查看规则', () => openRules('character_extraction', '角色')))
-    if (rows.length) records.append(button('复制角色', async () => {
-      try { await root.ownerDocument.defaultView.navigator.clipboard.writeText(readable({ segments: rows })); showToast('已复制') }
+    if (hasRows) records.append(button('复制人物资料', async () => {
+      try { await root.ownerDocument.defaultView.navigator.clipboard.writeText(readable({ characters: rows })); showToast('已复制') }
       catch { showToast('复制失败，请重试') }
     }))
     const input = element('input', '', 'node-ui-opinion'), error = element('p', local.error || '', 'error node-ui-failure')
@@ -45,9 +49,9 @@ export const panel = {
         finally { input.removeAttribute('aria-busy') }
       })
     }
-    const run = button(rows.length ? '按意见修改' : 'AI生成', async () => {
+    const run = button(hasRows ? '按意见修改' : '提取人物', async () => {
       if (run.disabled || local.submitting || !characters.isCurrent?.()) return
-      const instruction = input.value.trim() || (rows.length ? '按项目规则修改角色' : '按当前故事大纲提取完整角色')
+      const instruction = input.value.trim() || (hasRows ? '按项目规则修改人物资料与个人服装设定' : '按当前故事大纲和已确认团队提取完整人物并补齐个人服装设定')
       local.submitting = true; local.error = ''; local.nodeBefore = structuredClone(node.node_state)
       if (local.request?.instruction !== instruction) local.request = { instruction, id: root.ownerDocument.defaultView.crypto.randomUUID() }
       characters.repaint()
@@ -61,8 +65,8 @@ export const panel = {
       } catch (failure) { if (characters.isCurrent()) local.error = failure.message }
       finally { local.submitting = false; if (characters.isCurrent()) characters.repaint() }
     })
-    run.disabled = busy || !characters.generate || !project.story_segments.segments.length
-    run.title = !project.story_segments.segments.length ? '请先生成故事大纲' : busy ? '角色任务正在执行' : '仅生成或修改角色'
+    run.disabled = busy || !!groupOperation.execution || !!state.groupUi?.submitting || project.group_setting?.node_state.status !== 'generated' || !characters.generate || !project.story_segments.segments.length
+    run.title = !project.story_segments.segments.length ? '请先生成故事大纲' : project.group_setting?.node_state.status !== 'generated' ? '请先完成团队设定；无团队也需审核空集合' : busy ? '角色任务正在执行' : '仅生成或修改人物'
     actions.append(run); buttons.append(records, actions); ui.append(buttons, input, error)
     error.setAttribute('role', 'status')
     if (busy) {
@@ -80,15 +84,26 @@ export const panel = {
       }
     }
     section.append(ui)
-    if (!rows.length) section.append(element('p', '暂无角色', 'production-empty'))
-    renderImageBatch(section, project, { state, images, busy: busy || images.execution, repaint: characters.repaint })
+    const groupName = id => groups.find(group => group.id === id)?.name || id
+    const costumeView = costume => ({ ...costume,
+      ...(costume.group_id ? { group_id: groupName(costume.group_id), group_costume_id: groups.find(group => group.id === costume.group_id)?.costumes.find(row => row.id === costume.group_costume_id)?.name || costume.group_costume_id } : {}),
+      ...(costume.story_segment_ids?.length ? { story_segment_ids: costume.story_segment_ids.map(id => project.story_segments.segments.find(row => row.id === id)?.title || id) } : {}),
+    })
+    if (!rows.length) section.append(element('p', '暂无人物资料', 'production-empty'))
     rows.forEach((row, index) => {
       const card = element('article', '', 'production-card')
-      card.append(element('h4', `${index + 1}. ${row.name}`))
-      card.append(element('p', readable(row), 'production-text character-details'))
-      renderCostumeImages(card, row, project, { state, images, busy: busy || images.execution, repaint: characters.repaint })
+      card.append(element('h4', `${index + 1}. ${row.name}`), element('p', readable({ ...row, group_ids: (row.group_ids || []).map(groupName), costumes: row.costumes.map(costumeView) }), 'production-text character-details'))
       section.append(card)
     })
     root.append(section)
+    const portraits = renderImageBatch(root, project, { state, images, busy: busy || groupOperation.execution || state.groupUi?.submitting || images.execution, repaint: characters.repaint })
+    portraits.classList.add('role-module-card'); portraits.dataset.roleModule = 'portraits'
+    if (!rows.length) portraits.append(element('p', '人物资料生成后，可按人物及服装生成定妆照。', 'production-empty'))
+    for (const row of rows) {
+      const card = element('article', '', 'production-card character-portraits')
+      card.append(element('h4', row.name))
+      renderCostumeImages(card, row, project, { state, images, busy: busy || groupOperation.execution || state.groupUi?.submitting || images.execution, repaint: characters.repaint })
+      portraits.append(card)
+    }
   },
 }

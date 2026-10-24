@@ -1,4 +1,16 @@
-import { renderRecordedRows } from '../../../../client/ui/conversation-content.js'
+import { renderRecordedRows as renderRows } from '../../../../client/ui/conversation-content.js'
+
+// 故事段随会话自然展开，避免共享长文本样式形成段内滚动区。
+const renderRecordedRows = (body, rows, title, { node }) => renderRows(body, rows, title, {
+  node: (tag, text, cls) => {
+    const element = node(tag, text, cls)
+    if (tag === 'pre') {
+      element.style.maxHeight = 'none'
+      element.style.overflow = 'visible'
+    }
+    return element
+  },
+})
 
 export const conversation = {
   renderInput(body, data, { node, payload }) {

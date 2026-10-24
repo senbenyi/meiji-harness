@@ -6,6 +6,8 @@ const fieldLabels = {
   duration_seconds: '预估时长（秒）', continuity: '衔接', opening: '开场', ending: '结尾',
   social_role: '身份', age_range: '年龄段', nationality: '国籍或族群', gender: '性别', era: '年代',
   height: '身高', body_type: '体型', facial_features: '面部特征', hairstyle: '发型', voice: '声线',
+  groups: '团队', group_ids: '所属团队', group_id: '团队', group_costume_id: '团队服装版本', story_segment_ids: '适用故事段',
+  region: '地域与气候', appearance: '基本团队形象', demeanor: '群体气质', visual_identity: '视觉标识',
   relationships: '人物关系', signature_props: '标志性道具', immutable_traits: '不可改特征', costumes: '服装',
   layout: '固定布局', materials: '材质与色彩', lighting: '基础光照', entrances_and_routes: '出入口与路线', fixed_landmarks: '固定地标',
   previous_shot_connection: '前镜衔接', story_segment_id: '故事段', key_anchor_ids: '关键锚点', scene: '场景',
