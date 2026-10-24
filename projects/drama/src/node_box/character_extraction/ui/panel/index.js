@@ -49,24 +49,28 @@ export const panel = {
         finally { input.removeAttribute('aria-busy') }
       })
     }
-    const run = button(hasRows ? '按意见修改' : '提取人物', async () => {
-      if (run.disabled || local.submitting || !characters.isCurrent?.()) return
-      const instruction = input.value.trim() || (hasRows ? '按项目规则修改人物资料与个人服装设定' : '按当前故事大纲和已确认团队提取完整人物并补齐个人服装设定')
+    const submit = async (control, regenerate = false) => {
+      if (control.disabled || local.submitting || !characters.isCurrent?.()) return
+      const instruction = regenerate ? `按当前故事大纲、已确认团队和最新项目规则重新提取人物与个人服装，旧资料仅供复用仍适用的稳定ID，不作为必须保留的基稿。` : input.value.trim() || (hasRows ? '按项目规则修改人物资料与个人服装设定' : '按当前故事大纲和已确认团队提取完整人物并补齐个人服装设定')
       local.submitting = true; local.error = ''; local.nodeBefore = structuredClone(node.node_state)
-      if (local.request?.instruction !== instruction) local.request = { instruction, id: root.ownerDocument.defaultView.crypto.randomUUID() }
+      if (local.request?.instruction !== instruction || local.request?.regenerate !== regenerate) local.request = { instruction, regenerate, id: root.ownerDocument.defaultView.crypto.randomUUID() }
       characters.repaint()
       try {
         await chain
-        const result = await characters.generate(instruction, local.request.id)
+        const result = await characters.generate(instruction, local.request.id, ...(regenerate ? [{ regenerate: true }] : []))
         if (!characters.isCurrent()) return
         characters.setExecution({ group_id: result.group_id, status: result.status, node_state_before: local.nodeBefore })
         local.request = null
         characters.refresh?.()
       } catch (failure) { if (characters.isCurrent()) local.error = failure.message }
       finally { local.submitting = false; if (characters.isCurrent()) characters.repaint() }
-    })
-    run.disabled = busy || !!groupOperation.execution || !!state.groupUi?.submitting || project.group_setting?.node_state.status !== 'generated' || !characters.generate || !project.story_segments.segments.length
+    }
+    const run = button(hasRows ? '按意见修改' : '提取人物', () => submit(run))
+    const regenerate = button('重新生成', () => submit(regenerate, true))
+    run.disabled = regenerate.disabled = busy || !!groupOperation.execution || !!state.groupUi?.submitting || project.group_setting?.node_state.status !== 'generated' || !characters.generate || !project.story_segments.segments.length
     run.title = !project.story_segments.segments.length ? '请先生成故事大纲' : project.group_setting?.node_state.status !== 'generated' ? '请先完成团队设定；无团队也需审核空集合' : busy ? '角色任务正在执行' : '仅生成或修改人物'
+    regenerate.title = '按当前资料和项目规则重新生成'
+    if (hasRows) actions.append(regenerate)
     actions.append(run); buttons.append(records, actions); ui.append(buttons, input, error)
     error.setAttribute('role', 'status')
     if (busy) {
@@ -85,14 +89,18 @@ export const panel = {
     }
     section.append(ui)
     const groupName = id => groups.find(group => group.id === id)?.name || id
-    const costumeView = costume => ({ ...costume,
-      ...(costume.group_id ? { group_id: groupName(costume.group_id), group_costume_id: groups.find(group => group.id === costume.group_id)?.costumes.find(row => row.id === costume.group_costume_id)?.name || costume.group_costume_id } : {}),
-      ...(costume.story_segment_ids?.length ? { story_segment_ids: costume.story_segment_ids.map(id => project.story_segments.segments.find(row => row.id === id)?.title || id) } : {}),
-    })
     if (!rows.length) section.append(element('p', '暂无人物资料', 'production-empty'))
     rows.forEach((row, index) => {
       const card = element('article', '', 'production-card')
-      card.append(element('h4', `${index + 1}. ${row.name}`), element('p', readable({ ...row, group_ids: (row.group_ids || []).map(groupName), costumes: row.costumes.map(costumeView) }), 'production-text character-details'))
+      const { costumes = [], ...details } = row
+      const outfits = costumes.map(costume => {
+        const uniform = groups.find(group => group.id === costume.group_id)?.costumes?.find(item => item.id === costume.group_costume_id)
+        const description = [...new Set([uniform?.description, costume.description].filter(value => value?.trim()))].join('；')
+        return { name: costume.name, description }
+      })
+      card.append(element('h4', `${index + 1}. ${row.name}`), element('p', readable({ ...details,
+        group_ids: (row.group_ids || []).map(groupName), costumes: outfits.length ? outfits : '暂无服装设定',
+      }), 'production-text character-details'))
       section.append(card)
     })
     root.append(section)

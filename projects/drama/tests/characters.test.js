@@ -405,3 +405,134 @@ test('团队与人物会话分别展示本次快照，人物输入显示团队�
   body.replaceChildren();conversation.renderInput(body,{...input,current_characters:people,group_setting:team},{node});assert.ok(body.textContent.includes('已确认团队'))
   body.replaceChildren();conversation.renderStepOutput(body,{output:people},{node});assert.equal(body.textContent.includes('团队设定'),false);assert.ok(body.textContent.includes('人物提取'));dom.window.close()
 })
+
+for (const type of ['groups','characters']) test(`${type}重新生成面板入口使用generate，修改保留revise，模式幂等且无效结果不覆盖旧资料`,async t=>{
+  let invalid=false
+  const f=await fixture(t,(_body,action)=>action==='review'?passed:invalid?{groups:[{bad:true}],characters:[{bad:true}]}:teamCandidate())
+  await f.edit(p=>{p.group_setting.groups=teamCandidate().groups;p.group_setting.node_state.status='generated'})
+  const send=(requestId,regenerate=false)=>fetch(`${f.origin}/api/drama/${type}?session_id=${f.context.sessionId}`,{method:'POST',headers:{'Content-Type':'application/json','X-Drama-Request':'1'},body:JSON.stringify({project_id:f.context.projectId,request_id:requestId,instruction:'按当前规则生成资料',regenerate})})
+  const wait=id=>type==='groups'?f.groups.waitGroups(id,f.context.sessionId):f.characters.waitCharacters(id,f.context.sessionId)
+  const run=async(id,flag)=>{const response=await send(id,flag);assert.equal(response.status,202);const task=await response.json();await wait(task.group_id);return f.records.tasks.detail(f.records.scope,task.group_id)}
+  await run('initial',false)
+  const revised=await run('revise',false);assert.equal(revised.steps[0].kind,'revise')
+  const regenerated=await run('regenerate',true);assert.equal(regenerated.steps[0].kind,'generate');assert.equal(regenerated.tasks[0].metadata.regenerate,true)
+  assert.equal((await send('regenerate',true)).status,202);assert.notEqual((await send('regenerate',false)).status,202)
+  assert.notEqual((await send('bad-flag','true')).status,202)
+  const key=type==='groups'?'group_setting':'character_extraction', field=type==='groups'?'groups':'characters'
+  const before=(await f.projects.snapshot(f.context.sessionId)).project[key]
+  invalid=true;const failed=await run('invalid',true)
+  assert.equal(failed.status,'failed')
+  const after=(await f.projects.snapshot(f.context.sessionId)).project[key]
+  assert.deepEqual(after[field],before[field]);if(before.assets)assert.deepEqual(after.assets,before.assets)
+})
+
+test('角色页团队和人物各自提供重新生成，模式独立且交叉点击与前置门禁有效',async t=>{
+  const f=await fixture(t),project=(await f.projects.snapshot(f.context.sessionId)).project
+  project.group_setting.groups=teamCandidate().groups;project.group_setting.node_state.status='generated'
+  project.character_extraction.characters=teamCandidate().characters
+  const dom=new JSDOM('<main/>'),previous=globalThis.document;globalThis.document=dom.window.document
+  t.after(()=>{globalThis.document=previous;dom.window.close()})
+  const root=document.querySelector('main')
+  for(const type of ['group_setting','character_extraction']){
+    const calls=[],state={};let release
+    const selected={isCurrent:()=>true,generate:(...args)=>{calls.push(args);return new Promise(resolve=>{release=resolve})},setExecution:value=>{selected.execution=value}}
+    const other={isCurrent:()=>true,generate:()=>assert.fail('不能同时发起另一盒子')}
+    const render=()=>{root.replaceChildren();panel.render(root,project,{state,groups:{...(type==='group_setting'?selected:other),repaint:render},characters:{...(type==='character_extraction'?selected:other),repaint:render}})}
+    render()
+    const opinion=root.querySelector(`[data-node-type=${type}] input`);opinion.value='只给修改使用的意见';opinion.dispatchEvent(new dom.window.Event('input'))
+    const buttons=[...root.querySelectorAll(`[data-node-type=${type}] .node-ui-execution button`)]
+    assert.deepEqual(buttons.map(b=>b.textContent),['重新生成','按意见修改'])
+    buttons[0].click();buttons[1].click();buttons[0].click();await new Promise(resolve=>setImmediate(resolve))
+    assert.equal(calls.length,1);assert.deepEqual(calls[0][2],{regenerate:true});assert.equal(calls[0][0].includes('只给修改使用的意见'),type==='group_setting');assert.equal(root.querySelector(`[data-node-type=${type}] input`).value,'只给修改使用的意见')
+    assert.equal([...root.querySelectorAll('[data-node-type=group_setting] .node-ui-execution button,[data-node-type=character_extraction] .node-ui-execution button')].every(b=>b.disabled),true)
+    release({group_id:type,status:'queued'});await new Promise(resolve=>setImmediate(resolve))
+    assert.match(root.querySelector(`[data-node-type=${type}] [aria-live]`).textContent,/排队中/)
+    selected.execution=null;render()
+    const modify=[...root.querySelectorAll(`[data-node-type=${type}] .node-ui-execution button`)].find(b=>b.textContent==='按意见修改')
+    modify.click();await new Promise(resolve=>setImmediate(resolve))
+    assert.equal(calls.length,2);assert.equal(calls[1][0],'只给修改使用的意见');assert.equal(calls[1][2],undefined)
+    release({group_id:type+'-modify',status:'queued'});await new Promise(resolve=>setImmediate(resolve))
+  }
+  project.group_setting.node_state.status='expired';root.replaceChildren()
+  panel.render(root,project,{state:{},characters:{generate:()=>assert.fail('前置未通过不可发起'),isCurrent:()=>true}})
+  assert.ok([...root.querySelectorAll('[data-node-type=character_extraction] .node-ui-execution button')].every(b=>b.disabled))
+})
+
+test('团队空结果保留完整卡片操作，仅底部普通提示取消大占位',async t=>{
+  const f=await fixture(t),project=(await f.projects.snapshot(f.context.sessionId)).project
+  const dom=new JSDOM('<main/>'),previous=globalThis.document;globalThis.document=dom.window.document
+  t.after(()=>{globalThis.document=previous;dom.window.close()})
+  const root=document.querySelector('main'),state={},calls=[]
+  let execution=null
+  const render=()=>{root.replaceChildren();panel.render(root,project,{state,openTasks:()=>{},openRules:()=>{},groups:{execution,isCurrent:()=>true,repaint:render,generate:async(...args)=>{calls.push(args);return{group_id:'empty-regenerate',status:'queued'}},setExecution:value=>{execution=value}}})}
+  project.group_setting.node_state.status='empty';render()
+  let section=root.querySelector('[data-node-type=group_setting]')
+  assert.equal(section.querySelector('.node-ui-execution button').textContent,'生成团队设定')
+  project.group_setting.node_state.status='generated';project.group_setting.node_state.last_execution={status:'completed'}
+  render();section=root.querySelector('[data-node-type=group_setting]')
+  assert.equal(section.tagName,'SECTION')
+  assert.equal(section.querySelector('.production-meta').textContent,'团队提取已完成，本次未发现需要统一的团队')
+  assert.equal(section.querySelector('.production-empty'),null)
+  assert.equal(section.querySelector('h3').textContent,'团队设定')
+  assert.equal(section.querySelector('.node-data-tag').textContent,'已生成')
+  assert.equal(section.querySelector('.production-count').textContent,'0 个团队')
+  assert.deepEqual([...section.querySelectorAll('.node-ui-records button')].map(b=>b.textContent),['任务历史','查看规则'])
+  assert.equal(section.querySelector('.node-ui-execution button').textContent,'重新生成')
+  assert.ok(section.querySelector('input'))
+  assert.equal(section.classList.contains('role-module-card'),true)
+  assert.ok(root.querySelector('[data-node-type=character_extraction]'))
+  project.group_setting.node_state.status='expired';render();section=root.querySelector('[data-node-type=group_setting]')
+  const input=section.querySelector('input');input.value='只给修改的意见';input.dispatchEvent(new dom.window.Event('input'))
+  const buttons=[...section.querySelectorAll('.node-ui-execution button')]
+  assert.deepEqual(buttons.map(b=>b.textContent),['重新生成'])
+  buttons[0].click();buttons[0].click();await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(calls.length,1);assert.deepEqual(calls[0][2],{regenerate:true});assert.ok(calls[0][0].includes('本次要求：只给修改的意见'))
+  assert.ok(root.querySelector('[data-node-type=group_setting] .node-ui-execution button').disabled)
+  project.group_setting.node_state.status='generated';execution={group_id:'new-run',status:'running'};render()
+  assert.match(root.querySelector('[data-node-type=group_setting] [aria-live]').textContent,/正在执行/)
+  execution=null;project.group_setting.node_state.last_execution={status:'failed',message:'模型请求失败',stop_code:'request_failed'};render()
+  assert.match(root.querySelector('[data-node-type=group_setting] .node-last-execution').textContent,/模型请求失败/)
+  assert.ok(root.querySelector('[data-node-type=group_setting] .node-ui-execution button'))
+})
+
+test('人物服装与其他字段同结构，序号拼接名称描述，内部引用和源数据不变',async t=>{
+  const f=await fixture(t),project=(await f.projects.snapshot(f.context.sessionId)).project,value=teamCandidate()
+  project.group_setting.groups=value.groups;project.character_extraction.characters=value.characters
+  const first=project.character_extraction.characters[0]
+  first.costumes[0].name='<img src=x onerror=alert(1)>冬装'
+  first.costumes[0].description='袖口磨损，\n领口收紧。<script>不执行</script>'
+  const before=structuredClone(project)
+  const dom=new JSDOM('<main/>'),previous=globalThis.document;globalThis.document=dom.window.document
+  t.after(()=>{globalThis.document=previous;dom.window.close()})
+  const root=document.querySelector('main');panel.render(root,project,{state:{}})
+  const card=root.querySelector('[data-node-type=character_extraction] > .production-card')
+  const fields=card.querySelector('.character-details')
+  assert.equal(card.querySelector('.character-costumes'),null)
+  assert.match(fields.textContent,/\n服装：1\. .*冬装，/)
+  assert.ok(fields.textContent.includes(value.groups[0].costumes[0].description));assert.ok(fields.textContent.includes('袖口磨损'))
+  assert.match(fields.textContent,/；2\. /)
+  const clothingLine=fields.textContent.split('\n').find(line=>line.startsWith('服装：'))
+  assert.ok(clothingLine.includes('领口收紧'));assert.match(clothingLine,/；2\. /)
+  assert.ok(!fields.textContent.includes('团队服装版本：'));assert.ok(!fields.textContent.includes('适用故事段：'))
+  assert.equal(fields.querySelector('img,script'),null)
+  assert.deepEqual(project,before)
+  assert.ok(root.querySelector('[data-role-module=portraits] .costume-image-list'))
+  let copied
+  Object.defineProperty(dom.window.navigator,'clipboard',{value:{writeText:async text=>{copied=text}},configurable:true})
+  await [...root.querySelectorAll('button')].find(button=>button.textContent==='复制人物资料').onclick()
+  assert.match(copied,/服装：1\. /);assert.match(copied,/；2\. /)
+  assert.equal(/\n\s*描述：/.test(copied),false)
+})
+
+test('会话人物服装同字段拼接多套名称描述，不平铺子字段或内部引用',()=>{
+  const dom=new JSDOM('<main/>'),body=dom.window.document.querySelector('main')
+  const node=(tag,text)=>{const el=dom.window.document.createElement(tag);el.textContent=text??'';return el}
+  const value=teamCandidate(),before=structuredClone(value)
+  conversation.renderStepOutput(body,{output:{characters:value.characters}},{node})
+  const text=body.querySelector('pre').textContent
+  assert.match(text,/服装：1\. /)
+  assert.match(text,/；2\. /)
+  assert.equal(/\n\s*描述：/.test(text),false)
+  assert.equal(text.includes('团队服装版本：'),false);assert.equal(text.includes('适用故事段：'),false)
+  assert.deepEqual(value,before);dom.window.close()
+})

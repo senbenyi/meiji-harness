@@ -20,7 +20,7 @@ export default {
             },
             "name": {
               "type": "string",
-              "description": "来源中的团队、组织或背景群体名称，不虚构组织。",
+              "description": "需要统一着装的实际出场团队或组织名称；普通群众不纳入，不虚构组织。",
               "minLength": 1
             },
             "social_role": {
@@ -37,16 +37,16 @@ export default {
             },
             "appearance": {
               "type": "string",
-              "description": "基本团队形象：年龄与体型分布、面部与发式仪容、共同特征及合理个体差异；不只描述衣服。",
+              "description": "简短基本团队形象，只写有用的共同外观，不强制罗列年龄体型或岗位差异。",
               "minLength": 1
             },
             "demeanor": {
               "type": "string",
-              "description": "稳定的群体气质、姿态与行为风格，不替代镜头中的即时表演。"
+              "description": "简短团队状态或整体作风；临时受伤、倒地及表演由镜头表现。"
             },
             "visual_identity": {
               "type": "string",
-              "description": "可识别的团队视觉标识、配色与等级区分；无统一标识时明确说明。"
+              "description": "必要的统一配色或标识，无独立标识可为空，不虚构等级。"
             },
             "immutable_traits": {
               "type": "array",
@@ -67,12 +67,12 @@ export default {
                   },
                   "name": {
                     "type": "string",
-                    "description": "按场合、等级或岗位区分的服装名称。",
+                    "description": "必要的统一服装名称；默认一套，不机械按岗位或场合拆分。",
                     "minLength": 1
                   },
                   "description": {
                     "type": "string",
-                    "description": "完整共同服装设计：内外层、鞋履头饰、材质色彩、版型纹样、标识及新旧程度。",
+                    "description": "简短统一着装：可识别的款式、主要颜色和必要特征，不机械拆分版本。",
                     "minLength": 1
                   },
                   "story_segment_ids": {

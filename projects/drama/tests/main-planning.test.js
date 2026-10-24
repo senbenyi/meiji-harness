@@ -52,7 +52,7 @@ test('创建记录程序任务并交接真实目标；规则冲突报告→原�
   assert.equal(f.calls.length, 2)
   const reader = new PlanningContextTool({ projects: f.projects, records: f.records })
   const context = JSON.parse(await reader.execute({ report_id: report.report_id }, exec))
-  assert.deepEqual(context.executable_boxes, ['project', 'script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image'])
+  assert.deepEqual(context.executable_boxes, ['project', 'script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image', 'shot_design'])
   const originalRule = context.script_revision.rules.rules.review.base
   const changer = new ChangeRulesTool({ projects: f.projects, records: f.records, scriptRevision: f.scripts })
   const approvals = []

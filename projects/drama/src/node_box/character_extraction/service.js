@@ -38,8 +38,10 @@ export class CharacterExtractionService {
     return structuredClone({ story_outline, scene_extraction, group_setting, current_characters, instruction: instruction.trim(), output_language })
   }
 
-  extractCharacters({ instruction, retry_of, ...unknown } = {}, { sessionId, projectId, requestId, source = 'api', retryAction } = {}) {
-    if (Object.keys(unknown).length) throw new TypeError('只允许提交instruction和retry_of')
+  extractCharacters({ instruction, retry_of, regenerate = false, ...unknown } = {}, { sessionId, projectId, requestId, source = 'api', retryAction } = {}) {
+    if (Object.keys(unknown).length) throw new TypeError('只允许提交instruction、retry_of和regenerate')
+    if (typeof regenerate !== 'boolean') throw new TypeError('regenerate需为布尔值')
+    if (regenerate && (retry_of || retryAction)) throw new TypeError('重新生成不能同时指定失败任务重试')
     if (typeof instruction !== 'string' || !instruction.trim() || instruction.length > 10000) throw new TypeError('请提供1—10000字的角色要求')
     if (typeof sessionId !== 'string' || !sessionId.trim()) throw new TypeError('sessionId必选')
     if (typeof requestId !== 'string' || !requestId.trim() || requestId.length > 200) throw new TypeError('缺少有效角色请求ID')
@@ -53,7 +55,7 @@ export class CharacterExtractionService {
       if (retryAction && parent) instruction = parent.tasks[0].metadata.instruction
       const id = digest(['character_extraction', sessionId, requestId]), old = this.records.tasks.detail(this.records.scope, id)
       if (old) {
-        if (old.tasks[0].metadata.instruction !== instruction.trim() || (old.tasks[0].metadata.parent_group_id || undefined) !== retry_of || (old.tasks[0].metadata.retry_action || undefined) !== retryAction) throw new Error('同一请求ID不能用于不同角色要求')
+        if (!!old.tasks[0].metadata.regenerate !== regenerate || old.tasks[0].metadata.instruction !== instruction.trim() || (old.tasks[0].metadata.parent_group_id || undefined) !== retry_of || (old.tasks[0].metadata.retry_action || undefined) !== retryAction) throw new Error('同一请求ID不能用于不同角色要求')
         return { project_id: projectId, group_id: id, status: old.status }
       }
       if (retry_of && (!parent || parent.tasks[0].node_type !== 'character_extraction' || parent.tasks[0].metadata.session_id !== sessionId
@@ -70,12 +72,12 @@ export class CharacterExtractionService {
       const input = this.executionInput({ story_outline: { segments: structuredClone(project.story_segments.segments) }, scene_extraction: { scenes: structuredClone(project.scene_extraction?.scenes || []) }, group_setting: groupOutput(project), current_characters: characterOutput(project), instruction, output_language: config.output_language })
       if (retryAction === 'continue') input.current_characters = retry.candidate
       const metadata = { project_id: projectId, project_name: project.basic_info.name, session_id: sessionId, request_id: requestId,
-        instruction: input.instruction, language: input.output_language, goal: parent?.tasks[0].metadata.goal || input.instruction,
+        regenerate, instruction: input.instruction, language: input.output_language, goal: parent?.tasks[0].metadata.goal || input.instruction,
         retry_action: retryAction || null, retry_review_issues: retryAction === 'continue' ? retry.issues : null,
         parent_group_id: retry_of || null, node_state_before: structuredClone(project.character_extraction.node_state),
         input_hash: characterFingerprint(project), output_hash: digest(characterOutput(project)), input_snapshot: { ...input, rules: nodeRules(project.character_extraction.node_state) } }
       this.records.tasks.submit(this.records.scope, { group: { id, name: '生成角色', source, metadata: { project_id: projectId, notify_main: source === 'ui', parent_group_id: retry_of || null } },
-        tasks: [{ node_type: 'character_extraction', name: '角色', action: retryAction ? retryAction === 'continue' ? 'revise' : 'generate' : project.character_extraction.characters.length ? 'revise' : 'generate', metadata }] })
+        tasks: [{ node_type: 'character_extraction', name: '角色', action: regenerate ? 'generate' : retryAction ? retryAction === 'continue' ? 'revise' : 'generate' : project.character_extraction.characters.length ? 'revise' : 'generate', metadata }] })
       this.projects.watchProjectTask(id)
       return { project_id: projectId, group_id: id, status: 'queued' }
     })

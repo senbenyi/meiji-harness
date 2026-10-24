@@ -11,6 +11,7 @@ export function apply(ctx) {
   if (ctx.drama.extractScenesTool) ctx.effect(() => ctx.tools.register(ctx.drama.extractScenesTool), 'drama: extract scenes tool')
   if (ctx.drama.generateGroupsTool) ctx.effect(() => ctx.tools.register(ctx.drama.generateGroupsTool), 'drama: group setting tool')
   if (ctx.drama.extractCharactersTool) ctx.effect(() => ctx.tools.register(ctx.drama.extractCharactersTool), 'drama: extract characters tool')
+  if (ctx.drama.generateShotsTool) ctx.effect(() => ctx.tools.register(ctx.drama.generateShotsTool), 'drama: generate shots tool')
   for (const tool of ctx.drama.planningTools || []) ctx.effect(() => ctx.tools.register(tool), `drama: ${tool.name}`)
   ctx.effect(() => ctx.systemPrompt.section({ name: 'drama:box-planning',
     order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_SUFFIX'), text: planningGuidance,

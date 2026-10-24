@@ -1,3 +1,4 @@
+import { shotFingerprint, expireShotDependents } from '../shot_design/state.js'
 import { applyExecutionStates, projectExecutions, stateSummary } from '../../node_runtime/execution_state.js'
 import { nodeState } from '../../node_runtime/node_state.js'
 import { scriptOutput, originalFilename, scriptSummary } from '../../node_runtime/node_state.js'
@@ -130,6 +131,8 @@ export class ProjectService extends EventEmitter {
     }
     for (const type of ['character_extraction', 'scene_extraction']) visit(project[type].assets, `/${type}/assets`)
     for (const type of ['videos', 'episodes']) visit(project[type], `/${type}`)
+    const sceneImageActive = this.activeExecution(project.basic_info.id, 'scene_image')
+    if (sceneImageActive) project.scene_extraction.assets.forEach((asset,index) => { const entry = nodes[`/scene_extraction/assets/${index}/image_generation`]; if (asset.scene_id === sceneImageActive.scene_id && entry) { const {node_state_before,...active} = sceneImageActive; entry.active_execution = active } })
     return { project_id: project.basic_info.id, nodes }
   }
 
@@ -167,6 +170,10 @@ export class ProjectService extends EventEmitter {
       if (characterFingerprint(previous) !== characterFingerprint(next) && previous.character_extraction.characters.length) {
         next.character_extraction.node_state = new NodeStateModel({ ...next.character_extraction.node_state, status: 'expired', reason: '角色资料或规则已变化，需重新生成' }).toJSON()
         expireCharacterDependents(next)
+      }
+      if (shotFingerprint(previous) !== shotFingerprint(next) && previous.shot_design.shots.length) {
+        next.shot_design.node_state = new NodeStateModel({...next.shot_design.node_state, status:'expired', reason:'分镜资料或规则已变化，需重新生成'}).toJSON()
+        expireShotDependents(next)
       }
       if (command.kind !== 'import_script' && scriptFingerprint(previous) !== scriptFingerprint(next) && previous.basic_info.actual_script) {
         next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'expired', reason: '剧本资料或规则已变化，需重新优化' }).toJSON()
@@ -438,7 +445,7 @@ export class ProjectService extends EventEmitter {
         const steps = detail.steps.filter(step => step.task_id === task.id).sort((a, b) => a.seq - b.seq)
         const current = steps.find(step => step.step_status === 'running') || steps.find(step => step.step_status === 'ready')
         const review = steps.findLast(step => step.step_status === 'done' && step.result?.review)
-        return { group_id: group.id, task_id: task.id, status: task.task_status,
+        return { group_id: group.id, task_id: task.id, status: task.task_status, ...(task.node_type === 'scene_image' ? {scene_id:task.metadata.scene_id} : {}),
           step: current ? { id: current.id, kind: current.kind, name: current.name, status: current.step_status } : null,
           review_issues: review?.result.review.issues || [],
           node_state_before: task.metadata.node_state_before || null,

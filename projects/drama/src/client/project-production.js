@@ -30,7 +30,7 @@ function stageTabs(entries, selected, onChange, panelId) {
   return row
 }
 
-export function renderProjectProduction(root, project, { state, onBack, openTasks, openRules, saveOpinion, story, scenes, groups, characters, images }) {
+export function renderProjectProduction(root, project, { state, onBack, openTasks, openRules, saveOpinion, story, shots, scenes, sceneImages, groups, characters, images }) {
   root.classList.add('project-production')
   backHeader(root, project.basic_info.name, '返回项目详情', onBack)
   if (!stages.some(([key]) => key === state.productionTab)) state.productionTab = stages[0][0]
@@ -50,7 +50,7 @@ export function renderProjectProduction(root, project, { state, onBack, openTask
     body.setAttribute('aria-labelledby', `${panelId}-${state.productionTab}`)
     body.replaceChildren()
     const [key] = stages.find(([key]) => key === state.productionTab)
-    const options = { state, openTasks, openRules, saveOpinion, story, scenes, groups, characters, images }
+    const options = { state, openTasks, openRules, saveOpinion, story, shots, scenes, sceneImages, groups, characters, images }
     nodeUiForStage(key).panel.render(body, project, options)
     if (key === 'shot_design') nodeUi('clip_composition').panel.render(body, project, options)
   }

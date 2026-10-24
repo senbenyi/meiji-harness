@@ -112,7 +112,7 @@ export function mountTaskMessages({ document = globalThis.document, getSessionId
               if (action === 'stop') return
               const key = `${group.id}:${action}`
               if (!requests.has(key)) requests.set(key, globalThis.crypto.randomUUID())
-              const endpoint = { script_revision: 'script-optimization', story_segments: 'story-outline', scene_extraction: 'scenes', group_setting: 'groups', character_extraction: 'characters', costume_image: 'costume-images' }[group.context.node_type]
+              const endpoint = { script_revision: 'script-optimization', story_segments: 'story-outline', shot_design: 'shots', scene_extraction: 'scenes', group_setting: 'groups', character_extraction: 'characters', costume_image: 'costume-images', scene_image: 'scene-images' }[group.context.node_type]
               if (!endpoint) throw new Error('此任务不支持重试')
               const response = await fetcher(`/api/drama/${endpoint}?session_id=${encodeURIComponent(id)}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },

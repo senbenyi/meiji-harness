@@ -31,8 +31,10 @@ export class GroupSettingService {
     return structuredClone({ story_outline, scene_extraction, current_groups, instruction: instruction.trim(), output_language })
   }
 
-  generateGroups({ instruction, retry_of, ...unknown } = {}, { sessionId, projectId, requestId, source = 'api', retryAction } = {}) {
-    if (Object.keys(unknown).length) throw new TypeError('只允许提交instruction和retry_of')
+  generateGroups({ instruction, retry_of, regenerate = false, ...unknown } = {}, { sessionId, projectId, requestId, source = 'api', retryAction } = {}) {
+    if (Object.keys(unknown).length) throw new TypeError('只允许提交instruction、retry_of和regenerate')
+    if (typeof regenerate !== 'boolean') throw new TypeError('regenerate需为布尔值')
+    if (regenerate && (retry_of || retryAction)) throw new TypeError('重新生成不能同时指定失败任务重试')
     if (typeof instruction !== 'string' || !instruction.trim() || instruction.length > 10000) throw new TypeError('请提供1—10000字的团队要求')
     if (typeof sessionId !== 'string' || !sessionId.trim()) throw new TypeError('sessionId必选')
     if (typeof requestId !== 'string' || !requestId.trim() || requestId.length > 200) throw new TypeError('缺少有效团队请求ID')
@@ -46,7 +48,7 @@ export class GroupSettingService {
       if (retryAction && parent) instruction = parent.tasks[0].metadata.instruction
       const id = digest(['group_setting', sessionId, requestId]), old = this.records.tasks.detail(this.records.scope, id)
       if (old) {
-        if (old.tasks[0].metadata.instruction !== instruction.trim() || (old.tasks[0].metadata.parent_group_id || undefined) !== retry_of || (old.tasks[0].metadata.retry_action || undefined) !== retryAction) throw new Error('同一请求ID不能用于不同团队要求')
+        if (!!old.tasks[0].metadata.regenerate !== regenerate || old.tasks[0].metadata.instruction !== instruction.trim() || (old.tasks[0].metadata.parent_group_id || undefined) !== retry_of || (old.tasks[0].metadata.retry_action || undefined) !== retryAction) throw new Error('同一请求ID不能用于不同团队要求')
         return { project_id: projectId, group_id: id, status: old.status }
       }
       if (retry_of && (!parent || parent.tasks[0].node_type !== 'group_setting' || parent.tasks[0].metadata.session_id !== sessionId
@@ -62,12 +64,12 @@ export class GroupSettingService {
       const input = this.executionInput({ story_outline: { segments: structuredClone(project.story_segments.segments) }, scene_extraction: { scenes: structuredClone(project.scene_extraction?.scenes || []) }, current_groups: groupOutput(project), instruction, output_language: config.output_language })
       if (retryAction === 'continue') input.current_groups = retry.candidate
       const metadata = { project_id: projectId, project_name: project.basic_info.name, session_id: sessionId, request_id: requestId,
-        instruction: input.instruction, language: input.output_language, goal: parent?.tasks[0].metadata.goal || input.instruction,
+        regenerate, instruction: input.instruction, language: input.output_language, goal: parent?.tasks[0].metadata.goal || input.instruction,
         retry_action: retryAction || null, retry_review_issues: retryAction === 'continue' ? retry.issues : null,
         parent_group_id: retry_of || null, node_state_before: structuredClone(project.group_setting.node_state),
         input_hash: groupFingerprint(project), output_hash: digest(groupOutput(project)), input_snapshot: { ...input, rules: nodeRules(project.group_setting.node_state) } }
       this.records.tasks.submit(this.records.scope, { group: { id, name: '生成团队', source, metadata: { project_id: projectId, notify_main: source === 'ui', parent_group_id: retry_of || null } },
-        tasks: [{ node_type: 'group_setting', name: '团队', action: retryAction ? retryAction === 'continue' ? 'revise' : 'generate' : project.group_setting.groups.length ? 'revise' : 'generate', metadata }] })
+        tasks: [{ node_type: 'group_setting', name: '团队', action: regenerate ? 'generate' : retryAction ? retryAction === 'continue' ? 'revise' : 'generate' : project.group_setting.groups.length ? 'revise' : 'generate', metadata }] })
       this.projects.watchProjectTask(id)
       return { project_id: projectId, group_id: id, status: 'queued' }
     })

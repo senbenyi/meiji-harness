@@ -26,7 +26,7 @@ export default { kind: "text", initial: { assets: [] }, output: object({
       "costumes": array(object({
         "id": string("稳定标识；已有对象保留原ID。", { minLength: 1 }),
         "name": string("对象名称。", { minLength: 1 }),
-        "description": string("完整个人服装设计或在所引用团队制服上的个人差异，不重复改造共同制服。"),
+        "description": string("具体个人服装描述；原文未写也结合职业、年代与场景设计。引用团队制服时继承基础设计，仅补个人差异；UI在服装字段下展示名称与描述。"),
         "group_id": string("引用的团队ID；个人独立服装为空字符串。"),
         "group_costume_id": string("引用的团队服装版本ID；与group_id同时为空或同时有效。"),
         "story_segment_ids": array(string("适用故事段ID；空数组表示通用。"))

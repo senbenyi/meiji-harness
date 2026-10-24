@@ -23,7 +23,7 @@ export default { kind: "text", output: object({
       })),
       "characters": array(object({
         "character_id": string("关联人物ID；无资产时为空。"),
-        "costume_id": string("选定服装ID；无服装目录时为空。"),
+        "costume_id": string("人物服装ID；未描述换装则沿用已有定妆服装，可跨故事段；多套时承接已选穿着，明确换装才切换；无服装目录时为空。"),
         "name": string("对象名称。", { minLength: 1 }),
         "presence": string("开场在场与入画状态。"),
         "position": string("开场空间位置。"),

@@ -166,7 +166,7 @@
           {
             "id": "string（稳定标识；已有对象保留原ID。）",
             "name": "string（对象名称。）",
-            "description": "string（完整个人服装设计或在所引用团队制服上的个人差异，不重复改造共同制服。）",
+            "description": "string（具体个人服装描述；原文未写也结合职业、年代与场景设计。引用团队制服时继承基础设计，仅补个人差异；UI在服装字段下展示名称与描述。）",
             "group_id": "string（引用的团队ID；个人独立服装为空字符串。）",
             "group_costume_id": "string（引用的团队服装版本ID；与group_id同时为空或同时有效。）",
             "story_segment_ids": [
@@ -245,7 +245,7 @@
         "characters": [
           {
             "character_id": "string（character_001）",
-            "costume_id": "string（costume_001）",
+            "costume_id": "string（costume_001；未描述换装时沿用人物已有定妆服装，可跨故事段；多套时承接前镜穿着，明确换装才切换。）",
             "name": "string（角色甲（未绑定人物填写剧本姓名或称谓；群体使用明确群体名称。）",
             "presence": "string（本镜主要人物、后景关系人物及背景群体的开场在场与入画状态；画外在场者明确在场状态，群体注明开场规模。人物行动及入离场过程写入beats.action，摄影引起的可见范围变化写入beats.camera。）",
             "position": "string（人物或群体开场相对地标和其他人物的位置、距离、分布及遮挡，以场景空间为准；后续移动写入beats.action。）",
@@ -405,21 +405,21 @@
     "groups": [
       {
         "id": "string（团队稳定标识；已有团队保留原ID。）",
-        "name": "string（来源中的团队、组织或背景群体名称，不虚构组织。）",
+        "name": "string（需要统一着装的实际出场团队或组织名称；普通群众不纳入，不虚构组织。）",
         "social_role": "string（团队身份、职责、社会位置与剧情作用。）",
         "era": "string（时代及世界观背景。）",
         "region": "string（地域、气候及文化环境。）",
-        "appearance": "string（基本团队形象：年龄与体型分布、面部与发式仪容、共同特征及合理个体差异；不只描述衣服。）",
-        "demeanor": "string（稳定的群体气质、姿态与行为风格，不替代镜头中的即时表演。）",
-        "visual_identity": "string（可识别的团队视觉标识、配色与等级区分；无统一标识时明确说明。）",
+        "appearance": "string（简短基本团队形象，只写有用的共同外观，不强制罗列年龄体型或岗位差异。）",
+        "demeanor": "string（简短团队状态或整体作风；临时受伤、倒地及表演由镜头表现。）",
+        "visual_identity": "string（必要的统一配色或标识，无独立标识可为空，不虚构等级。）",
         "immutable_traits": [
           "string（来源明确锁定的团队特征。）"
         ],
         "costumes": [
           {
             "id": "string（团队内稳定的服装版本ID。）",
-            "name": "string（按场合、等级或岗位区分的服装名称。）",
-            "description": "string（完整共同服装设计：内外层、鞋履头饰、材质色彩、版型纹样、标识及新旧程度。）",
+            "name": "string（必要的统一服装名称；默认一套，不机械按岗位或场合拆分。）",
+            "description": "string（简短统一着装：可识别的款式、主要颜色和必要特征，不机械拆分版本。）",
             "story_segment_ids": [
               "string（适用故事段ID；空数组表示通用，不能据此新增换装剧情。）"
             ]

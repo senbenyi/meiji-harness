@@ -1,3 +1,4 @@
+import { conversation as sceneImageConversation } from '../../node_box/scene_image/ui/conversation/index.js'
 import { conversation as costumeImageConversation } from '../../node_box/costume_image/ui/conversation/index.js'
 import { panel as projectPanel } from '../../node_box/project/ui/panel/index.js'
 import { panel as scriptPanel } from '../../node_box/script_revision/ui/panel/index.js'
@@ -23,6 +24,7 @@ import { panel as clip_compositionPanel } from '../../node_box/clip_composition/
 import { conversation as clip_compositionConversation } from '../../node_box/clip_composition/ui/conversation/index.js'
 
 const registry = {
+  scene_image: { conversation: sceneImageConversation },
   costume_image: { conversation: costumeImageConversation },
   project: { panel: projectPanel, conversation: projectConversation },
   script_revision: { panel: scriptPanel, conversation: scriptConversation },

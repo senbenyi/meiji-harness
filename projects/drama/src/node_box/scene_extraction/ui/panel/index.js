@@ -1,3 +1,4 @@
+import { renderSceneImage } from '../../../scene_image/ui/panel/index.js'
 import { element } from '../../../../client/ui/panel-dom.js'
 import { readable } from '../../../../client/ui/readable.js'
 import { showToast } from '@agent-modules/ui'
@@ -7,7 +8,7 @@ const button = (text, action) => { const node = element('button', text); node.ty
 
 export const panel = {
   type: 'scene_extraction', key: 'scene_extraction', title: '场景',
-  render(root, project, { state, openTasks, openRules, saveOpinion, scenes: operation = {}, otherBusy = false }) {
+  render(root, project, { state, openTasks, openRules, saveOpinion, scenes: operation = {}, sceneImages = {}, otherBusy = false }) {
     const node = project.scene_extraction, rows = node.scenes, hasRows = rows.length, local = state.sceneUi ||= {}
     const incoming = ['queued', 'running'].includes(operation.execution?.status) ? operation.execution : null
     if (!incoming || incoming.group_id !== local.runningExecution?.group_id) local.runningExecution = null
@@ -62,7 +63,7 @@ export const panel = {
     }
     const run = button(hasRows ? '按意见修改' : '提取场景', () => submit(run))
     const regenerate = button('重新生成', () => submit(regenerate, true))
-    run.disabled = regenerate.disabled = busy || otherBusy || !operation.generate || !project.story_segments.segments.length
+    run.disabled = regenerate.disabled = busy || !!sceneImages.execution || !!state.sceneImageSubmitting || otherBusy || !operation.generate || !project.story_segments.segments.length
     run.title = !project.story_segments.segments.length ? '请先生成故事大纲' : busy ? '场景任务正在执行' : '仅生成或修改场景'
     regenerate.title = '按当前故事大纲和项目规则重新生成场景资料'
     if (hasRows) actions.append(regenerate)
@@ -87,6 +88,7 @@ export const panel = {
     for (const [index, scene] of rows.entries()) {
       const card = element('article', '', 'production-card scene-details')
       card.append(element('h4', `${index + 1}. ${scene.name}`), element('p', readable(scene), 'production-text'))
+      renderSceneImage(card, scene, project, { state, sceneImages, busy: busy || otherBusy })
       section.append(card)
     }
     root.append(section)

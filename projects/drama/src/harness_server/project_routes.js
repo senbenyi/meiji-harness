@@ -12,7 +12,7 @@ const json = (res, status, value) => {
   res.end(JSON.stringify(value))
 }
 
-export function createProjectHttpHandler(tool, { authorize, models = createModelSettings(tool.root), scriptRevision, storySegments, sceneExtraction, groupSetting, characterExtraction, costumeImages }) {
+export function createProjectHttpHandler(tool, { authorize, models = createModelSettings(tool.root), scriptRevision, storySegments, sceneExtraction, groupSetting, characterExtraction, costumeImages, sceneImages, shotDesign }) {
   const streams = new Set(), creations = new Map()
   let cursor = 0
   // 暂停实时连接时仍保留每个来源会话的最新创建通知，恢复后补发。
@@ -77,6 +77,18 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
       }
       const sessionId = url.searchParams.get('session_id')
       if (!sessionId) return json(res, 400, { message: '需提供会话ID' })
+      if (url.pathname === '/api/drama/scene-image' && req.method === 'GET') {
+        const bytes = await sceneImages.readImage(sessionId, url.searchParams.get('file'))
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store' }); return res.end(bytes)
+      }
+      if (['/api/drama/scene-images', '/api/drama/scene-image-inputs'].includes(url.pathname) && req.method === 'POST') {
+        if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
+        const chunks = []; let size = 0
+        for await (const chunk of req) { size += chunk.length; if (size > 24 * 1024 * 1024) return json(res, 413, { message: '场景图输入过大' }); chunks.push(chunk) }
+        const {project_id,request_id,retry_action,...input} = JSON.parse(Buffer.concat(chunks).toString())
+        const context = {sessionId,projectId:project_id,requestId:request_id,source:'ui',retryAction:retry_action}
+        return json(res, url.pathname.endsWith('-inputs') ? 200 : 202, url.pathname.endsWith('-inputs') ? await sceneImages.saveInputs(input,context) : await sceneImages.generate(input,context))
+      }
       if (url.pathname === '/api/drama/costume-image' && req.method === 'GET') {
         const bytes = await costumeImages.readImage(sessionId, url.searchParams.get('file'))
         res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store' }); return res.end(bytes)
@@ -108,7 +120,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         const snapshot = await tool.snapshot(sessionId)
         const active = snapshot.project && tool.activeExecution(snapshot.project.basic_info.id, 'script_revision')
         const storyActive = snapshot.project && tool.activeExecution(snapshot.project.basic_info.id, 'story_segments')
-        return json(res, 200, { ...snapshot, ...(active ? { script_execution: active } : {}), ...(storyActive ? { story_execution: storyActive } : {}), ...(snapshot.project ? { scene_execution: tool.activeExecution(snapshot.project.basic_info.id, 'scene_extraction'), group_execution: tool.activeExecution(snapshot.project.basic_info.id, 'group_setting'), character_execution: tool.activeExecution(snapshot.project.basic_info.id, 'character_extraction'), image_execution: tool.activeExecution(snapshot.project.basic_info.id, 'costume_image') } : {}) })
+        return json(res, 200, { ...snapshot, ...(active ? { script_execution: active } : {}), ...(storyActive ? { story_execution: storyActive } : {}), ...(snapshot.project ? { shot_execution: tool.activeExecution(snapshot.project.basic_info.id, 'shot_design'), scene_execution: tool.activeExecution(snapshot.project.basic_info.id, 'scene_extraction'), group_execution: tool.activeExecution(snapshot.project.basic_info.id, 'group_setting'), character_execution: tool.activeExecution(snapshot.project.basic_info.id, 'character_extraction'), image_execution: tool.activeExecution(snapshot.project.basic_info.id, 'costume_image'), scene_image_execution: tool.activeExecution(snapshot.project.basic_info.id, 'scene_image') } : {}) })
       }
       if (url.pathname === '/api/drama/project' && req.method === 'DELETE') {
         if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
@@ -137,15 +149,16 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         const result = await storySegments.generateStoryOutline({ instruction, retry_of }, { sessionId, projectId: project_id, requestId: request_id, retryAction: retry_action, source: 'ui' })
         return json(res, 202, result)
       }
-      if (['/api/drama/scenes', '/api/drama/groups', '/api/drama/characters', '/api/drama/costume-images'].includes(url.pathname) && req.method === 'POST') {
+      if (['/api/drama/shots', '/api/drama/scenes', '/api/drama/groups', '/api/drama/characters', '/api/drama/costume-images'].includes(url.pathname) && req.method === 'POST') {
         if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
         const chunks = []; let size = 0
         for await (const chunk of req) { size += chunk.length; if (size > 65536) return json(res, 413, { message: '生成要求过大' }); chunks.push(chunk) }
         const { project_id, request_id, instruction, retry_of, retry_action, character_id, costume_id, regenerate } = JSON.parse(Buffer.concat(chunks).toString())
         const context = { sessionId, projectId: project_id, requestId: request_id, retryAction: retry_action, source: 'ui' }
-        const result = url.pathname.endsWith('/scenes') ? await sceneExtraction.extractScenes({ instruction, retry_of, regenerate }, context)
-          : url.pathname.endsWith('/groups') ? await groupSetting.generateGroups({ instruction, retry_of }, context)
-          : url.pathname.endsWith('/characters') ? await characterExtraction.extractCharacters({ instruction, retry_of }, context)
+        const result = url.pathname.endsWith('/shots') ? await shotDesign.generateShots({ instruction, retry_of, regenerate }, context)
+          : url.pathname.endsWith('/scenes') ? await sceneExtraction.extractScenes({ instruction, retry_of, regenerate }, context)
+          : url.pathname.endsWith('/groups') ? await groupSetting.generateGroups({ instruction, retry_of, regenerate }, context)
+          : url.pathname.endsWith('/characters') ? await characterExtraction.extractCharacters({ instruction, retry_of, regenerate }, context)
           : await costumeImages.generate({ instruction, character_id, costume_id, retry_of }, context)
         return json(res, 202, result)
       }

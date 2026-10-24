@@ -1,3 +1,5 @@
+import { history as shots } from '../../node_box/shot_design/ui/conversation/history.js'
+import { history as sceneImages } from '../../node_box/scene_image/ui/conversation/history.js'
 import { history as costumeImages } from '../../node_box/costume_image/ui/conversation/history.js'
 import { history as project } from '../../node_box/project/ui/conversation/history.js'
 import { history as script, rulesHistory } from '../../node_box/script_revision/ui/conversation/history.js'
@@ -6,7 +8,8 @@ import { history as groups } from '../../node_box/group_setting/ui/conversation/
 import { history as characters } from '../../node_box/character_extraction/ui/conversation/history.js'
 import { history as story } from '../../node_box/story_segments/ui/conversation/history.js'
 
-const presentations = { costume_image: { ...costumeImages, ownsInput: true }, project, script_revision: { ...script, ownsInput: true }, script_rules: rulesHistory,
+const presentations = { scene_image: { ...sceneImages, ownsInput: true }, costume_image: { ...costumeImages, ownsInput: true }, project, script_revision: { ...script, ownsInput: true }, script_rules: rulesHistory,
+  shot_design: { ...shots, ownsInput: true }, shot_rules: rulesHistory,
   scene_extraction: { ...scenes, ownsInput: true }, scene_rules: rulesHistory,
   group_setting: { ...groups, ownsInput: true }, group_rules: rulesHistory,
   character_extraction: { ...characters, ownsInput: true }, character_rules: rulesHistory, story_segments: { ...story, ownsInput: true }, story_rules: rulesHistory }

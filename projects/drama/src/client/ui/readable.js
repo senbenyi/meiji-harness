@@ -1,6 +1,6 @@
 // 字段标签与readable布局复制自meiji/client/content-forms.js，按drama节点契约补齐。
 const fieldLabels = {
-  name: '名称', title: '标题', body: '正文', description: '描述',
+  shots: '分镜', name: '名称', title: '标题', body: '正文', description: '描述',
   world_background: '世界背景', key_anchors: '关键锚点', content: '内容', expression: '视听表达',
   characters_and_groups: '参与人物与群体', scene_and_space: '场景与空间', emotion_and_rhythm: '情绪与节奏',
   duration_seconds: '预估时长（秒）', continuity: '衔接', opening: '开场', ending: '结尾',
@@ -24,7 +24,17 @@ export function readable(value) {
   if (Array.isArray(value)) return value.map((item, i) => `${i + 1}. ${readable(item)}`).join('\n\n')
   if (value && typeof value === 'object') return Object.entries(value)
     .filter(([key, v]) => !['id', 'node_state'].includes(key) && v !== '' && v != null && (!Array.isArray(v) || v.length))
-    .map(([key, v]) => `${fieldLabels[key] || key}：${readable(v)}`).join('\n')
+    .map(([key, v]) => {
+      if (key === 'costumes' && Array.isArray(v)) {
+        const entries = v.map((item, index) => {
+          const parts = item && typeof item === 'object' && !Array.isArray(item) ? [item.name, item.description] : [readable(item)]
+          const text = parts.filter(part => part != null && String(part).trim()).map(part => String(part).replace(/\s*\n\s*/g, ' ').trim()).join('，')
+          return `${index + 1}. ${text}`
+        }).join('；')
+        return `${fieldLabels[key]}：${entries}`
+      }
+      return `${fieldLabels[key] || key}：${readable(v)}`
+    }).join('\n')
   return String(value ?? '')
 }
 

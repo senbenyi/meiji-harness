@@ -1,3 +1,4 @@
+import { shotOutput } from '../node_box/shot_design/state.js'
 import { scriptOutput, nodeRules, nodeState } from '../node_runtime/node_state.js'
 import { sceneOutput } from '../node_box/scene_extraction/state.js'
 import { groupOutput } from '../node_box/group_setting/state.js'
@@ -16,7 +17,7 @@ const dependencies = {
 /** 依赖和过期状态由代码提供；执行顺序和修复位置交主Agent判断。 */
 export function dependencyFacts(project) {
   return Object.entries(dependencies).map(([node_type, upstream]) => ({ node_type, upstream,
-    executable: ['project', 'script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image'].includes(node_type),
+    executable: ['project', 'script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image', 'shot_design'].includes(node_type),
     state: node_type === 'project' ? 'ready' : nodeState(project, node_type)?.status || 'empty',
   }))
 }
@@ -40,7 +41,8 @@ export async function planningContext(projects, records, { sessionId, reportId }
     scene_extraction: { output: sceneOutput(project), rules: nodeRules(project.scene_extraction.node_state), node_state: project.scene_extraction.node_state },
     group_setting: { output: groupOutput(project), rules: nodeRules(project.group_setting.node_state), node_state: project.group_setting.node_state },
     character_extraction: { output: characterOutput(project), rules: nodeRules(project.character_extraction.node_state), node_state: project.character_extraction.node_state },
-    executable_boxes: ['project', 'script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image'],
+    shot_design: { output: shotOutput(project), rules: nodeRules(project.shot_design.node_state), node_state: project.shot_design.node_state },
+    executable_boxes: ['project', 'script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image', 'shot_design'],
   }
 }
 

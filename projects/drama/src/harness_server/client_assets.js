@@ -1,5 +1,9 @@
 // 浏览器资源逐文件登记，不开放 Service、Executor、definition 等服务端源码。
 export const clientAssets = new Map([
+  ['node_box/shot_design/ui/conversation/history.js', new URL('../node_box/shot_design/ui/conversation/history.js', import.meta.url)],
+  ['node_box/scene_image/ui/panel/index.js', new URL('../node_box/scene_image/ui/panel/index.js', import.meta.url)],
+  ['node_box/scene_image/ui/conversation/index.js', new URL('../node_box/scene_image/ui/conversation/index.js', import.meta.url)],
+  ['node_box/scene_image/ui/conversation/history.js', new URL('../node_box/scene_image/ui/conversation/history.js', import.meta.url)],
   ['node_box/costume_image/ui/conversation/index.js', new URL('../node_box/costume_image/ui/conversation/index.js', import.meta.url)],
   ['node_box/costume_image/ui/conversation/history.js', new URL('../node_box/costume_image/ui/conversation/history.js', import.meta.url)],
   ['node_box/scene_extraction/ui/conversation/history.js', new URL('../node_box/scene_extraction/ui/conversation/history.js', import.meta.url)],
