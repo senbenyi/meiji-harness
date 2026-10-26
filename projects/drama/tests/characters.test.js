@@ -239,7 +239,7 @@ test('团队与人物输出各自严格校验，旧人物投影不修改源资�
   assert.deepEqual(projected.characters[0].group_ids,[]);assert.equal(projected.characters[0].costumes[0].group_id,'');assert.deepEqual(legacy,before)
 })
 
-test('团队会话Tool独立生成保存，人物只引用团队，图片继承选定制服并按实际关联过期', async t => {
+test('团队会话Tool独立生成保存，人物只引用团队，图片继承选定制服，联动影响交主Agent判断', async t => {
   let output=teamCandidate()
   const f=await fixture(t,(_body,action)=>action==='review'?passed:output)
   await f.edit(project=>{project.group_setting.node_state.status='empty';project.scene_extraction.scenes=[{id:'station',name:'高寒救援站',layout:'进门左侧装备架'}]})
@@ -261,13 +261,13 @@ test('团队会话Tool独立生成保存，人物只引用团队，图片继承�
   const before=await portrait(f)
   output.groups[0].costumes[1].description='另一套夏装'
   await groupRun(f,'unselected');assert.equal((await portrait(f)).node_state.status,'generated')
-  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.character_extraction.node_state.status,'expired')
+  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.character_extraction.node_state.status,'generated')
   await f.extract('confirm-person')
   output.groups.push({...structuredClone(output.groups[0]),id:'other',name:'其他队伍',appearance:'与林舟无关的团队形象'})
   await groupRun(f,'unrelated');assert.equal((await portrait(f)).node_state.status,'generated')
   output.groups[0].appearance='成年男女，面部有冻伤，体格各异'
   await groupRun(f,'related')
-  const after=await portrait(f);assert.equal(after.address,before.address);assert.equal(after.node_state.status,'expired')
+  const after=await portrait(f);assert.equal(after.address,before.address);assert.equal(after.node_state.status,'generated')
   assert.equal(f.calls.filter(row=>row.action==='image').length,1)
   const states=await f.projects.nodeStates(f.context.sessionId);assert.equal(states.nodes.group_setting.status,'generated');assert.equal(states.nodes.group_setting.last_execution.status,'completed')
 })

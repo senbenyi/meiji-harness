@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
 import { ScriptRevisionExecutor } from './executor.js'
-import { digest, scriptFingerprint, expireScriptDependents } from './state.js'
+import { digest, scriptFingerprint } from './state.js'
 
 /** 面板和主Agent Tool共用的剧本优化入口；与项目管理共用一个写入队列。 */
 export class ScriptRevisionService {
@@ -133,7 +133,6 @@ export class ScriptRevisionService {
       if (detail.tasks.find(task => task.id === ctx.task.id)?.task_status !== 'running') throw new Error('任务已结束，拒绝写入')
       const manager = await ProjectManager.open(join(this.root, 'projects', id, 'project.json'))
       manager.change(next => {
-        if (digest(scriptOutput(next)) !== digest(output)) expireScriptDependents(next)
         Object.assign(next.basic_info, structuredClone(output))
         if (passed && next.basic_info.script_revision_node.opinion?.trim() === ctx.task.metadata.instruction) next.basic_info.script_revision_node.opinion = ''
         next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'generated', reason: '', dependency_hash: inputHash }).toJSON()

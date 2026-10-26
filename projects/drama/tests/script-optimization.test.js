@@ -162,7 +162,7 @@ test('结构错误不保存，缺原稿不发请求，已有任务阻止重复�
   assert.equal((await slow.projects.snapshot(slow.context.sessionId)).project.basic_info.actual_script, '原稿：主角走进房间。')
 })
 
-test('优化HTTP鉴权/绑定/请求标识、异步返回与完成后快照；下游保留内容并过期', async t => {
+test('优化HTTP鉴权/绑定/请求标识、异步返回与完成后快照；下游保留内容及状态待主Agent规划', async t => {
   const f = await fixture(t, call => call.action === 'generate' ? candidate() : passed)
   const file = join(f.root, 'projects', f.context.projectId, 'project.json')
   const data = JSON.parse(await readFile(file, 'utf8')); data.story_segments.node_state.status = 'generated'; data.story_segments.segments = [{ id: 'old', body: '旧内容' }]
@@ -175,7 +175,7 @@ test('优化HTTP鉴权/绑定/请求标识、异步返回与完成后快照；�
   const response = await f.request(path, options); assert.equal(response.status, 202)
   const result = await response.json(); await f.scriptRevision.waitScriptOptimization(result.group_id, f.context.sessionId)
   const project = (await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(project.story_segments.node_state.status, 'expired'); assert.equal(project.story_segments.segments[0].body, '旧内容')
+  assert.equal(project.story_segments.node_state.status, 'generated'); assert.equal(project.story_segments.segments[0].body, '旧内容')
 })
 
 test('页面按意见改编使用当前输入和稳定请求ID，执行状态禁用按钮，详情与历史入口保留', async t => {

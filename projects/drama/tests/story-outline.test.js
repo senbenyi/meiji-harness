@@ -94,7 +94,7 @@ test('会话Tool生成、审核、保存完整大纲；输入有界，记录关�
   assert.equal(project.story_segments.node_state.last_execution.stop_code, 'completed')
 })
 
-test('本地内容问题自动修订后通过，完整候选与审核意见传入；修改保留ID、消费原意见且过期下游', async t => {
+test('本地内容问题自动修订后通过，完整候选与审核意见传入；修改保留ID、消费原意见且保留下游状态', async t => {
   let reviews = 0, generations = 0
   const f = await fixture(t, call => call.action === 'review' ? (++reviews === 1 ? issue() : passed) : candidate(`第${++generations}稿`))
   await f.projects.edit({ kind: 'node_opinion', node_type: 'story_segments', previousValue: '', value: '补全递信' }, f.context)
@@ -105,7 +105,7 @@ test('本地内容问题自动修订后通过，完整候选与审核意见传�
   assert.deepEqual(detail.steps[2].prompt.input.review_issues, issue().issues)
   assert.equal(detail.steps[2].prompt.input.current_outline.segments[0].body, '第1稿')
   const project = (await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(project.story_segments.node_state.opinion, ''); assert.equal(project.character_extraction.node_state.status, 'expired')
+  assert.equal(project.story_segments.node_state.opinion, ''); assert.equal(project.character_extraction.node_state.status, 'generated')
   assert.equal(project.character_extraction.characters[0].name, '林舟')
   f.context.requestId = 'next'
   const modified = await run(f, '继续完善')

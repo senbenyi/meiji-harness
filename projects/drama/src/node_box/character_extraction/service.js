@@ -7,7 +7,7 @@ import { boxReport, waitBoxTask, userRetry } from '../../node_runtime/box_report
 import { CharacterExtractionExecutor } from './executor.js'
 import { CharacterRulesExecutor } from './rule_change_executor.js'
 import { groupOutput } from '../group_setting/state.js'
-import { digest, normalizeCharacterOutput, characterFingerprint, characterOutput, validateCharacterCandidate, expireCharacterDependents, reconcileCharacterAssets } from './state.js'
+import { digest, normalizeCharacterOutput, characterFingerprint, characterOutput, validateCharacterCandidate, reconcileCharacterAssets } from './state.js'
 
 /** 面板与会话共用入口；每轮有效结果同步项目与步骤记录，审核结论不控制结果保存。 */
 export class CharacterExtractionService {
@@ -105,7 +105,6 @@ export class CharacterExtractionService {
       const manager = await ProjectManager.open(join(this.projects.root, 'projects', id, 'project.json'))
       const assets = await reconcileCharacterAssets(project.character_extraction.assets, project.character_extraction.characters, output.characters, groupOutput(project).groups, groupOutput(project).groups)
       manager.change(next => {
-        if (digest(characterOutput(next)) !== digest(output)) expireCharacterDependents(next)
         next.character_extraction.characters = output.characters
         next.character_extraction.assets = assets
         const state = next.character_extraction.node_state

@@ -54,7 +54,7 @@ export function outputInstructions(contract, { format = 'schema' } = {}) {
 }
 
 /** 展开已保存规则中的运行时定义引用，不读取开发文档。 */
-export function renderNodeRules(model, action, { definition = nodeDefinitions } = {}) {
+export function renderNodeRules(model, action, { definition = nodeDefinitions, nodeType } = {}) {
   if (!actions.includes(action)) invalid('action', '需为generate、review或revise')
   const data = typeof model?.toJSON === 'function' ? model.toJSON() : model
   if (typeof data?.supports_supplement !== 'boolean') invalid('supports_supplement', '需为布尔值')
@@ -63,7 +63,8 @@ export function renderNodeRules(model, action, { definition = nodeDefinitions } 
   const source = definition
   function render(text) {
     const result = text.replace(/\{\{output:([^{}]*?)\}\}/gu, (_, reference) => {
-      const resolved = resolveOutputDefinition(reference, source)
+      const effective = nodeType && action === 'review' && reference === '#/$defs/review_output' ? nodeContract(nodeType, action, source).reference : reference
+      const resolved = resolveOutputDefinition(effective, source)
       if (typeof resolved === 'string') return resolved
       const node = reference.slice(2).split('/')[0]
       return outputInstructions(resolved, { format: reference === `#/${node}/output` ? source[node]?.output_format : undefined })
@@ -82,7 +83,7 @@ function invalidNode(path, message) {
 export function nodeContract(nodeType, action = 'generate', definitions = nodeDefinitions) {
   if (typeof nodeType !== 'string' || !/^[a-z][a-z_]*$/u.test(nodeType) || !Object.hasOwn(definitions, nodeType) || !['text', 'image'].includes(definitions[nodeType].kind)) invalidNode('nodeType', '未知AI节点')
   if (!['generate', 'review', 'revise'].includes(action)) invalidNode('action', '未知动作')
-  const reference = action === 'review' ? '#/$defs/review_output'
+  const reference = action === 'review' ? definitions[nodeType].review_output ? `#/${nodeType}/review_output` : '#/$defs/review_output'
     : definitions[nodeType].kind === 'image' ? '#/$defs/image_output' : `#/${nodeType}/output`
   return { reference, schema: resolveOutputDefinition(reference, definitions) }
 }

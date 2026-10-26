@@ -5,7 +5,7 @@ import { nodeRules } from '../../node_runtime/node_state.js'
 import { boxReport, waitBoxTask, userRetry } from '../../node_runtime/box_report.js'
 import { SceneExtractionExecutor } from './executor.js'
 import { SceneRulesExecutor } from './rule_change_executor.js'
-import { digest, sceneFingerprint, sceneOutput, validateSceneCandidate, expireSceneDependents, reconcileSceneAssets } from './state.js'
+import { digest, sceneFingerprint, sceneOutput, validateSceneCandidate, reconcileSceneAssets } from './state.js'
 
 /** 面板与会话共用入口；每轮有效结果同步项目与步骤记录，审核结论不控制结果保存。 */
 export class SceneExtractionService {
@@ -96,7 +96,6 @@ export class SceneExtractionService {
       const manager = await ProjectManager.open(join(this.projects.root, 'projects', id, 'project.json'))
       const assets = await reconcileSceneAssets(project.scene_extraction.assets, project.scene_extraction.scenes, output.scenes, project.basic_info.aspect_ratio)
       manager.change(next => {
-        if (digest(sceneOutput(next)) !== digest(output)) expireSceneDependents(next)
         next.scene_extraction.scenes = output.scenes
         next.scene_extraction.assets = assets
         const state = next.scene_extraction.node_state

@@ -10,7 +10,8 @@ import { ScriptRevisionService } from '../src/node_box/script_revision/service.j
 import { createRecordService } from '../src/records/service.js'
 import { CreateProjectTool } from '../src/tools/creat_project_tool.js'
 import { OptimizeScriptTool } from '../src/tools/optimize_script_tool.js'
-import { PlanningContextTool, ChangeRulesTool, UpdateProjectTool } from '../src/tools/planning_tools.js'
+import { PlanningContextTool, SaveChangePlanTool, ChangeRulesTool, UpdateProjectTool } from '../src/tools/planning_tools.js'
+import { ProjectManager } from '../src/project_runtime/project_manager.js'
 import { ReportDispatcher, createMainAgentDelivery } from '../src/session/report_dispatcher.js'
 import { createPanelTaskDisplay } from '../src/session/panel_task_messages.js'
 import { boxReport, waitBoxTask } from '../src/node_runtime/box_report.js'
@@ -18,6 +19,83 @@ import { planningContext } from '../src/session/planning_context.js'
 
 const candidate = { actual_script: '候选正文', summary: '候选摘要', estimated_duration_seconds: 180 }
 const issue = status => ({ status, issues: [{ location: 'basic_info.original_script', reason: '存在需要修复的依据', suggestion: '按用户要求修复，保留原始目标' }] })
+
+async function editPlanningProject(f, change) {
+  const manager = await ProjectManager.open(join(f.root, 'projects', f.created.project_id, 'project.json'))
+  manager.change(change)
+  await manager.model.update()
+}
+
+test('修改报告保留真实前后内容，规划上下文同时提供上下游、素材和稳定恢复记录', async t => {
+  const f = await fixture(t, 'pass')
+  await editPlanningProject(f, p => {
+    p.scene_extraction.assets = [{ scene_id: 'hospital', image_generation: { address: '/old.png', reference_image: 'data:image/png;base64,private-pixels', node_state: { status: 'generated', reason: '' } } }]
+    p.video_prompt.node_state.status = 'generated'
+  })
+  assert.equal(f.report.change.before.actual_script, '用户原稿')
+  assert.deepEqual(f.report.change.after, candidate)
+  const context = await planningContext(f.projects, f.records, { sessionId: f.created.session_id, reportId: f.report.report_id })
+  assert.equal(context.related_outputs.scene_extraction.assets[0].image_generation.address, '/old.png')
+  assert.equal(context.related_outputs.scene_extraction.assets[0].image_generation.has_reference_image, true)
+  assert.doesNotMatch(JSON.stringify(context.related_outputs), /private-pixels|dependency_hash|"rules"/)
+  assert.equal(context.related_outputs.video_prompt.node_state.status, 'generated')
+  assert.ok(context.planning_targets.some(row => row.target === 'scene_image:"hospital"'))
+  const next = JSON.parse(await f.optimize.execute({ instruction: '只调整本次工作稿' }, { ...f.exec, callId: 'modify-again' }))
+  assert.equal(next.coordination_required, true)
+  const after = await planningContext(f.projects, f.records, { sessionId: f.created.session_id, reportId: f.report.report_id })
+  assert.equal(after.report.change.before.actual_script, '用户原稿', '旧报告不从当前项目补造')
+  assert.equal(after.related_outputs.video_prompt.node_state.status, 'generated', '保存不替主Agent判定下游影响')
+})
+
+test('主Agent一次保存上下游决定，仅指定目标过期，刷新恢复计划且旧版本不能覆盖', async t => {
+  const f = await fixture(t, 'pass'), tool = new SaveChangePlanTool({ projects: f.projects, records: f.records })
+  await editPlanningProject(f, p => {
+    p.story_segments.node_state.status = 'generated'
+    p.scene_extraction.assets = [{ scene_id: 'hospital', image_generation: { address: '/old.png', node_state: { status: 'generated', reason: '' } } }]
+    p.video_prompt.node_state.status = 'generated'
+  })
+  const args = { report_id: f.report.report_id, previous_revision: 0, goal: '调整场景墙面颜色，剧情保持', decisions: [
+    { target: '/basic_info/script_revision_node', action: 'keep', reason: '剧本未描述墙面，无冲突' },
+    { target: '/story_segments', action: 'keep', reason: '大纲事件不受影响' },
+    { target: 'scene_image:"hospital"', action: 'defer', reason: '图片包含旧墙面，等待用户生成' },
+  ] }
+  await editPlanningProject(f, p => { p.scene_extraction.assets.unshift({ scene_id: 'other', image_generation: { address: '/other.png', node_state: { status: 'generated', reason: '' } } }) })
+  const saved = JSON.parse(await tool.execute(args, f.exec))
+  assert.equal(saved.plan.status, 'pending'); assert.equal(saved.plan.revision, 1)
+  const context = await planningContext(f.projects, f.records, { sessionId: f.created.session_id })
+  assert.deepEqual(context.change_plans[f.report.report_id], saved.plan)
+  assert.equal(context.related_outputs.scene_extraction.assets[1].image_generation.node_state.status, 'expired')
+  assert.equal(context.related_outputs.scene_extraction.assets[1].image_generation.address, '/old.png')
+  assert.equal(context.related_outputs.scene_extraction.assets[0].image_generation.node_state.status, 'generated', '排序变化后仍按场景ID定位，不能标错图片')
+  assert.equal(context.related_outputs.video_prompt.node_state.status, 'generated')
+  assert.equal(context.story_segments.node_state.status, 'generated')
+  await assert.rejects(tool.execute(args, f.exec), /规划已变化/)
+  await assert.rejects(tool.execute({ ...args, previous_revision: 1, decisions: [{ target: '/basic_info/name', action: 'keep', reason: '伪造目标' }] }, f.exec), /目标/)
+  await assert.rejects(tool.execute({ ...args, previous_revision: 1, decisions: [args.decisions[0], args.decisions[0]] }, f.exec), /目标不可重复/)
+  await assert.rejects(tool.execute(args, { agent: { session: { id: 'source' } } }), /没有项目/)
+  await editPlanningProject(f, p => { p.story_segments.node_state.status = 'expired'; p.story_segments.node_state.last_execution = { status: 'rejected' } })
+  await assert.rejects(tool.execute({ ...args, previous_revision: 1, decisions: [args.decisions[1]] }, f.exec), /尚未通过本地审核/)
+})
+
+test('联动完成需真实对应执行报告，失败结果与旧报告不能冒充；内容变化后拒绝完成', async t => {
+  const f = await fixture(t, 'pass'), tool = new SaveChangePlanTool({ projects: f.projects, records: f.records })
+  const args = { report_id: f.report.report_id, previous_revision: 0, goal: '修正工作稿中的形象冲突', decisions: [
+    { target: '/basic_info/script_revision_node', action: 'update', reason: '修正明确的外貌描述' },
+  ] }
+  await tool.execute(args, f.exec)
+  const finish = result => ({ ...args, previous_revision: 1, decisions: [{ ...args.decisions[0], result_report_id: result }] })
+  await assert.rejects(tool.execute(finish(f.report.report_id), f.exec), /原修改报告/)
+  await assert.rejects(tool.execute(finish('missing'), f.exec), /报告不属于/)
+  const updated = JSON.parse(await f.optimize.execute({ instruction: '保留本次形象，修正冲突' }, { ...f.exec, callId: 'linked-update' }))
+  await editPlanningProject(f, p => { p.basic_info.actual_script = '用户随后修改的新内容' })
+  await assert.rejects(tool.execute(finish(updated.report_id), f.exec), /内容已变化/)
+  await editPlanningProject(f, p => { Object.assign(p.basic_info, candidate) })
+  const finished = JSON.parse(await tool.execute(finish(updated.report_id), f.exec))
+  assert.equal(finished.plan.status, 'completed'); assert.equal(finished.plan.revision, 2)
+  const rejected = await fixture(t, 'content')
+  const otherTool = new SaveChangePlanTool({ projects: rejected.projects, records: rejected.records })
+  await assert.rejects(otherTool.execute({ ...args, report_id: rejected.report.report_id }, rejected.exec), /通过或明确上游问题/)
+})
 
 async function fixture(t, kind = 'rule') {
   const root = await mkdtemp(join(tmpdir(), 'drama-main-planning-')), calls = []
@@ -121,9 +199,9 @@ test('面板与新项目报告持久投递，重开不重复，会话Tool报告�
   const accepted = await f.scripts.optimizeScript({ instruction: '面板任务' }, { sessionId: f.created.session_id, requestId: 'ui', source: 'ui' })
   await f.scripts.waitScriptOptimization(accepted.group_id, f.created.session_id)
   await dispatcher.flush(); await dispatcher.dispose()
-  assert.equal(delivered.length, 1)
+  assert.equal(delivered.length, 2); assert.equal(delivered[1].coordination_required, true)
   dispatcher = new ReportDispatcher({ root: f.root, records: f.records, deliver: async report => delivered.push(report) })
-  await dispatcher.flush(); await dispatcher.dispose(); assert.equal(delivered.length, 1)
+  await dispatcher.flush(); await dispatcher.dispose(); assert.equal(delivered.length, 2)
   const ledger = JSON.parse(await readFile(join(f.root, 'main-agent-deliveries.json')))
   assert.ok(ledger[accepted.group_id].delivered)
 })
@@ -189,7 +267,7 @@ test('缺少会话、错误归属、删除项目和Agent不可用均不兜底创
 })
 
 
-for (const kind of ['pass', 'upstream', 'rule']) test(`面板${kind}：开始和结果独立展示，仅失败唤醒模型`, async t => {
+for (const kind of ['pass', 'upstream', 'rule']) test(`面板${kind}：开始和结果独立展示，修改成功或可规划问题唤醒模型`, async t => {
   const f = await fixture(t, kind), events = [], followups = [], order = []
   f.projects.sessionController.create = async () => { assert.fail('面板展示不创建会话') }
   const agent = { session: {
@@ -219,9 +297,9 @@ for (const kind of ['pass', 'upstream', 'rule']) test(`面板${kind}：开始和
   assert.notEqual(starts[0].data.commandId, starts[1].data.commandId)
   assert.match(results[0].data.text, /已受理/); assert.match(results.at(-1).data.text, /本次面板要求/)
   assert.ok(!events.some(event => event.type === 'user/message' || event.type === 'assistant/message'))
-  assert.equal(followups.length, kind === 'pass' ? 0 : 1)
+  assert.equal(followups.length, 1)
   assert.equal(f.calls.length, 4, '展示不增加盒子模型请求')
-  if (kind !== 'pass') assert.equal(order.at(-1), 'followup', '先展示失败结果再交给主Agent')
+  assert.equal(order.at(-1), 'followup', '先展示失败结果再交给主Agent')
 })
 
 test('用户取消的面板任务只展示取消结果，不唤醒主Agent', async t => {

@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import { RulesModel } from '@agent-modules/prompt-composer'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
-import { expireScriptDependents } from './state.js'
 
 export function validateRulePatch(patch) {
   if (!patch || Object.keys(patch).some(key => !['action', 'field', 'value', 'previous_value'].includes(key))
@@ -42,7 +41,6 @@ export class RuleChangeExecutor {
         project.basic_info.script_revision_node.rules = new RulesModel(data).toJSON().rules
         project.basic_info.script_revision_node = new NodeStateModel({ ...project.basic_info.script_revision_node,
           status: project.basic_info.actual_script ? 'expired' : 'empty', reason: project.basic_info.actual_script ? '规则已修改，等待主Agent重新派发' : '' }).toJSON()
-        expireScriptDependents(project)
       })
       ctx.signal.throwIfAborted()
       await manager.model.update()

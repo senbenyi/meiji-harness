@@ -1,4 +1,3 @@
-import { NodeStateModel } from '@agent-modules/task/models'
 import { validateNodeOutput, parseNodeOutput } from '../../node_runtime/output_response_parser.js'
 import shotDefinition from './definition.js'
 import { nodeRules } from '../../node_runtime/node_state.js'
@@ -83,12 +82,4 @@ export function validateShotCandidate(value, { story_outline, scene_extraction, 
     for(const anchor of segment.key_anchors) if(!coveredAnchors.has(anchor.id)) throw new TypeError(`分镜遗漏关键锚点：${anchor.id}`)
   }
   return output
-}
-export function expireShotDependents(project) {
-  const visit = value => {
-    if (!value || typeof value !== 'object') return
-    if(value.node_state && value.node_state.status!=='empty') value.node_state = new NodeStateModel({...value.node_state,status:'expired',reason:'分镜资料或规则已变化，需重新生成'}).toJSON()
-    for(const [key,child] of Object.entries(value)) if(!['node_state','rules'].includes(key)) visit(child)
-  }
-  for(const key of ['clip_arrangement','video_prompt','videos','episodes']) visit(project[key])
 }

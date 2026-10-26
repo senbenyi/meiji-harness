@@ -9,6 +9,7 @@ export const history = {
       decision: accepted ? 'passed' : task.task_status === 'rejected' ? review?.status || 'content_issue' : task.task_status,
       result: accepted ? generated?.result.output ?? null : null,
       ...(!accepted && generated ? { partial_result: { label: '已保存候选，未作为通过结果交付', output: generated.result.output } } : {}),
+      ...(review?.suggestions?.length ? { suggestions: review.suggestions } : {}),
       ...(review && !accepted ? { issues: review.issues || [] } : {}),
     }
 

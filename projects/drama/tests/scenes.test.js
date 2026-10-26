@@ -10,7 +10,6 @@ import { ProjectService } from '../src/node_box/project/service.js'
 import { SceneExtractionService } from '../src/node_box/scene_extraction/service.js'
 import { changedSceneFields, sceneReviewHistory } from '../src/node_box/scene_extraction/review_context.js'
 import { validateSceneCandidate } from '../src/node_box/scene_extraction/state.js'
-import { expireStoryDependents } from '../src/node_box/story_segments/state.js'
 import { createRecordService } from '../src/records/service.js'
 import { createProjectHttpHandler } from '../src/harness_server/project_routes.js'
 import { ExtractScenesTool } from '../src/tools/extract_scenes_tool.js'
@@ -124,20 +123,20 @@ test('场景harness-http鉴权/归属/幂等/项目互斥，运行快照和完�
   assert.equal((await(await post(args)).json()).group_id,a.group_id);assert.equal(f.calls.length,2)
 })
 
-test('场景资产按ID保留，变化或恢复场景照片过期，无关照片和删除资产继续保留',async t=>{
+test('场景资产按ID保留，变化或恢复场景照片状态不自动扩散，无关照片和删除资产继续保留',async t=>{
   let output=candidate();const f=await fixture(t,(_body,action)=>action==='review'?passed:output);await f.run()
   await f.edit(p=>{for(const row of p.scene_extraction.assets){row.image_generation.address='/old-'+row.scene_id+'.png';row.image_generation.node_state.status='generated';row.image_generation.node_state.rules.generate.supplement='已保存图片规则';row.image_generation.reference_image='原参考'}for(const type of ['group_setting','character_extraction','shot_design','video_prompt'])p[type].node_state.status='generated'})
   const before=(await f.projects.snapshot(f.context.sessionId)).project.scene_extraction.assets
   await f.run('same');assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.scene_extraction.assets,before)
   output.scenes[0].layout+='，东侧保留检票口';await f.run('changed')
   let p=(await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(p.scene_extraction.assets[0].image_generation.node_state.status,'expired');assert.equal(p.scene_extraction.assets[0].image_generation.address,'/old-station.png')
+  assert.equal(p.scene_extraction.assets[0].image_generation.node_state.status,'generated');assert.equal(p.scene_extraction.assets[0].image_generation.address,'/old-station.png')
   assert.equal(p.scene_extraction.assets[1].image_generation.node_state.status,'generated');assert.equal(p.scene_extraction.assets[0].image_generation.reference_image,'原参考')
   assert.equal(p.scene_extraction.assets[0].image_generation.node_state.rules.generate.supplement,'已保存图片规则')
-  for(const type of ['group_setting','character_extraction','shot_design','video_prompt'])assert.equal(p[type].node_state.status,'expired')
+  for(const type of ['group_setting','character_extraction','shot_design','video_prompt'])assert.equal(p[type].node_state.status,'generated')
   output={scenes:[output.scenes[0]]};await f.run('remove');p=(await f.projects.snapshot(f.context.sessionId)).project;assert.equal(p.scene_extraction.assets.length,2)
   output=candidate();await f.run('restore');p=(await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(p.scene_extraction.assets.find(row=>row.scene_id==='platform').image_generation.node_state.status,'expired')
+  assert.equal(p.scene_extraction.assets.find(row=>row.scene_id==='platform').image_generation.node_state.status,'generated')
 })
 
 test('执行中大纲变化拒绝迟到场景覆盖；请求失败保留最新已保存候选',async t=>{
@@ -152,11 +151,11 @@ test('执行中大纲变化拒绝迟到场景覆盖；请求失败保留最新�
   const states=await f.projects.nodeStates(f.context.sessionId);assert.equal(states.nodes.scene_extraction.last_execution.stop_code,'request_failed')
 })
 
-test('空场景集合允许审核通过，故事大纲变化使场景、团队和人物过期',async t=>{
+test('空场景集合允许审核通过，不自动启动下游',async t=>{
   const f=await fixture(t,(_body,action)=>action==='review'?passed:{scenes:[]});assert.equal((await f.run()).status,'completed')
   const p=(await f.projects.snapshot(f.context.sessionId)).project;assert.deepEqual(p.scene_extraction.scenes,[]);assert.equal(p.scene_extraction.node_state.status,'generated')
-  p.group_setting.node_state.status=p.character_extraction.node_state.status='generated';expireStoryDependents(p)
-  for(const type of ['scene_extraction','group_setting','character_extraction'])assert.equal(p[type].node_state.status,'expired')
+  assert.equal(p.group_setting.node_state.status,'empty');assert.equal(p.character_extraction.node_state.status,'empty')
+  assert.deepEqual(f.calls.map(row=>row.action),['generate','review'])
 })
 
 test('场景面板独立loading、连点去重、资料安全展示，意见与历史规则入口正确',async t=>{

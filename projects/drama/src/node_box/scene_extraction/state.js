@@ -1,4 +1,3 @@
-import { NodeStateModel } from '@agent-modules/task/models'
 import { validateNodeOutput } from '../../node_runtime/output_response_parser.js'
 import { nodeRules } from '../../node_runtime/node_state.js'
 import { createNode } from '../../node_runtime/node_initializer.js'
@@ -23,24 +22,7 @@ export async function reconcileSceneAssets(assets, previous, scenes, aspectRatio
   for (const scene of scenes) {
     const asset = structuredClone(assets.find(row => row.scene_id === scene.id) || { scene_id: scene.id })
     asset.image_generation ||= { ...await createNode('scene_image'), aspect_ratio: aspectRatio }
-    const old = previous.find(row => row.id === scene.id), image = asset.image_generation
-    if ((!old && image.address) || old && digest(old) !== digest(scene)) image.node_state = new NodeStateModel({ ...image.node_state,
-      status: image.address ? 'expired' : 'empty', reason: image.address ? '场景资料已变化，需重新生成' : '' }).toJSON()
     result.push(asset)
   }
   return [...result, ...assets.filter(row => !scenes.some(scene => scene.id === row.scene_id))]
-}
-
-export function expireSceneDependents(project) {
-  const expire = node => {
-    if (node?.node_state && node.node_state.status !== 'empty') node.node_state = new NodeStateModel({ ...node.node_state, status: 'expired', reason: '场景资料或规则已变化，需重新确认或生成' }).toJSON()
-  }
-  // 团队/人物需要重审场景相容性；照片仍保留，造型真正改变后由对应盒子使照片过期。
-  for (const type of ['group_setting', 'character_extraction', 'shot_design', 'clip_arrangement', 'video_prompt']) expire(project[type])
-  const visit = value => {
-    if (!value || typeof value !== 'object') return
-    expire(value)
-    for (const [key, child] of Object.entries(value)) if (!['node_state', 'rules'].includes(key)) visit(child)
-  }
-  visit(project.videos); visit(project.episodes)
 }

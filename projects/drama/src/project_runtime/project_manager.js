@@ -16,6 +16,7 @@ export class ProjectManager {
 
   static async open(file) {
     const { file: path, project } = await readProjectFile(file)
+    project.change_plans ||= {}
     // 读取旧项目时只补内存；下一次业务保存才落盘，不改已有私有规则。
     if (project.character_extraction && !project.group_setting) {
       project.group_setting = await createNode('group_setting')

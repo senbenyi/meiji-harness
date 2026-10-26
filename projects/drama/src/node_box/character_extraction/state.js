@@ -1,9 +1,8 @@
-import { NodeStateModel } from '@agent-modules/task/models'
 import { validateNodeOutput } from '../../node_runtime/output_response_parser.js'
 import { nodeRules } from '../../node_runtime/node_state.js'
 import { createNode } from '../../node_runtime/node_initializer.js'
 import { digest } from '../script_revision/state.js'
-import { groupOutput, characterGroups } from '../group_setting/state.js'
+import { groupOutput } from '../group_setting/state.js'
 
 export { digest }
 
@@ -59,25 +58,10 @@ export async function reconcileCharacterAssets(assets, previous, characters, pre
   const result = []
   for (const character of characters) {
     const asset = structuredClone(assets.find(row => row.character_id === character.id) || { character_id: character.id, reference_image: '', costume_images: [] })
-    const old = previous.find(row => row.id === character.id)
-    // 保留历史照片，仅使受人物或其关联团队变化影响的照片过期。
-    for (const image of asset.costume_images) {
-      const costume = character.costumes.find(row => row.id === image.costume_id), oldCostume = old?.costumes.find(row => row.id === image.costume_id)
-      if (old && (digest(old) !== digest(character) || digest(characterGroups(previousGroups, old, oldCostume)) !== digest(characterGroups(groups, character, costume)))) {
-        image.node_state = new NodeStateModel({ ...image.node_state, status: image.address ? 'expired' : 'empty', reason: image.address ? '人物或关联团队资料已变化，需重新生成' : '' }).toJSON()
-      }
-    }
     for (const costumeId of character.costumes.length ? character.costumes.map(row => row.id) : [null]) {
       if (!asset.costume_images.some(row => row.costume_id === costumeId)) asset.costume_images.push({ costume_id: costumeId, ...await createNode('costume_image') })
     }
     result.push(asset)
   }
   return [...result, ...assets.filter(row => !characters.some(character => character.id === row.character_id))]
-}
-
-export function expireCharacterDependents(project) {
-  for (const type of ['shot_design', 'clip_arrangement', 'video_prompt']) {
-    const node = project[type]
-    if (node?.node_state.status !== 'empty') node.node_state = new NodeStateModel({ ...node.node_state, status: 'expired', reason: '人物或团队资料已变化，需重新生成' }).toJSON()
-  }
 }

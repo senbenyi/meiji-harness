@@ -5,7 +5,7 @@ import { nodeRules, scriptOutput } from '../../node_runtime/node_state.js'
 import { boxReport, waitBoxTask, userRetry } from '../../node_runtime/box_report.js'
 import { StorySegmentsExecutor } from './executor.js'
 import { StoryRulesExecutor } from './rule_change_executor.js'
-import { digest, storyFingerprint, storyOutput, validateStoryCandidate, expireStoryDependents } from './state.js'
+import { digest, storyFingerprint, storyOutput, validateStoryCandidate } from './state.js'
 
 /** 面板与会话共用入口；每轮有效结果同步项目与步骤记录，审核结论不控制结果保存。 */
 export class StorySegmentsService {
@@ -97,7 +97,6 @@ export class StorySegmentsService {
       if (detail.tasks.find(task => task.id === ctx.task.id)?.task_status !== 'running') throw new Error('任务已结束，拒绝写入')
       const manager = await ProjectManager.open(join(this.projects.root, 'projects', id, 'project.json'))
       manager.change(next => {
-        if (digest(storyOutput(next)) !== digest(output)) expireStoryDependents(next)
         next.story_segments.segments = output.segments
         const state = next.story_segments.node_state
         if (passed && state.opinion?.trim() === ctx.task.metadata.instruction) state.opinion = ''

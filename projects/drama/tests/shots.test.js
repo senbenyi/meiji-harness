@@ -10,7 +10,6 @@ import { ProjectService } from '../src/node_box/project/service.js'
 import { ShotDesignService } from '../src/node_box/shot_design/service.js'
 import { changedShotFields, shotReviewHistory } from '../src/node_box/shot_design/review_context.js'
 import { validateShotCandidate, parseShotCandidate } from '../src/node_box/shot_design/state.js'
-import { expireStoryDependents } from '../src/node_box/story_segments/state.js'
 import { createRecordService } from '../src/records/service.js'
 import { createProjectHttpHandler } from '../src/harness_server/project_routes.js'
 import { GenerateShotsTool } from '../src/tools/generate_shots_tool.js'
@@ -30,8 +29,15 @@ async function fixture(t, respond = (_body,action) => action==='review'?passed:c
     const chunks=[];for await(const chunk of req)chunks.push(chunk)
     const body=JSON.parse(Buffer.concat(chunks)),action=body.messages[0].content.match(/动作：(\w+)/)[1]
     calls.push({action,body,path:req.url})
-    const value=await respond(body,action)
+    let value=await respond(body,action)
     if(value?.__httpStatus){res.writeHead(value.__httpStatus,{'Content-Type':'application/json'});res.end(JSON.stringify({error:{message:'模拟场景请求失败'}}));return}
+    if (value?.__rawResponse) value = value.value
+    else if (action === 'review') {
+      const input=JSON.parse(body.messages.at(-1).content.split('# 本次资料\n')[1]), prior=input.previous_issues || []
+      const evidence={ category:'omission', source_path:'/story_outline/segments/0/body',source_quote:'回望门外',candidate_path:'/current_shots/shots/0/beats/0/action',candidate_quote:'',previous_issue_index:null }
+      value={ ...value, suggestions:value.suggestions || [], previous_issue_checks:value.previous_issue_checks || prior.map((_row,index)=>({issue_index:index,state:value.status==='passed'?'resolved':'unresolved',reason:'核对最新候选',candidate_path:'/current_shots/shots/0/beats/0/action',candidate_quote:input.current_shots.shots[0].beats[0].action})),
+        issues:value.issues.map(row=>({...evidence,...row,previous_issue_index:prior.findIndex(old=>old.location===row.location) < 0 ? null : prior.findIndex(old=>old.location===row.location)})) }
+    }
     res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]}))
   })
   await new Promise(resolve=>mock.listen(0,'127.0.0.1',resolve))
@@ -142,7 +148,7 @@ test('分镜harness-http鉴权标识、scope、幂等和互斥，晚到候选不
   assert.equal((await fetch(`${f.origin}/plugins/drama/src/node_box/shot_design/service.js`)).status,404)
 })
 
-test('分镜修改和重新生成动作明确，意见传入模型，下游过期而原资料/图片保留',async t=>{
+test('分镜修改和重新生成动作明确，意见传入模型，仅本节点规则状态过期，下游等待主Agent决定',async t=>{
   const f=await fixture(t);await f.run()
   await f.edit(p=>{p.clip_arrangement.node_state.status='generated';p.video_prompt.node_state.status='generated';p.shot_design.node_state.opinion='提高表演张力'})
   const a=await f.scenes.generateShots({instruction:'提高表演张力',regenerate:true},{...f.context,requestId:'regen'});await f.scenes.waitShots(a.group_id,f.context.sessionId)
@@ -151,7 +157,7 @@ test('分镜修改和重新生成动作明确，意见传入模型，下游过�
   const old=(await f.projects.snapshot(f.context.sessionId)).project
   await f.projects.edit({kind:'rules',node_type:'shot_design',action:'generate',field:'supplement',value:'更明确摄影角度',previousValue:''},{...f.context})
   const p=(await f.projects.snapshot(f.context.sessionId)).project
-  assert.equal(p.shot_design.node_state.status,'expired');assert.equal(p.clip_arrangement.node_state.status,'expired');assert.equal(p.video_prompt.node_state.status,'expired');assert.deepEqual(p.scene_extraction,old.scene_extraction)
+  assert.equal(p.shot_design.node_state.status,'expired');assert.equal(p.clip_arrangement.node_state.status,'generated');assert.equal(p.video_prompt.node_state.status,'generated');assert.deepEqual(p.scene_extraction,old.scene_extraction)
 })
 
 test('分镜规则冲突须授权且校验旧值，修改后不自动重跑',async t=>{
@@ -257,4 +263,85 @@ test('模型输出空团队占位不再使完整分镜失败，审核和保存�
   const report=await f.run();assert.equal(report.status,'completed')
   assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.shot_design.shots[0].groups,[])
   const reviewInput=JSON.parse(f.calls[1].body.messages.at(-1).content.split('# 本次资料\n')[1]);assert.deepEqual(reviewInput.current_shots.shots[0].groups,[])
+})
+
+test('摄影建议不阻断，报告及任务交付保留建议，不追加修订', async t => {
+  const suggestions=[{location:'shot_001.camera',reason:'可增强空间层次',suggestion:'可选加入前景'}]
+  const f=await fixture(t,(_body,action)=>action==='review'?{...passed,suggestions}:candidate())
+  const r=await f.run();assert.equal(r.status,'completed');assert.deepEqual(r.suggestions,suggestions)
+  assert.deepEqual(f.calls.map(row=>row.action),['generate','review'])
+  const detail=f.records.tasks.detail(f.records.scope,r.group_id)
+  assert.deepEqual(history.taskOutput(detail.tasks[0],detail.steps).suggestions,suggestions)
+})
+
+test('空集合和结构错误在独立预算内修复，修复输入保留原响应与校验原因', async t => {
+  let attempts=0
+  const f=await fixture(t,(_body,action)=>{
+    if(action==='review')return passed
+    attempts++
+    if(attempts===1)return {shots:[]}
+    if(attempts===2){const output=candidate();delete output.shots[0].beats[0].duration_seconds;return output}
+    return candidate()
+  })
+  f.scenes.maxRevisionRounds=0
+  const r=await f.run();assert.equal(r.status,'completed')
+  assert.deepEqual(f.calls.map(row=>row.action),['generate','generate','generate','review'])
+  const detail=f.records.tasks.detail(f.records.scope,r.group_id)
+  assert.deepEqual(detail.steps.map(row=>row.round),[0,0,0,0])
+  assert.match(detail.steps[1].prompt.input.output_repair.validation_error.message,/不能为空/)
+  assert.equal(detail.steps[1].prompt.input.output_repair.invalid_output,'{"shots":[]}')
+  assert.match(detail.steps[2].prompt.input.output_repair.validation_error.message,/缺少必填字段/)
+  assert.equal(detail.steps[0].result.saved,undefined);assert.equal(detail.steps[2].result.saved,true)
+})
+
+test('输出修复耗尽明确失败且不覆盖原分镜，不无限重试或降低校验', async t => {
+  let bad=false
+  const f=await fixture(t,(_body,action)=>action==='review'?passed:bad?{shots:[]}:candidate())
+  await f.run();bad=true
+  const r=await f.run('invalid-output')
+  assert.equal(r.status,'failed');assert.equal(r.saved,false);assert.match(r.reason,/输出修复次数已用尽.*不能为空/)
+  assert.equal(f.calls.length,5)
+  assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.shot_design.shots,candidate().shots)
+})
+
+const invalidEvidence = () => ({ __rawResponse:true, value:{status:'content_issue',suggestions:[],previous_issue_checks:[],issues:[{
+  category:'omission',location:'shot_001.action',reason:'引用了不存在的依据',suggestion:'修改',source_path:'/story_outline/segments/0/body',source_quote:'不存在的台词',candidate_path:'/current_shots/shots/0/beats/0/action',candidate_quote:'',previous_issue_index:null,
+}]}})
+
+test('审核引用捏造原文时只重审，不按错误意见修改正文，也不自动通过', async t => {
+  let reviewed=0
+  const f=await fixture(t,(_body,action)=>action==='review'?(++reviewed===1?invalidEvidence():passed):candidate())
+  const r=await f.run();assert.equal(r.status,'completed')
+  assert.deepEqual(f.calls.map(row=>row.action),['generate','review','review'])
+  const detail=f.records.tasks.detail(f.records.scope,r.group_id)
+  assert.equal(detail.steps[1].result.validation_error.code,'INVALID_SHOT_REVIEW')
+  assert.equal(detail.steps[2].prompt.input.previous_issues.length,0,'无效审核不能成为已确认的旧问题')
+  assert.match(detail.steps[2].prompt.input.output_repair.validation_error.message,/引用不是当前原文/)
+  assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.shot_design.shots,candidate().shots)
+  const g=await fixture(t,(_body,action)=>action==='review'?invalidEvidence():candidate())
+  const stopped=await g.run();assert.equal(stopped.status,'failed');assert.equal(stopped.saved,true)
+  assert.match(stopped.reason,/审核输出修复次数已用尽/)
+  assert.deepEqual(g.calls.map(row=>row.action),['generate','review','review','review'])
+})
+
+test('输出修复期间取消或上游变化仍拒绝迟到覆盖', async t => {
+  let attempts=0,release,reached
+  const held=new Promise(resolve=>release=resolve),waiting=new Promise(resolve=>reached=resolve)
+  const f=await fixture(t,async()=>{if(++attempts===1)return {shots:[]};reached();await held;return candidate()})
+  const accepted=await f.scenes.generateShots({instruction:'生成完整分镜'},f.context)
+  await waiting;f.records.tasks.cancel(f.records.scope,accepted.group_id,'用户停止');release()
+  assert.equal((await f.scenes.waitShots(accepted.group_id,f.context.sessionId)).status,'cancelled')
+  await new Promise(resolve=>setImmediate(resolve))
+  assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.shot_design.shots,[])
+  let g
+  g=await fixture(t,async()=>{await g.edit(p=>{p.story_segments.segments[0].body+='上游已修改'});return {shots:[]}})
+  const stale=await g.run();assert.equal(stale.status,'failed');assert.match(stale.reason,/输入或规则已变化/)
+  assert.equal(g.calls.length,1);assert.deepEqual((await g.projects.snapshot(g.context.sessionId)).project.shot_design.shots,[])
+})
+
+test('候选和问题证据未变时，审核换措辞也不能反复消耗内容修订轮次', async t => {
+  let count=0
+  const f=await fixture(t,(_body,action)=>action==='review'?{status:'content_issue',issues:[{location:'shots[0].beats[0].action',reason:`未落实回望，第${++count}种说法`,suggestion:'补回望'}]}:candidate())
+  const r=await f.run();assert.equal(r.status,'rejected')
+  assert.deepEqual(f.calls.map(row=>row.action),['generate','review','revise','review'])
 })

@@ -13,11 +13,11 @@
 
 - 剧本优化入口为 `src/tools/optimize_script_tool.js`，执行器为 `src/node_box/script_revision/executor.js`；运行用独立有界模型请求，生成/本地审核/修订使用文本模型，项目审核使用主Agent模型。
 
-- 故事大纲入口为 `src/tools/generate_story_outline_tool.js`，Service/Executor位于 `src/node_box/story_segments/`；面板及会话共用生成入口。输入为basic_info（仅actual_script/summary/estimated_duration_seconds）、current_outline、instruction、output_language，与规则中的basic_info.actual_script路径一致。优化剧本可选，有工作稿即可生成。完整集合严格校验且拒绝空集合、重复段/锚点ID，每次结构有效的生成/修订立即替换segments并同步Task；本地内容问题最多修订3轮，失败/取消保留最新已保存结果与各轮记录。意见、规则、记录、结束摘要、下游过期及专属UI见开发方向“故事大纲生成”。
+- 故事大纲入口为 `src/tools/generate_story_outline_tool.js`，Service/Executor位于 `src/node_box/story_segments/`；面板及会话共用生成入口。输入为basic_info（仅actual_script/summary/estimated_duration_seconds）、current_outline、instruction、output_language，与规则中的basic_info.actual_script路径一致。优化剧本可选，有工作稿即可生成。完整集合严格校验且拒绝空集合、重复段/锚点ID，每次结构有效的生成/修订立即替换segments并同步Task；本地内容问题最多修订3轮，失败/取消保留最新已保存结果与各轮记录。意见、规则、记录、结束摘要、主Agent联动规划及专属UI见开发方向“故事大纲生成”。
 
-- 场景提取是独立 `scene_extraction` 文本盒子，`src/node_box/scene_extraction/`维护Service/Executor/状态/规则修复及panel/conversation。面板 `/api/drama/scenes` 与会话 `drama-extract-scenes` 共用入口，输入story_outline/current_scenes/instruction/output_language；沿用既有字段，仅输出scenes，允许有效空集合、拒绝重复ID。结构有效候选即时保存，审核/修订/失败用户决策与其他文本盒子一致。场景资产按scene_id保留和过期，不自动生图；更新联动团队、人物和后续生产状态。详见开发方向“场景提取”。
+- 场景提取是独立 `scene_extraction` 文本盒子，`src/node_box/scene_extraction/`维护Service/Executor/状态/规则修复及panel/conversation。面板 `/api/drama/scenes` 与会话 `drama-extract-scenes` 共用入口，输入story_outline/current_scenes/instruction/output_language；沿用既有字段，仅输出scenes，允许有效空集合、拒绝重复ID。结构有效候选即时保存，审核/修订/失败用户决策与其他文本盒子一致。场景资产按scene_id保留，不自动生图或扩散过期；修改后由主Agent一次检查关联上下游并规划。详见开发方向“场景提取”。
 
-- 团队设定是独立 `group_setting` AI盒子，Service/Executor及panel/conversation在 `src/node_box/group_setting/`；面板 `/api/drama/groups` 与会话 `drama-generate-groups` 共用入口，完整生成/审核/修订后只保存groups。人物提取只保存characters，读取已确认团队并校验成员/制服/故事段引用；无团队也先执行团队盒子得到通过的空集合。角色tab保持团队设定、人物提取、定妆照三卡；任务、意见、规则和状态独立，不自动串行执行或生图。团队变化使人物/下游过期，照片按实际关联过期；旧合并数据读取时补独立节点，私有规则不覆盖。详见开发方向“团队设定、人物提取与定妆照”。
+- 团队设定是独立 `group_setting` AI盒子，Service/Executor及panel/conversation在 `src/node_box/group_setting/`；面板 `/api/drama/groups` 与会话 `drama-generate-groups` 共用入口，完整生成/审核/修订后只保存groups。人物提取只保存characters，读取已确认团队并校验成员/制服/故事段引用；无团队也先执行团队盒子得到通过的空集合。角色tab保持团队设定、人物提取、定妆照三卡；任务、意见、规则和状态独立，不自动串行执行或生图。团队和人物变化不按hash自动过期下游或照片；主Agent按实际影响统一规划；旧合并数据读取时补独立节点，私有规则不覆盖。详见开发方向“团队设定、人物提取与定妆照”。
 
 - `src/harness_server/` 只提供harness-http路由、认证、静态资源和SSE，不承载盒子业务。根插件组装项目管理、剧本优化服务及共享记录；不设顶层service转发层，也不保留旧目录代理。HTTP分类和记录归属统一遵守根开发指引的“HTTP术语与记录归属”。
 
@@ -29,7 +29,7 @@
 
 - 节点共用运行机制统一在 `src/node_runtime/`，职责与文件名见 `docs/开发方向.md` 的“节点运行层”；`node_initializer.js`初始化空节点，`output_response_parser.js`解析校验实际响应，`output_contract_renderer.js`选择/展开输出结构并渲染规则。`src/node_runtime/node_prompt_composer.js`继续负责提示词组装，不将这些机制复制到盒子或公共包。
 
-- 盒子步骤结束后将完整结果写入任务固定所属会话，仅展示、不进入模型上下文。审核有问题显示红色“未通过”，保留每轮修改及复审；面板受理、各步骤和盒子终态各用稳定ID去重。面板操作统一展示请求、聚合执行组及最终保存结果，空/正常会话复用client/ui/task-operation组件，失败终态单独挂载client/ui/failure-decision卡片，显示真实保存事实与用户操作；正常会话附加于对应原生command公开座位并仅隐藏本组原生展示，不伪造聊天轮次。盒子输入取metadata.input_snapshot，步骤输入取step.prompt.input；完整内容随会话首次加载预载，eager/after轮询只补新增详情及pending任务终态；展开优先同步使用缓存，compact消息列表不携带正文/规则/输出，历史不读取最新项目补造。展示和主Agent通知独立持久化与重试：成功/取消不唤醒AI，最终rejected/failed才发drama-box-report规划消息，但终态content_issue或执行failed只展示并等待用户选择继续修改、停止或重新生成，不唤醒主Agent；中间审核失败仅展示。不创建任务专用或失败兜底会话；创建尚未产生项目会话时归来源会话，创建成功后归项目会话。详见开发方向“面板任务与会话交接”。
+- 盒子步骤结束后将完整结果写入任务固定所属会话，仅展示、不进入模型上下文。审核有问题显示红色“未通过”，保留每轮修改及复审；面板受理、各步骤和盒子终态各用稳定ID去重。面板操作统一展示请求、聚合执行组及最终保存结果，空/正常会话复用client/ui/task-operation组件，失败终态单独挂载client/ui/failure-decision卡片，显示真实保存事实与用户操作；正常会话附加于对应原生command公开座位并仅隐藏本组原生展示，不伪造聊天轮次。盒子输入取metadata.input_snapshot，步骤输入取step.prompt.input；完整内容随会话首次加载预载，eager/after轮询只补新增详情及pending任务终态；展开优先同步使用缓存，compact消息列表不携带正文/规则/输出，历史不读取最新项目补造。展示和主Agent通知独立持久化与重试：首次生成成功与取消不唤醒AI；已有文本内容修改成功的coordination_required报告及可规划rejected/failed发送drama-box-report，但终态content_issue或执行failed只展示并等待用户选择继续修改、停止或重新生成，不唤醒主Agent；中间审核失败仅展示。不创建任务专用或失败兜底会话；创建尚未产生项目会话时归来源会话，创建成功后归项目会话。详见开发方向“面板任务与会话交接”。
 
 - 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；按project/definition.js契约保存basic_info.summary及estimated_duration_seconds，创建状态使用basic_info.create_project_node；失败仅警告、不撤回主操作。优化稿继续随正文返回摘要和估时，并在审核通过后同步到basic_info，不新增摘要调用。
 
@@ -51,3 +51,7 @@
 - 创建交接通过project响应头游标接续SSE，校验来源和导航后立即切换，迟到快照不抢切。模型响应先严格解析，仅在失败时无损归一化字符串内部原始LF/CR/TAB，再严格解析及Schema校验；保留原始调用记录，不补结构或字段。详见开发方向“创建交接与模型响应解析”。
 
 - 分镜是独立shot_design文本盒子，面板/api/drama/shots与会话drama-generate-shots共用Service；读取已确认大纲及现有已确认资产，不需要生图，不重复改编剧情。生成/审核/修订、引用校验、候选保存、规则修复与会话展示详见开发方向“分镜盒子”。
+
+- 分镜使用definition.js专属review_output：issues仅含有据阻断错误，suggestions不阻断，previous_issue_checks逐项核对旧问题。review_validation.js验证来源与当前候选路径/原文，拒绝捏造证据、遗漏已包含内容及重开已解决问题；无效审核不能自动通过或驱动正文修订。生成/修订的空集合、格式及引用错误和无效审核均在原Task内同动作最多修复2次，独立于内容修订3轮；不吞网络、存储、取消或并发错误。旧共享审核引用兼容新分镜结构，其他盒子契约不变。默认规则更新仍不覆盖私有项目；明确授权迁移时先备份并保留补充规则、意见和历史。
+
+- 主Agent联动规划统一见开发方向“主Agent统一联动规划”。修改后先用drama-planning-context一次检查上下游，再用drama-save-change-plan记录keep/update/regenerate/defer及依据；计划存change_plans，不新建协调盒子。素材目标按稳定ID，完成须关联真实成功结果。input_hash/output_hash仅保留为任务幂等、并发拒绝覆盖保护，不能决定业务修改范围。

@@ -4,17 +4,26 @@ import { sceneOutput } from '../node_box/scene_extraction/state.js'
 import { groupOutput } from '../node_box/group_setting/state.js'
 import { characterOutput } from '../node_box/character_extraction/state.js'
 import { boxReport } from '../node_runtime/box_report.js'
+import { planningTargets } from './change_plan.js'
 
 const dependencies = {
   project: [], script_revision: ['project'], story_segments: ['project', 'script_revision'],
-  group_setting: ['story_segments'], character_extraction: ['story_segments', 'group_setting'], scene_extraction: ['story_segments'],
+  group_setting: ['story_segments', 'scene_extraction'], character_extraction: ['story_segments', 'group_setting', 'scene_extraction'], scene_extraction: ['story_segments'],
   costume_image: ['group_setting', 'character_extraction'], scene_image: ['scene_extraction'],
   shot_design: ['story_segments', 'scene_extraction', 'group_setting', 'character_extraction'],
   clip_arrangement: ['shot_design'], video_prompt: ['clip_arrangement', 'shot_design', 'costume_image', 'scene_image'],
   videos: ['video_prompt'], episodes: ['videos'],
 }
 
-/** 依赖和过期状态由代码提供；执行顺序和修复位置交主Agent判断。 */
+/** 规划读取素材关联和状态，不把参考图字节或内部规则灌入模型上下文。 */
+function planningMaterials(value) {
+  if (Array.isArray(value)) return value.map(planningMaterials)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.entries(value).flatMap(([key, child]) => key === 'reference_image'
+    ? [['has_reference_image', Boolean(child)]] : ['rules', 'dependency_hash'].includes(key) ? [] : [[key, planningMaterials(child)]]))
+}
+
+/** 引用关系只用于定位资料；上下游影响和执行顺序均由主Agent判断。 */
 export function dependencyFacts(project) {
   return Object.entries(dependencies).map(([node_type, upstream]) => ({ node_type, upstream,
     executable: ['project', 'script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image', 'shot_design'].includes(node_type),
@@ -33,6 +42,8 @@ export async function planningContext(projects, records, { sessionId, reportId }
     report = boxReport(detail)
   }
   return { project_id: project.basic_info.id, report, dependencies: dependencyFacts(project),
+    planning_targets: planningTargets(project), change_plans: structuredClone(project.change_plans || {}),
+    related_outputs: Object.fromEntries(['scene_extraction', 'character_extraction', 'clip_arrangement', 'video_prompt', 'videos', 'episodes'].map(type => [type, planningMaterials(project[type])])),
     project: { basic_info: project.basic_info },
     script_revision: { output: scriptOutput(project), rules: nodeRules(project.basic_info.script_revision_node),
       node_state: project.basic_info.script_revision_node, opinion: project.basic_info.script_revision_node.opinion },

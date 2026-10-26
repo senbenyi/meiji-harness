@@ -39,5 +39,6 @@ export async function createProject(input, id = `p_${randomUUID()}`) {
   project.clip_arrangement = { clips: [], node_state: new NodeStateModel().toJSON() }
   project.videos = []
   project.episodes = []
+  project.change_plans = {}
   return project
 }

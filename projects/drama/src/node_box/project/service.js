@@ -1,4 +1,3 @@
-import { shotFingerprint, expireShotDependents } from '../shot_design/state.js'
 import { applyExecutionStates, projectExecutions, stateSummary } from '../../node_runtime/execution_state.js'
 import { nodeState } from '../../node_runtime/node_state.js'
 import { scriptOutput, originalFilename, scriptSummary } from '../../node_runtime/node_state.js'
@@ -11,13 +10,8 @@ import { randomUUID } from 'node:crypto'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
 import { CreateProjectExecutor, ProjectExecutor } from './executor.js'
 import { projectInfo } from './create_project.js'
-import { NodeStateModel } from '@agent-modules/task/models'
 import { createWriteQueue } from '../../project_runtime/write_queue.js'
-import { digest, scriptFingerprint, expireScriptDependents } from '../script_revision/state.js'
-import { sceneFingerprint, expireSceneDependents } from '../scene_extraction/state.js'
-import { groupFingerprint, expireGroupDependents } from '../group_setting/state.js'
-import { characterFingerprint, expireCharacterDependents } from '../character_extraction/state.js'
-import { storyFingerprint, expireStoryDependents } from '../story_segments/state.js'
+import { digest } from '../script_revision/state.js'
 import { waitBoxTask } from '../../node_runtime/box_report.js'
 
 /** 会话与面板共用项目服务：绑定、事件和创建/编辑/删除共享串行队列。 */
@@ -155,33 +149,12 @@ export class ProjectService extends EventEmitter {
       const manager = await ProjectManager.open(join(this.root, 'projects', projectId, 'project.json'))
       if (command.kind !== 'node_opinion' && this.activeExecution(projectId, undefined, operationGroupId)) throw Object.assign(new Error('项目任务正在执行，请结束后再修改资料或规则'), { code: 'PROJECT_ACTIVE' })
       const previous = manager.read(), next = editProject(previous, command)
-      if (storyFingerprint(previous) !== storyFingerprint(next) && previous.story_segments.segments.length) {
-        next.story_segments.node_state = new NodeStateModel({ ...next.story_segments.node_state, status: 'expired', reason: '大纲资料或规则已变化，需重新生成' }).toJSON()
-        expireStoryDependents(next)
-      }
-      if (sceneFingerprint(previous) !== sceneFingerprint(next) && previous.scene_extraction.node_state.status !== 'empty') {
-        next.scene_extraction.node_state = new NodeStateModel({ ...next.scene_extraction.node_state, status: 'expired', reason: '场景资料或规则已变化，需重新生成' }).toJSON()
-        expireSceneDependents(next)
-      }
-      if (groupFingerprint(previous) !== groupFingerprint(next) && previous.group_setting.node_state.status !== 'empty') {
-        next.group_setting.node_state = new NodeStateModel({ ...next.group_setting.node_state, status: 'expired', reason: '团队资料或规则已变化，需重新生成' }).toJSON()
-        expireGroupDependents(next)
-      }
-      if (characterFingerprint(previous) !== characterFingerprint(next) && previous.character_extraction.characters.length) {
-        next.character_extraction.node_state = new NodeStateModel({ ...next.character_extraction.node_state, status: 'expired', reason: '角色资料或规则已变化，需重新生成' }).toJSON()
-        expireCharacterDependents(next)
-      }
-      if (shotFingerprint(previous) !== shotFingerprint(next) && previous.shot_design.shots.length) {
-        next.shot_design.node_state = new NodeStateModel({...next.shot_design.node_state, status:'expired', reason:'分镜资料或规则已变化，需重新生成'}).toJSON()
-        expireShotDependents(next)
-      }
-      if (command.kind !== 'import_script' && scriptFingerprint(previous) !== scriptFingerprint(next) && previous.basic_info.actual_script) {
-        next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'expired', reason: '剧本资料或规则已变化，需重新优化' }).toJSON()
-        expireScriptDependents(next)
+      if (command.kind === 'rules' && command.value !== command.previousValue) {
+        const target = nodeState(next, command.node_type)
+        if (target.status !== 'empty') Object.assign(target, { status: 'expired', reason: '本节点规则已修改，等待重新执行' })
       }
       if (command.kind === 'import_script') {
         await saveProjectScript(this.root, projectId, { body: command.value, originalName: originalFilename(next.basic_info) })
-        expireScriptDependents(next)
       }
       if (JSON.stringify(next) === JSON.stringify(previous)) return { project: previous }
       const row = Object.values(state.requests).find(item => item.project_id === projectId)
@@ -252,6 +225,7 @@ export class ProjectService extends EventEmitter {
         group: { id, name: '导入原始剧本', source, metadata: { notify_main: source === 'ui' } },
         tasks: [{ node_type: 'project', action: 'import_script', name: '导入原始剧本', metadata: {
           project_id: projectId, session_id: sessionId, command: structuredClone(command), goal: '导入原始剧本并提取展示摘要',
+          input_snapshot: { current_script: scriptOutput(snapshot.project) },
         } }],
       })
     })

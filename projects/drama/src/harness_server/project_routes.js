@@ -100,7 +100,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         if (!project) return json(res, 403, { message: '当前会话未绑定项目' })
         const state = nodeState(project, type)
         if (state?.type !== 1 || !state.rules) return json(res, 422, { message: '该节点没有AI规则' })
-        return json(res, 200, { bases: Object.fromEntries(['generate', 'revise', 'review'].map(action => [action, renderNodeRules(state, action).base])) })
+        return json(res, 200, { bases: Object.fromEntries(['generate', 'revise', 'review'].map(action => [action, renderNodeRules(state, action, { nodeType: type }).base])) })
       }
       if (url.pathname === '/api/drama/task-messages' && req.method === 'GET') {
         const rawAfter = url.searchParams.get('after') || '-1'

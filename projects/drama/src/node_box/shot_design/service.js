@@ -5,11 +5,12 @@ import { nodeRules } from '../../node_runtime/node_state.js'
 import { boxReport, waitBoxTask, userRetry } from '../../node_runtime/box_report.js'
 import { ShotDesignExecutor } from './executor.js'
 import { ShotRulesExecutor } from './rule_change_executor.js'
-import { digest, shotFingerprint, shotOutput, shotCharacters, validateShotCandidate, expireShotDependents } from './state.js'
+import { digest, shotFingerprint, shotOutput, shotCharacters, validateShotCandidate } from './state.js'
 
 /** 面板与会话共用入口；每轮有效结果同步项目与步骤记录，审核结论不控制结果保存。 */
 export class ShotDesignService {
   maxRevisionRounds = 3
+  maxOutputRepairs = 2
 
   constructor({ projects, records, models }) {
     projects.enableTaskRecords(records)
@@ -17,7 +18,7 @@ export class ShotDesignService {
     this.ruleChanger = new ShotRulesExecutor({ projects, records })
     this.executor = new ShotDesignExecutor({ projects: {
       snapshot: id => projects.snapshot(id), saveShotCandidate: (...args) => this.saveShotCandidate(...args),
-    }, records, models, getMaxRevisionRounds: () => this.maxRevisionRounds })
+    }, records, models, getMaxRevisionRounds: () => this.maxRevisionRounds, getMaxOutputRepairs: () => this.maxOutputRepairs })
   }
 
   executionInput({ story_outline, scene_extraction = { scenes: [] }, group_setting = { groups: [] }, character_extraction = { characters: [] }, current_shots, instruction, output_language, ...unknown } = {}) {
@@ -98,7 +99,6 @@ export class ShotDesignService {
       if (detail.tasks.find(task => task.id === ctx.task.id)?.task_status !== 'running') throw new Error('任务已结束，拒绝写入')
       const manager = await ProjectManager.open(join(this.projects.root, 'projects', id, 'project.json'))
       manager.change(next => {
-        if (digest(shotOutput(next)) !== digest(output)) expireShotDependents(next)
         next.shot_design.shots = output.shots
         const state = next.shot_design.node_state
         if (passed && state.opinion?.trim() === ctx.task.metadata.instruction) state.opinion = ''

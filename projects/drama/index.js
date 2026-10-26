@@ -21,7 +21,7 @@ import { GenerateStoryOutlineTool } from './src/tools/generate_story_outline_too
 import { createRecordService } from './src/records/service.js'
 import { createModelSettings } from './src/settings/model-settings.js'
 import { createProjectHttpHandler } from './src/harness_server/project_routes.js'
-import { PlanningContextTool, UpdateProjectTool, ChangeRulesTool } from './src/tools/planning_tools.js'
+import { PlanningContextTool, SaveChangePlanTool, UpdateProjectTool, ChangeRulesTool } from './src/tools/planning_tools.js'
 import { boxReport } from './src/node_runtime/box_report.js'
 import { createPanelTaskDisplay } from './src/session/panel_task_messages.js'
 import { ReportDispatcher, createMainAgentDelivery } from './src/session/report_dispatcher.js'
@@ -55,7 +55,7 @@ export function apply(ctx) {
   tool.generateCostumeImagesTool = new GenerateCostumeImagesTool({ costumeImages })
   tool.extractCharactersTool = new ExtractCharactersTool({ characterExtraction })
   tool.generateStoryOutlineTool = new GenerateStoryOutlineTool({ storySegments })
-  tool.planningTools = [new PlanningContextTool({ projects: tool, records: tool.records }), new UpdateProjectTool({ projects: tool }),
+  tool.planningTools = [new PlanningContextTool({ projects: tool, records: tool.records }), new SaveChangePlanTool({ projects: tool, records: tool.records }), new UpdateProjectTool({ projects: tool }),
     new ChangeRulesTool({ projects: tool, records: tool.records, scriptRevision, storySegments, sceneExtraction, groupSetting, characterExtraction, shotDesign })]
   tool.applyMainAgent = async sessionId => {
     await tool.ready

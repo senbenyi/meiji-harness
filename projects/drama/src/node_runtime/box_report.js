@@ -30,6 +30,13 @@ export function boxReport(detail) {
     : detail.status === 'cancelled' ? 'cancelled'
       : detail.status === 'rejected' ? review?.status || 'content_issue' : 'failed'
   const saved = Boolean(created || changed || candidate && detail.status === 'completed' || detail.steps.some(step => step.result?.saved))
+  const textNode = ['script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'shot_design'].includes(task.node_type)
+  const input = metadata.input_snapshot || {}
+  const before = input.current_script || input.current_outline || input.current_scenes || input.current_groups || input.current_characters || input.current_shots || null
+  const scriptImport = task.node_type === 'project' && metadata.command?.kind === 'import_script'
+  const importedScript = detail.steps.findLast(step => step.result?.current_script)?.result.current_script
+  const coordinationRequired = textNode && saved && detail.status === 'completed'
+    && (task.action === 'revise' || metadata.node_state_before?.status && metadata.node_state_before.status !== 'empty')
   return {
     report_id: detail.group.id, group_id: detail.group.id, task_id: task.id,
     project_id: metadata.project_id, session_id: created ? metadata.target_session_id : metadata.session_id || metadata.source_session_id,
@@ -40,8 +47,12 @@ export function boxReport(detail) {
     reason: detail.status === 'rejected' && review ? review.issues.map(issue => `${issue.location}：${issue.reason}；${issue.suggestion}`).join('\n') : detail.reason || '',
     parent_group_id: metadata.parent_group_id || null,
     issues: structuredClone(review?.issues || []),
+    ...(task.node_type === 'shot_design' && review ? { suggestions: structuredClone(review.suggestions || []) } : {}),
     related_nodes: decision === 'upstream_issue' ? ['scene_extraction', 'group_setting'].includes(task.node_type) ? ['story_segments'] : task.node_type === 'shot_design' ? ['story_segments', 'scene_extraction', 'group_setting', 'character_extraction'] : task.node_type === 'character_extraction' ? ['group_setting', 'story_segments'] : task.node_type === 'story_segments' ? ['script_revision'] : ['project'] : decision === 'rule_conflict' ? [task.node_type] : [],
     saved, result_reference: created ? '#/basic_info' : candidate && saved ? task.node_type === 'shot_design' ? '#/shot_design/shots' : task.node_type === 'scene_extraction' ? '#/scene_extraction/scenes' : task.node_type === 'group_setting' ? '#/group_setting/groups' : task.node_type === 'character_extraction' ? '#/character_extraction/characters' : task.node_type === 'scene_image' ? '#/scene_extraction/assets' : task.node_type === 'costume_image' ? '#/character_extraction/assets' : task.node_type === 'story_segments' ? '#/story_segments/segments' : '#/basic_info/actual_script' : changed?.reference || null,
+    coordination_required: Boolean(coordinationRequired || scriptImport && saved && detail.status === 'completed'),
+    ...(textNode && candidate ? { change: { before: structuredClone(before), after: structuredClone(candidate) } } : {}),
+    ...(scriptImport && importedScript ? { change: { before: structuredClone(before), after: { ...structuredClone(importedScript), ...structuredClone(basicOutput || {}) } } } : {}),
     ...(created ? { result: created } : {}),
     ...(basicOutput ? { summary: basicOutput.summary, estimated_duration_seconds: basicOutput.estimated_duration_seconds, output: basicOutput } : originalSummary ? { summary: originalSummary } : {}),
     ...(warning ? { warning } : {}),

@@ -5,7 +5,7 @@ import { nodeRules } from '../../node_runtime/node_state.js'
 import { boxReport, waitBoxTask, userRetry } from '../../node_runtime/box_report.js'
 import { GroupSettingExecutor } from './executor.js'
 import { GroupRulesExecutor } from './rule_change_executor.js'
-import { digest, groupFingerprint, groupOutput, validateGroupCandidate, expireGroupDependents } from './state.js'
+import { digest, groupFingerprint, groupOutput, validateGroupCandidate } from './state.js'
 
 /** 面板与会话共用入口；每轮有效结果同步项目与步骤记录，审核结论不控制结果保存。 */
 export class GroupSettingService {
@@ -96,7 +96,6 @@ export class GroupSettingService {
       if (detail.tasks.find(task => task.id === ctx.task.id)?.task_status !== 'running') throw new Error('任务已结束，拒绝写入')
       const manager = await ProjectManager.open(join(this.projects.root, 'projects', id, 'project.json'))
       manager.change(next => {
-        if (digest(groupOutput(next)) !== digest(output)) expireGroupDependents(next, groupOutput(next).groups, output.groups)
         next.group_setting.groups = output.groups
         delete next.character_extraction.groups
         const state = next.group_setting.node_state

@@ -1,4 +1,3 @@
-import { NodeStateModel } from '@agent-modules/task/models'
 import { validateNodeOutput } from '../../node_runtime/output_response_parser.js'
 import { nodeRules } from '../../node_runtime/node_state.js'
 import { digest } from '../script_revision/state.js'
@@ -30,23 +29,4 @@ export function validateGroupCandidate(value, { segments } = {}) {
     }
   }
   return output
-}
-
-/** 保留人物与照片；团队改变后由人物盒子确认关联，图片仅按实际引用过期。 */
-export function expireGroupDependents(project, previous = groupOutput(project).groups, groups = groupOutput(project).groups) {
-  const expire = (node, reason) => {
-    if (node?.node_state && node.node_state.status !== 'empty') node.node_state = new NodeStateModel({ ...node.node_state, status: 'expired', reason }).toJSON()
-  }
-  const people = project.character_extraction
-  expire(people, '团队资料或规则已变化，需重新确认人物与服装关联')
-  for (const asset of people.assets) {
-    const character = people.characters.find(row => row.id === asset.character_id)
-    if (!character) continue
-    for (const image of asset.costume_images) {
-      const costume = character.costumes.find(row => row.id === image.costume_id)
-      if (image.address && digest(characterGroups(previous, character, costume)) !== digest(characterGroups(groups, character, costume)))
-        expire(image, '关联团队形象或制服已变化，需重新生成')
-    }
-  }
-  for (const type of ['shot_design', 'clip_arrangement', 'video_prompt']) expire(project[type], '团队资料或规则已变化，需重新生成')
 }

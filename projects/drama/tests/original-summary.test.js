@@ -77,7 +77,10 @@ test('导入和替换原稿均提取摘要，导入幂等，旧优化结果不�
   await f.projects.edit(command, nextContext)
   assert.equal(f.calls.length, 2)
   assert.equal(next.project.basic_info.summary, '摘要：第二稿')
-  assert.equal(next.project.basic_info.summary, '摘要：第二稿')
+  assert.equal(next.report.coordination_required, true)
+  assert.equal(next.report.change.before.actual_script, '第一稿')
+  assert.equal(next.report.change.after.actual_script, '第二稿')
+  assert.equal(next.report.change.after.summary, '摘要：第二稿')
   await assert.rejects(f.projects.edit({ ...command, value: '越权第三稿' }, nextContext), /不同导入内容/)
 })
 

@@ -24,11 +24,11 @@ export function apply(ctx) {
   ctx.effect(() => ctx.systemPrompt.section({
     name: 'drama:script-optimization',
     order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_SUFFIX'),
-    text: '剧本优化：用户明确要求优化或按意见改编当前项目剧本时，调用drama-optimize-script，把用户本次要求准确整理到instruction，不自行添加改编方向、不在会话中直接改写项目文件。工具只读取当前会话绑定项目；创建新项目后应在新项目会话中发起优化，不得在原项目会话误改旧项目。缺少项目或原稿时说明原因并请用户创建项目或导入原稿。工具内部按项目规则生成、审核和修订，返回completed才说明已完成；rejected/failed/cancelled如实说明。规则冲突或上游问题停止，不自行改规则。该动作不自动执行后续节点或重做视频。',
+    text: '剧本优化：用户明确要求优化或按意见改编当前项目剧本，或统一联动规划确认工作稿存在本次形象/场景修改造成的明确冲突时，调用drama-optimize-script，把用户本次要求准确整理到instruction，不自行添加改编方向、不在会话中直接改写项目文件。工具只读取当前会话绑定项目；创建新项目后应在新项目会话中发起优化，不得在原项目会话误改旧项目。缺少项目或原稿时说明原因并请用户创建项目或导入原稿。工具内部按项目规则生成、审核和修订，返回completed才说明已完成；rejected/failed/cancelled如实说明。盒子遇上游问题返回报告，由主Agent统一检查上下游再规划；规则冲突仍走授权工具，不自行改规则。盒子不自动执行其他节点；修改后由主Agent统一检查关联上下游，按本次要求规划必要修改，媒体重生成遵守用户明确要求。',
   }), 'drama: script optimization guidance')
   ctx.effect(() => ctx.systemPrompt.section({
     name: 'drama:story-outline',
     order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_SUFFIX'),
-    text: '故事大纲：用户要求生成故事大纲、故事分段或修改已有大纲时，调用drama-generate-story-outline，instruction准确保留用户本次要求，不自行添加情节或风格。程序只读取当前绑定项目的工作剧本及已有大纲，优化剧本是可选步骤，不强制先优化。工具等待生成、审核及必要修订，completed才表示大纲已保存；其他状态如实说明。不得自行写项目文件、改规则或自动执行人物、场景等后续节点。规则冲突需用户授权后修复，修复后通过retry_of关联原大纲报告。',
+    text: '故事大纲：用户要求生成故事大纲、故事分段或修改已有大纲，或统一联动规划确认大纲存在本次修改造成的明确冲突时，调用drama-generate-story-outline，instruction准确保留用户本次要求，不自行添加情节或风格。程序只读取当前绑定项目的工作剧本及已有大纲，优化剧本是可选步骤，不强制先优化。工具等待生成、审核及必要修订，completed才表示大纲已保存；其他状态如实说明。不得自行写项目文件或改规则；修改后主Agent统一检查关联上下游，仅执行明确受影响节点，不沿主路径无条件重做。规则冲突需用户授权后修复，修复后通过retry_of关联原大纲报告。',
   }), 'drama: story outline guidance')
 }

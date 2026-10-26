@@ -9,7 +9,7 @@ export function composeNodePrompt({ nodeType, action, rules, input, goal = '', d
   const data = new RulesModel(typeof rules?.toJSON === 'function' ? rules.toJSON() : rules).toJSON()
   const stripReference = text => {
     const result = text.replace(/\{\{output:([^{}]*?)\}\}/gu, (_, value) => {
-      if (value !== reference) throw new TypeError('规则引用与当前节点动作的输出契约不一致')
+      if (value !== reference && !(action === 'review' && value === '#/$defs/review_output')) throw new TypeError('规则引用与当前节点动作的输出契约不一致')
       return '输出字段遵循程序提供的输出契约。'
     })
     if (result.includes('{{output:')) throw new TypeError('输出引用未完整声明')
@@ -17,7 +17,7 @@ export function composeNodePrompt({ nodeType, action, rules, input, goal = '', d
   }
   data.rules[action].base = stripReference(data.rules[action].base)
   if (data.supports_supplement) data.rules[action].supplement = stripReference(data.rules[action].supplement)
-  const selected = renderNodeRules(data, action, { definition })
+  const selected = renderNodeRules(data, action, { definition, nodeType })
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('input需为本次资料对象')
   if (typeof goal !== 'string') throw new TypeError('goal需为文本')
   // 规则和输入不经fillTemplate再次展开，{{…}}等字面内容保持原样。

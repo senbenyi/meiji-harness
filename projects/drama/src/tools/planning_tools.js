@@ -1,4 +1,5 @@
 import { planningContext } from '../session/planning_context.js'
+import { saveChangePlan } from '../session/change_plan.js'
 import { validateRulePatch } from '../node_box/script_revision/rule_change_executor.js'
 
 const output = { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }
@@ -13,12 +14,30 @@ export class PlanningContextTool {
   constructor({ projects, records }) {
     Object.assign(this, { projects, records })
     this.name = 'drama-planning-context'
-    this.description = '读取当前项目的盒子报告、项目上游资料、剧本和故事大纲规则及输出、依赖和过期状态。project、script_revision、story_segments、scene_extraction、group_setting、character_extraction、costume_image、shot_design可执行，其他节点暂不能派发。不要猜测依赖或直接读写项目文件。'
+    this.description = '读取当前项目的修改报告、剧本、大纲、全部上下游产物、素材和可恢复的联动规划。dependencies只表示引用关系，不判定修改影响；planning_targets是可记录决定的目标。主Agent统一判断关联上下游是否需要修改，不凭hash或过期名单自动重做。不要直接读写项目文件。'
     this.parameters = { type: 'object', additionalProperties: false, properties: { report_id: text } }
     this.output = output
   }
   async execute(args, exec) {
     return JSON.stringify(await planningContext(this.projects, this.records, { sessionId: sessionId(exec), reportId: args.report_id }))
+  }
+}
+
+export class SaveChangePlanTool {
+  constructor({ projects, records }) {
+    Object.assign(this, { projects, records })
+    this.name = 'drama-save-change-plan'
+    this.description = '一次检查关联上下游后，保存或更新主Agent的统一联动规划，不执行盒子。target取自planning_targets；keep保留，update修改，regenerate重生成，defer待处理。仅显式指定需处理的目标标为过期，其他内容保持。执行成功后用result_report_id完成对应项。previous_revision首次为0，之后取最新plan.revision。保留真实用户目标，媒体未执行必须保持pending。'
+    this.parameters = { type: 'object', additionalProperties: false, properties: {
+      report_id: text, previous_revision: { type: 'integer', minimum: 0 }, goal: { ...text, maxLength: 10000 },
+      decisions: { type: 'array', minItems: 1, items: { type: 'object', additionalProperties: false, properties: {
+        target: text, action: { type: 'string', enum: ['keep', 'update', 'regenerate', 'defer'] }, reason: { ...text, maxLength: 10000 }, result_report_id: text,
+      }, required: ['target', 'action', 'reason'] } },
+    }, required: ['report_id', 'previous_revision', 'goal', 'decisions'] }
+    this.output = output
+  }
+  async execute(args, exec) {
+    return JSON.stringify(await saveChangePlan(this.projects, this.records, args, sessionId(exec)))
   }
 }
 

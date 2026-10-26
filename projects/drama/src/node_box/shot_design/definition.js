@@ -1,7 +1,31 @@
 import { string, number, object, array } from '../../node_runtime/schema_builders.js'
 
+const advice = object({ location: string('建议所在位置。'), reason: string('非阻断的改进建议。'), suggestion: string('可选改进，不因此返修。') })
+const blocker = object({
+  category: string('仅阻断真实遗漏、逐字对白错误、事件顺序错误、不可执行的连续性矛盾、资产冲突或规则冲突；审美偏好放suggestions。', { enum: ['omission', 'dialogue', 'order', 'continuity', 'reference', 'rule'] }),
+  location: string('当前镜头/节拍/字段。', { minLength: 1 }),
+  reason: string('证据支持的、当前仍成立的具体错误。', { minLength: 1 }),
+  suggestion: string('最小必要修正，不重写无关镜头。', { minLength: 1 }),
+  source_path: string('依据在本次资料中的JSON Pointer，如/story_outline/segments/0/body或/current_shots/shots/0/beats/0/action；规则依据使用/rules/review/base。', { minLength: 1 }),
+  source_quote: string('从source_path对应资料逐字摘取，不得改字或把概述编成对白。', { minLength: 1 }),
+  candidate_path: string('当前候选的JSON Pointer，必须以/current_shots/开头。', { minLength: 1 }),
+  candidate_quote: string('逐字摘取当前错误内容；遗漏时可为空，但不得声称候选已经包含的原文缺失。'),
+  previous_issue_index: { oneOf: [{ type: 'integer', minimum: 0 }, { type: 'null' }], description: '对应previous_issues的索引；新问题为null。' },
+})
+const priorCheck = object({
+  issue_index: { type: 'integer', minimum: 0, description: 'previous_issues中的索引，逐项覆盖一次。' },
+  state: string('先核对旧问题，再给本轮结论。', { enum: ['resolved', 'unresolved'] }),
+  reason: string('根据最新候选判断已解决或仍存在，历史意见不是事实。', { minLength: 1 }),
+  candidate_path: string('最新候选的JSON Pointer。', { minLength: 1 }),
+  candidate_quote: string('最新候选中的真实原文证据。', { minLength: 1 }),
+})
+const reviewFields = { suggestions: array(advice), previous_issue_checks: array(priorCheck) }
+
 // 本盒子的运行时字段契约；修改后同步开发结构说明。
-export default { kind: "text", output: object({
+export default { kind: "text", review_output: { oneOf: [
+  object({ status: { type: 'string', const: 'passed' }, issues: array(blocker, { maxItems: 0 }), ...reviewFields }),
+  object({ status: string('只有有据阻断问题才返回未通过。', { enum: ['content_issue', 'upstream_issue', 'rule_conflict'] }), issues: array(blocker, { minItems: 1 }), ...reviewFields }),
+] }, output: object({
     "shots": array(object({
       "id": string("稳定标识；已有对象保留原ID。", { minLength: 1 }),
       "previous_shot_connection": string("与前镜的叙事衔接类型。", { enum: ["opening", "continuous", "cut"] }),
