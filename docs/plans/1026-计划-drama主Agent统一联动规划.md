@@ -45,3 +45,7 @@ GitNexus仓库为当前agent-harness绝对路径，status显示索引与HEAD一�
 `git diff --check`通过。GitNexus detect-changes识别40个已跟踪改动文件、26个符号，报告critical（736个关联流程）；涉及类入口和公共命名调用形成广泛静态传播，实际源码修改仅限drama。未将该结果解读为低风险，补查新文件、全部真实调用方及drama全量回归；图谱流程枚举本身有预算限制，不将未列出当无影响。收尾刷新索引。
 
 AC-1—AC-4、AC-6通过程序回归验证；AC-5的规划资料和指导已落地，具体语义判断由主Agent负责，尚未通过真实模型人工验收。没有启动真实模型/媒体请求，没有修改meiji或公共包，没有提交git。
+
+## 提交前远端合并
+
+远端new新增14757403及150db4b6，将盒子hash校验迁入未接入HashService；合并保留该迁移和网络失败通知边界，同时保留本地联动规划、分镜证据审核、本节点规则修改状态。分镜重复问题改用结构相等比较证据字段，不恢复hash依赖。文档按最终行为同步。ShotDesignExecutor图谱风险CRITICAL，boxReport无图谱匹配，已通过源码核对报告调用入口；合并后执行npm test及git diff --check，再检查图谱变化并更新索引。

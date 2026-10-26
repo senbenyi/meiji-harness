@@ -132,7 +132,7 @@ test('分镜达到修订上限后停止，用户继续/重新生成沿用明确�
   assert.equal((await g.run()).status,'failed');assert.deepEqual((await g.projects.snapshot(g.context.sessionId)).project.shot_design.shots,before)
 })
 
-test('分镜harness-http鉴权标识、scope、幂等和互斥，晚到候选不覆盖变化的上游',async t=>{
+test('分镜harness-http鉴权标识、scope、幂等和互斥，候选不通过上游hash拦截',async t=>{
   let release;const held=new Promise(r=>release=r),f=await fixture(t,async(_body,action)=>{if(action==='generate')await held;return action==='review'?passed:candidate()})
   const post=(body,header=true,session=f.context.sessionId)=>fetch(`${f.origin}/api/drama/shots?session_id=${session}`,{method:'POST',headers:{'Content-Type':'application/json',...(header?{'X-Drama-Request':'1'}:{})},body:JSON.stringify(body)})
   const args={project_id:f.context.projectId,request_id:'http',instruction:'突出动作'}
@@ -142,8 +142,8 @@ test('分镜harness-http鉴权标识、scope、幂等和互斥，晚到候选不
   await assert.rejects(f.scenes.waitShots(a.group_id,'other'),/当前会话/)
   const snapshot=await(await fetch(`${f.origin}/api/drama/project?session_id=${f.context.sessionId}`)).json();assert.equal(snapshot.shot_execution.group_id,a.group_id)
   await f.edit(p=>{p.story_segments.segments[0].body+='后来离开。'});release()
-  const report=await f.scenes.waitShots(a.group_id,f.context.sessionId);assert.equal(report.status,'failed');assert.equal(report.saved,false)
-  assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.shot_design.shots,[])
+  const report=await f.scenes.waitShots(a.group_id,f.context.sessionId);assert.equal(report.status,'completed');assert.equal(report.saved,true)
+  assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.shot_design.shots,candidate().shots)
   assert.equal((await fetch(`${f.origin}/plugins/drama/src/node_box/shot_design/ui/conversation/history.js`)).status,200)
   assert.equal((await fetch(`${f.origin}/plugins/drama/src/node_box/shot_design/service.js`)).status,404)
 })
@@ -324,7 +324,7 @@ test('审核引用捏造原文时只重审，不按错误意见修改正文，�
   assert.deepEqual(g.calls.map(row=>row.action),['generate','review','review','review'])
 })
 
-test('输出修复期间取消或上游变化仍拒绝迟到覆盖', async t => {
+test('输出修复期间取消拒绝迟到覆盖，上游变化不触发hash拦截但结构错误仍有限修复', async t => {
   let attempts=0,release,reached
   const held=new Promise(resolve=>release=resolve),waiting=new Promise(resolve=>reached=resolve)
   const f=await fixture(t,async()=>{if(++attempts===1)return {shots:[]};reached();await held;return candidate()})
@@ -335,8 +335,8 @@ test('输出修复期间取消或上游变化仍拒绝迟到覆盖', async t => 
   assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.shot_design.shots,[])
   let g
   g=await fixture(t,async()=>{await g.edit(p=>{p.story_segments.segments[0].body+='上游已修改'});return {shots:[]}})
-  const stale=await g.run();assert.equal(stale.status,'failed');assert.match(stale.reason,/输入或规则已变化/)
-  assert.equal(g.calls.length,1);assert.deepEqual((await g.projects.snapshot(g.context.sessionId)).project.shot_design.shots,[])
+  const stale=await g.run();assert.equal(stale.status,'failed');assert.match(stale.reason,/输出修复次数已用尽/)
+  assert.equal(g.calls.length,3);assert.deepEqual((await g.projects.snapshot(g.context.sessionId)).project.shot_design.shots,[])
 })
 
 test('候选和问题证据未变时，审核换措辞也不能反复消耗内容修订轮次', async t => {

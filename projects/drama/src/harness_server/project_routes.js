@@ -145,8 +145,8 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
         const chunks = []; let size = 0
         for await (const chunk of req) { size += chunk.length; if (size > 65536) return json(res, 413, { message: '大纲要求过大' }); chunks.push(chunk) }
-        const { project_id, request_id, instruction, retry_of, retry_action } = JSON.parse(Buffer.concat(chunks).toString())
-        const result = await storySegments.generateStoryOutline({ instruction, retry_of }, { sessionId, projectId: project_id, requestId: request_id, retryAction: retry_action, source: 'ui' })
+        const { project_id, request_id, instruction, retry_of, retry_action, regenerate } = JSON.parse(Buffer.concat(chunks).toString())
+        const result = await storySegments.generateStoryOutline({ instruction, retry_of, regenerate }, { sessionId, projectId: project_id, requestId: request_id, retryAction: retry_action, source: 'ui' })
         return json(res, 202, result)
       }
       if (['/api/drama/shots', '/api/drama/scenes', '/api/drama/groups', '/api/drama/characters', '/api/drama/costume-images'].includes(url.pathname) && req.method === 'POST') {

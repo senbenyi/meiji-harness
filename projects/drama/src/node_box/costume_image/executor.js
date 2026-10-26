@@ -1,6 +1,6 @@
 import { modelClient } from '@agent-modules/http-client'
 import { composeNodePrompt } from '../../node_runtime/node_prompt_composer.js'
-import { imageTargets, imageFingerprint } from './state.js'
+import { imageTargets } from './state.js'
 
 const step = kind => ({ kind, name: kind === 'revise' ? '重新生成定妆照' : '生成定妆照', executor: 'ai' })
 export class CostumeImageExecutor {
@@ -13,7 +13,7 @@ export class CostumeImageExecutor {
     const metadata = ctx.task.metadata, { project } = await this.projects.snapshot(metadata.session_id)
     if (!project || project.basic_info.id !== metadata.project_id) throw new Error('项目归属已变化')
     const target = imageTargets(project, metadata.character_id, metadata.costume_id)[0]
-    if (!target || imageFingerprint(project, target) !== metadata.input_hash) throw new Error('定妆照输入已变化，请重新生成')
+    if (!target) throw new Error('定妆照输入已变化，请重新生成')
     const { rules, reference_image, ...input } = metadata.input_snapshot
     const kind = ctx.step.kind, config = await this.models.read()
     const prompt = composeNodePrompt({ nodeType: 'costume_image', action: kind, rules, input, goal: metadata.instruction })

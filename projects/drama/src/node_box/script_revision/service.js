@@ -1,3 +1,4 @@
+import { requestIdentity } from '../../project_runtime/request-identity.js'
 import { scriptOutput, nodeRules } from '../../node_runtime/node_state.js'
 import { boxReport, waitBoxTask, userRetry } from '../../node_runtime/box_report.js'
 import { RuleChangeExecutor } from './rule_change_executor.js'
@@ -5,7 +6,6 @@ import { join } from 'node:path'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
 import { ScriptRevisionExecutor } from './executor.js'
-import { digest, scriptFingerprint } from './state.js'
 
 /** 面板和主Agent Tool共用的剧本优化入口；与项目管理共用一个写入队列。 */
 export class ScriptRevisionService {
@@ -59,7 +59,7 @@ export class ScriptRevisionService {
       projectId = project.basic_info.id
       const parent = retry_of ? this.records.tasks.detail(this.records.scope, retry_of) : null
       if (retryAction && parent) instruction = parent.tasks[0].metadata.instruction
-      const id = digest(['script_revision', sessionId, requestId])
+      const id = requestIdentity(['script_revision', sessionId, requestId])
       const old = this.records.tasks.detail(this.records.scope, id)
       if (old) {
         if (old.tasks[0].metadata.instruction !== instruction.trim() || (old.tasks[0].metadata.parent_group_id || undefined) !== retry_of || (old.tasks[0].metadata.retry_action || undefined) !== retryAction) throw new Error('同一请求ID不能用于不同优化要求')
@@ -69,10 +69,7 @@ export class ScriptRevisionService {
         || parent.tasks[0].metadata.project_id !== projectId || ['queued', 'running'].includes(parent.status)))
         throw Object.assign(new Error('原任务不属于当前会话或尚未结束'), { code: 'PROJECT_SCOPE' })
       const retry = userRetry(parent, { source, action: retryAction })
-      if (retryAction === 'continue' && parent.tasks[0].metadata.input_hash !== scriptFingerprint(project)) throw new Error('原任务的资料或规则已变化，请选择重新生成')
-      if (!retry && parent && parent.tasks[0].metadata.input_hash === scriptFingerprint(project)
-        && !(parent.status === 'completed' && instruction.trim() !== parent.tasks[0].metadata.instruction))
-        throw new Error('上游资料或规则尚未变化，请先修复后再派发新任务')
+      if (!retry && parent && boxReport(parent).requires_user_decision) throw new Error('需由用户选择继续修改或重新生成')
       if (!project.basic_info.actual_script.trim()) throw new Error('请先导入原始剧本，再执行优化')
       if (this.projects.activeExecution(projectId)) throw Object.assign(new Error('该项目已有排队或执行中的剧本任务'), { code: 'PROJECT_ACTIVE' })
       const config = await this.scriptModels.read()
@@ -81,7 +78,7 @@ export class ScriptRevisionService {
       if (retryAction === 'continue') input.current_script = retry.candidate
       const metadata = { project_id: projectId, project_name: project.basic_info.name, session_id: sessionId, instruction: instruction.trim(), request_id: requestId,
         node_state_before: structuredClone(project.basic_info.script_revision_node),
-        input_hash: scriptFingerprint(project), output_hash: digest(scriptOutput(project)), language: config.output_language,
+        language: config.output_language,
         retry_action: retryAction || null, retry_review_issues: retryAction === 'continue' ? retry.issues : null,
         parent_group_id: retry_of || null, goal: parent?.tasks[0].metadata.goal || instruction.trim(),
         input_snapshot: { ...input, rules: nodeRules(project.basic_info.script_revision_node) },
@@ -108,7 +105,7 @@ export class ScriptRevisionService {
     const previous = this.records.tasks.detail(this.records.scope, reportId)
     if (!previous || previous.tasks[0].metadata.session_id !== sessionId || boxReport(previous).decision !== 'rule_conflict')
       throw Object.assign(new Error('需提供当前会话的规则冲突报告'), { code: 'PROJECT_SCOPE' })
-    const id = digest(['script-rules', sessionId, requestId])
+    const id = requestIdentity(['script-rules', sessionId, requestId])
     await this.projects.writes.run(async () => {
       if (!this.records.tasks.detail(this.records.scope, id)) this.records.tasks.submit(this.records.scope, {
         group: { id, name: '修改剧本规则', source: 'conversation', metadata: { parent_group_id: reportId } },
@@ -123,19 +120,19 @@ export class ScriptRevisionService {
   }
 
 
-  saveScriptCandidate(ctx, output, { expectedOutput, passed = false, reason = '' }) {
+  saveScriptCandidate(ctx, output, { passed = false } = {}) {
     const run = this.projects.writes.run(async () => {
       ctx.signal.throwIfAborted()
-      const { project_id: id, session_id: sessionId, input_hash: inputHash } = ctx.task.metadata
+      const { project_id: id, session_id: sessionId } = ctx.task.metadata
       const project = (await this.projects.snapshot(sessionId)).project
-      if (!project || project.basic_info.id !== id || scriptFingerprint(project) !== inputHash || digest(scriptOutput(project)) !== expectedOutput) throw new Error('项目内容已变化，拒绝覆盖优化结果')
+      if (!project || project.basic_info.id !== id) throw new Error('项目内容已变化，拒绝覆盖优化结果')
       const detail = this.records.tasks.detail(this.records.scope, ctx.task.group_id)
       if (detail.tasks.find(task => task.id === ctx.task.id)?.task_status !== 'running') throw new Error('任务已结束，拒绝写入')
       const manager = await ProjectManager.open(join(this.root, 'projects', id, 'project.json'))
       manager.change(next => {
         Object.assign(next.basic_info, structuredClone(output))
         if (passed && next.basic_info.script_revision_node.opinion?.trim() === ctx.task.metadata.instruction) next.basic_info.script_revision_node.opinion = ''
-        next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'generated', reason: '', dependency_hash: inputHash }).toJSON()
+        next.basic_info.script_revision_node = new NodeStateModel({ ...next.basic_info.script_revision_node, status: 'generated', reason: '' }).toJSON()
       })
       ctx.signal.throwIfAborted()
       await manager.model.update()

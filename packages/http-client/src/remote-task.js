@@ -1,4 +1,5 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import { fetchWithConnectionRetry, isConnectionError } from './request.js';
 
 export function remoteTaskHeaders(headers, requestId) {
   return requestId ? { ...headers, 'X-Task-ID': requestId, 'Idempotency-Key': requestId, Prefer: 'respond-async' } : headers;
@@ -6,7 +7,8 @@ export function remoteTaskHeaders(headers, requestId) {
 
 // llm-server 异步任务协议。调用方须先持久化请求标识；恢复只查询，不重新提交。
 export async function requestRemoteTask(request, options, dispatcher) {
-  const { fetchImpl = fetch, signal, id, recovering = false, resumeFrom, shouldStop = () => false, pollIntervalMs = 5000 } = options;
+  const { fetchImpl: fetchOnce = fetch, signal, id, recovering = false, resumeFrom, shouldStop = () => false, pollIntervalMs = 5000 } = options;
+  const fetchImpl = (url, init) => fetchWithConnectionRetry(url, init, fetchOnce);
   if (recovering && (!resumeFrom || typeof id !== 'string' || !id || request.headers.Prefer !== 'respond-async')) {
     throw new Error('没有可恢复的服务端请求记录或请求标识，未重新生成');
   }
@@ -33,6 +35,7 @@ export async function requestRemoteTask(request, options, dispatcher) {
         await response.arrayBuffer();
       } catch (error) {
         signal?.throwIfAborted();
+        if (isConnectionError(error)) throw error;
         // 受理响应可能丢失，先按同一请求号核对，不能创建另一个生成。
       }
     }
@@ -45,6 +48,7 @@ export async function requestRemoteTask(request, options, dispatcher) {
         if (response.ok) state = await response.json();
       } catch (error) {
         signal?.throwIfAborted();
+        if (isConnectionError(error)) throw error;
         await delay(pollIntervalMs, undefined, { signal });
         continue;
       }
@@ -55,6 +59,7 @@ export async function requestRemoteTask(request, options, dispatcher) {
         try { result = await fetchImpl(`${address}/result`, { headers, dispatcher, signal }); }
         catch (error) {
           signal?.throwIfAborted();
+          if (isConnectionError(error)) throw error;
           await delay(pollIntervalMs, undefined, { signal });
           continue;
         }

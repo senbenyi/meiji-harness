@@ -1,16 +1,45 @@
-import { getGlobalDispatcher } from 'undici';
+import { EnvHttpProxyAgent } from 'undici';
+import { setTimeout as delay } from 'node:timers/promises';
 import { recordTransfer } from './trace.js';
 import { publicHeaders, redactJson } from './redact.js';
 
 export const requestTimeoutMs = 60 * 60 * 1000;
 export function createDispatcher(timeoutMs = requestTimeoutMs) {
+  const transport = new EnvHttpProxyAgent({
+    connectTimeout: 5000,
+    proxyTls: { timeout: 5000 },
+    requestTls: { timeout: 5000 },
+  });
   return {
     dispatch(options, handler) {
-      return getGlobalDispatcher().dispatch({ ...options, headersTimeout: timeoutMs, bodyTimeout: timeoutMs }, handler);
+      return transport.dispatch({ ...options, headersTimeout: timeoutMs, bodyTimeout: timeoutMs }, handler);
     },
+    close: () => transport.close(),
+    destroy: error => transport.destroy(error),
   };
 }
 export const requestDispatcher = createDispatcher();
+
+export function isConnectionError(error) {
+  return error.code === 'NETWORK_CONNECTION_FAILED' || ['UND_ERR_CONNECT_TIMEOUT', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'ENETUNREACH', 'EHOSTUNREACH', 'ETIMEDOUT']
+    .includes(error.cause?.code ?? error.code);
+}
+
+export async function fetchWithConnectionRetry(url, options, fetchImpl = fetch) {
+  try { return await fetchImpl(url, options); }
+  catch (error) {
+    options.signal?.throwIfAborted();
+    if (!isConnectionError(error)) throw error;
+    try { await delay(1000, undefined, { signal: options.signal }); }
+    finally { options.signal?.throwIfAborted(); }
+    try { return await fetchImpl(url, options); }
+    catch (retryError) {
+      options.signal?.throwIfAborted();
+      if (!isConnectionError(retryError)) throw retryError;
+      throw Object.assign(new Error(`网络连接失败（${retryError.cause?.code ?? retryError.code}），已在1秒后重试一次`, { cause: retryError }), { code: 'NETWORK_CONNECTION_FAILED' });
+    }
+  }
+}
 
 // fetchResponse 可接入异步任务协议；record 可直接接入任意项目的步骤记录。
 // HTTP 错误作为结果返回，由调用方解释业务错误；网络/读取异常原样抛出。
@@ -41,7 +70,7 @@ export async function requestData(request, {
   await record(transfer);
   let response, data;
   try {
-    response = fetchResponse ? await fetchResponse(activeSignal, dispatcher) : await fetchImpl(url, options);
+    response = fetchResponse ? await fetchResponse(activeSignal, dispatcher) : await fetchWithConnectionRetry(url, options, fetchImpl);
     validateResponse(response);
     if (responseType === 'bytes' && response.ok) data = Buffer.from(await response.arrayBuffer());
     else {

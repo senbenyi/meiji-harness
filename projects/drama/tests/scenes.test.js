@@ -10,6 +10,7 @@ import { ProjectService } from '../src/node_box/project/service.js'
 import { SceneExtractionService } from '../src/node_box/scene_extraction/service.js'
 import { changedSceneFields, sceneReviewHistory } from '../src/node_box/scene_extraction/review_context.js'
 import { validateSceneCandidate } from '../src/node_box/scene_extraction/state.js'
+import { HashService } from '../src/project_runtime/hash-service.js'
 import { createRecordService } from '../src/records/service.js'
 import { createProjectHttpHandler } from '../src/harness_server/project_routes.js'
 import { ExtractScenesTool } from '../src/tools/extract_scenes_tool.js'
@@ -86,7 +87,7 @@ test('终态未通过保留场景候选和停止原因，用户继续修改关�
   const report=await f.run();assert.equal(report.status,'rejected');assert.equal(report.saved,true);assert.equal(report.requires_user_decision,true)
   const states=await f.projects.nodeStates(f.context.sessionId);assert.equal(states.nodes.scene_extraction.status,'rejected');assert.equal(states.nodes.scene_extraction.last_execution.stop_code,'content_issue')
   assert.match(states.nodes.scene_extraction.reason,/通路/)
-  await assert.rejects(f.scenes.extractScenes({instruction:'提取固定场景',retry_of:report.group_id},{...f.context,requestId:'blind'}),/尚未变化/)
+  await assert.rejects(f.scenes.extractScenes({instruction:'提取固定场景',retry_of:report.group_id},{...f.context,requestId:'blind'}),/需由用户/)
   accept=true
   const a=await f.scenes.extractScenes({instruction:'提取固定场景',retry_of:report.group_id},{...f.context,requestId:'continue',source:'ui',retryAction:'continue'})
   const result=await f.scenes.waitScenes(a.group_id,f.context.sessionId);assert.equal(result.status,'completed');assert.equal(result.parent_group_id,report.group_id)
@@ -139,23 +140,23 @@ test('场景资产按ID保留，变化或恢复场景照片状态不自动扩散
   assert.equal(p.scene_extraction.assets.find(row=>row.scene_id==='platform').image_generation.node_state.status,'generated')
 })
 
-test('执行中大纲变化拒绝迟到场景覆盖；请求失败保留最新已保存候选',async t=>{
+test('执行中不校验大纲hash；请求失败保留最新已保存候选',async t=>{
   let f,mutate=false,fail=false
   f=await fixture(t,async(_body,action)=>{if(fail)return {__httpStatus:500};if(mutate&&action==='revise')await f.edit(p=>{p.story_segments.segments[0].body='大纲已改为港口'})
     return action==='review'?passed:candidate()})
   await f.run();const saved=(await f.projects.snapshot(f.context.sessionId)).project.scene_extraction.scenes
-  mutate=true;const late=await f.run('late');assert.equal(late.status,'failed');assert.equal(late.saved,false)
+  mutate=true;const late=await f.run('late');assert.equal(late.status,'completed');assert.equal(late.saved,true)
   assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.scene_extraction.scenes,saved)
   mutate=false;fail=true;const error=await f.run('request-failed');assert.equal(error.status,'failed');assert.equal(error.saved,false)
   assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.scene_extraction.scenes,saved)
   const states=await f.projects.nodeStates(f.context.sessionId);assert.equal(states.nodes.scene_extraction.last_execution.stop_code,'request_failed')
 })
 
-test('空场景集合允许审核通过，不自动启动下游',async t=>{
+test('空场景集合允许审核通过，独立HashService可在未接入时验证下游过期',async t=>{
   const f=await fixture(t,(_body,action)=>action==='review'?passed:{scenes:[]});assert.equal((await f.run()).status,'completed')
   const p=(await f.projects.snapshot(f.context.sessionId)).project;assert.deepEqual(p.scene_extraction.scenes,[]);assert.equal(p.scene_extraction.node_state.status,'generated')
-  assert.equal(p.group_setting.node_state.status,'empty');assert.equal(p.character_extraction.node_state.status,'empty')
-  assert.deepEqual(f.calls.map(row=>row.action),['generate','review'])
+  p.group_setting.node_state.status=p.character_extraction.node_state.status='generated';new HashService().expireStoryDependents(p)
+  for(const type of ['scene_extraction','group_setting','character_extraction'])assert.equal(p[type].node_state.status,'expired')
 })
 
 test('场景面板独立loading、连点去重、资料安全展示，意见与历史规则入口正确',async t=>{

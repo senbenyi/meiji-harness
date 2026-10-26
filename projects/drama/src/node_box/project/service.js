@@ -1,6 +1,7 @@
+import { requestIdentity } from '../../project_runtime/request-identity.js'
 import { applyExecutionStates, projectExecutions, stateSummary } from '../../node_runtime/execution_state.js'
-import { nodeState } from '../../node_runtime/node_state.js'
-import { scriptOutput, originalFilename, scriptSummary } from '../../node_runtime/node_state.js'
+import { nodeState, scriptOutput } from '../../node_runtime/node_state.js'
+import { originalFilename } from '../../node_runtime/node_state.js'
 import { saveProjectScript, readProjectScript } from './script_files.js'
 import { editProject } from './edit_project.js'
 import { EventEmitter } from 'node:events'
@@ -11,7 +12,6 @@ import { ProjectManager } from '../../project_runtime/project_manager.js'
 import { CreateProjectExecutor, ProjectExecutor } from './executor.js'
 import { projectInfo } from './create_project.js'
 import { createWriteQueue } from '../../project_runtime/write_queue.js'
-import { digest } from '../script_revision/state.js'
 import { waitBoxTask } from '../../node_runtime/box_report.js'
 
 /** 会话与面板共用项目服务：绑定、事件和创建/编辑/删除共享串行队列。 */
@@ -210,7 +210,7 @@ export class ProjectService extends EventEmitter {
   configureOriginalSummary(models) { this.summaryModels = models }
 
   async importScript(command, { sessionId, projectId, requestId = randomUUID(), source }) {
-    const id = digest(['project-import', sessionId, requestId])
+    const id = requestIdentity(['project-import', sessionId, requestId])
     await this.writes.run(async () => {
       const snapshot = await this.snapshot(sessionId)
       if (!snapshot.project || snapshot.project.basic_info.id !== projectId) throw Object.assign(new Error('当前会话未绑定此项目'), { code: 'PROJECT_SCOPE' })
@@ -239,14 +239,13 @@ export class ProjectService extends EventEmitter {
   }
 
   /** 仅提供数据提交能力；步骤编排与模型调用由Executor负责。 */
-  saveOriginalSummary({ sessionId, projectId, originalScript, output, expectedOutput, expectedScriptOutput, expectedSource, signal }) {
+  saveOriginalSummary({ sessionId, projectId, originalScript, output, expectedSource, signal }) {
     return this.writes.run(async () => {
       signal.throwIfAborted()
       const snapshot = await this.snapshot(sessionId)
       if (!snapshot.project || snapshot.project.basic_info.id !== projectId) throw new Error('项目已删除或会话归属改变')
       const manager = await ProjectManager.open(join(this.root, 'projects', projectId, 'project.json'))
       if (manager.read().basic_info.original_script_file_path !== expectedSource || manager.read().basic_info.actual_script !== originalScript) throw new Error('原稿已变化，摘要未写入')
-      if (digest(scriptSummary(manager.read())) !== digest(expectedOutput) || digest(scriptOutput(manager.read())) !== digest(expectedScriptOutput)) throw new Error('项目摘要或预估时长已变化，拒绝覆盖较新结果')
       signal.throwIfAborted()
       manager.change(project => {
         Object.assign(project.basic_info, structuredClone(output))
@@ -359,7 +358,7 @@ export class ProjectService extends EventEmitter {
       await this.#saveBindings(state)
       let attempt = 0, id, old
       do {
-        id = digest(['project', sessionId, requestId, attempt++])
+        id = requestIdentity(['project', sessionId, requestId, attempt++])
         old = this.records.tasks.detail(this.records.scope, id)
         if (old && ['queued', 'running', 'completed'].includes(old.status)) return id
       } while (old)
@@ -391,7 +390,7 @@ export class ProjectService extends EventEmitter {
       throw Object.assign(new Error('需提供当前会话的上游问题报告'), { code: 'PROJECT_SCOPE' })
     if (!['basic_info', 'import_script'].includes(command?.kind)) throw new TypeError('只允许修复项目基本资料或导入用户提供的原稿')
     const projectId = previous.tasks[0].metadata.project_id
-    const id = digest(['project-edit', sessionId, requestId])
+    const id = requestIdentity(['project-edit', sessionId, requestId])
     await this.writes.run(async () => {
       if (!this.records.tasks.detail(this.records.scope, id)) this.records.tasks.submit(this.records.scope, {
         group: { id, name: '修复项目上游资料', source: 'conversation', metadata: { parent_group_id: reportId } },

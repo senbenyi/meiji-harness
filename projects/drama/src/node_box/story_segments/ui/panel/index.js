@@ -9,6 +9,8 @@ export const panel = {
   type: 'story_segments', key: 'story_segments', title: '故事大纲',
   render(root, project, { state, openTasks, openRules, saveOpinion, story = {} }) {
     const node = project.story_segments, rows = node.segments, local = state.storyUi ||= {}
+    const failureReason = node.node_state.reason || (['failed', 'rejected'].includes(node.node_state.last_execution?.status) ? node.node_state.last_execution.message : '')
+    const showActions = rows.length > 0 || !!failureReason
     const incoming = ['queued', 'running'].includes(story.execution?.status) ? story.execution : null
     if (!incoming || incoming.group_id !== local.runningExecution?.group_id) local.runningExecution = null
     if (incoming?.status === 'running') local.runningExecution = structuredClone(incoming)
@@ -44,24 +46,32 @@ export const panel = {
         finally { input.removeAttribute('aria-busy') }
       })
     }
-    const run = button(rows.length ? '按意见修改' : 'AI生成', async () => {
-      if (run.disabled || local.submitting || !story.isCurrent?.()) return
-      const instruction = input.value.trim() || (rows.length ? '按项目规则修改故事大纲' : '按当前工作剧本生成完整故事大纲')
+    const submit = async (control, regenerate = false) => {
+      if (control.disabled || local.submitting || !story.isCurrent?.()) return
+      const instruction = regenerate
+        ? `按当前工作剧本和最新项目规则重新生成完整故事大纲，现有大纲仅用于复用仍适用的稳定ID，不作为必须保留的内容基稿。${input.value.trim() ? `本次要求：${input.value.trim()}` : ''}`
+        : [input.value.trim() || (rows.length ? '按项目规则修改故事大纲' : '按当前工作剧本生成完整故事大纲'), rows.length && failureReason ? `当前未通过原因（请先核实，只修仍成立的问题）：${failureReason}` : ''].filter(Boolean).join('\n')
       local.submitting = true; local.error = ''; local.nodeBefore = structuredClone(node.node_state)
-      if (local.request?.instruction !== instruction) local.request = { instruction, id: root.ownerDocument.defaultView.crypto.randomUUID() }
+      if (local.request?.instruction !== instruction || local.request?.regenerate !== regenerate) local.request = { instruction, regenerate, id: root.ownerDocument.defaultView.crypto.randomUUID() }
       story.repaint()
       try {
         await chain
-        const result = await story.generate(instruction, local.request.id)
+        const result = await story.generate(instruction, local.request.id, ...(regenerate ? [{ regenerate: true }] : []))
         if (!story.isCurrent()) return
         story.setExecution({ group_id: result.group_id, status: result.status, node_state_before: local.nodeBefore })
         local.request = null
         story.refresh?.()
       } catch (failure) { if (story.isCurrent()) local.error = failure.message }
       finally { local.submitting = false; if (story.isCurrent()) story.repaint() }
-    })
-    run.disabled = busy || !story.generate || !project.basic_info.actual_script.trim()
-    run.title = !project.basic_info.actual_script.trim() ? '请先导入剧本' : busy ? '大纲任务正在执行' : '仅生成或修改故事大纲'
+    }
+    const run = button(showActions ? '按意见修改' : 'AI生成', () => submit(run))
+    const regenerate = button('重新生成', () => submit(regenerate, true))
+    const blocked = busy || !story.generate || !project.basic_info.actual_script.trim()
+    run.disabled = blocked || showActions && !rows.length
+    regenerate.disabled = blocked
+    run.title = !rows.length && showActions ? '暂无有效大纲可修改，请重新生成' : !project.basic_info.actual_script.trim() ? '请先导入剧本' : busy ? '大纲任务正在执行' : '仅生成或修改故事大纲'
+    regenerate.title = '按当前工作剧本和项目规则重新生成完整大纲'
+    if (showActions) actions.append(regenerate)
     actions.append(run); buttons.append(records, actions); ui.append(buttons, input, error)
     error.setAttribute('role', 'status')
     if (busy) {

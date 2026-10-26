@@ -1,6 +1,9 @@
 # drama 开发入口
 
 - 遵守根 `AGENTS.md` 与 `.agents/agent-harness-dev.md`。
+- 大纲审核仅判断最新候选当前有据可核的问题；不把历史审核意见当新锁定要求，不因原稿未写、语义等价措辞或未反复重申持续状态否决；不自行锁定原稿未明确的精确时间。修订逐项核实意见，只修仍成立的问题，允许保留有效内容不变后重新审核。已有项目规则须显式更新，不由默认规则自动覆盖。
+- 盒子结束原因统一使用`@agent-modules/task/models`的`TASK_END_REASONS`枚举和`taskEndReason`；Task终态与原因类型分开，报告携带`reason_type/reason_label`，界面不将所有failed映射为执行错误。网络连接失败（network_connection_failed）对所有盒子仅展示结果、不唤醒主Agent；旧错误码通过records.sqlite显式一次性迁移。
+- 内容指纹、跨盒子一致性与下游过期处理集中于`src/project_runtime/hash-service.js`的`HashService`，目前未接入生产执行链。盒子Service/Executor不生成或读取input_hash/output_hash，不按内容hash拒绝保存或自动使下游/照片过期；资产state仅维护ID映射与历史资源。请求幂等ID和原稿文件身份由`request-identity.js`维护，审核重复问题用直接内容比较，保留项目归属、活动Task、取消与字段校验。
 - 当前架构见 `docs/开发方向.md`；项目结构说明见 `docs/project_detail.json`，程序不得读取该文档作为运行时模板。
 - 业务代码放 `src/`；公共规则与状态分别使用 `@agent-modules/prompt-composer`、`@agent-modules/task/models`。不导入 meiji 业务模块。
 - 项目 JSON 经 `ProjectManager` / `ProjectModel.update()` 写入 `$DSH_HOME/storages/drama/projects/<id>/project.json`；工作区/会话及创建请求索引单独保存于 `bindings.json`。
@@ -31,7 +34,7 @@
 
 - 盒子步骤结束后将完整结果写入任务固定所属会话，仅展示、不进入模型上下文。审核有问题显示红色“未通过”，保留每轮修改及复审；面板受理、各步骤和盒子终态各用稳定ID去重。面板操作统一展示请求、聚合执行组及最终保存结果，空/正常会话复用client/ui/task-operation组件，失败终态单独挂载client/ui/failure-decision卡片，显示真实保存事实与用户操作；正常会话附加于对应原生command公开座位并仅隐藏本组原生展示，不伪造聊天轮次。盒子输入取metadata.input_snapshot，步骤输入取step.prompt.input；完整内容随会话首次加载预载，eager/after轮询只补新增详情及pending任务终态；展开优先同步使用缓存，compact消息列表不携带正文/规则/输出，历史不读取最新项目补造。展示和主Agent通知独立持久化与重试：首次生成成功与取消不唤醒AI；已有文本内容修改成功的coordination_required报告及可规划rejected/failed发送drama-box-report，但终态content_issue或执行failed只展示并等待用户选择继续修改、停止或重新生成，不唤醒主Agent；中间审核失败仅展示。不创建任务专用或失败兜底会话；创建尚未产生项目会话时归来源会话，创建成功后归项目会话。详见开发方向“面板任务与会话交接”。
 
-- 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；按project/definition.js契约保存basic_info.summary及estimated_duration_seconds，创建状态使用basic_info.create_project_node；失败仅警告、不撤回主操作。优化稿继续随正文返回摘要和估时，并在审核通过后同步到basic_info，不新增摘要调用。
+- 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；按project/definition.js契约保存basic_info.summary及estimated_duration_seconds，创建状态使用basic_info.create_project_node；输出校验等摘要失败仅警告、不撤回主操作；网络连接失败在HTTP层等待1秒重试一次，仍失败则结束盒子，任务failed、原因“网络连接失败”，保留已保存原稿，不进入审核或修订。优化稿继续随正文返回摘要和估时，并在审核通过后同步到basic_info，不新增摘要调用。
 
 - 盒子执行边界：Service创建/提交Task并返回结果；Executor注册节点、声明/追加Step并使用执行上下文记录提示词和调用；公共TaskManager统一写状态、时间与步骤结果，双方不直接写任务数据库。一次业务盒子执行一个Task，内部修订追加Step，重新派发才新建Task；TaskGroup只是任务组织容器。项目盒子的ProjectExecutor与创建程序子执行器位于project/executor.js，Service仅提供受理及数据读写能力。
 
@@ -54,4 +57,5 @@
 
 - 分镜使用definition.js专属review_output：issues仅含有据阻断错误，suggestions不阻断，previous_issue_checks逐项核对旧问题。review_validation.js验证来源与当前候选路径/原文，拒绝捏造证据、遗漏已包含内容及重开已解决问题；无效审核不能自动通过或驱动正文修订。生成/修订的空集合、格式及引用错误和无效审核均在原Task内同动作最多修复2次，独立于内容修订3轮；不吞网络、存储、取消或并发错误。旧共享审核引用兼容新分镜结构，其他盒子契约不变。默认规则更新仍不覆盖私有项目；明确授权迁移时先备份并保留补充规则、意见和历史。
 
-- 主Agent联动规划统一见开发方向“主Agent统一联动规划”。修改后先用drama-planning-context一次检查上下游，再用drama-save-change-plan记录keep/update/regenerate/defer及依据；计划存change_plans，不新建协调盒子。素材目标按稳定ID，完成须关联真实成功结果。input_hash/output_hash仅保留为任务幂等、并发拒绝覆盖保护，不能决定业务修改范围。
+- 主Agent联动规划统一见开发方向“主Agent统一联动规划”。修改后先用drama-planning-context一次检查上下游，再用drama-save-change-plan记录keep/update/regenerate/defer及依据；计划存change_plans，不新建协调盒子。素材目标按稳定ID，完成须关联真实成功结果。请求幂等、项目归属、活动任务与取消保护沿用现有机制；盒子不恢复input_hash/output_hash校验，也不能据此决定业务修改范围。
+- 大纲面板已有候选或未通过原因时提供重新生成和按意见修改；重新生成透传regenerate=true并创建generate首步，修改创建revise首步并携带当前原因供核实。两动作共享执行互斥，请求幂等区分动作；无有效候选时禁用修改。

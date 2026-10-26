@@ -181,7 +181,7 @@ export class TaskManager {
       for (const next of snapshot.tasks.filter(t => t.group_id === task.group_id && !terminalTask(t))) stopTask(snapshot, next, 'cancelled', '前序任务未完成：' + reason);
     }, { taskId });
   }
-  #finish(scope, taskId, status, reason, node) {
+  #finish(scope, taskId, status, reason, node, errorCode) {
     this.store.transaction(scope, (snapshot, database) => {
       const task = snapshot.tasks.find(t => t.id === taskId);
       if (task.task_status !== 'running') return;
@@ -193,6 +193,7 @@ export class TaskManager {
       task.task_status = status; task.end_reason = reason; task.ended_at = now();
       if (status !== 'completed') {
         for (const step of snapshot.steps.filter(st => st.task_id === taskId && !terminalStep(st))) {
+          if (status === 'failed' && step.step_status === 'running') step.result = { ...step.result, error_code: errorCode || null };
           step.step_status = step.step_status === 'running' ? status : 'skipped'; step.error_reason = reason; step.ended_at = now();
         }
         for (const next of snapshot.tasks.filter(t => t.group_id === task.group_id && !terminalTask(t))) stopTask(snapshot, next, 'cancelled', '前序任务未完成：' + reason);
@@ -247,7 +248,7 @@ export class TaskManager {
           this.#halt(scope, task.id, 'cancelled', reason);
         } else {
           const reason = error.message || String(error);
-          this.#finish(scope, task.id, 'failed', reason);
+          this.#finish(scope, task.id, 'failed', reason, undefined, error.code);
           this.#halt(scope, task.id, 'failed', reason);
         }
       } finally { entry.controller = null; entry.taskId = null; entry.groupId = null; }

@@ -112,7 +112,7 @@ test('一键全部生成三张定妆照，保存即完成且不请求审核，�
   assert.equal(traversal.status, 422)
 })
 
-test('角色内容问题修订后审核；再次提取保留照片，上游变化标记过期', async t => {
+test('角色内容问题修订后审核；再次提取保留照片，未接入HashService不自动过期', async t => {
   let reviewed = false
   const f = await fixture(t, (_body, action) => {
     if (action !== 'review') return candidate()
@@ -170,7 +170,7 @@ test('角色tab包含定妆照子盒子、一键全部和每套单张按钮，�
   assert.match(root.textContent, /正在生成定妆照/)
 })
 
-test('图片生成期间角色变化，拒绝迟到结果覆盖项目；面板路由隔离并支持单角色重试', async t => {
+test('图片生成期间角色变化不做hash拦截；面板路由隔离并支持单角色重试', async t => {
   let f, changeDuringImage = false
   f = await fixture(t, async (_body, action) => {
     if (action === 'image' && changeDuringImage) await f.edit(project => { project.character_extraction.characters[0].facial_features = '新确认的疤痕' })
@@ -184,8 +184,8 @@ test('图片生成期间角色变化，拒绝迟到结果覆盖项目；面板�
   assert.equal((await post('characters', { project_id: 'other', request_id: 'other', instruction: '提取' })).status, 403)
   const accepted = await (await post('costume-images', { project_id: f.context.projectId, request_id: 'late-image', character_id: '林舟', costume_id: 'coat' })).json()
   const report = await f.images.wait(accepted.group_id, f.context.sessionId)
-  assert.equal(report.status, 'failed'); assert.equal(report.saved, false)
-  assert.equal(imageTargets((await f.projects.snapshot(f.context.sessionId)).project, '林舟', 'coat')[0].image.address, '')
+  assert.equal(report.status, 'completed'); assert.equal(report.saved, true)
+  assert.ok(imageTargets((await f.projects.snapshot(f.context.sessionId)).project, '林舟', 'coat')[0].image.address)
   changeDuringImage = false
   const retry = await (await post('costume-images', { project_id: f.context.projectId, request_id: 'retry-late', retry_of: accepted.group_id, retry_action: 'regenerate' })).json()
   assert.equal((await f.images.wait(retry.group_id, f.context.sessionId)).status, 'completed')
@@ -360,7 +360,7 @@ test('三卡各有独立操作和loading，团队连点只提交一次，不触�
   release();await new Promise(resolve=>setImmediate(resolve));assert.match(root.querySelector('[data-node-type=group_setting] [aria-live]').textContent,/排队中/)
 })
 
-test('团队更新期间旧人物和图片结果拒绝覆盖，旧场景输入变化也拒绝团队结果', async t => {
+test('团队与场景变化不通过hash拦截人物和图片结果', async t => {
   let f,mutate=''
   f=await fixture(t,async(_body,action,_calls,nodeType)=>{
     if(action==='image'&&mutate==='image')await f.edit(project=>{project.group_setting.groups[0].appearance='新的团队形象'})
@@ -370,10 +370,10 @@ test('团队更新期间旧人物和图片结果拒绝覆盖，旧场景输入�
   })
   await groupRun(f);await f.extract();mutate='image'
   const accepted=await f.images.generate({character_id:'林舟',costume_id:'coat'},{...f.context,requestId:'late-image'})
-  const image=await f.images.wait(accepted.group_id,f.context.sessionId);assert.equal(image.status,'failed');assert.equal(image.saved,false);assert.equal((await portrait(f)).address,'')
-  mutate='person';const person=await f.extract('late-person');assert.equal(person.status,'failed');assert.equal(person.saved,false)
-  mutate='scene';const team=await groupRun(f,'late-team');assert.equal(team.status,'failed');assert.equal(team.saved,false)
-  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.group_setting.groups[0].appearance,'再次变更的团队形象')
+  const image=await f.images.wait(accepted.group_id,f.context.sessionId);assert.equal(image.status,'completed');assert.equal(image.saved,true);assert.ok((await portrait(f)).address)
+  mutate='person';const person=await f.extract('late-person');assert.equal(person.status,'completed');assert.equal(person.saved,true)
+  mutate='scene';const team=await groupRun(f,'late-team');assert.equal(team.status,'completed');assert.equal(team.saved,true)
+  assert.equal((await f.projects.snapshot(f.context.sessionId)).project.group_setting.groups[0].appearance,teamCandidate().groups[0].appearance)
 })
 
 test('旧合并团队资料只在读取时补独立节点，新大纲可修复旧段落引用', async t => {

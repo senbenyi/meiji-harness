@@ -1,4 +1,4 @@
-import { scriptOutput, scriptSummary } from '../../node_runtime/node_state.js'
+import { scriptOutput } from '../../node_runtime/node_state.js'
 import { saveProjectScript } from './script_files.js'
 import { extractOriginalSummary } from './summary_extractor.js'
 import { join } from 'node:path'
@@ -93,10 +93,11 @@ export class ProjectExecutor {
       const current = (await this.snapshot(sessionId)).project
       if (!current || current.basic_info.id !== m.project_id || current.basic_info.actual_script !== originalScript) throw new Error('原稿已变化，摘要未写入')
       const output = await extractOriginalSummary(ctx, { originalScript, models: this.models(), records: this.records })
-      await this.saveSummary({ sessionId, projectId: m.project_id, originalScript, output, expectedOutput: scriptSummary(current), expectedScriptOutput: scriptOutput(current), expectedSource: current.basic_info.original_script_file_path, signal: ctx.signal })
+      await this.saveSummary({ sessionId, projectId: m.project_id, originalScript, output, expectedSource: current.basic_info.original_script_file_path, signal: ctx.signal })
       return { result: { output, changed: true, reference: '#/basic_info' } }
     } catch (error) {
       ctx.signal.throwIfAborted()
+      if (error.code === 'NETWORK_CONNECTION_FAILED') throw error
       // 展示摘要失败只返回警告，不撤回已保存的项目或原稿。
       return { result: { summary_error: `原稿已保存，摘要未生成：${error.message}` } }
     }

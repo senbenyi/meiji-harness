@@ -16,7 +16,7 @@ import { taskNodeInput } from "../server/handlers/node-inputs.js";
 import { config } from "./fixtures/ai.js";
 import { emptyCharacterModel } from "../shared/models/character_model.js";
 import { projectFixture } from "./fixtures/project.js";
-import { getGlobalDispatcher, setGlobalDispatcher } from "undici";
+import { EnvHttpProxyAgent } from "undici";
 import { sendChat, requestTimeoutMs, requestDispatcher } from "../server/http/chat-transport.js";
 import { llmServerClient } from "../server/http/llm-server/client.js";
 
@@ -246,12 +246,10 @@ describe("http-contracts", () => {
 });
 
 describe("timeout", () => {
-  test('文本和GPU总时限60分钟，底层响应超时60分钟且保留宿主代理', async t => {
+  test('文本和GPU总时限60分钟，底层响应超时60分钟且使用环境代理', async t => {
     assert.equal(requestTimeoutMs, 3600000);
-    const original = getGlobalDispatcher();
     const seen = [];
-    setGlobalDispatcher({ dispatch(options) { seen.push(options); return true; }, close: () => Promise.resolve(), destroy: () => Promise.resolve() });
-    t.after(() => setGlobalDispatcher(original));
+    t.mock.method(EnvHttpProxyAgent.prototype, 'dispatch', options => { seen.push(options); return true; });
     const durations = [];
     t.mock.method(AbortSignal, 'timeout', ms => { durations.push(ms); return new AbortController().signal; });
     const fetchImpl = async (url, options) => {

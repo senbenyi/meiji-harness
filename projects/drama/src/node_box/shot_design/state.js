@@ -1,8 +1,5 @@
 import { validateNodeOutput, parseNodeOutput } from '../../node_runtime/output_response_parser.js'
 import shotDefinition from './definition.js'
-import { nodeRules } from '../../node_runtime/node_state.js'
-import { digest } from '../script_revision/state.js'
-export { digest }
 // 仅接收阶段允许空团队ID，以便清理无语义占位；写入前仍使用原始严格契约。
 const intakeDefinition = structuredClone(shotDefinition)
 delete intakeDefinition.output.properties.shots.items.properties.groups.items.properties.group_id.minLength
@@ -22,9 +19,7 @@ export const shotCharacters = project => ({ characters: structuredClone(project.
   costume_references: (project.character_extraction.assets || []).flatMap(asset => (asset.costume_images || [])
     .filter(image => image.address && image.node_state.status === 'generated')
     .map(image => ({ character_id: asset.character_id, costume_id: image.costume_id }))) })
-export const shotFingerprint = project => digest({ segments: project.story_segments.segments, outline_status: project.story_segments.node_state.status,
-  upstream: ['scene_extraction','group_setting','character_extraction'].map(type => ({ type, status: project[type].node_state.status,
-    output: type === 'scene_extraction' ? project[type].scenes : type === 'group_setting' ? project[type].groups : shotCharacters(project) })), rules: nodeRules(project.shot_design.node_state) })
+
 
 export function validateShotCandidate(value, { story_outline, scene_extraction, group_setting, character_extraction, allowEmpty = false } = {}) {
   const output = validateNodeOutput('shot_design', 'generate', cleanEmptyGroups(value))

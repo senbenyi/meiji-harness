@@ -1,10 +1,6 @@
 import { validateNodeOutput } from '../../node_runtime/output_response_parser.js'
-import { nodeRules } from '../../node_runtime/node_state.js'
 import { createNode } from '../../node_runtime/node_initializer.js'
-import { digest } from '../script_revision/state.js'
-import { groupOutput } from '../group_setting/state.js'
 
-export { digest }
 
 /** 仅投影旧资料的缺省字段，不改写磁盘或模型候选。 */
 export function normalizeCharacterOutput(value) {
@@ -14,8 +10,7 @@ export function normalizeCharacterOutput(value) {
   })) }
 }
 export const characterOutput = project => normalizeCharacterOutput(project.character_extraction)
-export const characterFingerprint = project => digest({ segments: project.story_segments.segments,
-  scenes: project.scene_extraction?.scenes || [], groups: groupOutput(project).groups, group_status: project.group_setting?.node_state.status, rules: nodeRules(project.character_extraction.node_state) })
+
 
 export function validateCharacterCandidate(value, { segments, groups: knownGroups = [] } = {}) {
   const output = validateNodeOutput('character_extraction', 'generate', value)
@@ -54,7 +49,7 @@ export function validateCharacterCandidate(value, { segments, groups: knownGroup
   return normalizeCharacterOutput(output)
 }
 
-export async function reconcileCharacterAssets(assets, previous, characters, previousGroups = [], groups = []) {
+export async function reconcileCharacterAssets(assets, characters) {
   const result = []
   for (const character of characters) {
     const asset = structuredClone(assets.find(row => row.character_id === character.id) || { character_id: character.id, reference_image: '', costume_images: [] })

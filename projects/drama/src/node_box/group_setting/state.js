@@ -1,10 +1,7 @@
 import { validateNodeOutput } from '../../node_runtime/output_response_parser.js'
-import { nodeRules } from '../../node_runtime/node_state.js'
-import { digest } from '../script_revision/state.js'
 
-export { digest }
 export const groupOutput = project => ({ groups: structuredClone(project.group_setting?.groups ?? project.character_extraction?.groups ?? []) })
-export const groupFingerprint = project => digest({ segments: project.story_segments.segments, scenes: project.scene_extraction?.scenes || [], rules: nodeRules(project.group_setting.node_state) })
+
 
 /** 只提供实际所属团队的基本形象和本次选定制服。 */
 export function characterGroups(groups, character, costume) {

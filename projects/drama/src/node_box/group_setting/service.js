@@ -1,3 +1,5 @@
+import { requestIdentity } from '../../project_runtime/request-identity.js'
+import { isDeepStrictEqual } from 'node:util'
 import { join } from 'node:path'
 import { NodeStateModel } from '@agent-modules/task/models'
 import { ProjectManager } from '../../project_runtime/project_manager.js'
@@ -5,7 +7,7 @@ import { nodeRules } from '../../node_runtime/node_state.js'
 import { boxReport, waitBoxTask, userRetry } from '../../node_runtime/box_report.js'
 import { GroupSettingExecutor } from './executor.js'
 import { GroupRulesExecutor } from './rule_change_executor.js'
-import { digest, groupFingerprint, groupOutput, validateGroupCandidate } from './state.js'
+import { groupOutput, validateGroupCandidate } from './state.js'
 
 /** 面板与会话共用入口；每轮有效结果同步项目与步骤记录，审核结论不控制结果保存。 */
 export class GroupSettingService {
@@ -46,7 +48,7 @@ export class GroupSettingService {
       projectId = project.basic_info.id
       const parent = retry_of ? this.records.tasks.detail(this.records.scope, retry_of) : null
       if (retryAction && parent) instruction = parent.tasks[0].metadata.instruction
-      const id = digest(['group_setting', sessionId, requestId]), old = this.records.tasks.detail(this.records.scope, id)
+      const id = requestIdentity(['group_setting', sessionId, requestId]), old = this.records.tasks.detail(this.records.scope, id)
       if (old) {
         if (!!old.tasks[0].metadata.regenerate !== regenerate || old.tasks[0].metadata.instruction !== instruction.trim() || (old.tasks[0].metadata.parent_group_id || undefined) !== retry_of || (old.tasks[0].metadata.retry_action || undefined) !== retryAction) throw new Error('同一请求ID不能用于不同团队要求')
         return { project_id: projectId, group_id: id, status: old.status }
@@ -55,9 +57,7 @@ export class GroupSettingService {
         || parent.tasks[0].metadata.project_id !== projectId || ['queued', 'running'].includes(parent.status)))
         throw Object.assign(new Error('原任务不属于当前会话或尚未结束'), { code: 'PROJECT_SCOPE' })
       const retry = userRetry(parent, { source, action: retryAction })
-      if (retryAction === 'continue' && parent.tasks[0].metadata.input_hash !== groupFingerprint(project)) throw new Error('原任务的资料或规则已变化，请选择重新生成')
-      if (!retry && parent && parent.tasks[0].metadata.input_hash === groupFingerprint(project)
-        && !(parent.status === 'completed' && instruction.trim() !== parent.tasks[0].metadata.instruction)) throw new Error('上游资料或规则尚未变化，请先修复后再派发新任务')
+      if (!retry && parent && boxReport(parent).requires_user_decision) throw new Error('需由用户选择继续修改或重新生成')
       if (!project.story_segments.segments.length) throw new Error('请先生成故事大纲，再提取团队')
       if (this.projects.activeExecution(projectId)) throw Object.assign(new Error('该项目已有排队或执行中的任务'), { code: 'PROJECT_ACTIVE' })
       const config = await this.models.read()
@@ -67,7 +67,7 @@ export class GroupSettingService {
         regenerate, instruction: input.instruction, language: input.output_language, goal: parent?.tasks[0].metadata.goal || input.instruction,
         retry_action: retryAction || null, retry_review_issues: retryAction === 'continue' ? retry.issues : null,
         parent_group_id: retry_of || null, node_state_before: structuredClone(project.group_setting.node_state),
-        input_hash: groupFingerprint(project), output_hash: digest(groupOutput(project)), input_snapshot: { ...input, rules: nodeRules(project.group_setting.node_state) } }
+        input_snapshot: { ...input, rules: nodeRules(project.group_setting.node_state) } }
       this.records.tasks.submit(this.records.scope, { group: { id, name: '生成团队', source, metadata: { project_id: projectId, notify_main: source === 'ui', parent_group_id: retry_of || null } },
         tasks: [{ node_type: 'group_setting', name: '团队', action: regenerate ? 'generate' : retryAction ? retryAction === 'continue' ? 'revise' : 'generate' : project.group_setting.groups.length ? 'revise' : 'generate', metadata }] })
       this.projects.watchProjectTask(id)
@@ -84,13 +84,13 @@ export class GroupSettingService {
     return report
   }
 
-  saveGroupCandidate(ctx, value, { expectedOutput, passed = false }) {
+  saveGroupCandidate(ctx, value, { passed = false } = {}) {
     const output = validateGroupCandidate(value)
     return this.projects.writes.run(async () => {
       ctx.signal.throwIfAborted()
-      const { project_id: id, session_id: sessionId, input_hash: inputHash } = ctx.task.metadata
+      const { project_id: id, session_id: sessionId } = ctx.task.metadata
       const { project } = await this.projects.snapshot(sessionId)
-      if (!project || project.basic_info.id !== id || groupFingerprint(project) !== inputHash || digest(groupOutput(project)) !== expectedOutput) throw new Error('项目内容已变化，拒绝覆盖团队结果')
+      if (!project || project.basic_info.id !== id) throw new Error('项目内容已变化，拒绝覆盖团队结果')
       validateGroupCandidate(output, { segments: project.story_segments.segments })
       const detail = this.records.tasks.detail(this.records.scope, ctx.task.group_id)
       if (detail.tasks.find(task => task.id === ctx.task.id)?.task_status !== 'running') throw new Error('任务已结束，拒绝写入')
@@ -100,7 +100,7 @@ export class GroupSettingService {
         delete next.character_extraction.groups
         const state = next.group_setting.node_state
         if (passed && state.opinion?.trim() === ctx.task.metadata.instruction) state.opinion = ''
-        next.group_setting.node_state = new NodeStateModel({ ...state, status: 'generated', reason: '', dependency_hash: inputHash }).toJSON()
+        next.group_setting.node_state = new NodeStateModel({ ...state, status: 'generated', reason: '' }).toJSON()
       })
       ctx.signal.throwIfAborted()
       await manager.model.update()
@@ -112,10 +112,10 @@ export class GroupSettingService {
     if (approval !== 'allowed-once') throw new Error('修改规则尚未获得用户授权')
     const previous = this.records.tasks.detail(this.records.scope, reportId)
     if (!previous || previous.tasks[0].node_type !== 'group_setting' || previous.tasks[0].metadata.session_id !== sessionId || boxReport(previous).decision !== 'rule_conflict') throw Object.assign(new Error('需提供当前会话的团队规则冲突报告'), { code: 'PROJECT_SCOPE' })
-    const id = digest(['group-rules', sessionId, requestId])
+    const id = requestIdentity(['group-rules', sessionId, requestId])
     await this.projects.writes.run(async () => {
       const old = this.records.tasks.detail(this.records.scope, id)
-      if (old && (digest(old.tasks[0].metadata.patch) !== digest(patch) || old.tasks[0].metadata.parent_group_id !== reportId)) throw new Error('同一请求ID不能用于不同规则修改')
+      if (old && (isDeepStrictEqual(old.tasks[0].metadata.patch, patch) === false || old.tasks[0].metadata.parent_group_id !== reportId)) throw new Error('同一请求ID不能用于不同规则修改')
       if (!old) this.records.tasks.submit(this.records.scope, { group: { id, name: '修改团队规则', source: 'conversation', metadata: { parent_group_id: reportId } },
         tasks: [{ node_type: 'group_rules', action: 'change_rules', name: '修改团队规则', metadata: { project_id: previous.tasks[0].metadata.project_id, session_id: sessionId, patch, approval, parent_group_id: reportId, goal: previous.tasks[0].metadata.goal } }] })
     })
