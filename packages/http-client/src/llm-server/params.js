@@ -105,13 +105,16 @@ export function videoParameters(options) {
   }
 }
 
-export function chatParameters({ baseUrl, model, messages, requestId, apiKey = 'ollama' }) {
+export function chatParameters({ baseUrl, model, messages, requestId, apiKey = 'ollama', tools, toolChoice }) {
   if (typeof model !== 'string' || !model.trim()) throw Object.assign(new Error('需要非空文本模型名'), { status: 400 });
   // 标准非流式消息协议；不在客户端注入业务规则或采样默认值。
   return {
     url: new URL(`${gatewayBaseUrl(baseUrl)}/chat/completions`),
     apiKey: apiKey || 'ollama',
     headers: remoteTaskHeaders({ Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, requestId),
-    body: { model, messages: structuredClone(messages), stream: false },
+    body: { model, messages: structuredClone(messages), stream: false,
+      ...(tools !== undefined ? { tools: structuredClone(tools) } : {}),
+      ...(toolChoice !== undefined ? { tool_choice: structuredClone(toolChoice) } : {}),
+    },
   };
 }

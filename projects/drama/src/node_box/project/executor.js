@@ -92,9 +92,11 @@ export class ProjectExecutor {
     try {
       const current = (await this.snapshot(sessionId)).project
       if (!current || current.basic_info.id !== m.project_id || current.basic_info.actual_script !== originalScript) throw new Error('原稿已变化，摘要未写入')
-      const output = await extractOriginalSummary(ctx, { originalScript, models: this.models(), records: this.records })
+      const turn = await extractOriginalSummary(ctx, { originalScript, models: this.models(), records: this.records })
+      if (turn.pending) return turn.pending
+      const output = turn.output
       await this.saveSummary({ sessionId, projectId: m.project_id, originalScript, output, expectedSource: current.basic_info.original_script_file_path, signal: ctx.signal })
-      return { result: { output, changed: true, reference: '#/basic_info' } }
+      return { result: { output, changed: true, reference: '#/basic_info', box_turn: turn.trace } }
     } catch (error) {
       ctx.signal.throwIfAborted()
       if (error.code === 'NETWORK_CONNECTION_FAILED') throw error

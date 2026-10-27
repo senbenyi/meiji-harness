@@ -1,3 +1,4 @@
+import { advanceBoxMock, completedBusinessSteps } from './box-model-mock.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
@@ -42,7 +43,7 @@ async function fixture(t, respond = (_body, action) => action === 'review' ? pas
   const root = await mkdtemp(join(tmpdir(), 'drama-character-')), calls = []
   const mock = createServer(async (req, res) => {
     const chunks = []; for await (const chunk of req) chunks.push(chunk)
-    const body = JSON.parse(Buffer.concat(chunks)); const image = req.url.includes('/images/')
+    const body = JSON.parse(Buffer.concat(chunks)); if (advanceBoxMock(body,res)) return; const image = req.url.includes('/images/')
     const action = image ? 'image' : body.messages[0].content.match(/动作：(\w+)/)[1]
     const nodeType = image ? 'costume_image' : body.messages[0].content.match(/节点：(\w+)/)[1]
     calls.push({ action, body, nodeType })
@@ -90,7 +91,7 @@ test('一键全部生成三张定妆照，保存即完成且不请求审核，�
   const report = await f.images.wait(accepted.group_id, context.sessionId)
   assert.equal(report.status, 'completed')
   const detail = f.records.tasks.detail(f.records.scope, accepted.group_id)
-  assert.equal(detail.tasks.length, 3); assert.equal(detail.steps.length, 3)
+  assert.equal(detail.tasks.length, 3); assert.equal(completedBusinessSteps(detail).length, 3)
   const project = (await f.projects.snapshot(context.sessionId)).project
   const targets = imageTargets(project)
   assert.equal(targets.filter(row => row.image.address).length, 3)
@@ -101,7 +102,7 @@ test('一键全部生成三张定妆照，保存即完成且不请求审核，�
   const reviews = f.calls.filter(row => row.action === 'review' && Array.isArray(row.body.messages.at(-1).content))
   assert.equal(reviews.length, 0)
   assert.deepEqual(f.calls.slice(2).map(row => row.action), ['image', 'image', 'image'])
-  assert.ok(detail.steps.every(step => step.kind === 'generate' && step.result.saved))
+  assert.ok(completedBusinessSteps(detail).every(step => step.kind === 'generate' && step.result.saved))
   assert.ok(detail.tasks.every(task => task.metadata.input_snapshot.aspect_ratio === '3:4'))
   assert.ok(f.calls.filter(row => row.action === 'image').every(row => row.body.prompt.includes('3:4')))
   assert.ok(targets.every(row => row.image.aspect_ratio === '3:4'))
@@ -206,7 +207,7 @@ test('已有定妆照重新生成只执行一次图片请求，完成后更新�
   assert.equal(report.status, 'completed'); assert.equal(report.saved, true); assert.equal(report.requires_user_decision, false)
   assert.deepEqual(f.calls.slice(count).map(row => row.action), ['image'])
   const detail = f.records.tasks.detail(f.records.scope, second.group_id)
-  assert.equal(detail.steps.length, 1); assert.equal(detail.steps[0].kind, 'revise')
+  assert.equal(completedBusinessSteps(detail).length, 1); assert.equal(completedBusinessSteps(detail)[0].kind, 'revise')
   assert.equal(detail.tasks[0].metadata.input_snapshot.aspect_ratio, '3:4')
   assert.ok(f.calls.at(-1).body.prompt.includes('3:4'))
   const image = imageTargets((await f.projects.snapshot(f.context.sessionId)).project, '林舟', 'coat')[0].image
@@ -301,7 +302,7 @@ test('团队候选审核未通过仍保存，用户继续修改单独关联原�
   const accepted=await f.groups.generateGroups({instruction:'设定团队形象和共同服装',retry_of:report.group_id},{...f.context,requestId:'continue-group',source:'ui',retryAction:'continue'})
   const retried=await f.groups.waitGroups(accepted.group_id,f.context.sessionId)
   assert.equal(retried.status,'completed');assert.equal(retried.parent_group_id,report.group_id)
-  assert.deepEqual(f.records.tasks.detail(f.records.scope,accepted.group_id).steps.map(row=>row.kind),['revise','review'])
+  assert.deepEqual(completedBusinessSteps(f.records.tasks.detail(f.records.scope,accepted.group_id)).map(row=>row.kind),['revise','review'])
   verdict='rule_conflict'
   const conflict=await groupRun(f,'conflict')
   assert.equal(conflict.decision,'rule_conflict')
@@ -414,8 +415,8 @@ for (const type of ['groups','characters']) test(`${type}重新生成面板入�
   const wait=id=>type==='groups'?f.groups.waitGroups(id,f.context.sessionId):f.characters.waitCharacters(id,f.context.sessionId)
   const run=async(id,flag)=>{const response=await send(id,flag);assert.equal(response.status,202);const task=await response.json();await wait(task.group_id);return f.records.tasks.detail(f.records.scope,task.group_id)}
   await run('initial',false)
-  const revised=await run('revise',false);assert.equal(revised.steps[0].kind,'revise')
-  const regenerated=await run('regenerate',true);assert.equal(regenerated.steps[0].kind,'generate');assert.equal(regenerated.tasks[0].metadata.regenerate,true)
+  const revised=await run('revise',false);assert.equal(completedBusinessSteps(revised)[0].kind,'revise')
+  const regenerated=await run('regenerate',true);assert.equal(completedBusinessSteps(regenerated)[0].kind,'generate');assert.equal(regenerated.tasks[0].metadata.regenerate,true)
   assert.equal((await send('regenerate',true)).status,202);assert.notEqual((await send('regenerate',false)).status,202)
   assert.notEqual((await send('bad-flag','true')).status,202)
   const key=type==='groups'?'group_setting':'character_extraction', field=type==='groups'?'groups':'characters'

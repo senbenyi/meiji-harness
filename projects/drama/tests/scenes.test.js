@@ -1,3 +1,4 @@
+import { advanceBoxMock, completedBusinessSteps } from './box-model-mock.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
@@ -27,7 +28,7 @@ async function fixture(t, respond = (_body,action) => action==='review'?passed:c
   const root=await mkdtemp(join(tmpdir(),'drama-scenes-')),calls=[]
   const mock=createServer(async(req,res)=>{
     const chunks=[];for await(const chunk of req)chunks.push(chunk)
-    const body=JSON.parse(Buffer.concat(chunks)),action=body.messages[0].content.match(/动作：(\w+)/)[1]
+    const body=JSON.parse(Buffer.concat(chunks)); if (advanceBoxMock(body,res)) return; const action=body.messages[0].content.match(/动作：(\w+)/)[1]
     calls.push({action,body,path:req.url})
     const value=await respond(body,action)
     if(value?.__httpStatus){res.writeHead(value.__httpStatus,{'Content-Type':'application/json'});res.end(JSON.stringify({error:{message:'模拟场景请求失败'}}));return}
@@ -91,7 +92,7 @@ test('终态未通过保留场景候选和停止原因，用户继续修改关�
   accept=true
   const a=await f.scenes.extractScenes({instruction:'提取固定场景',retry_of:report.group_id},{...f.context,requestId:'continue',source:'ui',retryAction:'continue'})
   const result=await f.scenes.waitScenes(a.group_id,f.context.sessionId);assert.equal(result.status,'completed');assert.equal(result.parent_group_id,report.group_id)
-  assert.deepEqual(f.records.tasks.detail(f.records.scope,a.group_id).steps.map(row=>row.kind),['revise','review'])
+  assert.deepEqual(completedBusinessSteps(f.records.tasks.detail(f.records.scope,a.group_id)).map(row=>row.kind),['revise','review'])
 })
 
 test('场景规则冲突经原生授权修复，规则和意见只修改本盒子',async t=>{
@@ -233,7 +234,7 @@ test('场景修订和复审携带前轮意见及修改字段，复审仍可拒�
   })
   f.scenes.maxRevisionRounds=1
   const report=await f.run();assert.equal(report.status,'rejected');assert.equal(report.saved,true)
-  const detail=f.records.tasks.detail(f.records.scope,report.group_id),review=detail.steps.at(-1)
+  const detail=f.records.tasks.detail(f.records.scope,report.group_id),review=completedBusinessSteps(detail).at(-1)
   assert.equal(review.prompt.input.review_history[0].revision.applied,true)
   assert.match(report.reason,/新发现/)
   assert.equal(history.inputDependencies(detail.tasks[0],review.prompt.input).review_history,undefined)
@@ -268,7 +269,7 @@ test('面板HTTP重新生成从generate开始，普通修改仍revise，模式�
   const started=await response.json();await f.scenes.waitScenes(started.group_id,f.context.sessionId)
   const detail=f.records.tasks.detail(f.records.scope,started.group_id)
   assert.equal(detail.tasks[0].metadata.regenerate,true)
-  assert.deepEqual(detail.steps.map(row=>row.kind),['generate','review'])
+  assert.deepEqual(completedBusinessSteps(detail).map(row=>row.kind),['generate','review'])
   assert.equal((await send({regenerate:true})).status,202)
   assert.notEqual((await send({regenerate:false})).status,202)
   await assert.rejects(async()=>f.scenes.extractScenes({instruction:'重新提取',regenerate:'true'},f.context),/布尔/)

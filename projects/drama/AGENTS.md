@@ -6,6 +6,7 @@
 - 内容指纹、跨盒子一致性与下游过期处理集中于`src/project_runtime/hash-service.js`的`HashService`，目前未接入生产执行链。盒子Service/Executor不生成或读取input_hash/output_hash，不按内容hash拒绝保存或自动使下游/照片过期；资产state仅维护ID映射与历史资源。请求幂等ID和原稿文件身份由`request-identity.js`维护，审核重复问题用直接内容比较，保留项目归属、活动Task、取消与字段校验。
 - 当前架构见 `docs/开发方向.md`；项目结构说明见 `docs/project_detail.json`，程序不得读取该文档作为运行时模板。
 - 业务代码放 `src/`；公共规则与状态分别使用 `@agent-modules/prompt-composer`、`@agent-modules/task/models`。不导入 meiji 业务模块。
+- 盒子本地规则位于 `src/node_box/<盒子名>/skills/`，各 `index.md` 列出主题和适用动作。六个文本盒子及项目摘要已接入 `node_runtime/box_model_runner.js`：每阶段首轮仅发送目标和索引，模型后续通过工具读取规则/资料/输出契约并提交结果；每轮独立Step，阶段内续接消息，审核与作者上下文分离。原集中JSON继续初始化项目规则；Task规则快照中的定制base和有效补充规则优先且必须读取。图片和未实现的视频提示词执行器暂不接入此循环。详见开发方向“盒子按需读取执行循环”。
 - 项目 JSON 经 `ProjectManager` / `ProjectModel.update()` 写入 `$DSH_HOME/storages/drama/projects/<id>/project.json`；工作区/会话及创建请求索引单独保存于 `bindings.json`。
 - 根运行 `npm run test:drama`，跨插件/工程集成执行 `npm test`；计划和实施记录沿用根目录。
 - GitNexus 使用根指引的 `agent-harness` 仓库配置；当前 MCP 注册名为 `meiji-harness`，CLI 使用 `.gitnexus/run.cjs`。
@@ -34,7 +35,7 @@
 
 - 盒子步骤结束后将完整结果写入任务固定所属会话，仅展示、不进入模型上下文。审核有问题显示红色“未通过”，保留每轮修改及复审；面板受理、各步骤和盒子终态各用稳定ID去重。面板操作统一展示请求、聚合执行组及最终保存结果，空/正常会话复用client/ui/task-operation组件，失败终态单独挂载client/ui/failure-decision卡片，显示真实保存事实与用户操作；正常会话附加于对应原生command公开座位并仅隐藏本组原生展示，不伪造聊天轮次。盒子输入取metadata.input_snapshot，步骤输入取step.prompt.input；完整内容随会话首次加载预载，eager/after轮询只补新增详情及pending任务终态；展开优先同步使用缓存，compact消息列表不携带正文/规则/输出，历史不读取最新项目补造。展示和主Agent通知独立持久化与重试：首次生成成功与取消不唤醒AI；已有文本内容修改成功的coordination_required报告及可规划rejected/failed发送drama-box-report，但终态content_issue或执行failed只展示并等待用户选择继续修改、停止或重新生成，不唤醒主Agent；中间审核失败仅展示。不创建任务专用或失败兜底会话；创建尚未产生项目会话时归来源会话，创建成功后归项目会话。详见开发方向“面板任务与会话交接”。
 
-- 原稿展示摘要由项目盒子summary_extractor.js一次llm-http提取：创建有稿/导入后执行，无稿跳过，无审核或自动修订；按project/definition.js契约保存basic_info.summary及estimated_duration_seconds，创建状态使用basic_info.create_project_node；输出校验等摘要失败仅警告、不撤回主操作；网络连接失败在HTTP层等待1秒重试一次，仍失败则结束盒子，任务failed、原因“网络连接失败”，保留已保存原稿，不进入审核或修订。优化稿继续随正文返回摘要和估时，并在审核通过后同步到basic_info，不新增摘要调用。
+- 原稿展示摘要由项目盒子summary_extractor.js在同一Task内按需读取规则/原稿并提交，每轮一个llm-http Step；创建有稿/导入后执行，无稿跳过，无审核或自动内容修订，提交结构无效仍立即警告。按project/definition.js契约保存basic_info.summary及estimated_duration_seconds，创建状态使用basic_info.create_project_node；摘要失败不撤回主操作；网络连接失败在HTTP层等待1秒重试一次，仍失败则结束盒子并保留原稿。优化稿继续随正文返回摘要和估时，不新增摘要任务。
 
 - 盒子执行边界：Service创建/提交Task并返回结果；Executor注册节点、声明/追加Step并使用执行上下文记录提示词和调用；公共TaskManager统一写状态、时间与步骤结果，双方不直接写任务数据库。一次业务盒子执行一个Task，内部修订追加Step，重新派发才新建Task；TaskGroup只是任务组织容器。项目盒子的ProjectExecutor与创建程序子执行器位于project/executor.js，Service仅提供受理及数据读写能力。
 

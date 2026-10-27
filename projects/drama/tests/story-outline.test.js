@@ -1,3 +1,4 @@
+import { advanceBoxMock, completedBusinessSteps } from './box-model-mock.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
@@ -26,7 +27,7 @@ async function fixture(t, response = call => call.action === 'review' ? passed :
   const mock = createServer(async (req, res) => {
     try {
       const chunks = []; for await (const chunk of req) chunks.push(chunk)
-      const body = JSON.parse(Buffer.concat(chunks)), action = body.messages.find(row => row.role === 'system').content.match(/动作：(\w+)/)[1]
+      const body = JSON.parse(Buffer.concat(chunks)); if (advanceBoxMock(body,res)) return; const action = body.messages.find(row => row.role === 'system').content.match(/动作：(\w+)/)[1]
       const call = { ...body, action }; calls.push(call)
       const value = await response(call, calls.length)
       res.writeHead(200, { 'Content-Type': 'application/json' })
@@ -71,14 +72,14 @@ test('大纲HTTP重新生成首步generate，修改首步revise，幂等请求�
   assert.equal((await f.stories.waitStoryOutline(accepted.group_id, f.context.sessionId)).status, 'completed')
   const detail = f.records.tasks.detail('drama', accepted.group_id)
   assert.equal(detail.tasks[0].metadata.regenerate, true)
-  assert.equal(detail.steps[0].kind, 'generate')
-  assert.deepEqual(detail.steps[0].prompt.input.current_outline, before)
+  assert.equal(completedBusinessSteps(detail)[0].kind, 'generate')
+  assert.deepEqual(completedBusinessSteps(detail)[0].prompt.input.current_outline, before)
   assert.equal((await send({ regenerate: true })).status, 202)
   assert.notEqual((await send({ regenerate: false })).status, 202)
   const modified = await send({ request_id: 'panel-modify', regenerate: false, instruction: '修改当前大纲' })
   assert.equal(modified.status, 202)
   const changed = await modified.json(); await f.stories.waitStoryOutline(changed.group_id, f.context.sessionId)
-  assert.equal(f.records.tasks.detail('drama', changed.group_id).steps[0].kind, 'revise')
+  assert.equal(completedBusinessSteps(f.records.tasks.detail('drama', changed.group_id))[0].kind, 'revise')
   assert.throws(() => f.stories.generateStoryOutline({ instruction: '生成', regenerate: 'true' }, f.context), /布尔/)
   assert.throws(() => f.stories.generateStoryOutline({ instruction: '生成', regenerate: true, retry_of: 'old' }, f.context), /不能同时/)
 })
@@ -95,12 +96,12 @@ test('会话Tool生成、审核、保存完整大纲；输入有界，记录关�
   assert.equal(project.basic_info.actual_script, '林舟在旧车站把信交还陈叔。')
   assert.deepEqual(f.calls.map(row => [row.action, row.model]), [['generate', 'writer-test'], ['review', 'writer-test']])
   const detail = f.records.tasks.detail('drama', report.group_id)
-  assert.deepEqual(detail.steps.map(step => step.kind), ['generate', 'review'])
-  assert.deepEqual(detail.steps[0].prompt.input.current_outline, { segments: [] })
-  assert.deepEqual(detail.steps[1].prompt.input.current_outline, candidate())
-  assert.deepEqual(detail.steps[0].prompt.input.basic_info, detail.steps[1].prompt.input.basic_info)
+  assert.deepEqual(completedBusinessSteps(detail).map(step => step.kind), ['generate', 'review'])
+  assert.deepEqual(completedBusinessSteps(detail)[0].prompt.input.current_outline, { segments: [] })
+  assert.deepEqual(completedBusinessSteps(detail)[1].prompt.input.current_outline, candidate())
+  assert.deepEqual(completedBusinessSteps(detail)[0].prompt.input.basic_info, completedBusinessSteps(detail)[1].prompt.input.basic_info)
   for (const step of detail.steps) {
-    assert.deepEqual(Object.keys(step.prompt.input).sort(), ['basic_info', 'current_outline', 'instruction', 'output_language'].sort())
+    assert.deepEqual(Object.keys(step.prompt.input).sort(), ['basic_info', 'current_outline', 'instruction', 'output_language', ...(step.kind === 'review' ? ['previous_issues'] : [])].sort())
     assert.equal(step.http.length, 1); assert.equal(step.http[0].prompt_id, step.prompt.id)
     const row = f.records.http.read(step.http[0].id)
     assert.equal(row.ok, true); assert.deepEqual(row.params.messages, step.prompt.messages)
@@ -127,15 +128,15 @@ test('本地内容问题自动修订后通过，完整候选与审核意见传�
   await editDisk(f, p => { p.character_extraction.node_state.status = 'generated'; p.character_extraction.characters = [{ id: 'c1', name: '林舟' }] })
   const report = await run(f, '补全递信'), detail = f.records.tasks.detail('drama', report.group_id)
   assert.equal(report.status, 'completed')
-  assert.deepEqual(detail.steps.map(row => [row.kind, row.round]), [['generate',0],['review',0],['revise',1],['review',1]])
-  assert.deepEqual(detail.steps[2].prompt.input.review_issues, issue().issues)
-  assert.equal(detail.steps[2].prompt.input.current_outline.segments[0].body, '第1稿')
+  assert.deepEqual(completedBusinessSteps(detail).map(row => [row.kind, row.round]), [['generate',0],['review',0],['revise',1],['review',1]])
+  assert.deepEqual(completedBusinessSteps(detail)[2].prompt.input.review_issues, issue().issues)
+  assert.equal(completedBusinessSteps(detail)[2].prompt.input.current_outline.segments[0].body, '第1稿')
   const project = (await f.projects.snapshot(f.context.sessionId)).project
   assert.equal(project.story_segments.node_state.opinion, ''); assert.equal(project.character_extraction.node_state.status, 'generated')
   assert.equal(project.character_extraction.characters[0].name, '林舟')
   f.context.requestId = 'next'
   const modified = await run(f, '继续完善')
-  assert.equal(modified.status, 'completed'); assert.equal(f.records.tasks.detail('drama', modified.group_id).steps[0].kind, 'revise')
+  assert.equal(modified.status, 'completed'); assert.equal(completedBusinessSteps(f.records.tasks.detail('drama', modified.group_id))[0].kind, 'revise')
   assert.equal((await f.projects.snapshot(f.context.sessionId)).project.story_segments.segments[0].id, 'seg_1')
 })
 
@@ -151,8 +152,8 @@ for (const status of ['rule_conflict', 'upstream_issue', 'repeated', 'limit']) t
   const last = after.story_segments.node_state.last_execution
   assert.equal(last.stop_code, ['limit', 'repeated'].includes(status) ? 'content_issue' : status)
   const detail = f.records.tasks.detail('drama', report.group_id)
-  if (status === 'limit') assert.equal(detail.steps.length, 8)
-  if (status === 'repeated') assert.equal(detail.steps.length, 4)
+  if (status === 'limit') assert.equal(completedBusinessSteps(detail).length, 8)
+  if (status === 'repeated') assert.equal(completedBusinessSteps(detail).length, 4)
   const output = taskHistoryPresentation.taskOutput(detail.tasks[0], detail.steps)
   assert.equal(output.result, null); assert.ok(output.partial_result.output.segments.length)
   assert.deepEqual(displayContext(detail, detail.tasks[0]).final_output, storyOutput(after))
@@ -324,11 +325,11 @@ for (const retryAction of ['continue', 'regenerate']) test(`内容审核未通�
   assert.equal(response.status, 202)
   const accepted = await response.json(), report = await f.stories.waitStoryOutline(accepted.group_id, f.context.sessionId)
   assert.equal(report.status, 'completed'); assert.equal(report.parent_group_id, first.group_id)
-  const next = f.records.tasks.detail('drama', report.group_id), input = next.steps[0].prompt.input
-  assert.equal(next.steps[0].kind, retryAction === 'continue' ? 'revise' : 'generate')
+  const next = f.records.tasks.detail('drama', report.group_id), input = completedBusinessSteps(next)[0].prompt.input
+  assert.equal(completedBusinessSteps(next)[0].kind, retryAction === 'continue' ? 'revise' : 'generate')
   if (retryAction === 'continue') {
-    assert.deepEqual(input.current_outline, old.steps[0].result.output)
-    assert.deepEqual(input.review_issues, old.steps[1].result.review.issues)
+    assert.deepEqual(input.current_outline, completedBusinessSteps(old)[0].result.output)
+    assert.deepEqual(input.review_issues, completedBusinessSteps(old)[1].result.review.issues)
   } else {
     assert.deepEqual(input.current_outline, candidate()); assert.equal(input.review_issues, undefined)
   }
@@ -345,7 +346,7 @@ test('一次审核收到全部故事段，多个段的问题完整进入同一�
   const f = await fixture(t, call => call.action === 'review' ? ++reviews === 1 ? { status: 'content_issue', issues } : passed : output)
   const report = await run(f), detail = f.records.tasks.detail('drama', report.group_id)
   assert.equal(report.status, 'completed')
-  const review = detail.steps.find(step => step.kind === 'review'), revise = detail.steps.find(step => step.kind === 'revise')
+  const review = completedBusinessSteps(detail).find(step => step.kind === 'review'), revise = completedBusinessSteps(detail).find(step => step.kind === 'revise')
   assert.deepEqual(review.prompt.input.current_outline.segments.map(segment => segment.id), ['seg_1', 'seg_2'])
   assert.deepEqual(revise.prompt.input.review_issues, issues)
   const system = f.calls.find(call => call.action === 'review').messages[0].content

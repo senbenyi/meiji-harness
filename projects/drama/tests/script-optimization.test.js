@@ -1,3 +1,4 @@
+import { advanceBoxMock, completedBusinessSteps } from './box-model-mock.js'
 import { scriptOutput, scriptSummary } from '../src/node_runtime/node_state.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -22,7 +23,7 @@ async function fixture(t, response, { script = '原稿：主角走进房间。' 
   const mock = createServer(async (req, res) => {
     try {
       const chunks = []; for await (const chunk of req) chunks.push(chunk)
-      const body = JSON.parse(Buffer.concat(chunks)), projectReview = body.messages[0].content.includes('你是主Agent的项目审核')
+      const body = JSON.parse(Buffer.concat(chunks)); if (advanceBoxMock(body,res)) return; const projectReview = body.messages[0].content.includes('你是主Agent的项目审核')
       const action = projectReview ? 'project_review' : body.messages.find(m => m.role === 'system').content.match(/动作：(\w+)/)[1]
       const call = { ...body, action }; calls.push(call)
       const value = await response(call, calls.length)
@@ -62,8 +63,8 @@ for (const phase of ['generate', 'review']) test(`${phase}网络连接失败重�
   assert.match(result.reason, /网络连接失败/)
   assert.equal(result.saved, phase === 'review')
   const detail = f.projects.records.tasks.detail('drama', result.group_id)
-  assert.deepEqual(detail.steps.map(step => step.kind), phase === 'generate' ? ['generate'] : ['generate', 'review'])
-  assert.equal(detail.steps.at(-1).step_status, 'failed')
+  assert.deepEqual(completedBusinessSteps(detail).map(step => step.kind), phase === 'generate' ? ['generate'] : ['generate', 'review'])
+  assert.equal(completedBusinessSteps(detail).at(-1).step_status, 'failed')
   assert.deepEqual(f.calls.map(call => call.action), phase === 'generate' ? [] : ['generate'])
   assert.equal(f.projects.records.tasks.activeGroups('drama').length, 0)
 })
@@ -91,7 +92,7 @@ test('优化生成/本地审核真实模拟HTTP并返回主Agent报告，字段�
   assert.ok(f.calls.every(call => JSON.stringify(call.messages).includes('人物改为缓慢转身')))
   assert.ok(f.calls.every(call => !JSON.stringify(call.messages).includes('character_extraction')))
   const detail = f.projects.records.tasks.detail('drama', result.group_id)
-  assert.equal(detail.steps.length, 2)
+  assert.equal(completedBusinessSteps(detail).length, 2)
   const history = await (await f.request(`/api/drama/task-history?unit=task&project_id=${f.created.project_id}&node_type=script_revision&status=completed`)).json()
   assert.equal(history.total,1);assert.equal(history.tasks[0].id,detail.tasks[0].id)
   const unrelated = await (await f.request(`/api/drama/task-history?unit=task&project_id=p_00000000-0000-0000-0000-000000000000&node_type=script_revision`)).json()
@@ -125,13 +126,13 @@ test('已有优化稿按意见修订，本地与项目审核内容问题自动�
   assert.equal(result.status, 'completed'); assert.equal(generation, 3)
   const detail = f.projects.records.tasks.detail('drama', result.group_id)
   assert.equal(detail.tasks.length, 1)
-  assert.ok(detail.steps.every(step => step.task_id === result.task_id))
-  assert.deepEqual(detail.steps.map(s => s.kind), ['generate','review','revise','review','revise','review'])
+  assert.ok(completedBusinessSteps(detail).every(step => step.task_id === result.task_id))
+  assert.deepEqual(completedBusinessSteps(detail).map(s => s.kind), ['generate','review','revise','review','revise','review'])
   f.context.requestId = 'next'
   const next = await run(f, '继续优化对白')
   assert.notEqual(next.task_id, result.task_id)
-  assert.equal(f.projects.records.tasks.detail('drama', result.group_id).steps.length, 6)
-  assert.equal(f.projects.records.tasks.detail('drama', next.group_id).steps[0].kind, 'revise')
+  assert.equal(completedBusinessSteps(f.projects.records.tasks.detail('drama', result.group_id)).length, 6)
+  assert.equal(completedBusinessSteps(f.projects.records.tasks.detail('drama', next.group_id))[0].kind, 'revise')
 })
 
 test('面板harness-http与会话Tool并发提交同一优化请求，仅执行一次且快照保留执行状态', async t => {
@@ -168,7 +169,7 @@ for (const status of ['rule_conflict','upstream_issue','repeated']) test('审核
   const before = (await f.projects.snapshot(f.context.sessionId)).project
   const result = await run(f), after = (await f.projects.snapshot(f.context.sessionId)).project
   assert.equal(result.status, 'rejected'); assert.equal(result.saved, true); assert.deepEqual(scriptOutput(after), candidate())
-  assert.deepEqual(f.projects.records.tasks.detail('drama',result.group_id).steps.findLast(step=>step.result?.output)?.result.output,candidate())
+  assert.deepEqual(completedBusinessSteps(f.projects.records.tasks.detail('drama',result.group_id)).findLast(step=>step.result?.output)?.result.output,candidate())
   assert.deepEqual(after.basic_info.script_revision_node.rules, before.basic_info.script_revision_node.rules); assert.equal(after.basic_info.original_script_file_path, before.basic_info.original_script_file_path)
   assert.equal(after.basic_info.script_revision_node.status, 'rejected')
   assert.equal(f.calls.length, status === 'repeated' ? 4 : 2)
@@ -232,7 +233,7 @@ test('Service属性限定三轮自动修订，到上限仍不通过则保留候�
   assert.equal(result.status,'rejected');assert.equal(result.decision,'content_issue');assert.doesNotMatch(result.reason,/最大修订轮次/)
   assert.equal(generation,4);assert.equal(f.calls.length,8)
   const detail=f.projects.records.tasks.detail('drama',result.group_id)
-  assert.deepEqual(detail.steps.filter(step=>step.kind==='revise').map(step=>step.round),[1,2,3])
+  assert.deepEqual(completedBusinessSteps(detail).filter(step=>step.kind==='revise').map(step=>step.round),[1,2,3])
   assert.equal((await f.projects.snapshot(f.context.sessionId)).project.basic_info.actual_script,'版本4')
 })
 
@@ -253,7 +254,7 @@ test('已有稿首次按意见修改不占自动修订轮数，后续仍最多�
   const result=await run(f,'新的本次修改意见')
   const detail=f.projects.records.tasks.detail('drama',result.group_id)
   assert.equal(result.status,'rejected')
-  assert.deepEqual(detail.steps.filter(step=>step.kind==='revise').map(step=>step.round),[0,1,2,3])
+  assert.deepEqual(completedBusinessSteps(detail).filter(step=>step.kind==='revise').map(step=>step.round),[0,1,2,3])
 })
 
 test('执行期间不做内容hash拦截；中断任务重开恢复为失败，不自动重放', async t => {
@@ -480,7 +481,7 @@ test('Service显式输入契约：当前稿、要求、语言必选，工作稿�
   const result=await run(f)
   const detail=f.projects.records.tasks.detail('drama',result.group_id)
   for(const step of detail.steps) {
-    assert.deepEqual(Object.keys(step.prompt.input).sort(),['current_script','instruction','output_language'].sort())
+    assert.deepEqual(Object.keys(step.prompt.input).sort(),['current_script','instruction','output_language', ...(step.kind === 'review' ? ['previous_issues'] : [])].sort())
   }
   const saved=detail.tasks[0].metadata.input_snapshot
   assert.equal(Object.hasOwn(saved,'creative_requirements'),false);assert.equal(Object.hasOwn(saved,'reference_episode_duration_seconds'),false)
@@ -595,9 +596,9 @@ for (const retryAction of ['continue', 'regenerate']) test(`用户${retryAction}
   const accepted = await f.scriptRevision.optimizeScript({ instruction: '人物改为缓慢转身', retry_of: first.group_id }, { ...f.context, source: 'ui', retryAction, requestId: 'user-retry' })
   const report = await f.scriptRevision.waitScriptOptimization(accepted.group_id, f.context.sessionId)
   assert.equal(report.status, 'completed')
-  const next = f.projects.records.tasks.detail('drama', report.group_id), input = next.steps[0].prompt.input
+  const next = f.projects.records.tasks.detail('drama', report.group_id), input = completedBusinessSteps(next)[0].prompt.input
   assert.equal(input.current_script.actual_script, '最后候选稿')
-  if (retryAction === 'continue') assert.deepEqual(input.review_issues, old.steps[1].result.review.issues)
+  if (retryAction === 'continue') assert.deepEqual(input.review_issues, completedBusinessSteps(old)[1].result.review.issues)
   else assert.equal(input.review_issues, undefined)
   const count = f.calls.length
   const again = await f.scriptRevision.optimizeScript({ instruction: '人物改为缓慢转身', retry_of: first.group_id }, { ...f.context, source: 'ui', retryAction, requestId: 'user-retry' })

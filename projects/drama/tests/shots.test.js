@@ -1,3 +1,4 @@
+import { advanceBoxMock, completedBusinessSteps } from './box-model-mock.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
@@ -27,7 +28,7 @@ async function fixture(t, respond = (_body,action) => action==='review'?passed:c
   const root=await mkdtemp(join(tmpdir(),'drama-scenes-')),calls=[]
   const mock=createServer(async(req,res)=>{
     const chunks=[];for await(const chunk of req)chunks.push(chunk)
-    const body=JSON.parse(Buffer.concat(chunks)),action=body.messages[0].content.match(/动作：(\w+)/)[1]
+    const body=JSON.parse(Buffer.concat(chunks)); if (advanceBoxMock(body,res)) return; const action=body.messages[0].content.match(/动作：(\w+)/)[1]
     calls.push({action,body,path:req.url})
     let value=await respond(body,action)
     if(value?.__httpStatus){res.writeHead(value.__httpStatus,{'Content-Type':'application/json'});res.end(JSON.stringify({error:{message:'模拟场景请求失败'}}));return}
@@ -287,11 +288,12 @@ test('空集合和结构错误在独立预算内修复，修复输入保留原�
   const r=await f.run();assert.equal(r.status,'completed')
   assert.deepEqual(f.calls.map(row=>row.action),['generate','generate','generate','review'])
   const detail=f.records.tasks.detail(f.records.scope,r.group_id)
-  assert.deepEqual(detail.steps.map(row=>row.round),[0,0,0,0])
-  assert.match(detail.steps[1].prompt.input.output_repair.validation_error.message,/不能为空/)
-  assert.equal(detail.steps[1].prompt.input.output_repair.invalid_output,'{"shots":[]}')
-  assert.match(detail.steps[2].prompt.input.output_repair.validation_error.message,/缺少必填字段/)
-  assert.equal(detail.steps[0].result.saved,undefined);assert.equal(detail.steps[2].result.saved,true)
+  assert.deepEqual(completedBusinessSteps(detail).map(row=>row.round),[0,0,0,0])
+  assert.match(completedBusinessSteps(detail)[0].result.box_turn.validation_error.message,/不能为空/)
+  assert.equal(completedBusinessSteps(detail)[0].result.box_turn.invalid_output,'{"shots":[]}')
+  assert.match(completedBusinessSteps(detail)[1].result.box_turn.validation_error.message,/缺少必填字段/)
+  assert.match(JSON.stringify(completedBusinessSteps(detail)[2].prompt.messages),/缺少必填字段/,'修复反馈进入后续真实上下文')
+  assert.equal(completedBusinessSteps(detail)[0].result.saved,undefined);assert.equal(completedBusinessSteps(detail)[2].result.saved,true)
 })
 
 test('输出修复耗尽明确失败且不覆盖原分镜，不无限重试或降低校验', async t => {
@@ -314,9 +316,9 @@ test('审核引用捏造原文时只重审，不按错误意见修改正文，�
   const r=await f.run();assert.equal(r.status,'completed')
   assert.deepEqual(f.calls.map(row=>row.action),['generate','review','review'])
   const detail=f.records.tasks.detail(f.records.scope,r.group_id)
-  assert.equal(detail.steps[1].result.validation_error.code,'INVALID_SHOT_REVIEW')
-  assert.equal(detail.steps[2].prompt.input.previous_issues.length,0,'无效审核不能成为已确认的旧问题')
-  assert.match(detail.steps[2].prompt.input.output_repair.validation_error.message,/引用不是当前原文/)
+  assert.equal(completedBusinessSteps(detail)[1].result.box_turn.validation_error.code,'INVALID_SHOT_REVIEW')
+  assert.equal(completedBusinessSteps(detail)[2].prompt.input.previous_issues.length,0,'无效审核不能成为已确认的旧问题')
+  assert.match(JSON.stringify(completedBusinessSteps(detail)[2].prompt.messages),/引用不是当前原文/)
   assert.deepEqual((await f.projects.snapshot(f.context.sessionId)).project.shot_design.shots,candidate().shots)
   const g=await fixture(t,(_body,action)=>action==='review'?invalidEvidence():candidate())
   const stopped=await g.run();assert.equal(stopped.status,'failed');assert.equal(stopped.saved,true)

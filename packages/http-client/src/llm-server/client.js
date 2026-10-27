@@ -80,6 +80,10 @@ export async function downloadRemoteVideo({ url, signal, fetchImpl = fetch, apiK
 }
 
 export const modelClient = Object.freeze({
+  turn(options) {
+    const request = chatParameters(options);
+    return sendChat(request, { ...transportOptions(request, options, 'sendChat'), returnMessage: true });
+  },
   complete(options) {
     const request = chatParameters(options);
     return sendChat(request, transportOptions(request, options, 'sendChat'));

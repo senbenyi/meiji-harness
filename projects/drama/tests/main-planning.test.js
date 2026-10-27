@@ -1,3 +1,4 @@
+import { advanceBoxMock, completedBusinessSteps } from './box-model-mock.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm, readFile } from 'node:fs/promises'
@@ -101,7 +102,7 @@ async function fixture(t, kind = 'rule') {
   const root = await mkdtemp(join(tmpdir(), 'drama-main-planning-')), calls = []
   const server = createServer(async (req, res) => {
     const chunks = []; for await (const chunk of req) chunks.push(chunk)
-    const body = JSON.parse(Buffer.concat(chunks)), system = body.messages.find(message => message.role === 'system').content
+    const body = JSON.parse(Buffer.concat(chunks)); if (advanceBoxMock(body,res)) return; const system = body.messages.find(message => message.role === 'system').content
     const action = system.match(/动作：(\w+)/)[1], input = JSON.parse(body.messages.find(message => message.role === 'user').content.split('# 本次资料\n')[1])
     calls.push({ action, body })
     const passed = kind === 'pass' || (kind === 'rule' ? system.includes('冲突修复已授权') : input.current_script.actual_script === '修复后的原始剧本')
@@ -291,10 +292,10 @@ for (const kind of ['pass', 'upstream', 'rule']) test(`面板${kind}：开始和
   await dispatcher.flush(); await dispatcher.dispose()
   const starts = events.filter(event => event.type === 'command/run')
   const results = events.filter(event => event.type === 'command/done')
-  assert.equal(starts.length, 4); assert.equal(results.length, 4)
+  assert.equal(starts.length, 6); assert.equal(results.length, 6, '两阶段各有读取和提交Step，开始及终态各展示一次')
   const cards = starts.map(event => JSON.parse(event.data.args))
-  assert.deepEqual(cards.map(card => card.phase), ['start', 'step', 'step', 'result'])
-  assert.equal(cards[2].status, kind === 'pass' ? 'done' : 'rejected')
+  assert.deepEqual(cards.map(card => card.phase), ['start', 'step', 'step', 'step', 'step', 'result'])
+  assert.equal(cards[4].status, kind === 'pass' ? 'done' : 'rejected')
   assert.notEqual(starts[0].data.commandId, starts[1].data.commandId)
   assert.match(results[0].data.text, /已受理/); assert.match(results.at(-1).data.text, /本次面板要求/)
   assert.ok(!events.some(event => event.type === 'user/message' || event.type === 'assistant/message'))

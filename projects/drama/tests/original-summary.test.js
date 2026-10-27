@@ -1,3 +1,4 @@
+import { advanceBoxMock, completedBusinessSteps } from './box-model-mock.js'
 import { scriptSummary } from '../src/node_runtime/node_state.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -17,7 +18,7 @@ async function fixture(t) {
   const f = { root, calls, reply: input => JSON.stringify({ estimated_duration_seconds: 90, summary: `摘要：${input.original_script}` }) }
   const server = createServer(async (req, res) => {
     const chunks = []; for await (const chunk of req) chunks.push(chunk)
-    const body = JSON.parse(Buffer.concat(chunks)), input = JSON.parse(body.messages.at(-1).content)
+    const body = JSON.parse(Buffer.concat(chunks)); if (advanceBoxMock(body,res)) return; const input = JSON.parse(body.messages.at(-1).content.split('# 本次资料\n')[1])
     calls.push(body)
     const content = await f.reply(input)
     if (!res.destroyed) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })) }
@@ -51,8 +52,8 @@ test('模型拒绝连接时HTTP层1秒后重试一次，面板摘要终态停止
   const detail = f.records.tasks.detail(f.records.scope, created.group_id)
   assert.equal(detail.status, 'failed')
   assert.match(detail.reason, /网络连接失败/)
-  assert.equal(detail.steps.find(step => step.kind === 'extract_summary').step_status, 'failed')
-  assert.equal(detail.steps.find(step => step.kind === 'extract_summary').result.error_code, 'NETWORK_CONNECTION_FAILED')
+  assert.equal(completedBusinessSteps(detail).find(step => step.kind === 'extract_summary').step_status, 'failed')
+  assert.equal(completedBusinessSteps(detail).find(step => step.kind === 'extract_summary').result.error_code, 'NETWORK_CONNECTION_FAILED')
   assert.equal(snapshot.project.basic_info.create_project_node.last_execution.stop_code, 'network_connection_failed')
   assert.equal(f.records.tasks.activeGroups(f.records.scope).length, 0)
   assert.equal(f.records.http.list().at(-1).ok, false)
@@ -71,12 +72,12 @@ test('创建有原稿提取一次摘要、无原稿跳过；任务/提示词/调
   const detail = f.records.tasks.detail(f.records.scope, created.group_id)
   assert.equal(detail.tasks.length, 1)
   assert.equal(detail.tasks[0].id, created.report.task_id)
-  assert.ok(detail.steps.every(step => step.task_id === created.report.task_id))
-  assert.deepEqual(detail.steps.map(step => step.kind), ['create', 'extract_summary'])
-  assert.equal(detail.steps[1].executor, 'ai')
-  assert.equal(detail.steps[1].http.length, 1)
-  assert.equal(detail.steps[1].http[0].prompt_id, detail.steps[1].prompt.id)
-  assert.equal(f.records.http.list().length, 1)
+  assert.ok(completedBusinessSteps(detail).every(step => step.task_id === created.report.task_id))
+  assert.deepEqual(completedBusinessSteps(detail).map(step => step.kind), ['create', 'extract_summary'])
+  assert.equal(completedBusinessSteps(detail)[1].executor, 'ai')
+  assert.equal(completedBusinessSteps(detail)[1].http.length, 1)
+  assert.equal(completedBusinessSteps(detail)[1].http[0].prompt_id, completedBusinessSteps(detail)[1].prompt.id)
+  assert.equal(f.records.http.list().length, 2, '读取与提交各自记录一次模型请求')
   assert.equal(f.calls[0].model, 'writer'); assert.equal(f.calls[0].messages.length, 2)
   const repeated = await f.projects.create({ name: '有原稿', original_script: '小雨归还雨伞。' }, context)
   assert.equal(repeated.group_id, created.group_id); assert.equal(f.calls.length, 1)
@@ -93,9 +94,9 @@ test('导入和替换原稿均提取摘要，导入幂等，旧优化结果不�
   assert.equal(first.project.basic_info.summary, '摘要：第一稿')
   const detail = f.records.tasks.detail(f.records.scope, first.group_id)
   assert.equal(detail.tasks.length, 1)
-  assert.ok(detail.steps.every(step => step.task_id === first.report.task_id))
+  assert.ok(completedBusinessSteps(detail).every(step => step.task_id === first.report.task_id))
   assert.notEqual(first.report.task_id, created.report.task_id)
-  assert.deepEqual(detail.steps.map(step => step.kind), ['import_script', 'extract_summary'])
+  assert.deepEqual(completedBusinessSteps(detail).map(step => step.kind), ['import_script', 'extract_summary'])
   const command = { kind: 'import_script', value: '第二稿', previousValue: first.project.basic_info.original_script_file_path }, nextContext = { ...context, requestId: 'import-2' }
   const next = await f.projects.edit(command, nextContext)
   await f.projects.edit(command, nextContext)
@@ -184,7 +185,7 @@ for (const outcome of ['success', 'invalid', 'cancel']) test(`面板创建不等
   assert.equal(final.project.basic_info.summary, outcome === 'success' ? '后台生成的摘要' : '')
   assert.ok(events.some(event => event.session_ids.includes(created.session_id)))
   const detail = f.records.tasks.detail(f.records.scope, created.group_id)
-  assert.equal(detail.tasks.length, 1); assert.deepEqual(detail.steps.map(step => step.kind), ['create', 'extract_summary'])
+  assert.equal(detail.tasks.length, 1); assert.deepEqual(completedBusinessSteps(detail).map(step => step.kind), ['create', 'extract_summary'])
   assert.equal(detail.status, outcome === 'cancel' ? 'cancelled' : 'completed')
 })
 
