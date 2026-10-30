@@ -10,6 +10,6 @@ export async function executeUnit(ctx){const id=ctx.task.metadata.project_id;let
       if(source)assertSourceText(body,chapters)
       await this.projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();p.source_analysis={source_revision_id:source?.id||null,chapters,facts_ref:null,coverage_ref:null};p.node_states.source_analysis.product_revision++;p.node_states.source_analysis.checkpoint=null;return p})
       result={saved:true,chapters:chapters.length,characters:body.length}
-    
+
 return result
 }

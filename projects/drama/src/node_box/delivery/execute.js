@@ -14,6 +14,6 @@ export async function executeUnit(ctx){const id=ctx.task.metadata.project_id;let
       const exports=[]
       for(const episode of sorted){ctx.signal.throwIfAborted();const input_snapshot_ref=await this.projects.documents.writeArtifact(id,JSON.stringify({episode,timeline,settings:project.delivery.settings}),{extension:'json'}),rendered=await renderTimeline(this.service,ctx,project,timeline,{start:episode.start_seconds,end:episode.end_seconds}),file_ref=await this.projects.documents.writeArtifact(id,rendered.bytes,{kind:'exports',extension:'mp4'}),settings_ref=await this.projects.documents.writeArtifact(id,JSON.stringify(project.delivery.settings),{extension:'json'}),validation_report_ref=await this.projects.documents.writeArtifact(id,JSON.stringify(rendered.validation),{extension:'json'}),subtitles_ref=rendered.subtitles.trim()?await this.projects.documents.writeArtifact(id,rendered.subtitles,{kind:'exports',extension:'srt'}):null,entry={id:uid('export'),timeline_id:timeline.id,episode_id:episode.id,input_snapshot_ref,file_ref,subtitles_ref,settings_ref,validation_report_ref};exports.push(entry);await this.projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();p.delivery.exports.push(entry);p.node_states.delivery.product_revision++;return p})}
       result={saved:true,exports:exports.map(e=>({id:e.id,file_ref:e.file_ref})),subtitle_ref:timeline.subtitles_ref}
-    
+
 return result
 }

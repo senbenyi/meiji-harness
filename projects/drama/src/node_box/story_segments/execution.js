@@ -25,7 +25,7 @@ export async function afterUnits(ctx,manifest,manifestRef,done){const id=ctx.tas
         for(const item of manifest.units){const unit=await readJSON(this.projects,id,done[item.id]?.unit_ref||item.ref);if(unit.kind==='story_audit'&&Object.entries(unit.segment_revisions||{}).some(([segment,revision])=>project.story_segments.segments.find(s=>s.id===segment)?.revision!==revision))audits.push({...unit,id:uid('audit'),segment_revisions:{}})}
       }
       if(audits.length){if((manifest.audit_pass||0)>=3)throw new TypeError('全篇衔接复核已达3轮，请查看问题后定向编辑/续接');const items=[];for(const unit of audits)items.push({id:unit.id,ref:await this.projects.documents.writeArtifact(id,JSON.stringify(unit),{extension:'json'})});const nextManifest={...manifest,completed:done,audit_prepared:true,audit_pass:(manifest.audit_pass||0)+1,units:[...manifest.units,...items]},ref=await this.projects.documents.writeArtifact(id,JSON.stringify(nextManifest),{extension:'json'});return [stageStep('review',{manifest_ref:ref,unit_ref:items[0].ref,phase:uid('phase')})]}
-    
+
 return [stageStep('finish',{manifest_ref:manifestRef})]
 }
 export function stepMetadata(unit){return unit.kind==='story_audit'?{audit_started:true}:{}}

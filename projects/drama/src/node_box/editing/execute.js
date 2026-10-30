@@ -11,6 +11,6 @@ export async function executeUnit(ctx){const id=ctx.task.metadata.project_id;let
       const rendered=await renderTimeline(this.service,ctx,project,timeline),file_ref=await this.projects.documents.writeArtifact(id,rendered.bytes,{kind:'media',extension:'mp4'})
       const report_ref=await this.projects.documents.writeArtifact(id,JSON.stringify(rendered.validation),{extension:'json'})
       await this.projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();p.editing.preview_ref=file_ref;return p});result={saved:true,file_ref,report_ref,timeline_id:timeline.id}
-    
+
 return result
 }

@@ -73,4 +73,3 @@ export async function defaultAuthor(body,{projects,calls}){
  }
  return reply([call('submit_candidate',{output})])
 }
-

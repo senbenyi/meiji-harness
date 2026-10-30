@@ -30,13 +30,13 @@ export async function prepareText(projects,project,input,{signal}={}){
       const source_chapter_ids=chapter?[chapter.id]:[],source_spans=chapter?chapterRanges(project.source_analysis.chapters,project.source.current_revision_id).filter(range=>range.chapter_id===chapter.id).map(({chapter_id,...range})=>range):[]
       units.push({id:uid('unit'),kind:'story',source_chapter_ids,source_sequence:chapter?.sequence||1,adaptation_revision:project.adaptation_plan.revision,source_spans,read_refs:[guidance_ref],material:{chapter:chapter?{id:chapter.id,title:chapter.title}:null,guidance_ref,existing_segments:project.story_segments.segments.filter(segment=>inStoryUnit(segment,{source_chapter_ids})),instruction:'读取原著与全篇改编指导，自行确定本阅读范围内的叙事分段，返回按故事顺序排列的segments数组，每段写完整动作、对白和continuity。阅读单元只是原著读取范围，不是上游剧情计划。允许一段或多段，不预分集；修改时复用已有段ID，不改其他阅读单元。'}})
     }
-  
+
  if(input.unit_id&&units.length===0)throw new TypeError('指定单元不存在');return units
 }
 export async function currentCandidate(projects,projectId,unit,project){
   const segments=project.story_segments.segments.filter(segment=>inStoryUnit(segment,unit)).sort((a,b)=>a.sequence-b.sequence)
   if(!segments.length)throw new TypeError('当前阅读单元尚无可修改正文，请先生成')
   return {segments:await Promise.all(segments.map(async segment=>({id:segment.id,title:segment.title,body:(await projects.documents.readArtifact(projectId,segment.body_ref)).toString(),continuity:segment.continuity_ref?(await projects.documents.readArtifact(projectId,segment.continuity_ref)).toString():''})))}
- 
+
 }
 export async function writeCandidateFiles(projects,projectId,output){const files={};for(const segment of output.segments)files[segment.id]={body_ref:await projects.documents.writeArtifact(projectId,segment.body),continuity_ref:await projects.documents.writeArtifact(projectId,segment.continuity)};return files}
