@@ -1,5 +1,5 @@
-import { projectFields } from '../node_box/project/create_project.js'
-import { latestUserGoal } from '../session/planning_context.js'
+import { projectFields } from '../node_box/project/fields.js'
+import { latestUserGoal } from '../session/user_goal.js'
 
 /** AI接口适配：只声明工具协议并把宿主调用上下文交给项目服务。 */
 export class CreateProjectTool {

@@ -18,13 +18,13 @@ function operation(t, type, { input, result } = {}) {
   return { root: ui.element.shadowRoot, copied: () => copied }
 }
 
-test('项目节点会话输入由节点模块展示，完整记录可以复制', async t => {
+test('项目节点会话展示当次保存输入，完整记录可以复制', async t => {
   const input = { name: '本次项目', creation_mode: '自由创作', aspect_ratio: '9:16' }
   const { root, copied } = operation(t, 'project', { input })
   const details = root.querySelector('[data-expand="box-input"]')
   details.open = true; await details.ontoggle()
-  assert.match(details.textContent, /项目名称：本次项目/)
-  assert.match(details.textContent, /创作模式：自由创作/)
+  assert.match(details.textContent, /本次项目/)
+  assert.match(details.textContent, /自由创作/)
   await [...details.querySelectorAll('button')].find(button => button.textContent === '复制盒子输入').onclick()
   assert.deepEqual(JSON.parse(copied()), input)
   assert.equal(root.querySelector('.compare'), null)

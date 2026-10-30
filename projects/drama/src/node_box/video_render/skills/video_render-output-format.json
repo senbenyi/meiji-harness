@@ -1,0 +1,20 @@
+{
+  "generate": {
+    "type": "video",
+    "description": "视频接口返回真实视频，程序下载并验证视频、音轨和时长，写入分片candidate take；不得用文本JSON冒充视频。",
+    "saved_product": {
+      "$ref": "project:/properties/videos"
+    }
+  },
+  "review": {
+    "type": "manual",
+    "description": "用户人工检查并明确选用，生成成功不等于人工审核通过。"
+  },
+  "revise": {
+    "type": "video",
+    "description": "视频接口返回真实视频，程序下载并验证视频、音轨和时长，写入分片candidate take；不得用文本JSON冒充视频。",
+    "saved_product": {
+      "$ref": "project:/properties/videos"
+    }
+  }
+}

@@ -1,0 +1,421 @@
+{
+  "generate": {
+    "type": "json",
+    "description": "extract/reconcile返回operations；compress返回summary/represented。程序继续校验各操作的证据、范围、字段和目标数量。",
+    "modes": {
+      "extract": {
+        "type": "object",
+        "properties": {
+          "operations": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "enum": [
+                    "add",
+                    "update",
+                    "merge",
+                    "supersede",
+                    "archive",
+                    "conflict"
+                  ]
+                },
+                "key": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "kind": {
+                  "enum": [
+                    "decision",
+                    "constraint",
+                    "preference",
+                    "open_question"
+                  ]
+                },
+                "stages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "target_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "turn_id": {
+                        "type": "string"
+                      },
+                      "quote": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "turn_id",
+                      "quote"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "global_quote": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "target_ids",
+                "evidence"
+              ]
+            }
+          }
+        },
+        "required": [
+          "operations"
+        ]
+      },
+      "reconcile": {
+        "type": "object",
+        "properties": {
+          "operations": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "enum": [
+                    "add",
+                    "update",
+                    "merge",
+                    "supersede",
+                    "archive",
+                    "conflict"
+                  ]
+                },
+                "key": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "kind": {
+                  "enum": [
+                    "decision",
+                    "constraint",
+                    "preference",
+                    "open_question"
+                  ]
+                },
+                "stages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "target_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "turn_id": {
+                        "type": "string"
+                      },
+                      "quote": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "turn_id",
+                      "quote"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "global_quote": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "target_ids",
+                "evidence"
+              ]
+            }
+          }
+        },
+        "required": [
+          "operations"
+        ]
+      },
+      "compress": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1800
+          },
+          "represented": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "summary",
+          "represented"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "review": {
+    "type": "json",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "needs_changes"
+          ]
+        },
+        "issues": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "required": [
+        "status",
+        "issues"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "revise": {
+    "type": "json",
+    "description": "extract/reconcile返回operations；compress返回summary/represented。程序继续校验各操作的证据、范围、字段和目标数量。",
+    "modes": {
+      "extract": {
+        "type": "object",
+        "properties": {
+          "operations": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "enum": [
+                    "add",
+                    "update",
+                    "merge",
+                    "supersede",
+                    "archive",
+                    "conflict"
+                  ]
+                },
+                "key": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "kind": {
+                  "enum": [
+                    "decision",
+                    "constraint",
+                    "preference",
+                    "open_question"
+                  ]
+                },
+                "stages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "target_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "turn_id": {
+                        "type": "string"
+                      },
+                      "quote": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "turn_id",
+                      "quote"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "global_quote": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "target_ids",
+                "evidence"
+              ]
+            }
+          }
+        },
+        "required": [
+          "operations"
+        ]
+      },
+      "reconcile": {
+        "type": "object",
+        "properties": {
+          "operations": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "enum": [
+                    "add",
+                    "update",
+                    "merge",
+                    "supersede",
+                    "archive",
+                    "conflict"
+                  ]
+                },
+                "key": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "kind": {
+                  "enum": [
+                    "decision",
+                    "constraint",
+                    "preference",
+                    "open_question"
+                  ]
+                },
+                "stages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "target_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "turn_id": {
+                        "type": "string"
+                      },
+                      "quote": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "turn_id",
+                      "quote"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "global_quote": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "target_ids",
+                "evidence"
+              ]
+            }
+          }
+        },
+        "required": [
+          "operations"
+        ]
+      },
+      "compress": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1800
+          },
+          "represented": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "summary",
+          "represented"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

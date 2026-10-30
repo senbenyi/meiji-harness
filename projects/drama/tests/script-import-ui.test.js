@@ -21,3 +21,9 @@ test('项目内文件导入与素材库导入、失败保留旧文、销毁后�
   const reading=file.onchange();dispose();release('不保存');await reading;await tick();assert.equal(received.length,2)
   assert.equal(root.querySelector('textarea'),null)
 })
+
+test('V2双入口允许大于1MiB原稿，素材库超配置上限或空稿不能提交',async t=>{
+ const dom=new JSDOM('<main/>'),previous=globalThis.document;globalThis.document=dom.window.document;t.after(()=>{globalThis.document=previous;dom.window.close()});const root=document.querySelector('main'),received=[];let body='x'.repeat(2*1024*1024);const dispose=scriptImport(root,{maxScriptBytes:24*1024*1024,importScript:async text=>received.push(text),listScripts:async()=>[{id:'s',category:'scripts',originalName:'大稿.txt'}],readScript:async()=>body});t.after(dispose)
+ const file=root.querySelector('input[type=file]');Object.defineProperty(file,'files',{value:[{name:'大稿.txt',size:body.length,text:async()=>body}],configurable:true});await file.onchange();assert.equal(received[0].length,body.length)
+ await root.querySelector('.script-choose').onclick();const picker=root.querySelector('.script-picker');picker.value='s';body='';await picker.onchange();assert.match(root.textContent,/不能为空/);assert.equal(received.length,1);body='x'.repeat(25*1024*1024);await picker.onchange();assert.match(root.textContent,/24MB/);assert.equal(received.length,1)
+})

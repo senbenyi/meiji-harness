@@ -1,0 +1,227 @@
+{
+  "schema_version": 2,
+  "document_revision": 0,
+  "basic_info": {
+    "id": "p_example",
+    "name": "示例项目",
+    "creation_mode": "剧本",
+    "aspect_ratio": "9:16",
+    "output_language": "zh-CN"
+  },
+  "source": {
+    "current_revision_id": null,
+    "revisions": []
+  },
+  "source_analysis": {
+    "source_revision_id": null,
+    "chapters": [],
+    "facts_ref": null,
+    "coverage_ref": null
+  },
+  "adaptation_plan": {
+    "revision": 0,
+    "source_revision_id": null,
+    "goal": "",
+    "locked_requirements": [],
+    "character_plans": [],
+    "scene_plans": [],
+    "group_plans": [],
+    "plot_text": ""
+  },
+  "story_segments": {
+    "segments": []
+  },
+  "asset_library": {
+    "characters": [],
+    "clothing": [],
+    "props": [],
+    "scenes": [],
+    "character_looks": []
+  },
+  "asset_requirements": {
+    "items": []
+  },
+  "shot_design": {
+    "shots": []
+  },
+  "clip_arrangement": {
+    "clips": []
+  },
+  "video_prompt": {
+    "items": []
+  },
+  "videos": [],
+  "editing": {
+    "preview_ref": null,
+    "timelines": []
+  },
+  "episodes": [],
+  "delivery": {
+    "settings": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 24,
+      "subtitle_mode": "sidecar",
+      "normalize_audio": true
+    },
+    "exports": []
+  },
+  "node_states": {
+    "project": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "source_analysis": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "adaptation_plan": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "story_segments": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "shot_design": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "asset_preparation": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "reference_binding": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "clip_arrangement": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "video_prompt": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "video_render": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "editing": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    },
+    "delivery": {
+      "status": "empty",
+      "product_revision": 0,
+      "opinion": "",
+      "reason": "",
+      "rules": {
+        "generate": "",
+        "review": "",
+        "revise": ""
+      },
+      "last_execution": null,
+      "checkpoint": null
+    }
+  }
+}

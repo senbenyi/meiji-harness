@@ -1,5 +1,4 @@
 import { showToast } from '@agent-modules/ui'
-import { nodeUi } from './node-registry.js'
 import { createFailureDecision } from './failure-decision.js'
 
 const labels = { queued: '排队中', running: '执行中', completed: '已完成', rejected: '未通过', failed: '执行失败', cancelled: '已取消' }
@@ -21,12 +20,12 @@ export function groupTaskMessages(messages) {
   })
 }
 
-const css = `:host{display:block;min-width:0;color:var(--dsw-alias-label-primary,#17191f);font:14px/1.65 system-ui}*{box-sizing:border-box}.operation{padding:12px 0 20px}.request{margin:0 0 10px;padding:8px 12px;background:var(--dsw-alias-bg-layer-1,#f6f7f9);border:1px solid var(--dsw-alias-border-l3,#e6e8ec);border-radius:12px}.eyebrow,.muted{font-size:12px;color:var(--dsw-alias-label-secondary,#737780)}.request h3{font-size:14px;margin:3px 0;font-weight:600}.request .meta{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.request .input-summary{font-size:12px;color:var(--dsw-alias-label-secondary,#737780)}.request>details>summary{padding:2px 0;font-size:12px}.request p{margin:4px 0}.goal{margin:0 0 8px;white-space:pre-wrap;overflow-wrap:anywhere}summary{display:flex;gap:8px;align-items:baseline;cursor:pointer;list-style:none;min-width:0;padding:5px 0;color:var(--dsw-alias-label-secondary,#737780)}summary::-webkit-details-marker{display:none}summary:before{content:'›';flex:none}details[open]>summary:before{transform:rotate(90deg)}.line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.body{padding:8px 0 8px 16px}.step{border-left:1px solid var(--dsw-alias-border-l3,#ddd);padding-left:12px}.badge{flex:none;font-size:12px}.error{color:var(--dsw-alias-state-error-primary,#dc2626)}.success{color:var(--dsw-alias-state-success-primary,#258454)}.execution-status{display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--dsw-alias-label-secondary,#737780)}.execution-spinner{display:inline-block;width:12px;height:12px;flex:0 0 12px;padding:0;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:drama-executing .9s linear infinite}.execution-dot{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:currentColor}@keyframes drama-executing{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.execution-spinner{animation:none}}.outcome{margin-top:12px}.outcome strong{font-size:15px}.outcome p{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}button{font:inherit;color:inherit;background:transparent;border:1px solid var(--dsw-alias-border-l3,#ddd);border-radius:7px;padding:4px 10px;cursor:pointer}button:hover{background:var(--dsw-alias-bg-layer-1,#f6f7f9)}button:disabled{opacity:.6;cursor:wait}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:340px;overflow:auto;font:12px/1.6 ui-monospace,monospace;margin:8px 0}h4{font-size:13px;margin:10px 0 4px}.payload{border-top:1px solid var(--dsw-alias-border-l3,#eee);margin-top:8px}dialog{width:min(960px,calc(100vw - 48px));max-height:85vh;border:1px solid var(--dsw-alias-border-l3,#ddd);border-radius:14px;color:var(--dsw-alias-label-primary,#17191f);background:var(--dsw-alias-bg-base,#fff);padding:20px}dialog::backdrop{background:#0005}.dialog-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.dialog-head h3{margin:0}.compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}.compare pre{max-height:60vh}mark{color:inherit;background:#ffd86b66}@media(max-width:640px){.compare{grid-template-columns:1fr}.request{padding:8px 10px}}`
+const css = `.activity-events{list-style:none;padding:0 0 8px 20px;margin:0;border-left:1px solid var(--dsw-alias-border-l3,#ddd)}.activity-event{padding:4px 0;overflow-wrap:anywhere}.activity-title{font-size:13px}.activity-state{display:inline-block;min-width:3em;margin-right:8px;font-size:12px}.activity-detail{display:block;margin-left:44px;font-size:12px;color:var(--dsw-alias-label-secondary,#737780);white-space:pre-wrap}.activity-note{padding-left:20px} :host{display:block;min-width:0;color:var(--dsw-alias-label-primary,#17191f);font:14px/1.65 system-ui}*{box-sizing:border-box}.operation{padding:12px 0 20px}.request{margin:0 0 10px;padding:8px 12px;background:var(--dsw-alias-bg-layer-1,#f6f7f9);border:1px solid var(--dsw-alias-border-l3,#e6e8ec);border-radius:12px}.eyebrow,.muted{font-size:12px;color:var(--dsw-alias-label-secondary,#737780)}.request h3{font-size:14px;margin:3px 0;font-weight:600}.request .meta{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.request .input-summary{font-size:12px;color:var(--dsw-alias-label-secondary,#737780)}.request>details>summary{padding:2px 0;font-size:12px}.request p{margin:4px 0}.goal{margin:0 0 8px;white-space:pre-wrap;overflow-wrap:anywhere}summary{display:flex;gap:8px;align-items:baseline;cursor:pointer;list-style:none;min-width:0;padding:5px 0;color:var(--dsw-alias-label-secondary,#737780)}summary::-webkit-details-marker{display:none}summary:before{content:'›';flex:none}details[open]>summary:before{transform:rotate(90deg)}.line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.body{padding:8px 0 8px 16px}.step{border-left:1px solid var(--dsw-alias-border-l3,#ddd);padding-left:12px}.badge{flex:none;font-size:12px}.error{color:var(--dsw-alias-state-error-primary,#dc2626)}.success{color:var(--dsw-alias-state-success-primary,#258454)}.execution-status{display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--dsw-alias-label-secondary,#737780)}.execution-spinner{display:inline-block;width:12px;height:12px;flex:0 0 12px;padding:0;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:drama-executing .9s linear infinite}.execution-dot{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:currentColor}@keyframes drama-executing{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.execution-spinner{animation:none}}.outcome{margin-top:12px}.outcome strong{font-size:15px}.outcome p{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}button{font:inherit;color:inherit;background:transparent;border:1px solid var(--dsw-alias-border-l3,#ddd);border-radius:7px;padding:4px 10px;cursor:pointer}button:hover{background:var(--dsw-alias-bg-layer-1,#f6f7f9)}button:disabled{opacity:.6;cursor:wait}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:340px;overflow:auto;font:12px/1.6 ui-monospace,monospace;margin:8px 0}h4{font-size:13px;margin:10px 0 4px}.payload{border-top:1px solid var(--dsw-alias-border-l3,#eee);margin-top:8px}dialog{width:min(960px,calc(100vw - 48px));max-height:85vh;border:1px solid var(--dsw-alias-border-l3,#ddd);border-radius:14px;color:var(--dsw-alias-label-primary,#17191f);background:var(--dsw-alias-bg-base,#fff);padding:20px}dialog::backdrop{background:#0005}.dialog-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.dialog-head h3{margin:0}.compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}.compare pre{max-height:60vh}mark{color:inherit;background:#ffd86b66}@media(max-width:640px){.compare{grid-template-columns:1fr}.request{padding:8px 10px}}`
 
 /** 空会话与正常会话共用容器；节点内容经注册模块展示，展开优先使用预载快照。 */
 export function createTaskOperation(document, { loadMessage, getMessage, copy, loadHistory, onDecision, onNotify = showToast }) {
   const element = document.createElement('drama-task-operation'), root = element.attachShadow({ mode: 'open' })
-  const style = document.createElement('style'); style.textContent = css
+  const style = document.createElement('style'); style.textContent = css+`.exchange-overview{padding:2px 0 4px 16px;border-left:1px solid var(--dsw-alias-border-l3,#ddd)}.exchange-overview p{margin:3px 0}.exchange-section{margin:10px 0 18px}.exchange-section>h4{font-size:14px}.exchange-section>p{margin:6px 0}`
   const content = document.createElement('div'); content.className = 'operation'
   root.append(style, content)
   let group, signature, generation = 0, processTouched = false
@@ -82,6 +81,43 @@ export function createTaskOperation(document, { loadMessage, getMessage, copy, l
     }
     const record = disclosure('output-record', '完整输出记录'); payload(record.body, '步骤输出', result); body.append(record.details)
   }
+  const exchangeContent=(body,data)=>{
+    const exchange=data.model_exchange
+    if(!exchange){body.append(node('p','当次模型交互详情暂不可用。','muted'));return}
+    const section=title=>{const el=node('section',undefined,'exchange-section');el.append(node('h4',title));body.append(el);return el}
+    const messages=(container,rows,prefix)=>{
+      for(const [index,message]of (rows||[]).entries()){
+        const role={system:'系统规则',developer:'开发指令',user:'任务或反馈',assistant:'模型消息',tool:'工具结果'}[message.role]||'消息'
+        const received=prefix==='received',fields=['content','tool_calls','refusal'].filter(key=>message[key]!==null&&message[key]!==undefined&&message[key]!==''&&(!Array.isArray(message[key])||message[key].length))
+        const item=disclosure(`${prefix}-${index}`,`${index+1}. ${role}（${message.role}）${received&&fields.length?` - ${fields.join(' + ')}`:''}`,received)
+        if(received&&fields.length)for(const field of fields)payload(item.body,field,message[field]);else payload(item.body,'消息',message)
+        container.append(item.details)
+      }
+    }
+    const request=section('1. 发送给模型');request.append(node('p',`模型：${exchange.request.model||'未记录'} · ${exchange.request.messages?.length??0} 条消息`,'muted'))
+    request.append(node('p','当次实际发送的完整消息，包含系统规则、任务索引和已进入本轮上下文的历史消息。','muted'))
+    if(exchange.request.error)request.append(node('p',exchange.request.error,'error'));messages(request,exchange.request.messages,'sent')
+    const response=section('2. 模型返回');if(exchange.response.error)response.append(node('p',exchange.response.error,'error'))
+    messages(response,exchange.response.messages,'received')
+    const tools=section('3. 程序执行工具')
+    if(!exchange.tools.length)tools.append(node('p',exchange.response.error?'无可恢复的当轮工具执行记录。':'本轮模型没有发起工具调用。','muted'))
+    for(const [index,tool]of exchange.tools.entries()){
+      const state={done:'已返回',failed:'执行失败',pending:'未记录返回',unknown:'调用记录缺失'}[tool.status]
+      const item=disclosure(`tool-${index}`,`${tool.name} · ${state}`,true);if(tool.id)item.body.append(node('p',`调用 ID：${tool.id}`,'muted'))
+      const readableJSON=value=>{if(typeof value!=='string')return value;try{return JSON.parse(value)}catch{return value}}
+      if(tool.arguments!==undefined)payload(item.body,'工具参数',readableJSON(tool.arguments))
+      if(tool.result){payload(item.body,'程序执行结果',readableJSON(tool.result.content));const raw=disclosure(`raw-tool-${index}`,'原始工具返回消息');payload(raw.body,'原始消息',tool.result);item.body.append(raw.details)}else item.body.append(node('p','没有该工具的返回记录，不能认定执行完成。','muted'))
+      tools.append(item.details)
+    }
+    if(exchange.tools.some(tool=>tool.result)||exchange.program_messages.length)tools.append(node('p','工具结果及程序反馈会作为后续轮次的上下文；是否实际发送，以后续步骤的“发送给模型”记录为准。','muted'))
+    if(exchange.program_messages.length)payload(tools,'程序补充反馈',exchange.program_messages)
+    const files=disclosure('exchange-files','关联文件与步骤元数据')
+    if(exchange.request.ref)payload(files.body,'本轮模型输入消息',exchange.request.ref)
+    if(exchange.response.ref)payload(files.body,'模型返回与工具执行记录',exchange.response.ref)
+    if(data.input)payload(files.body,'执行单元与项目快照引用',data.input)
+    if(data.result)payload(files.body,'步骤保存结果',data.result)
+    body.append(files.details)
+  }
   const lazy = (item, message, render) => {
     let loaded = false, loading = false
     const ticket = generation
@@ -122,7 +158,7 @@ export function createTaskOperation(document, { loadMessage, getMessage, copy, l
     const previousStatus = group?.status
     const opened = new Map([...content.querySelectorAll('details[data-expand]')].map(el => [el.dataset.expand, el.open]))
     group = next; signature = nextSignature; generation++
-    renderer = nodeUi(group.context.node_type).conversation || {}
+    renderer = {}
     const fragment = document.createDocumentFragment()
     const request = node('section', undefined, 'request')
     const meta = node('div', undefined, 'meta')
@@ -140,8 +176,9 @@ export function createTaskOperation(document, { loadMessage, getMessage, copy, l
     request.append(input.details); fragment.append(request)
     if (group.steps.length || ['queued', 'running'].includes(group.status)) {
       const revisions = group.context.revision_count ?? group.steps.filter(step => step.round > 0 && step.step_name?.includes('修改') && step.status === 'done').length
-      const caption = ['执行过程', `${group.steps.length} 个已结束步骤`, revisions ? `自动修订 ${revisions} 次` : '', ['queued', 'running'].includes(group.status) ? '' : labels[group.status] || ''].filter(Boolean).join(' · ')
-      const defaultOpen = ['queued', 'running'].includes(group.status)
+      const activityCount=group.steps.reduce((sum,step)=>sum+(step.activities?.length||0),0)
+      const caption = ['执行过程', `${group.steps.length} 个已结束步骤`, activityCount?`${activityCount} 项实际操作`:'', revisions ? `自动修订 ${revisions} 次` : '', ['queued', 'running'].includes(group.status) ? '' : labels[group.status] || ''].filter(Boolean).join(' · ')
+      const defaultOpen = ['queued', 'running'].includes(group.status)||group.context.execution_detail_version===1
       const process = disclosure('process', caption, previousStatus === 'running' && !defaultOpen && !processTouched ? false : opened.get('process') ?? defaultOpen)
       process.summary.onclick = () => { processTouched = true }
       for (const step of group.steps) {
@@ -152,11 +189,25 @@ export function createTaskOperation(document, { loadMessage, getMessage, copy, l
         if (step.issue_summary || (['failed', 'rejected'].includes(step.status) && step.reason)) item.summary.append(node('span', step.issue_summary || step.reason, 'line muted'))
         lazy(item, step, (body, data) => {
           if (data.reason) body.append(node('p', data.reason))
+          if(step.model_call){exchangeContent(body,data);return}
           if (data.input !== null && data.input !== undefined) inputContent(body, data.input, '步骤输入')
           else body.append(node('p', '该步骤未保存可读取的输入。', 'muted'))
           if (Object.hasOwn(data, 'result')) outputContent(body, data.result)
         })
         process.body.append(item.details)
+        if(step.model_call){
+          const summary=node('div',undefined,'exchange-overview');summary.setAttribute('aria-label',`第${step.seq}步模型交互`)
+          const calls=(step.activities||[]).filter(activity=>activity.tool!=='more'),extra=(step.activities||[]).find(activity=>activity.tool==='more')
+          const returned=calls.length?`工具调用 · ${calls.map(activity=>`${activity.tool} — ${activity.title}`).join('；')}${extra?`；${extra.title}`:''}`:step.activity_notice?'工具调用记录暂不可读取':step.model_call.response_ref?'未记录工具调用，展开查看返回内容':'尚无模型返回记录'
+          const executed=calls.length?calls.map(activity=>`${activity.tool} · ${{done:'已完成',failed:'失败',pending:'尚未确认返回'}[activity.status]||'状态未确认'}${activity.detail?` · ${activity.detail}`:''}`).join('；'):step.activity_notice?'执行记录暂不可读取':'无已记录操作'
+          summary.append(node('p',`发送 · ${step.model_call.goal||group.goal||group.name}${step.model_call.request_ref?'':'（请求消息未保存）'}`,'muted'),node('p',`模型返回 · ${returned}`,'muted'),node('p',`工具执行 · ${executed}`,'muted'));process.body.append(summary)
+        }
+        if(!step.model_call&&step.activities?.length){
+          const events=node('ol',undefined,'activity-events');events.setAttribute('aria-label',`第${step.seq}步实际操作`)
+          for(const activity of step.activities){const row=node('li',undefined,'activity-event'),state={done:'完成',failed:'失败',pending:'未确认'}[activity.status]||'未确认';row.dataset.status=activity.status;row.append(node('span',state,`activity-state ${activity.status==='failed'?'error':activity.status==='done'?'success':'muted'}`),node('span',activity.title,'activity-title'));if(activity.detail)row.append(node('span',activity.detail,'activity-detail'));events.append(row)}
+          process.body.append(events)
+        }
+        if(step.activity_notice)process.body.append(node('p',step.activity_notice,'muted activity-note'))
       }
       fragment.append(process.details)
     }

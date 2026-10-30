@@ -1,0 +1,82 @@
+{
+  "generate": {
+    "type": "json",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "goal": {
+          "$ref": "project:/properties/adaptation_plan/properties/goal",
+          "minLength": 1
+        },
+        "locked_requirements": {
+          "$ref": "project:/properties/adaptation_plan/properties/locked_requirements"
+        },
+        "plot_text": {
+          "$ref": "project:/properties/adaptation_plan/properties/plot_text",
+          "minLength": 1
+        },
+        "character_plans": {
+          "$ref": "project:/properties/adaptation_plan/properties/character_plans"
+        },
+        "scene_plans": {
+          "$ref": "project:/properties/adaptation_plan/properties/scene_plans"
+        },
+        "group_plans": {
+          "$ref": "project:/properties/adaptation_plan/properties/group_plans"
+        }
+      },
+      "required": [
+        "goal",
+        "locked_requirements",
+        "plot_text",
+        "character_plans",
+        "scene_plans",
+        "group_plans"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "review": {
+    "type": "json",
+    "schema": {
+      "$ref": "shared:review"
+    }
+  },
+  "revise": {
+    "type": "json",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "goal": {
+          "$ref": "project:/properties/adaptation_plan/properties/goal",
+          "minLength": 1
+        },
+        "locked_requirements": {
+          "$ref": "project:/properties/adaptation_plan/properties/locked_requirements"
+        },
+        "plot_text": {
+          "$ref": "project:/properties/adaptation_plan/properties/plot_text",
+          "minLength": 1
+        },
+        "character_plans": {
+          "$ref": "project:/properties/adaptation_plan/properties/character_plans"
+        },
+        "scene_plans": {
+          "$ref": "project:/properties/adaptation_plan/properties/scene_plans"
+        },
+        "group_plans": {
+          "$ref": "project:/properties/adaptation_plan/properties/group_plans"
+        }
+      },
+      "required": [
+        "goal",
+        "locked_requirements",
+        "plot_text",
+        "character_plans",
+        "scene_plans",
+        "group_plans"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

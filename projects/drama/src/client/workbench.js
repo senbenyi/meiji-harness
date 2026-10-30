@@ -3,12 +3,11 @@ import { taskHistoryPresentation } from './ui/task-presentation.js'
 import { createTaskHistory } from '@agent-modules/task/ui'
 import { createHttpHistory } from '@agent-modules/http-client/ui'
 import { element } from './ui/panel-dom.js'
-import { nodeUi } from './ui/node-registry.js'
+import {projectDialog} from '../node_box/project/ui/panel/project-forms.js'
 import { renderLibrary } from './ui/library-ui.js'
-import { createProjectView } from './project-overview.js'
+import {createProjectDocumentView as createProjectView} from './project-document-view.js'
 import { renderSettings, renderModelSettings } from './ui/settings-ui.js'
 
-const { projectDialog } = nodeUi('project').panel
 
 export function currentSessionId() {
   try { return JSON.parse(localStorage.getItem('dsh.sessions.current'))?.sessionId || null }
@@ -114,6 +113,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       if (result.session_id !== session) { activate(result.session_id); return }
       await refresh()
     }, {
+      maxScriptBytes:24*1024*1024,
       listScripts: async () => (await request('library')).assets,
       readScript: async id => (await request(`library/scripts/${encodeURIComponent(id)}`)).body,
     })
@@ -220,48 +220,8 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     const ownerSession = session, projectId = project.basic_info.id
     projectViewId = projectId
     if (!projectStates.has(projectId)) projectStates.set(projectId, {})
-    projectView = createProjectView(content, { project, scriptExecution, summaryExecution, storyExecution, shotExecution, sceneExecution, groupExecution, characterExecution, imageExecution, sceneImageExecution, request: path => request(path, undefined, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
+    projectView = createProjectView(content, { project, sessionId:ownerSession, scriptExecution, summaryExecution, storyExecution, shotExecution, sceneExecution, groupExecution, characterExecution, imageExecution, sceneImageExecution, request: (path, options) => request(path, options, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
       refresh: () => { void refresh().catch(report) },
-      generateShots: async (instruction, requestId, { regenerate = false } = {}) => {
-        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换')
-        return request('shots', { method:'POST', headers:{'Content-Type':'application/json','X-Drama-Request':'1'}, body:JSON.stringify({project_id:projectId, request_id:requestId, instruction, ...(regenerate ? {regenerate:true} : {})}) }, ownerSession)
-      },
-      extractScenes: async (instruction, requestId, { regenerate = false } = {}) => {
-        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
-        return request('scenes', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' }, body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction, ...(regenerate ? { regenerate: true } : {}) }) }, ownerSession)
-      },
-      generateGroups: async (instruction, requestId, { regenerate = false } = {}) => {
-        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
-        return request('groups', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' }, body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction, ...(regenerate ? { regenerate: true } : {}) }) }, ownerSession)
-      },
-      generateCharacters: async (instruction, requestId, { regenerate = false } = {}) => {
-        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
-        return request('characters', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' }, body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction, ...(regenerate ? { regenerate: true } : {}) }) }, ownerSession)
-      },
-      generateSceneImages: async (payload, requestId) => {
-        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
-        return request('scene-images', { method:'POST',headers:{'Content-Type':'application/json','X-Drama-Request':'1'},body:JSON.stringify({...payload,project_id:projectId,request_id:requestId}) }, ownerSession)
-      },
-      saveSceneImageInputs: async payload => {
-        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
-        return request('scene-image-inputs', { method:'POST',headers:{'Content-Type':'application/json','X-Drama-Request':'1'},body:JSON.stringify({...payload,project_id:projectId}) }, ownerSession)
-      },
-      generateImages: async (payload, requestId) => {
-        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
-        return request('costume-images', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' }, body: JSON.stringify({ project_id: projectId, request_id: requestId, ...payload }) }, ownerSession)
-      },
-      generateStory: async (instruction, requestId, { regenerate = false } = {}) => {
-        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
-        return request('story-outline', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
-          body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction, ...(regenerate ? { regenerate: true } : {}) }),
-        }, ownerSession)
-      },
-      optimize: async (instruction, requestId) => {
-        if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
-        return request('script-optimization', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
-          body: JSON.stringify({ project_id: projectId, request_id: requestId, instruction }),
-        }, ownerSession)
-      },
       remove: async () => {
         if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
         deletingSession = ownerSession; version++; stream?.close(); stream = null

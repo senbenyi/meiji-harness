@@ -1,0 +1,58 @@
+{
+  "generate": {
+    "type": "json",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 7000
+        },
+        "reference_images": {
+          "$ref": "project:/properties/video_prompt/properties/items/items/properties/reference_images"
+        },
+        "voice_references": {
+          "$ref": "project:/properties/video_prompt/properties/items/items/properties/voice_references"
+        }
+      },
+      "required": [
+        "prompt",
+        "reference_images",
+        "voice_references"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "review": {
+    "type": "json",
+    "schema": {
+      "$ref": "shared:review"
+    }
+  },
+  "revise": {
+    "type": "json",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 7000
+        },
+        "reference_images": {
+          "$ref": "project:/properties/video_prompt/properties/items/items/properties/reference_images"
+        },
+        "voice_references": {
+          "$ref": "project:/properties/video_prompt/properties/items/items/properties/voice_references"
+        }
+      },
+      "required": [
+        "prompt",
+        "reference_images",
+        "voice_references"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

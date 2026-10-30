@@ -1,0 +1,20 @@
+{
+  "generate": {
+    "type": "image",
+    "description": "图片接口返回真实图片，程序下载校验并落库image_id/url，写入资产候选；不得用文本JSON冒充图片。",
+    "saved_product": {
+      "$ref": "project:/properties/asset_library"
+    }
+  },
+  "review": {
+    "type": "manual",
+    "description": "用户人工检查并明确选用，生成成功不等于人工审核通过。"
+  },
+  "revise": {
+    "type": "image",
+    "description": "图片接口返回真实图片，程序下载校验并落库image_id/url，写入资产候选；不得用文本JSON冒充图片。",
+    "saved_product": {
+      "$ref": "project:/properties/asset_library"
+    }
+  }
+}

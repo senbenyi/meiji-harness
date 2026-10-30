@@ -80,6 +80,13 @@ function uiFixture(t, { fetcher, phase = 'hero' } = {}) {
 }
 const tick = () => new Promise(resolve => setTimeout(resolve, 0))
 
+test('模型步骤的eager摘要不冒充完整详情，首次展开才读取真实请求返回',async t=>{
+ const row={id:'ai',group_id:'ai_group',phase:'step',seq:2,step_name:'生成内容',status:'done',label:'已完成',node_type:'adaptation_plan',execution_detail_version:1,operation_status:'completed',model_call:{model:'model',request_ref:'artifacts/messages.json',response_ref:'artifacts/trace.json'}}
+ let calls=0;const f=uiFixture(t,{fetcher:async url=>{calls++;const id=new URL(url,'http://test').searchParams.get('id');return {ok:true,json:async()=>id?{messages:[{...row,model_exchange:{request:{model:'model',messages:[{role:'user',content:'真实当次请求'}]},response:{messages:[{role:'assistant',content:'真实返回'}]},tools:[],program_messages:[]}}]}:{messages:[row],details:[row],cursor:1}}}})
+ await f.ui.refresh();assert.equal(calls,1);const step=f.operation().querySelector('.step');step.open=true;await step.ontoggle();assert.equal(calls,2);assert.match(step.textContent,/真实当次请求|真实返回/)
+ await f.ui.refresh();assert.equal(calls,3);const current=f.operation().querySelector('.step');current.open=true;await current.ontoggle();assert.equal(calls,3)
+})
+
 test('同一操作聚合请求、4步骤、最终结果：默认收起过程，要求只出现一次，不展示长摘要和JSON', async t => {
   const f = uiFixture(t); await f.ui.refresh()
   const root = f.operation()
@@ -89,7 +96,7 @@ test('同一操作聚合请求、4步骤、最终结果：默认收起过程，�
   assert.equal(root.querySelector('[data-expand="process"]').open, false)
   assert.equal(root.querySelector('.request h3').textContent, '完善探月基地的描述')
   assert.match(root.querySelector('.request').textContent, /当前工作稿 ·《月界旅行》 · 100字/)
-  assert.match(root.querySelector('.outcome').textContent, /优化完成，已保存/)
+  assert.match(root.querySelector('.outcome').textContent, /操作完成，已保存/)
   assert.doesNotMatch(root.textContent, /不应默认出现的长剧本摘要|"output"|current_script/)
   assert.match(root.querySelector('[data-expand="step:s2"]').textContent, /未通过 · 已解决/)
   assert.equal(root.querySelector('[data-expand="step:s2"] .badge').classList.contains('error'), true)
@@ -154,7 +161,7 @@ test('会话切换不串消息，旧详情响应不回写；不同操作不混�
   assert.equal(groupTaskMessages([...messages, { ...messages[0], id: 'other', group_id: 'other' }]).length, 2)
 })
 
-test('失败明确停止原因和原稿保留，成功才能显示查看本次剧本及修改对比', async t => {
+test('当前结果提供任务详情，失败明确停止原因与已保存事实', async t => {
   let rows = structuredClone(messages)
   const f = uiFixture(t, { fetcher: async url => {
     const id = new URL(url, 'http://test').searchParams.get('id')
@@ -163,9 +170,7 @@ test('失败明确停止原因和原稿保留，成功才能显示查看本次�
   f.dom.window.HTMLDialogElement.prototype.showModal = function () { this.open = true }
   await f.ui.refresh()
   let root = f.operation()
-  await [...root.querySelectorAll('button')].find(button => button.textContent === '对比修改前后').onclick()
-  assert.match(root.querySelector('dialog').textContent, /基地旧正文/); assert.match(root.querySelector('dialog').textContent, /基地新正文/)
-  assert.deepEqual([...root.querySelectorAll('mark')].map(mark => mark.textContent), ['旧', '新'])
+  assert.ok([...root.querySelectorAll('button')].some(button=>button.textContent==='任务详情'))
   rows = rows.map(row => ({ ...row, operation_status: 'rejected', status: row.phase === 'result' ? 'rejected' : row.status, saved: false, stop_reason: '自动修订次数达到上限', stopped_at: '4. 本地审核' }))
   await f.ui.refresh(); root = f.operation()
   assert.match(root.querySelector('drama-failure-decision').shadowRoot.textContent, /次数达到上限/)
@@ -315,5 +320,5 @@ test('独立失败卡片区分审核未通过和已保存，提供本次结果�
   assert.match(card.textContent, /最新有效结果已自动保存/)
   assert.match(card.textContent, /审核未通过/)
   assert.deepEqual([...card.querySelectorAll('button')].map(button => button.textContent), ['继续修改', '停止', '重新生成', '任务详情'])
-  assert.ok([...f.operation().querySelectorAll('button')].some(button => button.textContent === '查看本次剧本'))
+  assert.ok([...card.querySelectorAll('button')].some(button=>button.textContent==='任务详情'))
 })

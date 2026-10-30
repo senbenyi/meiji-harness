@@ -1,0 +1,98 @@
+{
+  "generate": {
+    "type": "json",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "body": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 48000
+              },
+              "continuity": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "body",
+              "continuity"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "segments"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "review": {
+    "type": "json",
+    "schema": {
+      "$ref": "shared:review"
+    }
+  },
+  "revise": {
+    "type": "json",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "body": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 48000
+              },
+              "continuity": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "body",
+              "continuity"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "segments"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

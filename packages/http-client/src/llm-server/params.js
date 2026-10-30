@@ -60,7 +60,7 @@ export function imageParameters({ baseUrl, model, prompt, aspectRatio, quality, 
 const videoModes = { text: '文生', first_frame: '首尾帧', reference: '多模态' }
 
 // 三种方式都调用 MiniMax-H3。mode 只用文生、首尾帧、多模态；比例规则随方式变化。
-export function videoPayload({ model, prompt, duration, aspectRatio, mode, inputReference, lastFrame, referenceImages }) {
+export function videoPayload({ model, prompt, duration, aspectRatio, mode, inputReference, lastFrame, referenceImages, referenceAudios }) {
   if (model !== 'MiniMax-H3') throw Object.assign(new Error('llm-server 视频模型无效'), { status: 400 })
   const kind = videoModes[mode]
   if (!kind) throw Object.assign(new Error('视频方式必须是文生、首尾帧或多模态'), { status: 400 })
@@ -77,11 +77,11 @@ export function videoPayload({ model, prompt, duration, aspectRatio, mode, input
     return value
   }
   if (kind === '文生') {
-    if (inputReference !== undefined || lastFrame !== undefined || referenceImages !== undefined) throw Object.assign(new Error('文生视频不能带画面素材'), { status: 400 })
+    if (inputReference !== undefined || lastFrame !== undefined || referenceImages !== undefined || referenceAudios !== undefined) throw Object.assign(new Error('文生视频不能带画面素材'), { status: 400 })
     if (!ratio) throw Object.assign(new Error('文生视频画幅不受支持'), { status: 400 })
     body.ratio = ratio
   } else if (kind === '首尾帧') {
-    if (referenceImages !== undefined) throw Object.assign(new Error('首尾帧不能带参考素材'), { status: 400 })
+    if (referenceImages !== undefined || referenceAudios !== undefined) throw Object.assign(new Error('首尾帧不能带参考素材'), { status: 400 })
     body.first_frame = image(inputReference)
     if (lastFrame !== undefined) body.last_frame = image(lastFrame)
     body.ratio = 'adaptive'
@@ -89,6 +89,13 @@ export function videoPayload({ model, prompt, duration, aspectRatio, mode, input
     if (inputReference !== undefined || lastFrame !== undefined) throw Object.assign(new Error('多模态不能带首尾帧'), { status: 400 })
     if (!Array.isArray(referenceImages) || !referenceImages.length || referenceImages.length > 9) throw Object.assign(new Error('多模态需要 1 到 9 张参考图'), { status: 400 })
     body.images = referenceImages.map(image)
+    if(referenceAudios !== undefined){
+      if(!Array.isArray(referenceAudios)||referenceAudios.length>3)throw Object.assign(new Error('参考音频最多3段'),{status:400})
+      body.audios=referenceAudios.map(value=>{
+        if(typeof value!=='string'||value.length>48*1024*1024||!(/^(?:https:\/\/|mm_file:\/\/)/i.test(value)||/^data:audio\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/]+={0,2}$/i.test(value)))throw Object.assign(new Error('参考音频地址无效'),{status:400})
+        return value
+      })
+    }
     if (aspectRatio !== undefined && aspectRatio !== 'adaptive' && !ratio) throw Object.assign(new Error('多模态视频画幅不受支持'), { status: 400 })
     body.ratio = ratio || 'adaptive'
   }

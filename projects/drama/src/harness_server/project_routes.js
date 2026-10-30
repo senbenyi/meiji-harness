@@ -1,18 +1,18 @@
+import {createProductionRoutes} from './production_routes.js'
+import {projectStages,stageProduct} from '../shared/production_stages.js'
 import { clientAssets } from './client_assets.js'
 import { createRecordService } from '../records/service.js'
 import { serveRecordRoute } from './record_routes.js'
 import { readFile } from 'node:fs/promises'
 import { createLibraryHttpHandler } from './library_routes.js'
 import { createModelSettings, modelOptions } from '../settings/model-settings.js'
-import { renderNodeRules, nodeContract } from '../node_runtime/output_contract_renderer.js'
-import { nodeState } from '../node_runtime/node_state.js'
 
 const json = (res, status, value) => {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
   res.end(JSON.stringify(value))
 }
 
-export function createProjectHttpHandler(tool, { authorize, models = createModelSettings(tool.root), scriptRevision, storySegments, sceneExtraction, groupSetting, characterExtraction, costumeImages, sceneImages, shotDesign }) {
+export function createProjectHttpHandler(tool, { authorize, models = createModelSettings(tool.root) }) {
   const streams = new Set(), creations = new Map()
   let cursor = 0
   // 暂停实时连接时仍保留每个来源会话的最新创建通知，恢复后补发。
@@ -26,6 +26,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
   tool.records = records
   tool.enableTaskRecords?.(records)
   const library = createLibraryHttpHandler(tool, json)
+  const production=createProductionRoutes(tool)
   const handler = async (req, res) => {
     const url = new URL(req.url, 'http://localhost')
     try {
@@ -43,6 +44,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         res.writeHead(200, { 'Content-Type': name.endsWith('.css') ? 'text/css' : 'text/javascript', 'Cache-Control': 'no-store' })
         return res.end(bytes)
       }
+      if(await production(req,res,url))return
       if (url.pathname === '/api/drama/library' || url.pathname.startsWith('/api/drama/library/'))
         return await library(req, res, url)
       if (url.pathname === '/api/drama/settings') {
@@ -77,30 +79,18 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
       }
       const sessionId = url.searchParams.get('session_id')
       if (!sessionId) return json(res, 400, { message: '需提供会话ID' })
-      if (url.pathname === '/api/drama/scene-image' && req.method === 'GET') {
-        const bytes = await sceneImages.readImage(sessionId, url.searchParams.get('file'))
-        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store' }); return res.end(bytes)
+      if(tool.documentVersion===2&&url.pathname==='/api/drama/document-file'&&req.method==='GET'){
+        const project=await tool.context(sessionId),ref=url.searchParams.get('ref'),stage=url.searchParams.get('stage')
+        const product=stageProduct(project,stage),contains=value=>value&&typeof value==='object'&&Object.entries(value).some(([key,item])=>key.endsWith('_ref')&&item===ref||item&&typeof item==='object'&&contains(item))
+        if(!contains(product))return json(res,403,{message:'文件不属于当前阶段产物'})
+        const body=await tool.documents.readArtifact(project.basic_info.id,ref)
+        const text=body.toString('utf8');return json(res,200,{body:text.slice(0,240000),truncated:text.length>240000})
       }
-      if (['/api/drama/scene-images', '/api/drama/scene-image-inputs'].includes(url.pathname) && req.method === 'POST') {
-        if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
-        const chunks = []; let size = 0
-        for await (const chunk of req) { size += chunk.length; if (size > 24 * 1024 * 1024) return json(res, 413, { message: '场景图输入过大' }); chunks.push(chunk) }
-        const {project_id,request_id,retry_action,...input} = JSON.parse(Buffer.concat(chunks).toString())
-        const context = {sessionId,projectId:project_id,requestId:request_id,source:'ui',retryAction:retry_action}
-        return json(res, url.pathname.endsWith('-inputs') ? 200 : 202, url.pathname.endsWith('-inputs') ? await sceneImages.saveInputs(input,context) : await sceneImages.generate(input,context))
-      }
-      if (url.pathname === '/api/drama/costume-image' && req.method === 'GET') {
-        const bytes = await costumeImages.readImage(sessionId, url.searchParams.get('file'))
-        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store' }); return res.end(bytes)
-      }
+      if(tool.documentVersion===2&&['script-optimization','story-outline','shots','scenes','groups','characters','costume-images','costume-image','scene-image','scene-images','scene-image-inputs'].some(path=>url.pathname===`/api/drama/${path}`))return json(res,410,{message:'旧流程已停用，请使用新的制作步骤'})
+
       if (url.pathname === '/api/drama/node-rules' && req.method === 'GET') {
         const type = url.searchParams.get('node_type')
-        nodeContract(type)
-        const { project } = await tool.snapshot(sessionId)
-        if (!project) return json(res, 403, { message: '当前会话未绑定项目' })
-        const state = nodeState(project, type)
-        if (state?.type !== 1 || !state.rules) return json(res, 422, { message: '该节点没有AI规则' })
-        return json(res, 200, { bases: Object.fromEntries(['generate', 'revise', 'review'].map(action => [action, renderNodeRules(state, action, { nodeType: type }).base])) })
+        const project=await tool.context(sessionId);if(!projectStages.some(row=>row.id===type))return json(res,422,{message:'未知制作步骤'});return json(res,200,tool.production?await tool.production.rules(project,type):{bases:project.node_states[type].rules})
       }
       if (url.pathname === '/api/drama/task-messages' && req.method === 'GET') {
         const rawAfter = url.searchParams.get('after') || '-1'
@@ -118,9 +108,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         res.setHeader('X-Drama-Event-Cursor', String(cursor))
         if (tool.applyMainAgent && /^session-[a-f0-9-]{36}$/i.test(sessionId)) await tool.applyMainAgent(sessionId)
         const snapshot = await tool.snapshot(sessionId)
-        const active = snapshot.project && tool.activeExecution(snapshot.project.basic_info.id, 'script_revision')
-        const storyActive = snapshot.project && tool.activeExecution(snapshot.project.basic_info.id, 'story_segments')
-        return json(res, 200, { ...snapshot, ...(active ? { script_execution: active } : {}), ...(storyActive ? { story_execution: storyActive } : {}), ...(snapshot.project ? { shot_execution: tool.activeExecution(snapshot.project.basic_info.id, 'shot_design'), scene_execution: tool.activeExecution(snapshot.project.basic_info.id, 'scene_extraction'), group_execution: tool.activeExecution(snapshot.project.basic_info.id, 'group_setting'), character_execution: tool.activeExecution(snapshot.project.basic_info.id, 'character_extraction'), image_execution: tool.activeExecution(snapshot.project.basic_info.id, 'costume_image'), scene_image_execution: tool.activeExecution(snapshot.project.basic_info.id, 'scene_image') } : {}) })
+        return json(res,200,{...snapshot,active_execution:snapshot.project?tool.activeExecution(snapshot.project.basic_info.id):null})
       }
       if (url.pathname === '/api/drama/project' && req.method === 'DELETE') {
         if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
@@ -133,45 +121,17 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         const { project_id } = JSON.parse(Buffer.concat(chunks).toString())
         return json(res, 200, await tool.remove({ sessionId, projectId: project_id }))
       }
-      if (url.pathname === '/api/drama/script-optimization' && req.method === 'POST') {
-        if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
-        const chunks = []; let size = 0
-        for await (const chunk of req) { size += chunk.length; if (size > 65536) return json(res, 413, { message: '优化要求过大' }); chunks.push(chunk) }
-        const { project_id, request_id, instruction, retry_of, retry_action } = JSON.parse(Buffer.concat(chunks).toString())
-        const result = await scriptRevision.optimizeScript({ instruction, retry_of }, { sessionId, projectId: project_id, requestId: request_id, retryAction: retry_action, source: 'ui' })
-        return json(res, 202, result)
-      }
-      if (url.pathname === '/api/drama/story-outline' && req.method === 'POST') {
-        if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
-        const chunks = []; let size = 0
-        for await (const chunk of req) { size += chunk.length; if (size > 65536) return json(res, 413, { message: '大纲要求过大' }); chunks.push(chunk) }
-        const { project_id, request_id, instruction, retry_of, retry_action, regenerate } = JSON.parse(Buffer.concat(chunks).toString())
-        const result = await storySegments.generateStoryOutline({ instruction, retry_of, regenerate }, { sessionId, projectId: project_id, requestId: request_id, retryAction: retry_action, source: 'ui' })
-        return json(res, 202, result)
-      }
-      if (['/api/drama/shots', '/api/drama/scenes', '/api/drama/groups', '/api/drama/characters', '/api/drama/costume-images'].includes(url.pathname) && req.method === 'POST') {
-        if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
-        const chunks = []; let size = 0
-        for await (const chunk of req) { size += chunk.length; if (size > 65536) return json(res, 413, { message: '生成要求过大' }); chunks.push(chunk) }
-        const { project_id, request_id, instruction, retry_of, retry_action, character_id, costume_id, regenerate } = JSON.parse(Buffer.concat(chunks).toString())
-        const context = { sessionId, projectId: project_id, requestId: request_id, retryAction: retry_action, source: 'ui' }
-        const result = url.pathname.endsWith('/shots') ? await shotDesign.generateShots({ instruction, retry_of, regenerate }, context)
-          : url.pathname.endsWith('/scenes') ? await sceneExtraction.extractScenes({ instruction, retry_of, regenerate }, context)
-          : url.pathname.endsWith('/groups') ? await groupSetting.generateGroups({ instruction, retry_of, regenerate }, context)
-          : url.pathname.endsWith('/characters') ? await characterExtraction.extractCharacters({ instruction, retry_of, regenerate }, context)
-          : await costumeImages.generate({ instruction, character_id, costume_id, retry_of }, context)
-        return json(res, 202, result)
-      }
+
       if (url.pathname === '/api/drama/project' && req.method === 'PATCH') {
         if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
         const chunks = []; let size = 0
         for await (const chunk of req) {
           size += chunk.length
-          if (size > 2 * 1024 * 1024) return json(res, 413, { message: '项目资料过大' })
+          if (size > 70 * 1024 * 1024) return json(res, 413, { message: '项目资料过大' })
           chunks.push(chunk)
         }
         const { project_id, command, request_id } = JSON.parse(Buffer.concat(chunks).toString())
-        return json(res, 200, await tool.edit(command, { sessionId, projectId: project_id, ...(command.kind === 'import_script' ? { requestId: request_id, source: 'ui' } : {}) }))
+        return json(res, 200, await tool.edit(command, { sessionId, projectId: project_id, ...(request_id ? { requestId: request_id, source: 'ui' } : {}) }))
       }
       if (url.pathname === '/api/drama/projects' && req.method === 'POST') {
         if (req.headers['x-drama-request'] !== '1') return json(res, 403, { message: '缺少面板请求标识' })
@@ -179,7 +139,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         let size = 0
         for await (const chunk of req) {
           size += chunk.length
-          if (size > 2 * 1024 * 1024) return json(res, 413, { message: '项目资料过大' })
+          if (size > 70 * 1024 * 1024) return json(res, 413, { message: '项目资料过大' })
           chunks.push(chunk)
         }
         const { fields, request_id } = JSON.parse(Buffer.concat(chunks).toString())

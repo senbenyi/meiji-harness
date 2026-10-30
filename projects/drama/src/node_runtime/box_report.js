@@ -1,3 +1,4 @@
+import {projectStages} from '../shared/production_stages.js'
 import { taskEndReason, TASK_END_REASONS } from '@agent-modules/task/models'
 
 /** 等待程序盒子终态；取消归任务管理器处理，不把未完成结果当成功。 */
@@ -37,23 +38,23 @@ export function boxReport(detail) {
   const before = input.current_script || input.current_outline || input.current_scenes || input.current_groups || input.current_characters || input.current_shots || null
   const scriptImport = task.node_type === 'project' && metadata.command?.kind === 'import_script'
   const importedScript = detail.steps.findLast(step => step.result?.current_script)?.result.current_script
-  const coordinationRequired = textNode && saved && detail.status === 'completed'
+  const coordinationRequired = metadata.production?detail.group.source==='ui'&&task.action==='revise'&&saved&&detail.status==='completed':textNode && saved && detail.status === 'completed'
     && (task.action === 'revise' || metadata.node_state_before?.status && metadata.node_state_before.status !== 'empty')
   const reasonType = taskEndReason(task, detail.steps)
   return {
     report_id: detail.group.id, group_id: detail.group.id, task_id: task.id,
-    project_id: metadata.project_id, session_id: created ? metadata.target_session_id : metadata.session_id || metadata.source_session_id,
+    project_id: metadata.project_id, session_id: created ? created.session_id || metadata.target_session_id : metadata.session_id || metadata.source_session_id,
     source_session_id: metadata.source_session_id || metadata.session_id,
     node_type: task.node_type, action: task.action, status: detail.status, decision,
     reason_type: reasonType, reason_label: reasonType ? TASK_END_REASONS[reasonType].label : '',
-    requires_user_decision: ['script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image', 'scene_image', 'shot_design'].includes(task.node_type) && (detail.status === 'failed' || detail.status === 'rejected' && decision === 'content_issue'),
+    requires_user_decision: (metadata.production||['script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image', 'scene_image', 'shot_design'].includes(task.node_type)) && (detail.status === 'failed' || detail.status === 'rejected' && decision === 'content_issue'),
     goal: metadata.goal || metadata.instruction || '创建项目',
     reason: detail.status === 'rejected' && review ? review.issues.map(issue => `${issue.location}：${issue.reason}；${issue.suggestion}`).join('\n') : detail.reason || '',
     parent_group_id: metadata.parent_group_id || null,
     issues: structuredClone(review?.issues || []),
     ...(task.node_type === 'shot_design' && review ? { suggestions: structuredClone(review.suggestions || []) } : {}),
-    related_nodes: decision === 'upstream_issue' ? ['scene_extraction', 'group_setting'].includes(task.node_type) ? ['story_segments'] : task.node_type === 'shot_design' ? ['story_segments', 'scene_extraction', 'group_setting', 'character_extraction'] : task.node_type === 'character_extraction' ? ['group_setting', 'story_segments'] : task.node_type === 'story_segments' ? ['script_revision'] : ['project'] : decision === 'rule_conflict' ? [task.node_type] : [],
-    saved, result_reference: created ? '#/basic_info' : candidate && saved ? task.node_type === 'shot_design' ? '#/shot_design/shots' : task.node_type === 'scene_extraction' ? '#/scene_extraction/scenes' : task.node_type === 'group_setting' ? '#/group_setting/groups' : task.node_type === 'character_extraction' ? '#/character_extraction/characters' : task.node_type === 'scene_image' ? '#/scene_extraction/assets' : task.node_type === 'costume_image' ? '#/character_extraction/assets' : task.node_type === 'story_segments' ? '#/story_segments/segments' : '#/basic_info/actual_script' : changed?.reference || null,
+    related_nodes: metadata.production&&decision==='upstream_issue'?[projectStages[Math.max(0,projectStages.findIndex(s=>s.id===task.node_type)-1)].id]:decision === 'upstream_issue' ? ['scene_extraction', 'group_setting'].includes(task.node_type) ? ['story_segments'] : task.node_type === 'shot_design' ? ['story_segments', 'scene_extraction', 'group_setting', 'character_extraction'] : task.node_type === 'character_extraction' ? ['group_setting', 'story_segments'] : task.node_type === 'story_segments' ? ['script_revision'] : ['project'] : decision === 'rule_conflict' ? [task.node_type] : [],
+    saved, result_reference: metadata.production&&saved?`#/${projectStages.find(s=>s.id===task.node_type)?.field||task.node_type}`:created ? '#/basic_info' : candidate && saved ? task.node_type === 'shot_design' ? '#/shot_design/shots' : task.node_type === 'scene_extraction' ? '#/scene_extraction/scenes' : task.node_type === 'group_setting' ? '#/group_setting/groups' : task.node_type === 'character_extraction' ? '#/character_extraction/characters' : task.node_type === 'scene_image' ? '#/scene_extraction/assets' : task.node_type === 'costume_image' ? '#/character_extraction/assets' : task.node_type === 'story_segments' ? '#/story_segments/segments' : '#/basic_info/actual_script' : changed?.reference || null,
     coordination_required: Boolean(coordinationRequired || scriptImport && saved && detail.status === 'completed'),
     ...(textNode && candidate ? { change: { before: structuredClone(before), after: structuredClone(candidate) } } : {}),
     ...(scriptImport && importedScript ? { change: { before: structuredClone(before), after: { ...structuredClone(importedScript), ...structuredClone(basicOutput || {}) } } } : {}),

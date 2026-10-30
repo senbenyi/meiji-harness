@@ -1,0 +1,2 @@
+export async function confirm(p){if(!(p.clip_arrangement.clips.length))throw new TypeError('此步骤尚无可确认产物');if(true){const expected=[...p.shot_design.shots].sort((a,b)=>a.sequence-b.sequence).flatMap(s=>s.beats.map(b=>`${s.id}:${b.id}`)),actual=[...p.clip_arrangement.clips].sort((a,b)=>a.sequence-b.sequence).flatMap(c=>c.sources.flatMap(s=>s.beat_ids.map(b=>`${s.shot_id}:${b}`)));if(JSON.stringify(expected)!==JSON.stringify(actual))throw new TypeError('分片需按顺序覆盖每个节拍且不重复')}
+}

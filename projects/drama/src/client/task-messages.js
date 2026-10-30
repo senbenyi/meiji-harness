@@ -96,7 +96,7 @@ export function mountTaskMessages({ document = globalThis.document, getSessionId
         if (!response.ok) throw new Error('任务消息读取失败')
         const { messages, details = [], cursor: nextCursor } = await response.json()
         if (disposed || ticket !== version || id !== getSessionId()) return
-        for (const message of details) { ready.set(message.id, message); full.set(message.id, Promise.resolve(message)) }
+        for (const message of details) { if(message.model_call&&!message.model_exchange)continue;ready.set(message.id, message); full.set(message.id, Promise.resolve(message)) }
         if (Number.isSafeInteger(nextCursor)) cursor = nextCursor
         pendingGroups = [...new Set(messages.filter(message => ['queued', 'running'].includes(message.operation_status)).map(message => message.group_id).filter(Boolean))]
         const scroller = locate()?.querySelector('[data-conversation-scroll]')

@@ -1,0 +1,54 @@
+{
+  "generate": {
+    "type": "json",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "assets": {
+          "$ref": "project:/properties/asset_library"
+        },
+        "shots": {
+          "$ref": "project:/properties/shot_design/properties/shots"
+        },
+        "requirements": {
+          "$ref": "project:/properties/asset_requirements/properties/items"
+        }
+      },
+      "required": [
+        "assets",
+        "shots",
+        "requirements"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "review": {
+    "type": "json",
+    "schema": {
+      "$ref": "shared:review"
+    }
+  },
+  "revise": {
+    "type": "json",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "assets": {
+          "$ref": "project:/properties/asset_library"
+        },
+        "shots": {
+          "$ref": "project:/properties/shot_design/properties/shots"
+        },
+        "requirements": {
+          "$ref": "project:/properties/asset_requirements/properties/items"
+        }
+      },
+      "required": [
+        "assets",
+        "shots",
+        "requirements"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

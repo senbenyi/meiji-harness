@@ -214,3 +214,11 @@ test('视频下载自定义超时实际中止等待并保留失败记录', async
   }), /abort/i);
   assert.equal(rows.at(-1).ok, false);
 });
+
+test('H3参考音频透传网关audios，模式互斥及数量/地址在请求前验证',()=>{
+ const audio='data:audio/wav;base64,YWJj',base={model:'MiniMax-H3',mode:'reference',prompt:'张飞说来战',duration:4,referenceImages:[image],referenceAudios:[audio]}
+ assert.deepEqual(videoPayload(base).audios,[audio]);assert.throws(()=>videoPayload({...base,referenceAudios:Array(4).fill(audio)}),/最多3/)
+ assert.throws(()=>videoPayload({...base,referenceAudios:['file:\/\/private.wav']}),/地址无效/)
+ assert.throws(()=>videoPayload({...base,mode:'first_frame',inputReference:image,referenceImages:undefined}),/不能带参考素材/)
+ assert.throws(()=>videoPayload({...base,mode:'text',aspectRatio:'9:16',referenceImages:undefined}),/不能带画面素材/)
+})

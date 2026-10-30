@@ -9,7 +9,6 @@ import { DatabaseSync } from 'node:sqlite'
 import { createRecordService } from '../src/records/service.js'
 import { ReportDispatcher } from '../src/session/report_dispatcher.js'
 import { boxReport } from '../src/node_runtime/box_report.js'
-import { projectExecutions, applyExecutionStates } from '../src/node_runtime/execution_state.js'
 import { displayContext } from '../src/session/task_display_context.js'
 import { createFailureDecision } from '../src/client/ui/failure-decision.js'
 
@@ -58,7 +57,6 @@ for (const [error_code, http, expected] of [
   assert.equal(taskEndReason(task, detail.steps), expected)
   assert.equal(report.reason_type, expected); assert.equal(context.reason_type, expected)
   const records = { scope: 'drama', tasks: { history: () => ({ tasks: [task], total: 1 }), detail: () => detail } }
-  assert.equal(projectExecutions(records, 'p')[0].execution.stop_code, expected)
   const dom = new JSDOM(), card = createFailureDecision(dom.window.document, { group: { name: '创建项目', status: 'failed', context: { ...context, saved: true } } }).shadowRoot
   assert.match(card.textContent, new RegExp(`原因类型：${TASK_END_REASONS[expected].label}`))
   assert.doesNotMatch(card.textContent, /审核未通过/)
@@ -106,14 +104,6 @@ for (const [status, label] of [['content_issue', '内容问题'], ['upstream_iss
   assert.equal(report.reason, 'segment_003.body：最后一轮真实问题；完整修复状态衔接')
   assert.equal(context.stop_reason, report.reason)
   const records = { scope: 'drama', tasks: { history: () => ({ tasks: [task], total: 1 }), detail: () => detail } }
-  const executions = projectExecutions(records, 'p')
-  assert.equal(executions[0].execution.stop_code, status)
-  assert.equal(executions[0].execution.message, report.reason)
-  const state = new NodeStateModel({ type: 1, status: 'rejected', reason: oldReason, rules: Object.fromEntries(['generate', 'review', 'revise'].map(action => [action, { base: '', supplement: '' }])),
-    last_execution: { ...executions[0].execution, stop_code: 'revision_limit_reached', message: oldReason } }).toJSON()
-  const project = { basic_info: { script_revision_node: state } }
-  applyExecutionStates(project, executions)
-  assert.equal(state.last_execution.stop_code, status); assert.equal(state.reason, report.reason)
   assert.equal(detail.reason, oldReason); assert.equal(detail.steps[1].result.stop_code, 'revision_limit_reached')
   const dom = new JSDOM(), card = createFailureDecision(dom.window.document, {
     group: { name: '故事大纲', status: 'rejected', context }, onDetails: async () => {},

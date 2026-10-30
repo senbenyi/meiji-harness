@@ -1,7 +1,7 @@
-import { element } from '../../../../client/ui/panel-dom.js'
+import {element} from '../../../../client/ui/panel-dom.js'
 
 // 从本项目已复制的meiji创建弹窗提取导入控件，原文只通过导入更新，无文本编辑器。
-export function scriptImport(root, { importScript, listScripts, readScript } = {}) {
+export function scriptImport(root, { importScript, listScripts, readScript, maxScriptBytes=1024*1024 } = {}) {
   const group = element('div', '', 'project-script-import'), row = element('div', '', 'workflow-generation-row'),
     imp = element('button', '本地导入', 'script-import'), choose = element('button', '素材库导入', 'script-choose'),
     file = element('input'), picker = element('select', '', 'script-picker'), error = element('p', '', 'error')
@@ -17,11 +17,12 @@ export function scriptImport(root, { importScript, listScripts, readScript } = {
     if (!selected) return
     try {
       if (!/\.(txt|text|md)$/i.test(selected.name)) throw Error('请选择TXT或Markdown剧本')
-      if (selected.size > 1024 * 1024) throw Error('剧本不能超过1MB')
+      if (selected.size > maxScriptBytes) throw Error(`剧本不能超过${maxScriptBytes/1024/1024}MB`)
       setBusy(true); error.textContent = ''
       const body = await selected.text()
       if (!active(n)) return
-      if (!body.trim()) throw Error('剧本不能为空')
+      if (typeof body !== 'string' || !body.trim()) throw Error('剧本不能为空')
+      if (new Blob([body]).size > maxScriptBytes) throw Error(`剧本不能超过${maxScriptBytes/1024/1024}MB`)
       await importScript(body, selected.name)
     } catch (failure) { if (active(n)) error.textContent = failure.message }
     finally { if (active(n)) { file.value = ''; setBusy(false) } }
@@ -47,7 +48,10 @@ export function scriptImport(root, { importScript, listScripts, readScript } = {
     try {
       setBusy(true); error.textContent = ''
       const body = await readScript(id)
-      if (active(n)) await importScript(body, picker.selectedOptions[0].textContent)
+      if (!active(n)) return
+      if (typeof body !== 'string' || !body.trim()) throw Error('剧本不能为空')
+      if (new Blob([body]).size > maxScriptBytes) throw Error(`剧本不能超过${maxScriptBytes/1024/1024}MB`)
+      await importScript(body, picker.selectedOptions[0].textContent)
     } catch (failure) { if (active(n)) error.textContent = failure.message }
     finally { if (active(n)) setBusy(false) }
   }
