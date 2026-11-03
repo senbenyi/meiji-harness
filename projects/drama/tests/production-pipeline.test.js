@@ -12,7 +12,7 @@ import {fixture,defaultAuthor,call,reply} from './helpers/production-fixture.js'
 test('从创建到所有制作阶段：真实模拟网关、独立审核、共享图片、声音、ffmpeg剪辑与最终导出',async t=>{
  const f=await fixture(t);await f.run('source_analysis');let p=await f.project();assert.equal(p.source_analysis.chapters.length,1);assert.equal(p.source_analysis.coverage_ref,null);assert.equal(f.requests.length,0)
  await f.run('adaptation_plan');p=await f.project();assert.ok(p.adaptation_plan.plot_development);assert.equal(Object.hasOwn(p.adaptation_plan,'segment_plans'),false);assert.equal(p.episodes.length,0);assert.equal(p.asset_library.characters.length,1)
- await f.run('story_segments');await f.run('shot_design');p=await f.project();assert.equal(p.shot_design.shots.length,2)
+ await f.run('story_segments');assert.ok(f.calls.filter(c=>c.stage==='story_segments'&&c.action==='generate').some(c=>c.messages.some(m=>m.tool_calls?.some(call=>call.function.name==='read_source'))),'定稿必须实际读取原剧本');await f.run('shot_design');p=await f.project();assert.equal(p.shot_design.shots.length,2)
  await f.run('asset_preparation');p=await f.project();assert.equal(p.node_states.asset_preparation.status,'draft');assert.equal(f.production.images.list().total,2)
  for(const key of ['scenes','character_looks'])for(const asset of p.asset_library[key])await f.edit({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:asset.image_ids[0]})
  p=await f.project();await f.run('asset_preparation',{target_id:p.asset_library.clothing[0].id});p=await f.project();await f.edit({kind:'image_select',stage:'asset_preparation',target_id:p.asset_library.clothing[0].id,image_id:p.asset_library.clothing[0].image_ids[0]});await f.run('asset_preparation',{target_id:p.asset_library.character_looks[0].id,regenerate:true});p=await f.project();await f.edit({kind:'image_select',stage:'asset_preparation',target_id:p.asset_library.character_looks[0].id,image_id:p.asset_library.character_looks[0].image_ids.at(-1)});assert.ok(f.requests.some(r=>r.path==='/images/generations'&&r.body.images?.length===1),'独立服装图应进入组合定妆的真实模型输入')
@@ -136,8 +136,24 @@ test('自主多段定稿支持相邻实际段审核修订，完整读取冻结�
   return defaultAuthor(body,context)
  }})
  await f.run('source_analysis');await f.run('adaptation_plan');const detail=await f.run('story_segments'),before=await f.project()
- assert.equal(before.story_segments.segments.length,2);assert.ok(detail.steps.some(step=>step.kind==='revise'));assert.equal(detail.tasks[0].metadata.text_contract_version,2)
+ assert.equal(before.story_segments.segments.length,2);assert.ok(detail.steps.some(step=>step.kind==='revise'));assert.equal(detail.tasks[0].metadata.text_contract_version,3)
  const calls=f.calls.filter(call=>call.stage==='story_segments')
  assert.ok(calls.filter(call=>call.messages.some(message=>message.role==='tool')).every(call=>call.messages.some(message=>message.role==='tool'&&message.content.includes('以人物动机强化营帐对峙'))))
  await f.run('story_segments',{revise:true});const after=await f.project();assert.deepEqual(after.story_segments.segments.map(s=>s.id),before.story_segments.segments.map(s=>s.id));assert.ok(after.story_segments.segments.every(s=>s.adaptation_revision===after.adaptation_plan.revision&&!Object.hasOwn(s,'plan_item_id')))
+})
+
+
+test('定稿审核通过可携带润色建议，完整及相邻复核均不因此进入修订',async t=>{
+ const f=await fixture(t,{author:async(body,context)=>{
+  const message=await defaultAuthor(body,context),catalog=JSON.parse(body.messages[1].content)
+  if(catalog.stage==='story_segments')for(const tool of message.tool_calls||[]){
+   if(tool.function.name==='submit_review')tool.function.arguments=JSON.stringify({output:{status:'passed',issues:[],suggestions:['对白可更凝练，作为后续润色建议。']}})
+  }
+  return message
+ }})
+ await f.run('source_analysis');await f.run('adaptation_plan');const detail=await f.run('story_segments')
+ const reviews=detail.steps.filter(step=>step.result?.review)
+ assert.ok(reviews.length>=2);assert.ok(reviews.every(step=>step.result.review.status==='passed'&&step.result.review.suggestions.length===1))
+ assert.equal(detail.steps.some(step=>step.kind==='revise'),false)
+ assert.equal((await f.project()).story_segments.segments.length,2)
 })

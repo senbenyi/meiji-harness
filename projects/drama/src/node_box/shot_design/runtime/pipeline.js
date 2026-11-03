@@ -11,7 +11,7 @@ export function applyCandidate(next,unit,output,files={}){
 export async function prepareText(projects,project,input,{signal}={}){
  const id=project.basic_info.id,units=[];
     if(project.node_states.story_segments.status!=='confirmed'||!project.story_segments.segments.length)throw new TypeError('请先确认连续故事定稿')
-    for(const segment of project.story_segments.segments.filter(p=>!input.unit_id||p.id===input.unit_id))units.push({id:uid('unit'),kind:'shots',segment_id:segment.id,source_spans:segment.source_spans,read_refs:[segment.body_ref],material:{segment,group_plans:project.adaptation_plan.group_plans,asset_index_ref:'snapshot:/asset_library',instruction:'先读本段正文与已有资产索引，复用稳定ID，输出当前段镜头及确需新增/更新的资产定义和素材需求。'}})
+    for(const segment of project.story_segments.segments.filter(p=>!input.unit_id||p.id===input.unit_id))units.push({id:uid('unit'),kind:'shots',segment_id:segment.id,read_refs:[segment.body_ref],material:{segment,group_plans:project.adaptation_plan.group_plans,asset_index_ref:'snapshot:/asset_library',instruction:'先读本段正文与已有资产索引，复用稳定ID，输出当前段镜头及确需新增/更新的资产定义和素材需求。'}})
 
  if(input.unit_id&&units.length===0)throw new TypeError('指定单元不存在');return units
 }

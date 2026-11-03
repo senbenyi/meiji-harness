@@ -9,7 +9,6 @@ const array = items => ({type:'array',items})
 const object = properties => ({type:'object',properties,required:Object.keys(properties),additionalProperties:false})
 const nullable = schema => ({oneOf:[schema,{type:'null'}]})
 const id=string(1), ids=array(id), ref=string(1), optionalRef=nullable(ref)
-const sourceSpan=object({source_revision_id:id,start:integer(),end:integer(1)})
 const mediaBinding=object({image_id:id,role:string(1)})
 const dialogue=object({id,speaker_id:id,text:string(1),delivery:object({emotion:string(),volume:string(),pace:string(),breath:string()})})
 const assetBase={id,name:string(1),description:string(),image_ids:ids,selected_image_id:nullable(id)}
@@ -21,7 +20,7 @@ const productSchemas={
  source:object({current_revision_id:nullable(id),revisions:array(object({id,file_ref:ref,original_name:string(1),character_count:integer(),line_index_ref:optionalRef}))}),
  source_analysis:object({source_revision_id:nullable(id),chapters:array(object({id,sequence:integer(1),title:string(1),body:string(1),summary:string()})),facts_ref:optionalRef,coverage_ref:optionalRef}),
  adaptation_plan:object({revision:integer(),source_revision_id:nullable(id),creative_constraints:object({style:string(),audience:string(),adaptation_scope:string(),preserve:array(string(1)),allowed_changes:array(string(1)),locked_requirements:array(string(1))}),plot_development:string(),character_plans:array(object({id,name:string(1),description:string(),motivation:string(),relationships:string(),arc:string()})),scene_plans:array(object({id,name:string(1),function:string(),description:string()})),group_plans:array(object({id,name:string(1),social_role:string(),description:string()}))}),
- story_segments:object({segments:array(object({id,sequence:integer(1),revision:integer(1),adaptation_revision:integer(),source_chapter_ids:ids,title:string(1),body_ref:ref,source_spans:array(sourceSpan),continuity_ref:optionalRef}))}),
+ story_segments:object({segments:array(object({id,sequence:integer(1),revision:integer(1),adaptation_revision:integer(),title:string(1),body_ref:ref,continuity_ref:optionalRef}))}),
  asset_library:object({
   characters:array(object({...assetBase,character_plan_id:nullable(id),voice_profile:object({description:string(),reference_audio_ref:optionalRef,revision:integer()})})),
   clothing:array(object({...assetBase,group_key:string()})),
@@ -64,10 +63,9 @@ export function assertProjectDocument(document){
  for(const [key,rows]of Object.entries(document.asset_library))index(key,rows)
  const shots=index('shots',document.shot_design.shots),clips=index('clips',document.clip_arrangement.clips),prompts=index('prompts',document.video_prompt.items),takes=index('takes',document.videos),timelines=index('timelines',document.editing.timelines)
  index('episodes',document.episodes);index('requirements',document.asset_requirements.items);index('exports',document.delivery.exports)
- const span=(value,path)=>{requireId('sources',value.source_revision_id,path);if(value.end<=value.start||value.end>(sources.get(value.source_revision_id)?.character_count??0))failure(path,'原文区间越界')}
  requireId('sources',document.source.current_revision_id,'source.current_revision_id');requireId('sources',document.source_analysis.source_revision_id,'source_analysis.source_revision_id');requireId('sources',document.adaptation_plan.source_revision_id,'adaptation_plan.source_revision_id')
  if(chapters.size||document.source_analysis.source_revision_id){if(!document.source_analysis.source_revision_id)failure('source_analysis','分段缺少原稿版本');let length=0;for(const [i,chapter]of document.source_analysis.chapters.entries()){if(chapter.sequence!==i+1)failure('source_analysis.chapters.sequence','分段必须按连续顺序保存');length+=chapter.body.length}if(length!==sources.get(document.source_analysis.source_revision_id).character_count)failure('source_analysis.chapters.body','分段正文长度与原稿不一致')}
- for(const segment of segments.values()){for(const value of segment.source_chapter_ids)requireId('chapters',value,'segments.source_chapter_ids');for(const item of segment.source_spans)span(item,'segments.source_spans');if(segment.adaptation_revision>document.adaptation_plan.revision)failure('segments.adaptation_revision','不能引用未来改编版本')}
+ for(const segment of segments.values()){if(segment.adaptation_revision>document.adaptation_plan.revision)failure('segments.adaptation_revision','不能引用未来改编版本')}
  const assetIds=new Set();for(const rows of Object.values(document.asset_library))for(const asset of rows){if(assetIds.has(asset.id))failure('asset_library','跨类型资产ID重复');assetIds.add(asset.id)}
  for(const [kind,rows]of Object.entries(document.asset_library))for(const asset of rows){if(asset.selected_image_id!==null&&!asset.image_ids.includes(asset.selected_image_id))failure(`asset_library.${kind}.selected_image_id`,'所选图片必须来自候选图片');if(new Set(asset.image_ids).size!==asset.image_ids.length)failure('image_ids','图片ID重复')}
  for(const character of document.asset_library.characters)requireId('character_plans',character.character_plan_id,'characters.character_plan_id')

@@ -406,13 +406,6 @@
                 "type": "integer",
                 "minimum": 0
               },
-              "source_chapter_ids": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              },
               "title": {
                 "type": "string",
                 "minLength": 1
@@ -420,32 +413,6 @@
               "body_ref": {
                 "type": "string",
                 "minLength": 1
-              },
-              "source_spans": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "source_revision_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "start": {
-                      "type": "integer",
-                      "minimum": 0
-                    },
-                    "end": {
-                      "type": "integer",
-                      "minimum": 1
-                    }
-                  },
-                  "required": [
-                    "source_revision_id",
-                    "start",
-                    "end"
-                  ],
-                  "additionalProperties": false
-                }
               },
               "continuity_ref": {
                 "oneOf": [
@@ -464,10 +431,8 @@
               "sequence",
               "revision",
               "adaptation_revision",
-              "source_chapter_ids",
               "title",
               "body_ref",
-              "source_spans",
               "continuity_ref"
             ],
             "additionalProperties": false

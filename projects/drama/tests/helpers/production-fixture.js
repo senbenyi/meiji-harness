@@ -60,9 +60,9 @@ export async function defaultAuthor(body,{projects,calls}){
  let output
  if(stage==='adaptation_plan')output=makePlan({direction:'风格：保持原著气质并强化戏剧张力；受众：未指定，待确认；改编尺度：保留主线，适度强化因果；保留：人物关系和关键对白；允许调整：重复表达与动作呈现',requirements:['保留对白原文'],development:'保留原著主线，以人物动机强化营帐对峙的张力；具体分段和衔接由定稿完成。',character_plans:[{id:'cp_zhang',name:'张飞',description:'魁梧勇猛',motivation:'直面对手',relationships:'与对手形成对峙',arc:'由进帐到主动迎战'}],scene_plans:[{id:'sp_tent',name:'营帐',function:'对峙',description:'营帐内部'}],group_plans:[]})
  if(stage==='story_segments'){
-  const existing=p.story_segments.segments.filter(s=>unit.kind==='story_audit'?unit.segment_ids.includes(s.id):unit.source_chapter_ids.length?s.source_chapter_ids.some(id=>unit.source_chapter_ids.includes(id)):!s.source_chapter_ids.length)
-  const count=unit.kind==='story_audit'?existing.length:p.source_analysis.chapters.find(c=>unit.source_chapter_ids.includes(c.id))?.body.includes('第二章')?2:1
-  output={segments:Array.from({length:count},(_,i)=>({id:existing[i]?.id||`seg_${unit.source_chapter_ids[0]||'free'}_${i+1}`,title:i?'后续对峙':'营帐对峙',body:'张飞走进营帐，直视对方，说：“来战！”',continuity:'开场走入营帐；结尾站在帐中直视对手。'}))}
+  const existing=p.story_segments.segments.filter(s=>unit.kind!=='story_audit'||unit.segment_ids.includes(s.id))
+  const count=unit.kind==='story_audit'?existing.length:2
+  output={segments:Array.from({length:count},(_,i)=>({id:existing[i]?.id||`seg_story_${i+1}`,title:i?'后续对峙':'营帐对峙',body:'张飞走进营帐，直视对方，说：“来战！”',continuity:'开场走入营帐；结尾站在帐中直视对手。'}))}
  }
  if(stage==='shot_design'){
   const character=p.asset_library.characters.find(c=>c.character_plan_id==='cp_zhang'),scene=p.asset_library.scenes.find(s=>s.scene_plan_id==='sp_tent'),segment=p.story_segments.segments.find(s=>s.id===unit.segment_id),shotId='shot_'+segment.id

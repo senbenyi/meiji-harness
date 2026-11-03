@@ -164,3 +164,35 @@ test('全篇创作约束独立编辑，保留剧情事件和人物规划',async 
  ;[...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').click();await tick()
  assert.equal(saved.value.creative_constraints.audience,'成年观众');assert.deepEqual(saved.value.plot_development,p.adaptation_plan.plot_development);assert.equal(saved.expected_revision,0)
 })
+
+test('故事定稿卡直接展示分页后的完整正文与换行，隐藏路径并可编辑保存',async t=>{
+ const {root}=fixture(t),p=createProjectDocument({id:'p_story',name:'正文展示'}),text='甲：出发。\n'+ '完整剧情。'.repeat(4000)+'\n<script>仅作为剧本文字</script>\n故事结束。',requests=[]
+ p.story_segments.segments=[{id:'s1',sequence:1,revision:1,adaptation_revision:0,title:'第一段',body_ref:'artifacts/story.txt',continuity_ref:'artifacts/continuity.txt'}]
+ let command
+ const request=async path=>{const url=new URL(path,'http://test/');requests.push(url);const start=Number(url.searchParams.get('start')),end=Number(url.searchParams.get('end'));return {body:text.slice(start,end),characters:text.length,end:Math.min(end,text.length)}}
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'story_segments'},request,save:async value=>{command=value;return p}});t.after(()=>view.dispose())
+ await tick();assert.equal(root.querySelector('.production-card .production-text').textContent,text);assert.equal(requests.length,2)
+ assert.doesNotMatch(root.textContent,/artifacts\/|body_ref|continuity_ref/);assert.equal(root.querySelector('.production-card script'),null)
+ const before=requests.length;view.update(p);await tick();assert.equal(requests.length,before,'相同不可变正文不重复请求')
+ const edit=[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑正文');edit.click();await tick();assert.equal(root.querySelector('dialog textarea').value,text)
+ root.querySelector('dialog textarea').value='修改后的完整正文';await [...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').onclick()
+ assert.equal(command.kind,'artifact_text');assert.equal(command.ref,'artifacts/story.txt');assert.equal(command.value,'修改后的完整正文')
+})
+
+test('故事正文更新引用后显示新文字，迟到的旧请求不覆盖当前卡片',async t=>{
+ const {root}=fixture(t),p=createProjectDocument({id:'p_story',name:'实时更新'})
+ p.story_segments.segments=[{id:'s1',sequence:1,revision:1,adaptation_revision:0,title:'第一段',body_ref:'artifacts/old.txt',continuity_ref:null}]
+ let oldResponse
+ const request=async path=>new URL(path,'http://test/').searchParams.get('ref')==='artifacts/old.txt'?await new Promise(resolve=>{oldResponse=resolve}):{body:'新改编正文\n新结局',characters:10}
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'story_segments'},request});t.after(()=>view.dispose())
+ const next=structuredClone(p);next.story_segments.segments[0].body_ref='artifacts/new.txt';view.update(next);await tick();assert.match(root.textContent,/新改编正文\n新结局/)
+ oldResponse({body:'旧正文',characters:3});await tick();assert.doesNotMatch(root.textContent,/旧正文/);assert.match(root.textContent,/新结局/)
+})
+
+test('故事正文读取失败可直接重试，不暴露底层路径',async t=>{
+ const {root}=fixture(t),p=createProjectDocument({id:'p_story',name:'失败重试'});let attempts=0
+ p.story_segments.segments=[{id:'s1',sequence:1,revision:1,adaptation_revision:0,title:'第一段',body_ref:'artifacts/story.txt',continuity_ref:null}]
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'story_segments'},request:async()=>{if(!attempts++)throw new Error('ENOENT /private/storage/artifacts/story.txt');return {body:'重试取得的完整正文',characters:10}}});t.after(()=>view.dispose())
+ await tick();assert.match(root.textContent,/正文加载失败/);assert.doesNotMatch(root.textContent,/private\/|artifacts\//)
+ const retry=[...root.querySelectorAll('button')].find(b=>b.textContent==='重试加载正文');await retry.onclick();assert.match(root.textContent,/重试取得的完整正文/);assert.doesNotMatch(root.textContent,/正文加载失败/)
+})

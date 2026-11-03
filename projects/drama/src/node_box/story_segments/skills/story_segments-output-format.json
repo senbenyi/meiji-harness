@@ -20,11 +20,13 @@
               "body": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 48000
+                "maxLength": 48000,
+                "description": "改编后的完整剧本文字，详细展开本段全部情节、行动、对白、角色反应和场景细节；各段合起来构成可独立阅读的完整故事。"
               },
               "continuity": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "改编后故事本段开场与结尾的状态，供段间连贯性复核。"
               }
             },
             "required": [
@@ -71,11 +73,13 @@
               "body": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 48000
+                "maxLength": 48000,
+                "description": "改编后的完整剧本文字，详细展开本段全部情节、行动、对白、角色反应和场景细节；各段合起来构成可独立阅读的完整故事。"
               },
               "continuity": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "改编后故事本段开场与结尾的状态，供段间连贯性复核。"
               }
             },
             "required": [

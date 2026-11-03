@@ -43,37 +43,36 @@ test('联合改编只建一个全篇单元，覆盖全部原著，不再按章�
  await assert.rejects(prepareText({},'adaptation_plan',p,{unit_id:'c1'}),/只生成全篇指导/)
 })
 
-test('故事阶段自主返回多段，程序记录来源、顺序和指导版本，不存在上游段计划',async()=>{
+test('故事阶段生成独立全篇单元，按候选顺序保存并保留指导版本',async()=>{
  const p=sourceProject(),units=await prepareText(fakeProjects(),'story_segments',p,{})
- assert.equal(units.length,2);assert.deepEqual(units[0].read_refs,['artifacts/guidance.json']);assert.equal(Object.hasOwn(units[0],'plan_item_id'),false)
+ assert.equal(units.length,1);assert.deepEqual(units[0].read_refs,['artifacts/guidance.json']);assert.deepEqual(units[0].source_spans.map(s=>[s.start,s.end]),[[0,4],[4,8]])
+ for(const key of ['source_chapter_ids','source_sequence'])assert.equal(Object.hasOwn(units[0],key),false)
  const output={segments:[segment('first'),segment('second')]};parseCandidate('story_segments',units[0],output)
  const next=applyCandidate(p,'story_segments',units[0],output)
- assert.deepEqual(next.story_segments.segments.map(s=>[s.id,s.sequence,s.adaptation_revision,s.source_chapter_ids]),[['first',1,1,['c1']],['second',2,1,['c1']]])
- const later=applyCandidate(next,'story_segments',units[1],{segments:[segment('third')]})
- assert.deepEqual(later.story_segments.segments.map(s=>s.id),['first','second','third'])
- const revised=applyCandidate(later,'story_segments',units[0],{segments:[segment('first'),segment('new'),segment('second')]})
- assert.deepEqual(revised.story_segments.segments.map(s=>s.id),['first','new','second','third']);assert.equal(revised.story_segments.segments[0].revision,2);assert.equal(revised.story_segments.segments[3].revision,1)
- assert.throws(()=>applyCandidate(later,'story_segments',units[0],{segments:[segment('third')]}),/其他原著阅读单元/)
- assert.throws(()=>applyCandidate(later,'story_segments',units[0],{segments:[segment('first'),segment('first')]}),/ID不能重复/)
+ assert.deepEqual(next.story_segments.segments.map(s=>[s.id,s.sequence,s.adaptation_revision]),[['first',1,1],['second',2,1]])
+ assert.ok(next.story_segments.segments.every(s=>!Object.hasOwn(s,'source_chapter_ids')&&!Object.hasOwn(s,'source_spans')))
+ const revised=applyCandidate(next,'story_segments',units[0],{segments:[segment('second'),segment('new'),segment('first')]})
+ assert.deepEqual(revised.story_segments.segments.map(s=>[s.id,s.sequence,s.revision]),[['second',1,2],['new',2,1],['first',3,2]])
+ assert.throws(()=>applyCandidate(next,'story_segments',units[0],{segments:[segment('first'),segment('first')]}),/ID不能重复/)
  assert.throws(()=>parseCandidate('story_segments',units[0],{segments:[]}),/至少|长度|数量/)
 })
 
-test('定稿修订恢复本阅读范围完整多段候选，保留ID，不读取其他范围正文',async()=>{
- const p=sourceProject(),units=await prepareText(fakeProjects(),'story_segments',p,{})
- let next=applyCandidate(p,'story_segments',units[0],{segments:[segment('one'),segment('two')]},{one:{body_ref:'artifacts/one.txt',continuity_ref:'artifacts/one-cont.txt'},two:{body_ref:'artifacts/two.txt'}})
- next=applyCandidate(next,'story_segments',units[1],{segments:[segment('three')]},{three:{body_ref:'artifacts/three.txt'}})
+test('定稿修订恢复改编后全部段落，与原文章节无关',async()=>{
+ const p=sourceProject(),[unit]=await prepareText(fakeProjects(),'story_segments',p,{})
+ const next=applyCandidate(p,'story_segments',unit,{segments:[segment('one'),segment('two'),segment('three')]},{one:{body_ref:'artifacts/one.txt',continuity_ref:'artifacts/one-cont.txt'},two:{body_ref:'artifacts/two.txt'},three:{body_ref:'artifacts/three.txt'}})
  const reads=[],projects={documents:{read:async()=>next,readArtifact:async(_id,ref)=>{reads.push(ref);return Buffer.from(ref)}}}
- const candidate=await currentCandidate(projects,'p_guidance','story_segments',units[0])
- assert.deepEqual(candidate.segments.map(s=>s.id),['one','two']);assert.ok(reads.every(ref=>!ref.includes('three')))
- const global=await currentCandidate(projects,'p_guidance','adaptation_plan',{})
- assert.deepEqual(global,Object.fromEntries(Object.entries(p.adaptation_plan).filter(([key])=>!['revision','source_revision_id'].includes(key))));assert.equal(Object.hasOwn(global,'segment_plans'),false)
+ const candidate=await currentCandidate(projects,'p_guidance','story_segments',unit)
+ assert.deepEqual(candidate.segments.map(s=>s.id),['one','two','three']);assert.ok(reads.includes('artifacts/three.txt'));assert.ok(reads.every(ref=>ref.startsWith('artifacts/')))
 })
 
-test('定稿必须有当前原稿的有效全篇指导，自由创作允许无原著',async()=>{
+test('定稿完整读取原剧本并按当前有效规划改编，自由创作同一流程',async()=>{
  const p=sourceProject();p.adaptation_plan.plot_development='';await assert.rejects(prepareText(fakeProjects(),'story_segments',p,{}),/全篇联合改编指导/)
  p.adaptation_plan.plot_development=sourceProject().adaptation_plan.plot_development;p.adaptation_plan.source_revision_id=null;await assert.rejects(prepareText(fakeProjects(),'story_segments',p,{}),/当前原稿更新/)
+ p.adaptation_plan.source_revision_id='src';p.node_states.source_analysis.status='empty';await assert.rejects(prepareText(fakeProjects(),'story_segments',p,{}),/完成当前原稿/)
+ p.node_states.source_analysis.status='confirmed';assert.equal((await prepareText(fakeProjects(),'story_segments',p,{})).length,1)
+ await assert.rejects(prepareText(fakeProjects(),'story_segments',p,{unit_id:'c1'}),/只生成全篇故事/)
  const free=createProjectDocument({id:'p_free',name:'自由故事',creation_mode:'自由创作'});free.adaptation_plan={...guidance(),revision:1,source_revision_id:null};free.node_states.adaptation_plan.status='confirmed'
- const units=await prepareText(fakeProjects(),'story_segments',free,{});assert.equal(units.length,1);assert.deepEqual(units[0].source_chapter_ids,[])
+ const units=await prepareText(fakeProjects(),'story_segments',free,{});assert.equal(units.length,1)
  const next=applyCandidate(free,'story_segments',units[0],{segments:[segment('free')]});assert.equal(next.story_segments.segments.length,1)
 })
 

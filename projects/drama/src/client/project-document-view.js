@@ -20,6 +20,7 @@ function workflowStatus(node,stage,active){
 }
 export function createProjectDocumentView(root,{project:initial,save,request,openTasks,remove,state={},sessionId}={}){
  let project=initial,alive=true,dialog=null,busy=false,recordView=null,active=null,poll=null,opinionPending=null,mediaControls=null,sourceControlsDispose=null
+ const storyBodies=new Map()
  const errors=new Map()
  const isActiveConflict=cause=>cause.code==='PROJECT_ACTIVE'||['短剧已有执行任务','短剧任务正在执行'].includes(cause.message)
  const setError=(cause,stage=state.documentStage)=>errors.set(stage,{message:cause.message,activeConflict:isActiveConflict(cause)})
@@ -66,6 +67,26 @@ export function createProjectDocumentView(root,{project:initial,save,request,ope
    }else{for(let start=16000;start<length;start+=16000)text+=(await fetchPage(start)).body;editor('查看/编辑正文',text,value=>({kind:'artifact_text',stage,ref,value,expected_revision:project.node_states[stage].product_revision}),{text:true,readOnly})}
    const link=element('a','下载完整文件');link.href=fileUrl(ref,true,groupId);dialog.append(link)
   }catch(cause){setError(cause,stage);paint()}
+ }
+ const showStoryBody=(card,ref)=>{
+  const body=element('p','正在加载正文…','production-text');card.append(body)
+  const key=project.basic_info.id+':'+ref
+  const load=async()=>{
+   body.setAttribute('aria-busy','true')
+   try{
+    if(!storyBodies.has(key))storyBodies.set(key,(async()=>{
+     const page=async start=>request(`production-file?${new URLSearchParams({ref,start:String(start),end:String(start+16000)})}`)
+     const first=await page(0);let text=first.body
+     for(let start=16000;start<first.characters;start+=16000)text+=(await page(start)).body
+     return text
+    })().catch(cause=>{storyBodies.delete(key);throw cause}))
+    const text=await storyBodies.get(key)
+    if(alive&&body.isConnected)body.textContent=text
+   }catch{
+    if(alive&&body.isConnected){body.textContent='正文加载失败，请重试。';body.append(button('重试加载正文',load))}
+   }finally{body.setAttribute('aria-busy','false')}
+  }
+  void load()
  }
  function paint(){if(!alive||recordView)return;const error=errors.get(state.documentStage)?.message||'';mediaControls?.dispose();sourceControlsDispose?.();sourceControlsDispose=null;root.replaceChildren();root.classList.add('project-production','production-workspace')
   const statuses=new Map(projectStages.map(stage=>[stage.id,workflowStatus(project.node_states[stage.id],stage.id,active)])),completed=[...statuses.values()].filter(s=>s.tone==='complete').length
@@ -117,8 +138,9 @@ export function createProjectDocumentView(root,{project:initial,save,request,ope
    plot.append(element('p',product.plot_development||'暂无剧情发展规划。','production-text'),button('编辑剧情发展',()=>editor('编辑剧情发展',product.plot_development,value=>({kind:'product',stage:stage.id,value:{...product,plot_development:value},expected_revision:node.product_revision}),{text:true})));guidanceGroups.get('plot_development').cards.append(plot)
   }
   if(stage.id==='project'&&rows.length)section.append(element('h4','原稿文件','production-source-heading'))
-  for(const row of (['asset_preparation','video_render','clip_arrangement','editing','delivery'].includes(stage.id)?[]:rows)){const card=element('article','',stage.id==='project'?'production-source-row':'production-card');if(row._collection==='group_plans')card.append(element('small','团队规划'));card.append(element('h4',stage.id==='project'?`${row.original_name||'原稿'}${row.id===project.source.current_revision_id?' · 当前原稿':''}`:row.title||row.name||row.id||collectionTitles[row._collection]||row._collection||'产物'),element('p',stage.id==='project'?`${row.character_count.toLocaleString()} 字符`:readable(row._textList?row.content:Object.fromEntries(Object.entries(row).filter(([key])=>key!=='_collection'&&!(stage.id==='source_analysis'&&key==='body')))),'production-text'))
-   for(const [key,ref]of Object.entries(row))if(stage.id!=='project'&&key.endsWith('_ref')&&typeof ref==='string'&&/\.(txt|json|srt)$/.test(ref))card.append(button('编辑正文',()=>openFile(ref,stage.id)))
+  for(const row of (['asset_preparation','video_render','clip_arrangement','editing','delivery'].includes(stage.id)?[]:rows)){const card=element('article','',stage.id==='project'?'production-source-row':'production-card');if(row._collection==='group_plans')card.append(element('small','团队规划'));card.append(element('h4',stage.id==='project'?`${row.original_name||'原稿'}${row.id===project.source.current_revision_id?' · 当前原稿':''}`:row.title||row.name||row.id||collectionTitles[row._collection]||row._collection||'产物'),...(stage.id==='story_segments'?[]:[element('p',stage.id==='project'?`${row.character_count.toLocaleString()} 字符`:readable(row._textList?row.content:Object.fromEntries(Object.entries(row).filter(([key])=>key!=='_collection'&&!(stage.id==='source_analysis'&&key==='body')))),'production-text')]))
+   if(stage.id==='story_segments')showStoryBody(card,row.body_ref)
+   for(const [key,ref]of Object.entries(row))if(stage.id!=='project'&&key.endsWith('_ref')&&typeof ref==='string'&&/\.(txt|json|srt)$/.test(ref))card.append(button(stage.id==='story_segments'&&key==='continuity_ref'?'编辑衔接记录':'编辑正文',()=>openFile(ref,stage.id)))
    if(row.id&&stage.id!=='project'){
     const fields=Object.fromEntries(Object.entries(row).filter(([key,value])=>Object.hasOwn(fieldNames,key)&&(typeof value==='string'||typeof value==='number')))
     if(Object.keys(fields).length)card.append(button('编辑此项',()=>openFields(`编辑${row.title||row.name||stage.title}`,fields,value=>({kind:'product',stage:stage.id,value:replaceEntity(product,row.id,value),expected_revision:node.product_revision}))))

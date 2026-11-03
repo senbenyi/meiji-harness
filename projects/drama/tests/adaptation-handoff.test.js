@@ -7,7 +7,7 @@ import {makePlan} from './helpers/adaptation-plan.js'
 const development='主角提出远行计划，委员会质疑可行性。主角以公开论证争取支持，双方围绕风险与收益交锋。高潮中委员会表决通过附带条件的支持，主角据此启程，条件留下后续风险。'
 function project(){const p=createProjectDocument({id:'p_handoff',name:'全篇衔接',creation_mode:'自由创作'});p.adaptation_plan={...makePlan({development}),revision:1,source_revision_id:null};p.node_states.adaptation_plan.status='confirmed';return assertProjectDocument(p)}
 const segment=id=>({id,title:id,body:'主角在会议厅论证，委员会提出条件后表决通过。',continuity:'委员会支持主角启程，附带条件留待后续处理。'})
-const unit={kind:'story',source_chapter_ids:[],source_spans:[],adaptation_revision:1}
+const unit={kind:'story',adaptation_revision:1}
 
 test('V4剧情发展为全篇文本，拒绝旧事件对象和段落事件关联',()=>{
  const p=project(),{revision,source_revision_id,...output}=p.adaptation_plan
@@ -30,10 +30,10 @@ test('一份全篇规划可自主形成一个或多个故事段，无事件映�
  assert.ok(many.story_segments.segments.every(s=>!Object.hasOwn(s,'plot_event_ids')))
 })
 
-test('定稿读取冻结全篇剧情与实体规划，单元只划原著阅读范围',async()=>{
+test('定稿读取冻结全篇剧情与实体规划，按全篇自主分段',async()=>{
  const p=project(),files=[];const units=await prepareText({documents:{writeArtifact:async(_id,text)=>{files.push(text);return 'artifacts/frozen.json'}}},'story_segments',p,{})
  assert.equal(Object.hasOwn(units[0],'plot_event_ids'),false);assert.equal(Object.hasOwn(units[0].material,'plot_event_ids'),false)
- assert.match(units[0].material.instruction,/自主确定本阅读范围内的叙事分段/)
+ assert.match(units[0].material.instruction,/自主确定全篇叙事分段/)
  p.adaptation_plan.plot_development='后改内容';assert.equal(JSON.parse(files[0]).plot_development,development)
 })
 
@@ -46,6 +46,7 @@ test('定稿修订恢复完整段落，不要求事件字段',async()=>{
 test('相邻衔接修订保留指定两段的稳定ID',()=>{
  const p=applyCandidate(project(),'story_segments',unit,{segments:[segment('one'),segment('two')]})
  assert.throws(()=>applyCandidate(p,'story_segments',{kind:'story_audit',segment_ids:['one','two']},{segments:[segment('one'),segment('other')]}),/当前两段/)
+ assert.throws(()=>applyCandidate(p,'story_segments',{kind:'story_audit',segment_ids:['one','two']},{segments:[segment('two'),segment('one')]}),/按顺序/)
 })
 
 test('人物团队场景规划属于正式JSON并完整冻结交给定稿',async()=>{
@@ -58,11 +59,12 @@ test('人物团队场景规划属于正式JSON并完整冻结交给定稿',async
  assert.match(units[0].material.instruction,/详细、完整、有观赏性/)
 })
 
-test('定稿生成审核修订使用简短正向的详细改编要求',async()=>{
+test('定稿生成与修订保留详细改编要求，审核单独使用验收规则',async()=>{
  const {actionRules}=await import('../src/node_box/shared/agent/rules.js')
- for(const action of ['generate','review','revise']){
+ for(const action of ['generate','revise']){
   const rule=await actionRules('story_segments',action)
   assert.match(rule,/联合改编规划/);assert.match(rule,/详细、完整、有观赏性/)
   assert.match(rule,/具体行动、角色反应/);assert.match(rule,/对白/);assert.match(rule,/情感变化/);assert.match(rule,/continuity/)
  }
+ const review=await actionRules('story_segments','review');assert.match(review,/联合改编规划/);assert.match(review,/完整故事剧本/);assert.match(review,/suggestions/);assert.match(review,/passed/)
 })
