@@ -3,10 +3,10 @@ import assert from 'node:assert/strict'
 import {readFile,writeFile} from 'node:fs/promises'
 import {join} from 'node:path'
 import {randomUUID} from 'node:crypto'
-import {command,probeBytes} from '../src/production/media.js'
-import {sourceChapters,sourcePages,assertCoverage,assertSourceText,chapterRanges,readChapterText} from '../src/production/source.js'
-import {subtitleText} from '../src/node_box/editing/pipeline.js'
-import {parseSubtitles} from '../src/production/subtitles.js'
+import {command,probeBytes} from '../src/shared/media/media.js'
+import {sourceChapters,sourcePages,assertCoverage,assertSourceText,chapterRanges,readChapterText} from '../src/shared/text/source.js'
+import {subtitleText} from '../src/node_box/editing/runtime/pipeline.js'
+import {parseSubtitles} from '../src/shared/media/subtitles.js'
 import {fixture,defaultAuthor,call,reply} from './helpers/production-fixture.js'
 
 test('从创建到所有制作阶段：真实模拟网关、独立审核、共享图片、声音、ffmpeg剪辑与最终导出',async t=>{
@@ -114,7 +114,7 @@ test('无辅助摘要也可人工确认完整分段，联合规划与故事定�
 })
 
 test('主会话按body指针分页读取正文，不要求原文文件引用',async t=>{
- const {ProductionContextTool}=await import('../src/tools/production_tools.js'),f=await fixture(t),p=await f.project(),source=p.source.revisions[0],text=(await f.projects.documents.readArtifact(p.basic_info.id,source.file_ref)).toString(),chapters=sourceChapters(text)
+ const {ProductionContextTool}=await import('../src/shared/tools/production_tools.js'),f=await fixture(t),p=await f.project(),source=p.source.revisions[0],text=(await f.projects.documents.readArtifact(p.basic_info.id,source.file_ref)).toString(),chapters=sourceChapters(text)
  await f.edit({kind:'product',stage:'source_analysis',expected_revision:0,value:{source_revision_id:source.id,chapters,facts_ref:null,coverage_ref:null}});const tool=new ProductionContextTool(f.projects),exec={agent:{session:{id:f.context.sessionId}},callId:'read-body'}
  const page=JSON.parse(await tool.execute({pointer:'/source_analysis/chapters/0/body',start:2,end:8},exec));assert.equal(page.body,chapters[0].body.slice(2,8));assert.equal(page.characters,chapters[0].body.length);await assert.rejects(tool.execute({pointer:'/source_analysis/chapters/0/body',start:0,end:16001},exec),/最多16000/)
 })

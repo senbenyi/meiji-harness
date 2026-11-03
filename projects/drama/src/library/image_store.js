@@ -3,7 +3,7 @@ import {mkdir, readFile, writeFile, rm, stat} from 'node:fs/promises'
 import {mkdirSync} from 'node:fs'
 import {join} from 'node:path'
 import {randomUUID} from 'node:crypto'
-import {normalizeImage} from '../production/media.js'
+import {normalizeImage} from '../shared/media/media.js'
 
 /** 跨项目不可变图片；数据库严格只有id/url，不保存项目语义或选用状态。 */
 export class ImageStore {

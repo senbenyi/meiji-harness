@@ -1,4 +1,4 @@
-import {stepExecutionName} from '../../shared/execution_activity.js'
+import {stepExecutionName} from '../../shared/agent/execution_activity.js'
 /** 历史只读业务适配；只从当次记录恢复输入，不读取现在的项目Model。 */
 export const taskHistoryPresentation = {
   stepName:stepExecutionName,

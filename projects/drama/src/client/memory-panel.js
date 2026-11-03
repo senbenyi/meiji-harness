@@ -1,5 +1,5 @@
 import {element,showPanelDialog} from './ui/panel-dom.js'
-import {projectStages} from '../shared/production_stages.js'
+import {projectStages} from '../shared/production/production_stages.js'
 const kindNames={decision:'用户决定',constraint:'项目约束',preference:'用户偏好',open_question:'未决问题'}
 
 export function createMemoryPanel(root,{request}){

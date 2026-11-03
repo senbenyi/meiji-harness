@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {createProjectDocument} from '../src/project_runtime/project_document.js'
-import {applyCandidate,currentCandidate,prepareText} from '../src/production/text_pipeline.js'
-import {parseCandidate,outputContract} from '../src/production/contracts.js'
-import {actionRules} from '../src/production/rules.js'
+import {applyCandidate,currentCandidate,prepareText} from '../src/shared/production/text_pipeline.js'
+import {parseCandidate,outputContract} from '../src/shared/agent/contracts.js'
+import {actionRules} from '../src/shared/agent/rules.js'
 import {readable} from '../src/client/ui/readable.js'
 const guidance=()=>({goal:'保持原著主题',locked_requirements:[],plot_text:'保留主线，以人物动机强化冲突；具体分段由定稿决定。',character_plans:[],scene_plans:[],group_plans:[{id:'guard',name:'守卫队',social_role:'营地守卫',description:'共同组织身份，成员面容各异'}]})
 function sourceProject(){const p=createProjectDocument({id:'p_guidance',name:'全篇指导'});p.source={current_revision_id:'src',revisions:[{id:'src',file_ref:'sources/original.txt',original_name:'原稿.txt',character_count:8,line_index_ref:null}]};p.source_analysis={source_revision_id:'src',chapters:[{id:'c1',sequence:1,title:'前部',body:'原著前部',summary:''},{id:'c2',sequence:2,title:'后部',body:'原著后部',summary:''}],facts_ref:null,coverage_ref:null};p.node_states.source_analysis.status='confirmed';p.adaptation_plan={...guidance(),revision:1,source_revision_id:'src'};p.node_states.adaptation_plan.status='confirmed';return p}

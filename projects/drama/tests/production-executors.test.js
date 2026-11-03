@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {randomUUID} from 'node:crypto'
 import {fixture} from './helpers/production-fixture.js'
-import {projectStages} from '../src/shared/production_stages.js'
+import {projectStages} from '../src/shared/production/production_stages.js'
 
 const forbidden=kind=>async()=>{throw new Error(`不应调用${kind}模型`)}
 

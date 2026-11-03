@@ -5,8 +5,8 @@ import {requestIdentity} from '../project_runtime/request-identity.js'
 import {memoryTurn} from './ai.js'
 import {MemoryConversations,conversationUnits} from './conversations.js'
 import {memoryDomain,memorySignature} from './service.js'
-import {projectStages} from '../shared/production_stages.js'
-import {readNodeRule,readNodeFormat} from '../node_runtime/node_rule_files.js'
+import {projectStages} from '../shared/production/production_stages.js'
+import {readNodeRule,readNodeFormat} from '../shared/nodes/node_rule_files.js'
 const step=(kind,metadata={},round=0)=>({kind,name:({prepare:'准备记忆资料',analyze:'提炼/压缩记忆',review:'独立复核记忆',finish:'保存记忆结果'})[kind],executor:['analyze','review'].includes(kind)?'ai':'program',metadata,round})
 const ref=()=>randomUUID()+'.json'
 const groupRows=rows=>{const groups=[];let group=[];for(const row of rows){if(group.length&&JSON.stringify([...group,row]).length>12000){groups.push(group);group=[]}group.push(row)}if(group.length)groups.push(group);return groups}

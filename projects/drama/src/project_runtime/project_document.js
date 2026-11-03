@@ -1,5 +1,5 @@
 import { validateDocumentSchema } from './document_validation.js'
-import {projectStages} from '../shared/production_stages.js'
+import {projectStages} from '../shared/production/production_stages.js'
 
 // V2项目数据契约。此模块不创建节点、不调用模型、不迁移磁盘文件。
 const string = (minLength=0) => ({type:'string',minLength})
@@ -15,7 +15,7 @@ const dialogue=object({id,speaker_id:id,text:string(1),delivery:object({emotion:
 const assetBase={id,name:string(1),description:string(),image_ids:ids,selected_image_id:nullable(id)}
 const nodeState=object({status:{type:'string',enum:['empty','partial','draft','confirmed','rejected']},product_revision:integer(),opinion:string(),reason:string(),rules:object({generate:string(),review:string(),revise:string()}),last_execution:nullable(object({task_id:id,status:string(1),reason:string()})),checkpoint:nullable(object({task_id:id,unit_id:id,unit_ref:ref,candidate_ref:ref,state:{type:'string',enum:['saved','reviewed']},product_revision:integer()}))})
 
-export {projectStages} from '../shared/production_stages.js'
+export {projectStages} from '../shared/production/production_stages.js'
 
 const productSchemas={
  source:object({current_revision_id:nullable(id),revisions:array(object({id,file_ref:ref,original_name:string(1),character_count:integer(),line_index_ref:optionalRef}))}),

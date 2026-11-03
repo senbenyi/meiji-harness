@@ -2,11 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readdir,readFile,access} from 'node:fs/promises'
 import {nodeBoxes,manualStage} from '../src/node_box/registry.js'
-import {projectStages} from '../src/shared/production_stages.js'
-import {TextProductionExecutor} from '../src/production/text_executor.js'
-import {readNodeRule,readNodeFormat} from '../src/node_runtime/node_rule_files.js'
+import {projectStages} from '../src/shared/production/production_stages.js'
+import {TextProductionExecutor} from '../src/shared/production/text_executor.js'
+import {readNodeRule,readNodeFormat} from '../src/shared/nodes/node_rule_files.js'
 import {clientAssets} from '../src/harness_server/client_assets.js'
-import {CreateProjectTool} from '../src/tools/creat_project_tool.js'
+import {CreateProjectTool} from '../src/node_box/project/tools/creat_project_tool.js'
 import {fixture} from './helpers/production-fixture.js'
 
 test('十二制作盒子与左侧阶段一一对应，辅助记忆独立；每类节点有实际业务入口',async()=>{
@@ -14,9 +14,11 @@ test('十二制作盒子与左侧阶段一一对应，辅助记忆独立；每�
  assert.deepEqual(dirs,projectStages.map(s=>s.id).sort());assert.deepEqual(Object.keys(nodeBoxes).sort(),dirs)
  for(const [id,box]of Object.entries(nodeBoxes)){
   assert.equal(box.id,id)
+  const entries=await readdir(new URL(`../src/node_box/${id}/`,import.meta.url))
+  assert.ok(entries.includes('runtime'),id);assert.ok(entries.every(name=>!name.endsWith('.js')),id)
   if(box.type==='text')for(const method of ['prepareText','applyCandidate','currentCandidate','writeCandidateFiles'])assert.equal(typeof box.pipeline[method],'function')
   else if(id!=='project'&&box.type==='program')assert.equal(typeof box.execute,'function')
-  else await access(new URL(`../src/node_box/${id}/executor.js`,import.meta.url))
+  else await access(new URL(`../src/node_box/${id}/runtime/executor.js`,import.meta.url))
  }
  for(const action of ['generate','review','revise'])assert.match(await readNodeRule('memory_maintenance',action),/video_production|视频/)
  assert.ok((await readNodeFormat('memory_maintenance')).generate)
@@ -24,7 +26,7 @@ test('十二制作盒子与左侧阶段一一对应，辅助记忆独立；每�
 
 test('通用执行器不包含阶段产物分支，故事复核与素材/视频人工操作由盒子持有',async()=>{
  for(const file of ['text_executor','text_pipeline','program_executor']){
-  const source=await readFile(new URL(`../src/production/${file}.js`,import.meta.url),'utf8')
+  const source=await readFile(new URL(`../src/shared/production/${file}.js`,import.meta.url),'utf8')
   assert.doesNotMatch(source,/story_audit|stage\s*===\s*['"]|node_type\s*===\s*['"]|planAssets|arrangeClips|buildTimeline/)
  }
  for(const kind of ['image_import','image_select','voice_extract'])assert.equal(manualStage({kind}),'asset_preparation')
@@ -49,7 +51,7 @@ test('当前插件浏览器资源依赖闭合，只公开前端文件；退役�
    const target=new URL(match[2],`http://test/${name}`).pathname.slice(1);assert.ok(clientAssets.has(target),`${name} → ${target}`)
   }
  }
- for(const name of ['production/service.js','node_box/registry.js','node_box/asset_preparation/executor.js','project_runtime/project_document.js'])assert.equal((await fetch(`${origin}/plugins/drama/src/${name}`)).status,404)
+ for(const name of ['shared/production/service.js','shared/agent/agent_tools.js','shared/nodes/node_rule_files.js','node_box/registry.js','node_box/asset_preparation/runtime/executor.js','project_runtime/project_document.js'])assert.equal((await fetch(`${origin}/plugins/drama/src/${name}`)).status,404)
  assert.equal((await fetch(`${f.api}/story-outline?session_id=${f.context.sessionId}`,{method:'POST'})).status,410)
  const response=await fetch(`${f.api}/node-rules?session_id=${f.context.sessionId}&node_type=adaptation_plan`),rules=await response.json();assert.equal(response.status,200);assert.match(rules.bases.generate,/改编/);assert.ok(rules.bases.output_format)
 })
@@ -60,4 +62,15 @@ test('当前创建工具保留用户目标与宿主上下文，创建仍为纯�
  assert.notEqual(created.project_id,f.created.project_id);assert.equal((await f.project()).basic_info.name,'全流程测试')
  const detail=f.projects.records.tasks.detail(f.projects.records.scope,created.group_id);assert.deepEqual(detail.steps.map(s=>s.kind),['create']);assert.ok(detail.steps.every(s=>s.executor==='program'));assert.equal(f.requests.length,0)
  const again=JSON.parse(await tool.execute({name:'第二个项目'},{agent,callId:'second-create'}));assert.equal(again.project_id,created.project_id)
+})
+
+
+test('公用能力统一在shared按功能归位，旧目录没有转发实现',async()=>{
+ const root=new URL('../src/',import.meta.url)
+ const entries=await readdir(new URL('shared/',root),{withFileTypes:true})
+ assert.ok(entries.every(entry=>entry.isDirectory()))
+ assert.deepEqual(entries.map(entry=>entry.name).sort(),['agent','media','nodes','production','text','tools'])
+ for(const old of ['production','node_runtime','tools'])await assert.rejects(access(new URL(old,root)),{code:'ENOENT'})
+ await access(new URL('node_box/project/tools/creat_project_tool.js',root))
+ await access(new URL('node_box/project/tools/fields.js',root))
 })

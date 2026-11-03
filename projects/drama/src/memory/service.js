@@ -3,7 +3,7 @@ import {mkdir,readFile,writeFile,rename,lstat} from 'node:fs/promises'
 import {join,dirname} from 'node:path'
 import {randomUUID} from 'node:crypto'
 import {createWriteQueue} from '../project_runtime/write_queue.js'
-import {projectStages} from '../shared/production_stages.js'
+import {projectStages} from '../shared/production/production_stages.js'
 
 export const memoryDomain='video_production'
 export const memoryPriority='本次用户明确目标 > 项目记忆 > Drama工程偏好。正式产物是实际内容来源；记忆不替代产物、不改程序契约，旧审核意见不是新要求。'

@@ -1,4 +1,4 @@
-import {stageProduct} from '../src/shared/production_stages.js'
+import {stageProduct} from '../src/shared/production/production_stages.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'

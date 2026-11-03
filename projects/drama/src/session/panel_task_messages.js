@@ -1,4 +1,4 @@
-import {executionActivities} from '../shared/execution_activity.js'
+import {executionActivities} from '../shared/agent/execution_activity.js'
 import { createHash } from 'node:crypto'
 import { displayContext, compactDisplay } from './task_display_context.js'
 import { taskHistoryPresentation } from '../client/ui/task-presentation.js'

@@ -13,10 +13,10 @@
 
 - 插件 `index.js` 组装 `ProjectWorkspaceService`、公共记录、设置和路由；`src/session/index.js` 注册当前可执行工具，不向主Agent注入已退役节点指导。
 - `src/project_runtime/project_document.js` 维护运行Schema和结构/引用校验；`project_document_store.js` 保存V2与不可变文件；`project_workspace_service.js` 提交Task、维护工作区/会话和请求幂等。
-- `src/node_box/project/executor.js` 执行创建/导入/人工编辑等程序步骤，`fields.js`声明创建工具入参，`ui/panel`保留共用项目弹框及原稿导入。Service创建/提交Task；Executor执行步骤；公共TaskManager负责状态、时间和任务数据库，不直接写Task表。一次业务操作一个Task，内部重试追加Step。
-- `src/shared/production_stages.js` 是浏览器/服务端共用的阶段目录与产物投影。各步骤由ProductionService按executor_registry选择文本、图片、视频或程序执行器；不得将展示数据冒充实际生成结果。
-- `src/node_box/`只保留与十二阶段同名的十二个盒子，`registry.js`装配节点接口。文本节点的`pipeline.js`维护单元、产物校验/保存/回读；故事节点`execution.js`维护前段衔接和相邻段复核。程序节点`execute.js`维护实际业务；图片/视频节点各自的`executor.js`维护对应生成步骤；`confirm.js`、`manual.js`维护节点确认和专属人工操作。
-- `src/production/{text,program}_executor.js`共用类型调度与文本审核/修订循环；图片、视频执行器由registry直接引用对应盒子。`unit_executor.js`仅共用Task/单元/检查点生命周期，`model_loop.js`只供文本执行器调用。`text_pipeline.js`只委派节点业务并共用候选保存状态；`timeline_renderer.js`、`media.js`、`audio_import.js`、`subtitles.js`提供通用媒体能力，不维护阶段产物。不得向共用执行器重新塞入节点业务分支。
+- `src/node_box/project/runtime/executor.js` 执行创建/导入/人工编辑等程序步骤，`src/node_box/project/tools/fields.js`声明创建工具入参，创建工具同属该盒子tools目录，`ui/panel`保留共用项目弹框及原稿导入。Service创建/提交Task；Executor执行步骤；公共TaskManager负责状态、时间和任务数据库，不直接写Task表。一次业务操作一个Task，内部重试追加Step。
+- `src/shared/production/production_stages.js` 是浏览器/服务端共用的阶段目录与产物投影。各步骤由ProductionService按executor_registry选择文本、图片、视频或程序执行器；不得将展示数据冒充实际生成结果。
+- `src/node_box/`只保留与十二阶段同名的十二个盒子，`registry.js`装配节点接口。文本节点的`runtime/pipeline.js`维护单元、产物校验/保存/回读；故事节点`runtime/execution.js`维护前段衔接和相邻段复核。程序节点`runtime/execute.js`维护实际业务；图片/视频节点各自的`runtime/executor.js`维护对应生成步骤；`runtime/confirm.js`、`runtime/manual.js`维护节点确认和专属人工操作。
+- `src/shared/production/{text,program}_executor.js`共用类型调度与文本审核/修订循环；图片、视频执行器由registry直接引用对应盒子。`unit_executor.js`仅共用Task/单元/检查点生命周期，`model_loop.js`只供文本执行器调用。`text_pipeline.js`只委派节点业务并共用候选保存状态；`timeline_renderer.js`、`media.js`、`audio_import.js`、`subtitles.js`提供通用媒体能力，不维护阶段产物。不得向共用执行器重新塞入节点业务分支。
 - harness-http 路由只负责鉴权、请求/响应、静态资源及SSE，业务校验留Service/Store/Executor。面板与会话工具共用业务入口。
 - 新建/导入原稿及原著解析均为纯程序步骤。原著解析默认不拆分，将整份原稿直接保存为一条id/sequence/title/body/summary记录，summary为空、事实与覆盖报告引用为空；不调用生成、审核、修订或记忆整理模型。正文由程序完整复制并逐字校验，不保存分段范围或正文引用。不可变原稿仍外置，后续模型按工具上限有界读取body；Task保存不可变输入与产物引用，不逐轮把整稿注入提示词。
 - 新项目不提前分集；先原著解析、全篇联合改编指导，再故事自主分段定稿、文字分镜、素材准备与参考确认，后续分片/视频/剪辑，最后分集导出。联合改编只定全篇原则、人物动机关系成长、场景作用与团队指导，不写逐段计划；定稿直接读取原著与冻结指导，自行分段并写完整正文/衔接。旧段计划、提前声线和团队制服版本字段已删除，不做兼容或双写。
@@ -35,7 +35,7 @@
 - 所有步骤支持人工编辑。保存产物与审核通过独立；人工修改为待核对，保留意见、规则和历史。版本冲突、项目归属、活动Task、ID/引用及真实文件检查不能绕过。
 - 不恢复input_hash/output_hash或按hash拒绝保存、自动标记下游/图片过期；是否重做按实际变化和用户目标判断。
 - AI规则放在 `src/node_box/<节点>/skills/`：`<节点>-generate.md`、`<节点>-review.md`、`<节点>-revise.md`、`<节点>-output-format.json`，skills内直接放四文件，不再嵌套动作目录。六个AI节点使用此结构，程序节点不创建虚假的AI规则；辅助记忆整理规则放`src/memory/skills/memory_maintenance-*`。当前返回格式引用运行Schema，不复制项目字段定义。
-- AI盒子每个动作维护一份完整skill（generate/review/revise），不拆成大量主题规则；首轮目标+skill索引，按需读规则、资料和契约；阶段内续接完整执行消息，审核与作者上下文独立。各轮候选及时保存、真实失败/取消事实不可丢失；不得伪造未执行审核、未生成图片或视频。
+- AI盒子每个动作维护一份完整skill（generate/review/revise），不拆成大量主题规则；首轮提供当前动作完整规则、返回契约和短单元资料；长资料按需读取；阶段内续接完整执行消息，审核与作者上下文独立。各轮候选及时保存、真实失败/取消事实不可丢失；不得伪造未执行审核、未生成图片或视频。
 - 审核仅指出当前候选有据可核的阻断问题；历史意见需重新核实，允许有效内容保留。意见/规则/执行记录沿用现有交互风格。
 - 盒子结束原因使用公共TASK_END_REASONS；网络连接失败只展示，不唤醒主Agent。已授权删除旧数据，不为旧记录增加迁移工作。
 - 历史只从对应Task/Step/不可变文件恢复，不能读当前项目补造。展示与主Agent唤醒独立；首次成功/取消不自动唤醒，失败应如实展示。

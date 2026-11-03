@@ -7,11 +7,11 @@ import {createServer} from 'node:http'
 import {ProjectWorkspaceService} from '../../src/project_runtime/project_workspace_service.js'
 import {createRecordService} from '../../src/records/service.js'
 import {createModelSettings} from '../../src/settings/model-settings.js'
-import {ProductionService} from '../../src/production/service.js'
+import {ProductionService} from '../../src/shared/production/service.js'
 import {createProjectHttpHandler} from '../../src/harness_server/project_routes.js'
-import {command,probeBytes} from '../../src/production/media.js'
-import {sourceChapters,sourcePages,assertCoverage} from '../../src/production/source.js'
-import {arrangeClips} from '../../src/node_box/clip_arrangement/pipeline.js'
+import {command,probeBytes} from '../../src/shared/media/media.js'
+import {sourceChapters,sourcePages,assertCoverage} from '../../src/shared/text/source.js'
+import {arrangeClips} from '../../src/node_box/clip_arrangement/runtime/pipeline.js'
 export const call=(name,args={})=>({id:'call_'+randomUUID(),type:'function',function:{name,arguments:JSON.stringify(args)}})
 export const reply=calls=>({role:'assistant',content:null,tool_calls:calls})
 export async function fixture(t,{script='第一章 营帐\n张飞走进营帐。\n第二章 对峙\n张飞说：“来战！”',author,previewHtml}={}){

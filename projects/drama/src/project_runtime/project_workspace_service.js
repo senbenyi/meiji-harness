@@ -5,7 +5,7 @@ import {join} from 'node:path'
 import {randomUUID} from 'node:crypto'
 import {ProjectDocumentStore} from './project_document_store.js'
 import {projectStages} from './project_document.js'
-import {ProjectDocumentExecutor} from '../node_box/project/executor.js'
+import {ProjectDocumentExecutor} from '../node_box/project/runtime/executor.js'
 import {createWriteQueue} from './write_queue.js'
 import {requestIdentity} from './request-identity.js'
 

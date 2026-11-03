@@ -1,5 +1,5 @@
 import {createProductionRoutes} from './production_routes.js'
-import {projectStages,stageProduct} from '../shared/production_stages.js'
+import {projectStages,stageProduct} from '../shared/production/production_stages.js'
 import { clientAssets } from './client_assets.js'
 import { createRecordService } from '../records/service.js'
 import { serveRecordRoute } from './record_routes.js'

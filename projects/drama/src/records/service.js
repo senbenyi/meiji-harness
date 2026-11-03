@@ -5,7 +5,7 @@ import { createModelRecorder } from '@agent-modules/http-client/model-records'
 import { HttpRecords } from '@agent-modules/http-client/records'
 import { TaskManager } from '@agent-modules/task'
 import { SQLiteTaskStore } from '@agent-modules/task/sqlite'
-import {projectStages} from '../shared/production_stages.js'
+import {projectStages} from '../shared/production/production_stages.js'
 
 export const historyNodeTypes=[...projectStages.map(stage=>({type:stage.id,label:stage.title})),{type:'memory_maintenance',label:'记忆整理'}]
 

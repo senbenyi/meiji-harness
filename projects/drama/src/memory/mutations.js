@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto'
-import {projectStages} from '../shared/production_stages.js'
+import {projectStages} from '../shared/production/production_stages.js'
 const kinds=['decision','constraint','preference','open_question']
 const text=(value,name,max)=>{if(typeof value!=='string'||!value.trim()||value.length>max)throw new TypeError(`${name}需1～${max}字符`);return value.trim()}
 export function applyMemoryChange(data,scope,command,context){

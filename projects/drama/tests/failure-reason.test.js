@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { createRecordService } from '../src/records/service.js'
 import { ReportDispatcher } from '../src/session/report_dispatcher.js'
-import { boxReport } from '../src/node_runtime/box_report.js'
+import { boxReport } from '../src/shared/nodes/box_report.js'
 import { displayContext } from '../src/session/task_display_context.js'
 import { createFailureDecision } from '../src/client/ui/failure-decision.js'
 

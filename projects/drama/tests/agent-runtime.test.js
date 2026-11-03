@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {modelTurn} from '../src/production/model_loop.js'
+import {modelTurn} from '../src/shared/agent/model_loop.js'
 import {call,reply} from './helpers/production-fixture.js'
 
 const candidate={goal:'保留原著主线，强化人物动机',locked_requirements:[],plot_text:'保留冲突与关系，强化因果。',character_plans:[],scene_plans:[],group_plans:[]}

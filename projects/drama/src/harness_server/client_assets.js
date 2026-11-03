@@ -18,6 +18,6 @@ export const clientAssets=new Map([
  ['client/workbench.js',new URL('../client/workbench.js',import.meta.url)],
  ['node_box/project/ui/panel/project-forms.js',new URL('../node_box/project/ui/panel/project-forms.js',import.meta.url)],
  ['node_box/project/ui/panel/script-import.js',new URL('../node_box/project/ui/panel/script-import.js',import.meta.url)],
- ['shared/execution_activity.js',new URL('../shared/execution_activity.js',import.meta.url)],
- ['shared/production_stages.js',new URL('../shared/production_stages.js',import.meta.url)],
+ ['shared/agent/execution_activity.js',new URL('../shared/agent/execution_activity.js',import.meta.url)],
+ ['shared/production/production_stages.js',new URL('../shared/production/production_stages.js',import.meta.url)],
 ])

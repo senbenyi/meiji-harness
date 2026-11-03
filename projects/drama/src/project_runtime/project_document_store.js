@@ -1,7 +1,7 @@
-import {assertSourceText} from '../production/source.js'
+import {assertSourceText} from '../shared/text/source.js'
 import {mkdir,readFile,writeFile,rename,realpath,stat} from 'node:fs/promises'
 import {join,resolve,relative,sep} from 'node:path'
-import {stageProduct} from '../shared/production_stages.js'
+import {stageProduct} from '../shared/production/production_stages.js'
 import {randomUUID} from 'node:crypto'
 import {createProjectDocument,assertProjectDocument,editProjectProduct,projectStages} from './project_document.js'
 

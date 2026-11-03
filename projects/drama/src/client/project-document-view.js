@@ -4,7 +4,7 @@ import {createMemoryPanel} from './memory-panel.js'
 import {productionControls} from './production-controls.js'
 import {element,showPanelDialog} from './ui/panel-dom.js'
 import {readable} from './ui/readable.js'
-import {projectStages,stageProduct} from '../shared/production_stages.js'
+import {projectStages,stageProduct} from '../shared/production/production_stages.js'
 import {createTaskHistory} from '@agent-modules/task/ui'
 import {taskHistoryPresentation} from './ui/task-presentation.js'
 
