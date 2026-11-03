@@ -1,3 +1,3 @@
-import {requiredAssets} from './assets.js'
-export async function confirm(p){if(requiredAssets(p).some(({asset})=>!asset.selected_image_id))throw new TypeError('尚有素材未选用')
+import {preparationState} from './assets.js'
+export async function confirm(p){const state=preparationState(p);if(state.status!=='confirmed')throw new TypeError(state.reason)
 }

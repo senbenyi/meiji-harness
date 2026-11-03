@@ -22,7 +22,7 @@ export async function reportSession(projects, report, phase) {
 export function taskDisplayCard(report, phase, name, step, context = {}) {
   const review = step ? taskHistoryPresentation.review(step) : {}
   const status = phase === 'start' ? 'accepted' : review.rejected ? 'rejected' : step?.step_status || report.status
-  const title = phase === 'start' ? name : step ? `${name} · ${step.seq}. ${step.name}${step.round ? `（第${step.round}轮）` : ''}` : name
+  const title = phase === 'start' ? name : step ? `${name} · ${step.seq}. ${context.step_name||step.name}${step.round ? `（第${step.round}轮）` : ''}` : name
   const reason = step ? [step.error_reason, review.reason].filter(Boolean).join('\n') : [report.reason, report.warning].filter(Boolean).join('\n')
   return { ...compactDisplay(context), kind: marker, phase, group_id: report.group_id, task_id: step?.task_id || report.task_id,
     ...(step ? { step_id: step.id, round: step.round, seq: step.seq } : {}),

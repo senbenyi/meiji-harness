@@ -1,4 +1,4 @@
-import {executionPhase,stepExecutionName} from '../../shared/agent/execution_activity.js'
+import {stepExecutionName} from '../../shared/agent/execution_activity.js'
 import { boxReport } from './box_report.js'
 
 /** 所有输入/输出取当次Task/Step事实，禁止用最新Project填补历史。 */
@@ -29,10 +29,10 @@ export function displayContext(detail, task, step) {
       has_review_issues: Boolean(input?.review_issues?.length),
     },
     operation_status: task.node_type === 'costume_image' ? detail.status : task.task_status,
-    active_step: active ? { name: metadata.document_version===4?`${executionPhase(active.kind)}${active.executor==='ai'?'，等待本轮调用结果…':''}`:active.name, seq: active.seq, round: active.round } : null,
+    active_step: active ? { name: metadata.document_version===4?`${stepExecutionName(active,task)}${active.executor==='ai'?'，等待本轮调用结果…':''}`:active.name, seq: active.seq, round: active.round } : null,
     requires_user_decision: report.requires_user_decision, can_continue: task.node_type !== 'costume_image' && Boolean(report.review_packet?.candidate), saved: report.saved, decision: report.decision, stop_reason: report.reason,
     reason_type: report.reason_type, reason_label: report.reason_label,
-    stopped_at: last ? `${last.seq}. ${last.name}${last.round ? `（第${last.round}轮）` : ''}` : '尚未开始执行步骤',
+    stopped_at: last ? `${last.seq}. ${stepExecutionName(last,task)}${last.round ? `（第${last.round}轮）` : ''}` : '尚未开始执行步骤',
     revision_count: detail.steps.filter(row => row.task_id === task.id && row.kind === 'revise' && row.round > 0 && row.step_status === 'done').length,
     duration_seconds: duration,
     // 完整资料仅供详情使用，轮询时移除。

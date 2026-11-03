@@ -13,7 +13,7 @@ test('从创建到所有制作阶段：真实模拟网关、独立审核、共�
  const f=await fixture(t);await f.run('source_analysis');let p=await f.project();assert.equal(p.source_analysis.chapters.length,1);assert.equal(p.source_analysis.coverage_ref,null);assert.equal(f.requests.length,0)
  await f.run('adaptation_plan');p=await f.project();assert.ok(p.adaptation_plan.plot_development);assert.equal(Object.hasOwn(p.adaptation_plan,'segment_plans'),false);assert.equal(p.episodes.length,0);assert.equal(p.asset_library.characters.length,1)
  await f.run('story_segments');assert.ok(f.calls.filter(c=>c.stage==='story_segments'&&c.action==='generate').some(c=>c.messages.some(m=>m.tool_calls?.some(call=>call.function.name==='read_source'))),'定稿必须实际读取原剧本');await f.run('shot_design');p=await f.project();assert.equal(p.shot_design.shots.length,2)
- await f.run('asset_preparation');p=await f.project();assert.equal(p.node_states.asset_preparation.status,'draft');assert.equal(f.production.images.list().total,2)
+ await f.run('asset_preparation');p=await f.project();assert.equal(p.node_states.asset_preparation.status,'confirmed');assert.equal(p.asset_library.scenes[0].selected_image_id,null);assert.equal(f.production.images.list().total,2)
  for(const key of ['scenes','character_looks'])for(const asset of p.asset_library[key])await f.edit({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:asset.image_ids[0]})
  p=await f.project();await f.run('asset_preparation',{target_id:p.asset_library.clothing[0].id});p=await f.project();await f.edit({kind:'image_select',stage:'asset_preparation',target_id:p.asset_library.clothing[0].id,image_id:p.asset_library.clothing[0].image_ids[0]});await f.run('asset_preparation',{target_id:p.asset_library.character_looks[0].id,regenerate:true});p=await f.project();await f.edit({kind:'image_select',stage:'asset_preparation',target_id:p.asset_library.character_looks[0].id,image_id:p.asset_library.character_looks[0].image_ids.at(-1)});assert.ok(f.requests.some(r=>r.path==='/images/generations'&&r.body.images?.length===1),'独立服装图应进入组合定妆的真实模型输入')
  const voice=join(f.root,'voice.wav');await command('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=240:sample_rate=48000','-t','2','-y',voice]);p=await f.project();await f.edit({kind:'audio_import',stage:'asset_preparation',character_id:p.asset_library.characters[0].id,base64:(await readFile(voice)).toString('base64'),confirmed_clean:true})
@@ -156,4 +156,21 @@ test('定稿审核通过可携带润色建议，完整及相邻复核均不因�
  assert.ok(reviews.length>=2);assert.ok(reviews.every(step=>step.result.review.status==='passed'&&step.result.review.suggestions.length===1))
  assert.equal(detail.steps.some(step=>step.kind==='revise'),false)
  assert.equal((await f.project()).story_segments.segments.length,2)
+})
+
+test('素材只生成一部分保持未完成，所需图片齐全后无需选图或审核直接通过',async t=>{
+ const f=await fixture(t);await f.run('source_analysis');await f.run('adaptation_plan');await f.run('story_segments');await f.run('shot_design')
+ let p=await f.project();const scene=p.asset_library.scenes[0],look=p.asset_library.character_looks[0]
+ const first=await f.run('asset_preparation',{target_id:scene.id});p=await f.project();assert.equal(p.node_states.asset_preparation.status,'partial');assert.match(p.node_states.asset_preparation.reason,/未准备/);assert.equal(first.steps.at(-1).result.requires_confirmation,false)
+ const second=await f.run('asset_preparation',{target_id:look.id});p=await f.project();assert.equal(p.node_states.asset_preparation.status,'confirmed');assert.equal(p.asset_library.scenes[0].selected_image_id,null);assert.equal(p.asset_library.character_looks[0].selected_image_id,null)
+ assert.ok(second.steps.every(step=>step.kind!=='review'));assert.equal(second.steps.at(-1).result.requires_confirmation,false)
+ const count=f.requests.filter(row=>row.path==='/images/generations').length;await f.run('asset_preparation');assert.equal(f.requests.filter(row=>row.path==='/images/generations').length,count,'已有图片只更新完成状态，不重复生成')
+ await f.edit({kind:'image_select',stage:'asset_preparation',target_id:scene.id,image_id:p.asset_library.scenes[0].image_ids[0]});assert.equal((await f.project()).node_states.asset_preparation.status,'confirmed')
+})
+
+test('素材图片请求失败保留失败状态，不显示生成通过',async t=>{
+ const f=await fixture(t);await f.run('source_analysis');await f.run('adaptation_plan');await f.run('story_segments');await f.run('shot_design')
+ f.models.generateImage=async()=>{throw new Error('测试图片服务失败')}
+ const started=await f.production.run('asset_preparation',{}, {...f.context,requestId:'image-failed'}),detail=await f.production.wait(started.group_id),p=await f.project()
+ assert.equal(detail.status,'failed');assert.match(detail.reason,/图片服务失败/);assert.notEqual(p.node_states.asset_preparation.status,'confirmed');assert.equal(f.production.images.list().total,0)
 })

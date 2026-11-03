@@ -5,9 +5,19 @@ export function productionControls({root,section,project,stage,command,request,r
  const controls=element('div','','production-media-controls')
  const inputFile=(label,accept,action)=>{const field=element('input');field.type='file';field.accept=accept;field.hidden=true;field.setAttribute('aria-label',label);field.onchange=async()=>{const file=field.files?.[0];if(!file)return;try{if(file.size>48*1024*1024)throw new Error('文件最多48MiB');const bytes=new Uint8Array(await file.arrayBuffer());let data='';for(let i=0;i<bytes.length;i+=32768)data+=String.fromCharCode(...bytes.subarray(i,i+32768));await action(btoa(data),file.name)}catch(error){section.querySelector('[role=status]').textContent=error.message;section.querySelector('[role=status]').hidden=false}};const wrap=element('span');wrap.append(button(label,()=>field.click()),field);return wrap}
  const imageUrl=id=>`/api/drama/images/${encodeURIComponent(id)}`
+ const thumbnail=(src,title)=>{
+  const image=element('img');image.src=src;image.alt=title;image.loading='lazy'
+  const preview=button('',()=>{
+   const dialog=element('dialog','','production-image-preview'),full=element('img'),head=element('div','','section-head'),original=element('a','查看原图')
+   const close=()=>{if(dialog.open)dialog.close();dialog.remove()}
+   full.src=src;full.alt=title;original.href=src;original.target='_blank';original.rel='noopener';head.append(element('h3',title),button('关闭',close));dialog.setAttribute('aria-label',title+'大图');dialog.append(head,full,original);root.append(dialog);showPanelDialog(dialog)
+   dialog.addEventListener('close',()=>dialog.remove(),{once:true})
+  })
+  preview.className='production-image-thumbnail';preview.setAttribute('aria-label','放大查看'+title);preview.append(image);return preview
+ }
  const gallery=async(asset,onSelect)=>{
   const dialog=element('dialog','','production-gallery'),head=element('div','','section-head'),title=element('h3',`为${asset.name}选图`),grid=element('div','','production-gallery-grid'),footer=element('div','','node-ui-buttons'),error=element('p','','error');let offset=0,total=0
-  const close=()=>{if(dialog.open)dialog.close();dialog.remove()},load=async()=>{try{const data=await request(`images?offset=${offset}&limit=20`);total=data.total;grid.replaceChildren();for(const image of data.items){const choose=button('',async()=>{try{if(onSelect)await onSelect(image.id);else await command({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:image.id});close()}catch(e){error.textContent=e.message}}),img=element('img');img.src=image.url;img.alt=image.id;img.loading='lazy';choose.setAttribute('aria-label',`选用${image.id}`);choose.append(img,element('small',image.id));grid.append(choose)}}catch(e){error.textContent=e.message}}
+  const close=()=>{if(dialog.open)dialog.close();dialog.remove()},load=async()=>{try{const data=await request(`images?offset=${offset}&limit=20`);total=data.total;grid.replaceChildren();for(const image of data.items){const item=element('div'),choose=button('选用此图',async()=>{try{if(onSelect)await onSelect(image.id);else await command({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:image.id});close()}catch(e){error.textContent=e.message}});item.append(thumbnail(image.url,asset.name+'图片库候选'),choose);grid.append(item)}}catch(e){error.textContent=e.message}}
   head.append(title,button('关闭',close));footer.append(button('上一页',()=>{offset=Math.max(0,offset-20);return load()}),button('下一页',()=>{if(offset+20<total)offset+=20;return load()}));dialog.append(head,error,grid,footer);root.append(dialog);showPanelDialog(dialog);await load()
  }
  if(stage==='asset_preparation'){
@@ -23,10 +33,18 @@ export function productionControls({root,section,project,stage,command,request,r
    openFields(`新增${names[kind]}`,{name:'',description:'',...(kind==='characters'?{voice_description:''}:{})},value=>{const library=structuredClone(project.asset_library),{voice_description,...definition}=value,item={id:kind+'_'+crypto.randomUUID(),...definition,image_ids:[],selected_image_id:null};if(kind==='characters')Object.assign(item,{character_plan_id:null,voice_profile:{description:voice_description,reference_audio_ref:null,revision:0}});if(kind==='clothing')item.group_key='';if(kind==='scenes')Object.assign(item,{scene_plan_id:null,layout:'',entrances:'',landmarks:''});library[kind].push(item);return {kind:'product',stage:'asset_preparation',value:library,expected_revision:project.node_states.asset_preparation.product_revision}})
   }
   const add=element('div','','node-ui-buttons');for(const kind of Object.keys(names))add.append(button(`新增${names[kind]}`,()=>addDefinition(kind)));controls.append(add)
-  for(const [kind,assets]of Object.entries(project.asset_library)){
-   if(!assets.length)continue;controls.append(element('h4',names[kind]))
+  const looks=new Map(project.asset_library.character_looks.map(look=>[look.id,look]))
+  for(const kind of ['characters','scenes','clothing','props','character_looks']){
+   const assets=project.asset_library[kind],group=element('section','','production-asset-group');group.dataset.assetKind=kind;group.append(element('h4',names[kind]));controls.append(group)
+   if(!assets.length)group.append(element('p',`暂无${names[kind]}定义。`,'meta'))
    for(const asset of assets){const card=element('article','','production-card asset-work-card'),strip=element('div','','production-image-strip'),actions=element('div','','node-ui-buttons');card.dataset.assetId=asset.id;card.append(element('h4',asset.name),element('p',asset.description))
-    for(const imageId of asset.image_ids){const item=element('div'),img=element('img');img.src=imageUrl(imageId);img.alt=`${asset.name}候选`;img.loading='lazy';const selected=asset.selected_image_id===imageId;item.append(img,button(selected?'已选用':'选用此图',()=>command({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:imageId})));strip.append(item)}
+    const requirements=project.asset_requirements.items.filter(row=>row.target_id===asset.id)
+    const status=asset.selected_image_id?'已选用':asset.image_ids.length?'待选图':requirements.some(row=>row.status==='running')?'生成中':requirements.some(row=>row.status==='failed')?'生成失败':requirements[0]?.strategy==='import'?'待导入':requirements.length?'待生成':'按需准备'
+    card.append(element('p',`${names[kind]}图 · ${status}`,'production-asset-status'))
+    const usedBy=[...project.shot_design.shots].sort((a,b)=>a.sequence-b.sequence).filter(shot=>requirements.some(row=>row.shot_ids.includes(shot.id))||shot.scene_id===asset.id||shot.props.some(prop=>prop.prop_id===asset.id)||shot.characters.some(character=>{const look=looks.get(character.look_id);return character.character_id===asset.id||character.look_id===asset.id||look?.clothing_ids.includes(asset.id)||look?.prop_ids.includes(asset.id)}))
+    card.append(element('p',usedBy.length?'用于：'+usedBy.map(shot=>`故事第 ${project.story_segments.segments.find(segment=>segment.id===shot.story_segment_id).sequence} 段 · 镜头 ${String(shot.sequence).padStart(2,'0')}`).join('；'):'尚未关联镜头。','production-asset-usage'))
+    if(!asset.image_ids.length)strip.append(element('p','暂无图片','production-image-empty'))
+    for(const imageId of asset.image_ids){const item=element('div');const selected=asset.selected_image_id===imageId;item.append(thumbnail(imageUrl(imageId),`${asset.name}候选`),button(selected?'已选用':'选用此图',()=>command({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:imageId})));strip.append(item)}
     actions.append(inputFile('导入并选用图片','image/png,image/jpeg,image/webp',base64=>command({kind:'image_import',stage:'asset_preparation',target_id:asset.id,base64})),button('从图片库选用',()=>gallery(asset)),button('AI生成此素材',()=>run('asset_preparation',{target_id:asset.id,regenerate:!!asset.image_ids.length})))
     if(kind==='character_looks'&&asset.selected_image_id)actions.append(button('同时用作人物基础参考',()=>command({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:asset.selected_image_id,use_for_character:true})))
     if(kind==='characters'){
@@ -36,7 +54,7 @@ export function productionControls({root,section,project,stage,command,request,r
       if(asset.voice_profile.reference_audio_ref){const audio=element('audio');audio.controls=true;audio.src=fileUrl(asset.voice_profile.reference_audio_ref);audio.preload='metadata';card.append(audio)}
     }
     actions.append(button('编辑素材定义',()=>openFields('编辑素材定义',{name:asset.name,description:asset.description,...(kind==='scenes'?{layout:asset.layout,entrances:asset.entrances,landmarks:asset.landmarks}:{}),...(kind==='character_looks'?{hair_and_makeup:asset.hair_and_makeup}:{})},value=>{const library=structuredClone(project.asset_library);Object.assign(library[kind].find(a=>a.id===asset.id),value);return {kind:'product',stage:'asset_preparation',value:library,expected_revision:project.node_states.asset_preparation.product_revision}})))
-    card.append(strip,actions);controls.append(card)
+    card.append(strip,actions);group.append(card)
    }
   }
  }
@@ -72,5 +90,5 @@ export function productionControls({root,section,project,stage,command,request,r
   for(const item of project.delivery.exports){const card=element('article','','production-card'),video=element('video'),download=element('a','下载成片');video.controls=true;video.preload='metadata';video.src=fileUrl(item.file_ref);download.href=fileUrl(item.file_ref,true);download.download='';card.append(element('h4',project.episodes.find(e=>e.id===item.episode_id)?.title||'连续成片'),video,download,button('查看验证报告',()=>openFile(item.validation_report_ref,'delivery',{readOnly:true})));if(item.subtitles_ref){const subtitle=element('a','下载本集字幕');subtitle.href=fileUrl(item.subtitles_ref,true);subtitle.download='';card.append(subtitle)}controls.append(card)}
  }
  if(controls.childNodes.length)section.append(controls)
- return {dispose(){for(const dialog of root.querySelectorAll('.production-gallery,.production-media-modal')){if(dialog.open)dialog.close();dialog.remove()}}}
+ return {dispose(){for(const dialog of root.querySelectorAll('.production-gallery,.production-media-modal,.production-image-preview')){if(dialog.open)dialog.close();dialog.remove()}}}
 }

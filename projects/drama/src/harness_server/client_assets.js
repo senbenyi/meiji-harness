@@ -1,5 +1,6 @@
 // 显式登记浏览器入口依赖，不开放 Service、Executor 或运行 Schema。
 export const clientAssets=new Map([
+ ['node_box/shot_design/ui/shot-list.js',new URL('../node_box/shot_design/ui/shot-list.js',import.meta.url)],
  ['client/memory-panel.js',new URL('../client/memory-panel.js',import.meta.url)],
  ['client/panel.js',new URL('../client/panel.js',import.meta.url)],
  ['client/production-controls.js',new URL('../client/production-controls.js',import.meta.url)],

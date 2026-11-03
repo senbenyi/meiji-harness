@@ -5,7 +5,7 @@ const trim=(value,limit=240)=>typeof value==='string'?value.slice(0,limit):''
 const fieldNames={'/adaptation_plan':'全篇改编指导','/source_analysis':'原著解析','/asset_library':'素材索引','/story_segments':'故事定稿','/shot_design':'文字分镜'}
 const location=args=>fieldNames[args.pointer]||trim(args.pointer,100)
 const range=args=>Number.isSafeInteger(args.start)&&Number.isSafeInteger(args.end)&&args.end>args.start?`第 ${args.start+1}–${args.end} 字符`:''
-export function executionPhase(kind){return phases[kind]||kind||'执行步骤'}
+export function executionPhase(kind,nodeType){return kind==='execute'&&nodeType==='asset_preparation'?'生成素材图片':kind==='execute'&&nodeType==='video_render'?'生成视频分片':phases[kind]||kind||'执行步骤'}
 export function executionActivities(trace){
  const messages=Array.isArray(trace?.messages)?trace.messages:[],results=new Map(messages.filter(m=>m.role==='tool').map(m=>[m.tool_call_id,m]))
  const calls=messages.filter(m=>m.role==='assistant').flatMap(m=>m.tool_calls||[]),rows=[]
@@ -31,4 +31,4 @@ export function executionActivities(trace){
  if(calls.length>32)rows.push({tool:'more',title:`另有 ${calls.length-32} 项工具调用`,detail:'完整内容见原始记录',status:'pending'})
  return rows
 }
-export function stepExecutionName(step,task){return task?.metadata?.document_version===4?executionPhase(step.kind):step.name}
+export function stepExecutionName(step,task){return task?.metadata?.document_version===4?executionPhase(step.kind,task.node_type):step.name}

@@ -1,7 +1,7 @@
 import {mediaMemory} from '../../../memory/service.js'
 import {UnitProductionExecutor} from '../../shared/production/unit_executor.js'
 import {uid,readJSON} from '../../shared/production/execution_support.js'
-import {findAsset,requiredAssets} from './assets.js'
+import {findAsset,requiredAssets,preparationState} from './assets.js'
 import {actionRules} from '../../shared/agent/rules.js'
 
 /** 图片盒子：需求选择、参考组合、调用图片模型、立即入库，等待人工选用。 */
@@ -11,7 +11,12 @@ export class ImageProductionExecutor extends UnitProductionExecutor {
     if(project.node_states.shot_design.status!=='confirmed')throw new TypeError('请先确认文字分镜与需求')
     return (input.target_id?[findAsset(project,input.target_id)]:requiredAssets(project)).filter(({asset})=>(!input.target_id||asset.id===input.target_id)&&(input.regenerate||!asset.selected_image_id&&!asset.image_ids.length)).map(({asset})=>({id:uid('unit'),target_id:asset.id,image_id:uid('img'),operation_id:uid('op')}))
   }
-  requiresConfirmation(ctx,project){return ctx.previousResults.some(s=>s.result?.requires_confirmation)||requiredAssets(project).some(({asset})=>!asset.selected_image_id)}
+  async finish(ctx){
+    const id=ctx.task.metadata.project_id
+    const project=await this.projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();Object.assign(p.node_states.asset_preparation,preparationState(p));if(p.node_states.asset_preparation.status==='confirmed')p.node_states.asset_preparation.opinion='';return p})
+    this.service.notify(ctx.task)
+    return {result:{saved:true,stage:'asset_preparation',status:project.node_states.asset_preparation.status,requires_confirmation:false}}
+  }
   async executeUnit(ctx){
     const unit=await readJSON(this.projects,ctx.task.metadata.project_id,ctx.step.metadata.unit_ref)
     const service=this.service,{projects,images,models}=service,id=ctx.task.metadata.project_id,project=await projects.documents.read(id),{kind,asset}=findAsset(project,unit.target_id),config=await models.read(),references=[]
@@ -30,7 +35,7 @@ export class ImageProductionExecutor extends UnitProductionExecutor {
     let image
     try{image=images.get(unit.image_id)}catch(error){if(error.code!=='ENOENT')throw error}
     if(!image){const bytes=await models.generateImage({prompt,aspectRatio:project.basic_info.aspect_ratio,references,requestId:unit.operation_id,signal:ctx.signal,record:service.recorder(ctx)});image=await images.put(bytes,{id:unit.image_id,signal:ctx.signal})}
-    await projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();const target=findAsset(p,asset.id).asset;if(!target.image_ids.includes(image.id))target.image_ids.push(image.id);p.node_states.asset_preparation.product_revision++;p.node_states.asset_preparation.status='partial';p.node_states.asset_preparation.reason='图片已入库，请人工检查并选用';return p})
-    return this.acceptUnit(ctx,{saved:true,image_id:image.id,target_id:asset.id,input_ref:inputRef,requires_confirmation:true})
+    await projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();const target=findAsset(p,asset.id).asset;if(!target.image_ids.includes(image.id))target.image_ids.push(image.id);p.node_states.asset_preparation.product_revision++;p.node_states.asset_preparation.status='partial';p.node_states.asset_preparation.reason='图片已生成并入库';return p})
+    return this.acceptUnit(ctx,{saved:true,image_id:image.id,target_id:asset.id,input_ref:inputRef})
   }
 }

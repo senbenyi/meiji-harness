@@ -196,3 +196,79 @@ test('故事正文读取失败可直接重试，不暴露底层路径',async t=>
  await tick();assert.match(root.textContent,/正文加载失败/);assert.doesNotMatch(root.textContent,/private\/|artifacts\//)
  const retry=[...root.querySelectorAll('button')].find(b=>b.textContent==='重试加载正文');await retry.onclick();assert.match(root.textContent,/重试取得的完整正文/);assert.doesNotMatch(root.textContent,/正文加载失败/)
 })
+
+function shotListProject(){
+ const p=createProjectDocument({id:'p_shot_list',name:'分镜列表'})
+ p.story_segments.segments=[{id:'seg_private_one',sequence:1,revision:1,adaptation_revision:0,title:'准备出发',body_ref:'artifacts/one.txt',continuity_ref:null},{id:'seg_private_two',sequence:2,revision:1,adaptation_revision:0,title:'平原集结',body_ref:'artifacts/two.txt',continuity_ref:null}]
+ const asset=(id,name)=>({id,name,description:'用于故事的稳定定义',image_ids:[],selected_image_id:null})
+ p.asset_library.characters=[{...asset('character_private','巴比堪'),character_plan_id:null,voice_profile:{description:'低沉',reference_audio_ref:null,revision:0}}]
+ p.asset_library.scenes=[{...asset('scene_private_one','炮旁准备区'),scene_plan_id:null,layout:'开阔',entrances:'栅门',landmarks:'炮口'},{...asset('scene_private_two','发射地平原与临时观礼城'),scene_plan_id:null,layout:'平原',entrances:'道路',landmarks:'观礼台'}]
+ const shot=(sequence,segment,scene)=>({id:'shot_private_'+sequence,sequence,revision:1,story_segment_id:segment,story_segment_revision:1,previous_shot_id:sequence===1?null:'shot_private_1',scene_id:scene,characters:[{character_id:'character_private',look_id:null,opening_state:'站在场中'}],props:[],reference_images:[],beats:[{id:'beat_private_'+sequence,duration_seconds:6,action:'巴比堪走向炮口。',camera:'缓慢推进的近景',scene_changes:'人群退开',effects:'扬尘',dialogues:[{id:'line_private_'+sequence,speaker_id:'character_private',text:'准备出发！',delivery:{emotion:'坚定',volume:'低',pace:'平稳',breath:'均匀'}}],soundscape:'风声',music:'低弦乐'}]})
+ p.shot_design.shots=[shot(2,'seg_private_two','scene_private_two'),shot(1,'seg_private_one','scene_private_one')]
+ p.asset_requirements.items=[{id:'req_private_one',kind:'scene',target_id:'scene_private_one',shot_ids:['shot_private_1'],strategy:'import',status:'pending',image_id:null},{id:'req_private_two',kind:'scene',target_id:'scene_private_two',shot_ids:['shot_private_2'],strategy:'generate',status:'pending',image_id:null}]
+ return p
+}
+
+test('文字分镜按故事段及镜头排序，直接展示声画和人物名称且不混入素材需求',t=>{
+ const {root}=fixture(t),p=shotListProject(),before=JSON.stringify(p),view=createProjectDocumentView(root,{project:p,state:{documentStage:'shot_design'}});t.after(()=>view.dispose())
+ const groups=[...root.querySelectorAll('.production-shot-group')]
+ assert.equal(groups.length,2);assert.match(groups[0].querySelector('summary').textContent,/故事第 1 段 · 准备出发/);assert.match(groups[1].querySelector('summary').textContent,/故事第 2 段 · 平原集结/)
+ assert.match(root.querySelector('.production-shot-summary').textContent,/2 个故事段 · 2 个镜头 · 预计 12 秒/)
+ assert.match(groups[0].textContent,/镜头 01 · 炮旁准备区/);assert.match(groups[1].textContent,/镜头 02 · 发射地平原与临时观礼城/)
+ for(const text of ['巴比堪','准备出发！','缓慢推进的近景','风声','低弦乐','情绪：坚定'])assert.ok(root.textContent.includes(text))
+ assert.doesNotMatch(root.textContent,/req_private|scene_private|shot_private|character_private|beat_private|line_private|revision|target_id|pending|artifacts\//)
+ assert.equal(root.querySelectorAll('.production-shot-card').length,2);assert.equal(root.querySelectorAll('.production-asset-status').length,0);assert.equal(JSON.stringify(p),before,'展示不修改数据排序或内容')
+})
+
+test('分镜列表可按名称编辑场景、开场状态、节拍和对白，保存保留稳定ID及版本检查',async t=>{
+ const {root}=fixture(t);let p=shotListProject(),command
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'shot_design'},save:async value=>{command=value;p=editProjectProduct(p,value.stage,value.value,{expectedRevision:value.expected_revision});return p}});t.after(()=>view.dispose())
+ const click=label=>[...root.querySelectorAll('button')].find(b=>b.textContent===label).click()
+ const save=async()=>[...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').onclick()
+ click('编辑镜头');const select=root.querySelector('dialog [aria-label=场景]');assert.equal(select.tagName,'SELECT');assert.match(select.textContent,/炮旁准备区/);select.value='scene_private_two';root.querySelector('dialog [aria-label="人物 1（巴比堪）开场状态"]').value='转向观礼台';await save()
+ assert.equal(command.expected_revision,0);assert.equal(command.value.shot_design.shots.find(s=>s.sequence===1).scene_id,'scene_private_two');assert.equal(command.value.shot_design.shots.find(s=>s.sequence===1).characters[0].opening_state,'转向观礼台')
+ click('编辑动作与声画');root.querySelector('dialog [aria-label=动作]').value='巴比堪停步，望向观礼台。';root.querySelector('dialog [aria-label="时长（秒）"]').value='8';await save()
+ assert.equal(command.expected_revision,1);const beat=command.value.shot_design.shots.find(s=>s.sequence===1).beats[0];assert.equal(beat.id,'beat_private_1');assert.equal(beat.duration_seconds,8);assert.equal(beat.action,'巴比堪停步，望向观礼台。')
+ click('编辑对白');root.querySelector('dialog [aria-label=对白原文]').value='我们准备好了。';root.querySelector('dialog [aria-label=情绪]').value='平静';await save()
+ assert.equal(command.expected_revision,2);const line=command.value.shot_design.shots.find(s=>s.sequence===1).beats[0].dialogues[0];assert.equal(line.id,'line_private_1');assert.equal(line.text,'我们准备好了。');assert.equal(line.delivery.emotion,'平静')
+})
+
+test('素材准备按类型展示用途和中文状态，图片占位与生成导入入口保持可用',async t=>{
+ const {root}=fixture(t),p=shotListProject();let submitted
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'asset_preparation'},request:async(path,options)=>{if(path.startsWith('production/')){submitted=JSON.parse(options.body);return {group_id:'group_test'}}return {project:p}}});t.after(()=>view.dispose())
+ assert.deepEqual([...root.querySelectorAll('.production-asset-group')].map(g=>g.dataset.assetKind),['characters','scenes','clothing','props','character_looks'])
+ const scenes=[...root.querySelectorAll('[data-asset-kind=scenes] .asset-work-card')]
+ assert.match(scenes[0].textContent,/场景图 · 待导入/);assert.match(scenes[1].textContent,/场景图 · 待生成/);assert.match(scenes[1].textContent,/用于：故事第 2 段 · 镜头 02/);assert.match(scenes[1].textContent,/暂无图片/)
+ assert.doesNotMatch(root.textContent,/req_private|target_id|shot_private|pending|strategy/)
+ assert.ok([...scenes[1].querySelectorAll('button')].some(b=>b.textContent==='导入并选用图片'));[...scenes[1].querySelectorAll('button')].find(b=>b.textContent==='AI生成此素材').click();await tick();assert.equal(submitted.target_id,'scene_private_two')
+ const next=structuredClone(p);next.asset_library.scenes[1].image_ids=['img_selected'];next.asset_library.scenes[1].selected_image_id='img_selected';view.update(next)
+ const selected=root.querySelector('[data-asset-id=scene_private_two]');assert.match(selected.textContent,/场景图 · 已选用/);assert.equal(selected.querySelector('img').alt,'发射地平原与临时观礼城候选');assert.doesNotMatch(selected.textContent,/暂无图片/)
+})
+
+test('素材候选点击放大、Escape关闭且不选图，切换步骤清理预览遮罩',async t=>{
+ const {dom,root}=fixture(t),p=shotListProject();let commands=0
+ p.asset_library.scenes[0].image_ids=['img_big']
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'asset_preparation'},save:async()=>{commands++;return p}});t.after(()=>view.dispose())
+ const preview=root.querySelector('[data-asset-id=scene_private_one] .production-image-thumbnail');assert.equal(preview.tagName,'BUTTON');assert.match(preview.getAttribute('aria-label'),/放大查看/);preview.click();await tick()
+ const dialog=root.querySelector('.production-image-preview');assert.ok(dialog.open);assert.match(dialog.querySelector('img').src,/\/api\/drama\/images\/img_big$/);assert.equal(dialog.querySelector('img').alt,'炮旁准备区候选');assert.equal(dialog.querySelector('a').target,'_blank');assert.equal(commands,0)
+ dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(root.querySelector('.production-image-preview'),null);assert.equal(root.querySelector('.panel-dialog-overlay'),null)
+ preview.click();await tick();[...root.querySelectorAll('.production-image-preview button')].find(b=>b.textContent==='关闭').click();assert.equal(root.querySelector('.production-image-preview'),null)
+ preview.click();await tick();root.querySelector('[data-stage=shot_design]').click();assert.equal(root.querySelector('.production-image-preview'),null);assert.equal(root.querySelector('.panel-dialog-overlay'),null);assert.equal(commands,0)
+})
+
+test('选图库支持嵌套大图预览，关闭预览保留图库，只有选用按钮修改素材',async t=>{
+ const {dom,root}=fixture(t),p=shotListProject();let command
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'asset_preparation'},request:async()=>({total:1,items:[{id:'img_library',url:'/api/drama/images/img_library'}]}),save:async value=>{command=value;return p}});t.after(()=>view.dispose())
+ const card=root.querySelector('[data-asset-id=scene_private_one]');[...card.querySelectorAll('button')].find(b=>b.textContent==='从图片库选用').click();await tick()
+ const gallery=root.querySelector('.production-gallery');gallery.querySelector('.production-image-thumbnail').click();await tick();assert.equal(root.querySelectorAll('.panel-dialog-overlay').length,2);assert.equal(command,undefined)
+ dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(root.querySelector('.production-image-preview'),null);assert.ok(gallery.open);assert.equal(root.querySelectorAll('.panel-dialog-overlay').length,1)
+ await [...gallery.querySelectorAll('button')].find(b=>b.textContent==='选用此图').onclick();assert.equal(command.kind,'image_select');assert.equal(command.target_id,'scene_private_one');assert.equal(command.image_id,'img_library');assert.equal(root.querySelector('.production-gallery'),null);assert.equal(root.querySelector('.panel-dialog-overlay'),null)
+})
+
+test('素材图片生成成功的阶段直接显示已通过，不再提供人工审核确认入口',t=>{
+ const {root}=fixture(t),p=shotListProject();p.node_states.asset_preparation.status='confirmed';p.node_states.asset_preparation.reason='素材图片已准备完成'
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'asset_preparation'}});t.after(()=>view.dispose())
+ assert.equal(root.querySelector('.production-section .node-data-tag').textContent,'已通过');assert.equal(root.querySelector('[data-stage=asset_preparation]').dataset.tone,'complete')
+ assert.equal([...root.querySelectorAll('button')].some(button=>button.textContent==='人工检查确认'),false)
+ root.querySelector('[data-stage=story_segments]').click();assert.ok([...root.querySelectorAll('button')].some(button=>button.textContent==='人工检查确认'),'其他阶段确认入口保持原样')
+})

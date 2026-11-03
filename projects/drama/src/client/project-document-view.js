@@ -1,3 +1,4 @@
+import {renderShotList} from '../node_box/shot_design/ui/shot-list.js'
 import {scriptImport} from '../node_box/project/ui/panel/script-import.js'
 import {projectDialog} from '../node_box/project/ui/panel/project-forms.js'
 import {createMemoryPanel} from './memory-panel.js'
@@ -14,7 +15,7 @@ function workflowStatus(node,stage,active){
  if(active?.task?.node_type===stage)return {tone:'pending',label:'执行中',running:true}
  if(node.last_execution?.status==='failed')return {tone:'error',label:'执行失败'}
  if(node.status==='rejected'||node.last_execution?.status==='rejected')return {tone:'error',label:'未通过'}
- if(node.status==='confirmed')return {tone:'complete',label:labels.confirmed}
+ if(node.status==='confirmed')return {tone:'complete',label:stage==='asset_preparation'?'已通过':labels.confirmed}
  if(node.last_execution?.status==='cancelled')return {tone:'pending',label:'已停止'}
  return {tone:'pending',label:labels[node.status]||'未完成'}
 }
@@ -49,10 +50,10 @@ export function createProjectDocumentView(root,{project:initial,save,request,ope
   dialog=owned;owned.addEventListener('close',()=>{if(dialog===owned)dialog=null},{once:true})
  }
  const fieldNames={social_role:'团队身份与职能',motivation:'人物动机',relationships:'人物关系',body:'正文',name:'名称',title:'标题',summary:'摘要',description:'描述',arc:'人物变化',function:'叙事作用',instruction:'改编指引',layout:'固定布局',entrances:'出入口',landmarks:'固定地标',hair_and_makeup:'发型与妆容',start:'原文起点（字符）',end:'原文终点（不含）',action:'动作',camera:'摄影',scene_changes:'场景变化',effects:'特效',text:'对白原文',emotion:'情绪',volume:'音量',pace:'语速',breath:'气息',soundscape:'环境声',music:'配乐',duration_seconds:'时长（秒）',in_seconds:'入点（秒）',out_seconds:'出点（秒）',position_seconds:'时间线位置（秒）',fade_seconds:'淡入淡出时长（秒）',width:'输出宽度',height:'输出高度',fps:'每秒帧数',subtitle_mode:'字幕模式',normalize_audio:'统一响度'}
- const openFields=(title,values,makeCommand)=>{
+ const openFields=(title,values,makeCommand,choices={})=>{
   close();dialog=element('dialog','','production-editor');dialog.setAttribute('aria-label',title);const owned=dialog;owned.addEventListener('close',()=>{owned.remove();if(dialog===owned)dialog=null},{once:true});const form=element('div','','production-field-form'),inputs={},failure=element('p','','error')
   dialog.append(element('h3',title))
-  for(const [key,value]of Object.entries(values)){const label=element('label',fieldNames[key]||key),input=element(typeof value==='number'||typeof value==='boolean'?'input':key==='subtitle_mode'?'select':'textarea');input.setAttribute('aria-label',fieldNames[key]||key);if(typeof value==='number'){input.type='number';input.step='any'}if(typeof value==='boolean'){input.type='checkbox';input.checked=value}if(key==='subtitle_mode'){for(const [v,t]of [['sidecar','外挂字幕SRT'],['burn','字幕烧入画面']]){const option=element('option',t);option.value=v;input.append(option)}}input.value=String(value);inputs[key]=input;label.append(input);form.append(label)}
+  for(const [key,value]of Object.entries(values)){const label=element('label',fieldNames[key]||key),input=element(typeof value==='number'||typeof value==='boolean'?'input':choices[key]||key==='subtitle_mode'?'select':'textarea');input.setAttribute('aria-label',fieldNames[key]||key);if(typeof value==='number'){input.type='number';input.step='any'}if(typeof value==='boolean'){input.type='checkbox';input.checked=value}if(choices[key])for(const choice of choices[key]){const option=element('option',choice.label);option.value=choice.value;input.append(option)}if(key==='subtitle_mode'){for(const [v,t]of [['sidecar','外挂字幕SRT'],['burn','字幕烧入画面']]){const option=element('option',t);option.value=v;input.append(option)}}input.value=String(value);inputs[key]=input;label.append(input);form.append(label)}
   const footer=element('div','','node-ui-buttons');footer.append(button('取消',close),button('保存',async()=>{if(busy)return;try{const value=Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,typeof values[key]==='number'?Number(input.value):typeof values[key]==='boolean'?input.checked:input.value]));await commit(makeCommand(value));close();paint()}catch(cause){failure.textContent=cause.message}}));dialog.append(form,failure,footer);root.append(dialog);showPanelDialog(dialog)
  }
  const replaceEntity=(product,id,fields)=>{const next=structuredClone(product);let found=false;const walk=value=>{if(!value||typeof value!=='object')return;if(value.id===id){Object.assign(value,fields);found=true;return}for(const item of Object.values(value))if(item&&typeof item==='object')walk(item)};walk(next);if(!found)throw new Error('编辑对象不存在');return next}
@@ -113,7 +114,7 @@ export function createProjectDocumentView(root,{project:initial,save,request,ope
    const info=element('div','','production-project-info'),summary=element('p',`${project.basic_info.creation_mode} · ${project.basic_info.aspect_ratio} · ${({ 'zh-CN':'简体中文','zh-TW':'繁体中文','en':'英语','ja':'日语'})[project.basic_info.output_language]||project.basic_info.output_language}`,'production-project-meta');info.append(summary,button('编辑短剧信息',editProjectInfo));section.append(info)
    const imports=element('div','','production-source-import');sourceControlsDispose=scriptImport(imports,{...scriptLibrary,maxScriptBytes:24*1024*1024,importScript:async(value,originalName)=>{await commit({kind:'import_script',value,originalName,expected_revision:node.product_revision});if(alive)paint()}});imports.querySelector('.workflow-generation-row').append(...records.childNodes);actions.append(imports)
   }
-  if(stage.id!=='project'){if(stage.id!=='delivery')actions.prepend(button(stage.kind==='image'?'生成缺少的素材':stage.kind==='video'?'生成缺少的分片':stage.kind==='ai'?'生成/重新生成':'执行本步骤',()=>run(stage.id),'production-primary'));actions.append(button('人工检查确认',()=>commit({kind:'confirm_stage',stage:stage.id,expected_revision:node.product_revision}).then(paint).catch(cause=>{setError(cause,stage.id);paint()})));if(stage.kind==='ai'&&node.product_revision>0)actions.append(button('按意见修改现有产物',()=>run(stage.id,{revise:true})));if(node.last_execution&&['failed','cancelled','rejected'].includes(node.last_execution.status))actions.append(button('从检查点继续',()=>resume(stage.id).catch(cause=>{setError(cause,stage.id);paint()})))}
+  if(stage.id!=='project'){if(stage.id!=='delivery')actions.prepend(button(stage.kind==='image'?'生成缺少的素材':stage.kind==='video'?'生成缺少的分片':stage.kind==='ai'?'生成/重新生成':'执行本步骤',()=>run(stage.id),'production-primary'));if(stage.id!=='asset_preparation')actions.append(button('人工检查确认',()=>commit({kind:'confirm_stage',stage:stage.id,expected_revision:node.product_revision}).then(paint).catch(cause=>{setError(cause,stage.id);paint()})));if(stage.kind==='ai'&&node.product_revision>0)actions.append(button('按意见修改现有产物',()=>run(stage.id,{revise:true})));if(node.last_execution&&['failed','cancelled','rejected'].includes(node.last_execution.status))actions.append(button('从检查点继续',()=>resume(stage.id).catch(cause=>{setError(cause,stage.id);paint()})))}
   if(active?.group?.id&&active.task?.metadata.production)actions.append(button('停止当前任务',async()=>{await request(`production-tasks/${encodeURIComponent(active.group.id)}/cancel`,{method:'POST',headers:{'X-Drama-Request':'1'}});await reload()}))
   if(stage.id!=='project'){toolbar.append(records);ui.append(toolbar)}
   const opinion=element('input','','node-ui-opinion');opinion.placeholder='本次执行意见';opinion.setAttribute('aria-label',`${stage.title}本次执行意见`);state.documentOpinions||={};opinion.value=state.documentOpinions[stage.id]??node.opinion;opinion.oninput=()=>{state.documentOpinions[stage.id]=opinion.value}
@@ -126,8 +127,7 @@ export function createProjectDocumentView(root,{project:initial,save,request,ope
   const collectionTitles={locked_requirements:'改编约束',character_plans:'人物规划',scene_plans:'场景规划',group_plans:'团队规划',chapters:'章节',segments:'故事段'}
   const rows=Array.isArray(product)?product:Object.entries(product).filter(([key,value])=>Array.isArray(value)).flatMap(([key,value])=>value.length&&value.every(row=>typeof row==='string')?[{title:collectionTitles[key]||key,content:value,_collection:key,_textList:true}]:value.map(row=>({...row,_collection:key})))
   if(stage.id!=='source_analysis'&&!Array.isArray(product))for(const [key,ref]of Object.entries(product))if(key.endsWith('_ref')&&typeof ref==='string')rows.push({title:({facts_ref:'原著事实',coverage_ref:'覆盖报告'})[key]||key,[key]:ref})
-  if(stage.id==='shot_design')rows.push(...project.shot_design.shots,...project.asset_requirements.items)
-  if(!rows.length&&!(stage.id==='adaptation_plan'&&product.plot_development.trim()))section.append(element('p',stage.id==='project'?'尚未导入原稿，请从本地或素材库导入。':`暂无${stage.title}产物；支持人工创建和编辑。`,stage.id==='project'?'production-source-empty':'production-empty'))
+  if(stage.id!=='shot_design'&&!rows.length&&!(stage.id==='adaptation_plan'&&product.plot_development.trim()))section.append(element('p',stage.id==='project'?'尚未导入原稿，请从本地或素材库导入。':`暂无${stage.title}产物；支持人工创建和编辑。`,stage.id==='project'?'production-source-empty':'production-empty'))
   const guidanceGroups=new Map()
   if(stage.id==='adaptation_plan'){
    for(const [key,title]of [['creative_constraints','全篇创作约束'],['plot_development','剧情发展'],['character_plans','人物规划'],['group_plans','团队规划'],['scene_plans','场景规划']]){
@@ -138,20 +138,30 @@ export function createProjectDocumentView(root,{project:initial,save,request,ope
    plot.append(element('p',product.plot_development||'暂无剧情发展规划。','production-text'),button('编辑剧情发展',()=>editor('编辑剧情发展',product.plot_development,value=>({kind:'product',stage:stage.id,value:{...product,plot_development:value},expected_revision:node.product_revision}),{text:true})));guidanceGroups.get('plot_development').cards.append(plot)
   }
   if(stage.id==='project'&&rows.length)section.append(element('h4','原稿文件','production-source-heading'))
-  for(const row of (['asset_preparation','video_render','clip_arrangement','editing','delivery'].includes(stage.id)?[]:rows)){const card=element('article','',stage.id==='project'?'production-source-row':'production-card');if(row._collection==='group_plans')card.append(element('small','团队规划'));card.append(element('h4',stage.id==='project'?`${row.original_name||'原稿'}${row.id===project.source.current_revision_id?' · 当前原稿':''}`:row.title||row.name||row.id||collectionTitles[row._collection]||row._collection||'产物'),...(stage.id==='story_segments'?[]:[element('p',stage.id==='project'?`${row.character_count.toLocaleString()} 字符`:readable(row._textList?row.content:Object.fromEntries(Object.entries(row).filter(([key])=>key!=='_collection'&&!(stage.id==='source_analysis'&&key==='body')))),'production-text')]))
+  for(const row of (['shot_design','asset_preparation','video_render','clip_arrangement','editing','delivery'].includes(stage.id)?[]:rows)){const card=element('article','',stage.id==='project'?'production-source-row':'production-card');if(row._collection==='group_plans')card.append(element('small','团队规划'));card.append(element('h4',stage.id==='project'?`${row.original_name||'原稿'}${row.id===project.source.current_revision_id?' · 当前原稿':''}`:row.title||row.name||row.id||collectionTitles[row._collection]||row._collection||'产物'),...(stage.id==='story_segments'?[]:[element('p',stage.id==='project'?`${row.character_count.toLocaleString()} 字符`:readable(row._textList?row.content:Object.fromEntries(Object.entries(row).filter(([key])=>key!=='_collection'&&!(stage.id==='source_analysis'&&key==='body')))),'production-text')]))
    if(stage.id==='story_segments')showStoryBody(card,row.body_ref)
    for(const [key,ref]of Object.entries(row))if(stage.id!=='project'&&key.endsWith('_ref')&&typeof ref==='string'&&/\.(txt|json|srt)$/.test(ref))card.append(button(stage.id==='story_segments'&&key==='continuity_ref'?'编辑衔接记录':'编辑正文',()=>openFile(ref,stage.id)))
    if(row.id&&stage.id!=='project'){
     const fields=Object.fromEntries(Object.entries(row).filter(([key,value])=>Object.hasOwn(fieldNames,key)&&(typeof value==='string'||typeof value==='number')))
     if(Object.keys(fields).length)card.append(button('编辑此项',()=>openFields(`编辑${row.title||row.name||stage.title}`,fields,value=>({kind:'product',stage:stage.id,value:replaceEntity(product,row.id,value),expected_revision:node.product_revision}))))
     if(stage.id==='source_analysis'&&typeof row.body==='string')card.append(button(`查看正文（${row.body.length.toLocaleString()} 字符）`,()=>editor(row.title+' · 原文',row.body,()=>({}),{text:true,readOnly:true})))
-    if(stage.id==='shot_design'&&row.beats)for(const beat of row.beats){card.append(button('编辑节拍动作与声画',()=>openFields('编辑镜头节拍',{duration_seconds:beat.duration_seconds,action:beat.action,camera:beat.camera,scene_changes:beat.scene_changes,effects:beat.effects,soundscape:beat.soundscape,music:beat.music},value=>({kind:'product',stage:'shot_design',value:replaceEntity(product,beat.id,value),expected_revision:node.product_revision}))));for(const line of beat.dialogues)card.append(button('编辑对白与表演',()=>openFields('编辑对白与表演',{text:line.text,...line.delivery},value=>{const {text,...delivery}=value;return {kind:'product',stage:'shot_design',value:replaceEntity(product,line.id,{text,delivery}),expected_revision:node.product_revision}})))}
+
    }
    if(stage.id==='project'&&row.file_ref)card.append(button('分页查看原稿',()=>openFile(row.file_ref,'project',{readOnly:true})))
    const target=stage.id==='adaptation_plan'?guidanceGroups.get(row._collection)?.cards:section
    ;(target||section).append(card)
   }
   for(const [key,{group,cards}]of guidanceGroups){if(key==='group_plans'&&!cards.children.length){const empty=element('article','','production-card');empty.append(element('p','暂无团队规划。','meta'));cards.append(empty)}if(cards.children.length)section.append(group)}
+  if(stage.id==='shot_design'){
+   const shotCommand=(id,fields)=>({kind:'product',stage:stage.id,value:replaceEntity(product,id,fields),expected_revision:node.product_revision})
+   const characterKey=(row,index)=>`人物 ${index+1}（${project.asset_library.characters.find(c=>c.id===row.character_id).name}）开场状态`
+   const propKey=(row,index)=>`道具 ${index+1}（${project.asset_library.props.find(p=>p.id===row.prop_id).name}）开场状态`
+   renderShotList(section,project,{
+    editShot:shot=>openFields(`编辑镜头 ${shot.sequence}`,{场景:shot.scene_id||'',...Object.fromEntries(shot.characters.map((row,index)=>[characterKey(row,index),row.opening_state])),...Object.fromEntries(shot.props.map((row,index)=>[propKey(row,index),row.opening_state]))},value=>shotCommand(shot.id,{scene_id:value.场景||null,characters:shot.characters.map((row,index)=>({...row,opening_state:value[characterKey(row,index)]})),props:shot.props.map((row,index)=>({...row,opening_state:value[propKey(row,index)]}))}),{场景:[{value:'',label:'未指定场景'},...project.asset_library.scenes.map(scene=>({value:scene.id,label:scene.name}))]}),
+    editBeat:(shot,beat)=>openFields(`编辑镜头 ${shot.sequence} 节拍`,{duration_seconds:beat.duration_seconds,action:beat.action,camera:beat.camera,scene_changes:beat.scene_changes,effects:beat.effects,soundscape:beat.soundscape,music:beat.music},value=>shotCommand(beat.id,value)),
+    editDialogue:(shot,line)=>openFields(`编辑镜头 ${shot.sequence} 对白`,{text:line.text,...line.delivery},value=>{const {text,...delivery}=value;return shotCommand(line.id,{text,delivery})})
+   })
+  }
   mediaControls=productionControls({root,section,project,stage:stage.id,command:async command=>{await commit(command);paint()},request,run,openEditor:editor,openFields,openFile,fileUrl,active})
   body.setAttribute('aria-labelledby',`step-${stage.id}`);body.append(section);layout.append(workflow,body);root.append(layout)
  }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {JSDOM} from 'jsdom'
 import {executionActivities,stepExecutionName} from '../src/shared/agent/execution_activity.js'
 import {createTaskOperation,groupTaskMessages} from '../src/client/ui/task-operation.js'
-import {createPanelTaskDisplay} from '../src/main_agent/session/panel_task_messages.js'
+import {taskDisplayCard,createPanelTaskDisplay} from '../src/main_agent/session/panel_task_messages.js'
 import {displayContext,compactDisplay} from '../src/main_agent/session/task_display_context.js'
 import {fixture} from './helpers/production-fixture.js'
 const call=(id,name,args)=>({id,function:{name,arguments:JSON.stringify(args)}})
@@ -50,4 +50,16 @@ test('模拟模型真实生成与独立审核步骤携带当轮动作，原trace
  const f=await fixture(t);await f.run('source_analysis');const detail=await f.run('adaptation_plan'),steps=detail.steps.filter(s=>s.result?.trace)
  assert.ok(steps.length>=4);assert.ok(steps.some(s=>s.result.trace.activities.some(a=>a.title==='读取原著')));assert.ok(steps.some(s=>s.result.trace.activities.some(a=>a.title==='提交审核结论'&&a.detail==='审核通过')))
  for(const step of steps){const stored=JSON.parse((await f.projects.documents.readArtifact(f.context.projectId,step.result.trace.file_ref)).toString());assert.deepEqual(step.result.trace.activities,executionActivities(stored))}
+})
+
+
+test('图片与视频execute按业务命名，历史卡片和运行提示一致，普通程序与旧记录保持原名',()=>{
+ const task={id:'media_task',node_type:'asset_preparation',name:'素材与人物定妆',task_status:'running',metadata:{document_version:4}},step={id:'media_step',task_id:'media_task',seq:2,kind:'execute',name:'执行程序步骤',executor:'program',step_status:'running',round:0},detail={group:{id:'media_group'},tasks:[task],steps:[step],status:'running'},before=structuredClone(detail)
+ assert.equal(stepExecutionName(step,task),'生成素材图片')
+ const active=displayContext(detail,task,step);assert.equal(active.step_name,'生成素材图片');assert.equal(active.active_step.name,'生成素材图片')
+ const card=taskDisplayCard({group_id:'media_group',task_id:task.id,status:'running'},'step',task.name,step,active);assert.match(card.title,/生成素材图片/);assert.doesNotMatch(card.title,/执行程序步骤/)
+ const done=structuredClone(detail);done.steps[0].step_status='done';assert.match(displayContext(done,task,done.steps[0]).stopped_at,/生成素材图片/)
+ assert.equal(stepExecutionName(step,{...task,node_type:'video_render'}),'生成视频分片')
+ assert.equal(stepExecutionName(step,{...task,node_type:'source_analysis'}),'执行程序步骤')
+ assert.equal(stepExecutionName(step,{...task,metadata:{}}),'执行程序步骤');assert.deepEqual(detail,before)
 })
