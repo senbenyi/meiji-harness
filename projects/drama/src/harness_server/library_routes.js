@@ -1,6 +1,6 @@
 import { createLibraryStore } from '../library/library_store.js'
 
-/** 调用方先完成宿主鉴权；片库不要求选中项目或会话。 */
+/** 调用方先完成宿主鉴权；片库不要求选中短剧或会话。 */
 export function createLibraryHttpHandler(tool, json) {
   const store = createLibraryStore(tool.root)
   return async (req, res, url) => {

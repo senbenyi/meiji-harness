@@ -7,7 +7,7 @@ export function projectDialog(root, save, { listScripts, readScript, maxScriptBy
   dialog.id = editing ? "edit-project" : "create-project";
   dialog.setAttribute("aria-labelledby", editing ? "edit-title" : "create-title");
   const head = element("div", "", "modal-head"),
-    title = element("h2", editing ? "编辑短视频项目" : "创建短视频项目");
+    title = element("h2", editing ? "编辑短剧" : "创建短剧");
   title.id = editing ? "edit-title" : "create-title";
   const close = element("button", "×", "cancel");
   close.setAttribute("aria-label", editing ? "关闭编辑弹窗" : "关闭创建弹窗");
@@ -70,7 +70,7 @@ export function projectDialog(root, save, { listScripts, readScript, maxScriptBy
   error.setAttribute("role", "alert");
   const footer = element("footer", "", "footer"),
     cancel = element("button", "取消", "cancel"),
-    submit = element("button", editing ? "保存" : "创建项目", "primary");
+    submit = element("button", editing ? "保存" : "创建短剧", "primary");
   cancel.type = "button";
   submit.type = "submit";
   cancel.onclick = () => dialog.close();
@@ -80,7 +80,7 @@ export function projectDialog(root, save, { listScripts, readScript, maxScriptBy
     head,
     element(
       "p",
-      editing ? "修改项目信息；需要更换剧本时重新导入，保存后保留原稿历史。" : "选择创作模式，填写标题和画幅；剧本模式需要导入剧本。",
+      editing ? "修改短剧信息；需要更换剧本时重新导入，保存后保留原稿历史。" : "选择创作模式，填写标题和画幅；剧本模式需要导入剧本。",
     ),
     form,
   );

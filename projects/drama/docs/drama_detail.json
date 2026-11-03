@@ -4,7 +4,7 @@
     "schema_version": {
       "type": "integer",
       "const": 2,
-      "description": "项目结构版本，固定为2"
+      "description": "短剧结构版本，固定为2"
     },
     "document_revision": {
       "type": "integer",
@@ -58,7 +58,7 @@
         "output_language"
       ],
       "additionalProperties": false,
-      "description": "项目信息"
+      "description": "短剧信息"
     },
     "source": {
       "type": "object",
@@ -88,7 +88,7 @@
               "file_ref": {
                 "type": "string",
                 "minLength": 1,
-                "description": "项目内不可变文件相对路径"
+                "description": "短剧内不可变文件相对路径"
               },
               "original_name": {
                 "type": "string",
@@ -245,7 +245,7 @@
         "goal": {
           "type": "string",
           "minLength": 0,
-          "description": "改编目标与原则：明确风格、受众、改编尺度、保留内容及允许调整的内容。用户未指定时依据原著自主作出明确方案选择，直接写成可执行原则，不写建议或待确认；方案选择不冒充用户已确认要求，不得直接复制项目名。"
+          "description": "改编目标与原则：明确风格、受众、改编尺度、保留内容及允许调整的内容。用户未指定时依据原著自主作出明确方案选择，直接写成可执行原则，不写建议或待确认；方案选择不冒充用户已确认要求，不得直接复制短剧名。"
         },
         "locked_requirements": {
           "type": "array",
@@ -844,7 +844,7 @@
               "character_id": {
                 "type": "string",
                 "minLength": 1,
-                "description": "项目人物素材ID"
+                "description": "短剧人物素材ID"
               },
               "clothing_ids": {
                 "type": "array",
@@ -892,7 +892,7 @@
         "character_looks"
       ],
       "additionalProperties": false,
-      "description": "项目素材定义与图片引用"
+      "description": "短剧素材定义与图片引用"
     },
     "asset_requirements": {
       "type": "object",
@@ -1038,7 +1038,7 @@
                     "type": "null"
                   }
                 ],
-                "description": "项目场景素材ID，可为空"
+                "description": "短剧场景素材ID，可为空"
               },
               "characters": {
                 "type": "array",
@@ -1048,7 +1048,7 @@
                     "character_id": {
                       "type": "string",
                       "minLength": 1,
-                      "description": "项目人物素材ID"
+                      "description": "短剧人物素材ID"
                     },
                     "look_id": {
                       "oneOf": [
@@ -1461,7 +1461,7 @@
                     "character_id": {
                       "type": "string",
                       "minLength": 1,
-                      "description": "项目人物素材ID"
+                      "description": "短剧人物素材ID"
                     },
                     "voice_revision": {
                       "type": "integer",
@@ -1541,7 +1541,7 @@
           "file_ref": {
             "type": "string",
             "minLength": 1,
-            "description": "项目内不可变文件相对路径"
+            "description": "短剧内不可变文件相对路径"
           },
           "duration_seconds": {
             "type": "number",
@@ -1569,7 +1569,7 @@
                 "character_id": {
                   "type": "string",
                   "minLength": 1,
-                  "description": "项目人物素材ID"
+                  "description": "短剧人物素材ID"
                 },
                 "voice_revision": {
                   "type": "integer",
@@ -1886,7 +1886,7 @@
               "file_ref": {
                 "type": "string",
                 "minLength": 1,
-                "description": "项目内不可变文件相对路径"
+                "description": "短剧内不可变文件相对路径"
               },
               "subtitles_ref": {
                 "oneOf": [
@@ -2004,7 +2004,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -2106,7 +2106,7 @@
             "checkpoint"
           ],
           "additionalProperties": false,
-          "description": "项目与原稿步骤"
+          "description": "短剧与原稿步骤"
         },
         "source_analysis": {
           "type": "object",
@@ -2162,7 +2162,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -2320,7 +2320,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -2478,7 +2478,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -2636,7 +2636,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -2794,7 +2794,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -2952,7 +2952,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -3110,7 +3110,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -3268,7 +3268,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -3426,7 +3426,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -3584,7 +3584,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [
@@ -3742,7 +3742,7 @@
                 "revise"
               ],
               "additionalProperties": false,
-              "description": "各动作的项目补充规则，基础skill由代码加载"
+              "description": "各动作的短剧补充规则，基础skill由代码加载"
             },
             "last_execution": {
               "oneOf": [

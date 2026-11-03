@@ -6,15 +6,15 @@ import { taskHistoryPresentation } from '../../client/ui/task-presentation.js'
 const labels = { completed: '已完成', rejected: '未通过', failed: '执行失败', cancelled: '已取消', done: '已完成', skipped: '已跳过' }
 const marker = 'drama-task-display'
 
-/** 创建尚未产生项目会话时，消息归发起会话；已创建后归项目会话。 */
+/** 创建尚未产生短剧会话时，消息归发起会话；已创建后归短剧会话。 */
 export async function reportSession(projects, report, phase) {
   const creating = report.node_type === 'project' && report.action === 'create'
   const beforeCreated = creating && (phase === 'start' || !report.result?.session_id)
   const sessionId = beforeCreated ? report.source_session_id : report.session_id
-  if (!sessionId) throw new Error('任务展示缺少项目已有会话')
+  if (!sessionId) throw new Error('任务展示缺少短剧已有会话')
   if (!beforeCreated) {
     const snapshot = await projects.snapshot(sessionId)
-    if (!snapshot.project || snapshot.project.basic_info.id !== report.project_id) throw new Error('报告目标项目已删除或会话归属改变')
+    if (!snapshot.project || snapshot.project.basic_info.id !== report.project_id) throw new Error('报告目标短剧已删除或会话归属改变')
   }
   return sessionId
 }
@@ -42,7 +42,7 @@ export function createPanelTaskDisplay(ctx, projects) {
     const read=async(ref,field)=>{
       if(!ref)return {error:`未保存${field}，无法恢复当次内容。`}
       try{return {value:JSON.parse((await projects.documents.readArtifact(task.metadata.project_id,ref)).toString())}}
-      catch{return {error:`${field}暂不可读取；未使用当前项目补造记录。`}}
+      catch{return {error:`${field}暂不可读取；未使用当前短剧补造记录。`}}
     }
     const [request,response]=await Promise.all([read(context.model_call.request_ref,'模型请求消息'),read(context.model_call.response_ref,'模型返回记录')])
     const sent=Array.isArray(request.value)?request.value:null,delta=Array.isArray(response.value?.messages)?response.value.messages:null

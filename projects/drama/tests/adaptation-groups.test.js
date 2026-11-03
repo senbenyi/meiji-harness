@@ -21,7 +21,7 @@ test('未指定改编偏好时，任务、契约和三个动作一致要求明�
   const rules=await actionRules('adaptation_plan',action,'保留原著对白')
   assert.match(rules,/作出明确选择，直接形成可执行/);assert.match(rules,/不能仅以缺少用户确认作为阻断问题/)
   assert.match(rules,/不自动加入locked_requirements/);assert.match(rules,/不写入用户偏好记忆/);assert.match(rules,/猜测或未交代结果仍保持事实边界/)
-  assert.match(rules,/项目定制规则（优先）\n保留原著对白/);assert.doesNotMatch(rules,/明确写“未指定\/待确认”及必要的建议/)
+  assert.match(rules,/短剧定制规则（优先）\n保留原著对白/);assert.doesNotMatch(rules,/明确写“未指定\/待确认”及必要的建议/)
  }
  const [custom]=await prepareText({},'adaptation_plan',sourceProject(),{instruction:'面向成年人，保留科学争论'})
  assert.equal(custom.material.goal,'面向成年人，保留科学争论')
@@ -77,10 +77,10 @@ test('定稿必须有当前原稿的有效全篇指导，自由创作允许无�
  const next=applyCandidate(free,'story_segments',units[0],{segments:[segment('free')]});assert.equal(next.story_segments.segments.length,1)
 })
 
-test('改编目标与原则不回退项目名，模型不能提交项目名或空目标',async()=>{
+test('改编目标与原则不回退短剧名，模型不能提交短剧名或空目标',async()=>{
  const p=sourceProject(),units=await prepareText({},'adaptation_plan',p,{})
  assert.notEqual(units[0].material.goal,p.basic_info.name);assert.match(units[0].material.instruction,/风格、受众、改编尺度、保留内容和允许调整内容/)
  const custom=await prepareText({},'adaptation_plan',p,{instruction:'面向成年观众，保留科学精神'});assert.equal(custom[0].material.goal,'面向成年观众，保留科学精神')
- assert.throws(()=>applyCandidate(p,'adaptation_plan',{}, {...guidance(),goal:p.basic_info.name}),/不能直接使用项目名称/)
+ assert.throws(()=>applyCandidate(p,'adaptation_plan',{}, {...guidance(),goal:p.basic_info.name}),/不能直接使用短剧名称/)
  assert.throws(()=>parseCandidate('adaptation_plan',{}, {...guidance(),goal:''}),/文本为空/)
 })

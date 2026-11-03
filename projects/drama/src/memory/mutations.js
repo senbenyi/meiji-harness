@@ -9,7 +9,7 @@ export function applyMemoryChange(data,scope,command,context){
       if(command.id&&!old||action!=='upsert'&&!old)throw Object.assign(new Error('记忆不存在'),{code:'ENOENT'})
       if(action==='upsert'){
         const key=text(command.key,'稳定主题key',80),title=text(command.title,'标题',100),content=text(command.content,'记忆正文',2000),kind=command.kind||'preference',stages=command.stages??[]
-        if(!kinds.includes(kind)||scope==='engineering'&&kind!=='preference')throw new TypeError('工程记忆仅保存用户偏好；项目可保存决定/约束/偏好/未决问题')
+        if(!kinds.includes(kind)||scope==='engineering'&&kind!=='preference')throw new TypeError('工程记忆仅保存用户偏好；短剧可保存决定/约束/偏好/未决问题')
         if(!Array.isArray(stages)||new Set(stages).size!==stages.length||stages.some(id=>!projectStages.some(s=>s.id===id)))throw new TypeError('记忆适用步骤无效')
         if(data.entries.some(e=>e.key===key&&e.id!==old?.id))throw new TypeError('主题key已存在，请更新原记忆')
         entry={id:old?.id||`mem_${randomUUID()}`,scope,key,title,content,kind,stages,status:'active',revision,created_at:old?.created_at||at,updated_at:at,source:{session_id:context.sessionId,origin:context.source||'ui',user_quote:quote,...(context.source==='memory-maintenance'?{citations:command.citations||[],maintenance_task_id:context.taskId}: {})}}

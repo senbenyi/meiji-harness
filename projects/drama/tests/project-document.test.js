@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import {createProjectDocument,assertProjectDocument,editProjectProduct,projectStages,projectDocumentSchema} from '../src/project_runtime/project_document.js'
 
-const empty=()=>createProjectDocument({id:'p_001',name:'完整制作项目'})
+const empty=()=>createProjectDocument({id:'p_001',name:'完整制作短剧'})
 function populated(){
  const p=empty()
  p.source={current_revision_id:'src_001',revisions:[{id:'src_001',file_ref:'sources/src_001.txt',original_name:'原稿.txt',character_count:100,line_index_ref:null}]}
@@ -24,7 +24,7 @@ function populated(){
  return assertProjectDocument(p)
 }
 
-test('V2空项目不包含旧优化/重复资产/output包装，状态与业务产物分离',()=>{
+test('V2空短剧不包含旧优化/重复资产/output包装，状态与业务产物分离',()=>{
  const p=empty();assert.equal(p.schema_version,2);assert.equal(p.episodes.length,0)
  for(const key of ['actual_script','summary','estimated_duration_seconds','script_revision_node','create_project_node'])assert.equal(Object.hasOwn(p.basic_info,key),false)
  for(const key of ['script_revision','character_extraction','scene_extraction','group_setting','legacy_archive_ref'])assert.equal(Object.hasOwn(p,key),false)
@@ -84,7 +84,7 @@ test('后期引用真实候选，裁切不可超实际时长，集界只归属�
 })
 
 test('字段详解覆盖当前全部运行字段，注释不改变真实Schema',async()=>{
- const detail=JSON.parse(await readFile(new URL('../docs/project_detail.json',import.meta.url),'utf8'))
+ const detail=JSON.parse(await readFile(new URL('../docs/drama_detail.json',import.meta.url),'utf8'))
  function strip(value){if(Array.isArray(value))return value.map(strip);if(!value||typeof value!=='object')return value;return Object.fromEntries(Object.entries(value).filter(([key,value])=>!(typeof value==='string'&&['description','$comment'].includes(key))).map(([key,value])=>[key,strip(value)]))}
  function check(value){for(const schema of Object.values(value.properties||{}))assert.ok(schema.description);for(const item of Object.values(value))if(Array.isArray(item))item.filter(v=>v&&typeof v==='object').forEach(check);else if(item&&typeof item==='object')check(item)}
  check(detail);assert.deepEqual(strip(detail),strip(projectDocumentSchema));assert.equal(detail.properties.adaptation_plan.properties.goal.description,projectDocumentSchema.properties.adaptation_plan.properties.goal.description)

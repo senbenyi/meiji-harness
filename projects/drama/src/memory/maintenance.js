@@ -21,7 +21,7 @@ export class MemoryMaintenance {
   path(id,file){if(!/^[a-f0-9]{64}$/.test(id)||!/^[a-f0-9-]{36}\.json$/.test(file))throw new TypeError('记忆任务文件引用无效');return join(this.projects.root,'memory','jobs',id,file)}
   async write(id,value){const file=ref(),path=this.path(id,file);await mkdir(join(this.projects.root,'memory','jobs',id),{recursive:true});await writeFile(path,JSON.stringify(value),{flag:'wx',mode:0o600});return file}
   async read(id,file){return JSON.parse(await readFile(this.path(id,file),'utf8'))}
-  async authorize(id,context){const detail=this.projects.records.tasks.detail(this.projects.records.scope,id),task=detail?.tasks[0];if(!task?.metadata.memory_maintenance)throw new TypeError('不是记忆整理任务');if(task.metadata.project_id){const project=await this.projects.context(context.sessionId,context.projectId);if(project.basic_info.id!==task.metadata.project_id)throw new TypeError('记忆任务不属于当前项目')}else if(task.metadata.session_id!==context.sessionId)throw new TypeError('记忆任务不属于此会话');return detail}
+  async authorize(id,context){const detail=this.projects.records.tasks.detail(this.projects.records.scope,id),task=detail?.tasks[0];if(!task?.metadata.memory_maintenance)throw new TypeError('不是记忆整理任务');if(task.metadata.project_id){const project=await this.projects.context(context.sessionId,context.projectId);if(project.basic_info.id!==task.metadata.project_id)throw new TypeError('记忆任务不属于当前短剧')}else if(task.metadata.session_id!==context.sessionId)throw new TypeError('记忆任务不属于此会话');return detail}
   async history(context,scope){
     if(!['project','engineering'].includes(scope))throw new TypeError('记忆范围无效')
     let project;try{project=await this.projects.context(context.sessionId,context.projectId)}catch(e){if(scope!=='engineering'||e.code!=='PROJECT_SCOPE')throw e}
@@ -36,9 +36,9 @@ export class MemoryMaintenance {
     if(stage&&!projectStages.some(s=>s.id===stage))throw new TypeError('未知制作步骤')
     const request_identity=requestIdentity([action,scope,stage||'',JSON.stringify(turns??null)]),id=requestIdentity(['memory-maintain',context.sessionId,request_id]),old=this.projects.records.tasks.detail(this.projects.records.scope,id)
     if(old){await this.authorize(id,context);if(old.tasks[0].metadata.request_identity!==request_identity)throw new TypeError('同一请求ID不能改变记忆整理输入');return {group_id:id,status:old.status}}
-    if(project&&this.projects.activeExecution(project.basic_info.id))throw Object.assign(new Error('项目已有执行任务，请结束后整理记忆'),{code:'PROJECT_ACTIVE'})
+    if(project&&this.projects.activeExecution(project.basic_info.id))throw Object.assign(new Error('短剧已有执行任务，请结束后整理记忆'),{code:'PROJECT_ACTIVE'})
     const actualScope=scope==='effective'?'project':scope,location=await this.projects.memories.location(context,actualScope),data=await this.projects.memories.load(location.path)
-    if(turns){if(!project)throw new TypeError('对话整理需要绑定Drama项目');if(!Array.isArray(turns)||turns.length>1000||turns.some(m=>!['user','assistant'].includes(m.role)||typeof(m.text??m.content)!=='string'))throw new TypeError('对话需为user/assistant文字数组');await this.conversations.append(context,turns)}
+    if(turns){if(!project)throw new TypeError('对话整理需要绑定Drama短剧');if(!Array.isArray(turns)||turns.length>1000||turns.some(m=>!['user','assistant'].includes(m.role)||typeof(m.text??m.content)!=='string'))throw new TypeError('对话需为user/assistant文字数组');await this.conversations.append(context,turns)}
     const messages=action==='extract'?await this.conversations.pending(context):[]
     if(action==='extract'&&!messages.some(m=>m.role==='user'))return {group_id:null,status:'completed',saved:false,reason:'没有待整理的用户对话'}
     const format=await readNodeFormat('memory_maintenance'),rules=Object.fromEntries(await Promise.all(['generate','review','revise'].map(async action=>[action,(await readNodeRule('memory_maintenance',action))+'\n\n## 返回格式\n'+JSON.stringify(format[action],null,2)]))),entries=await this.projects.memories.entriesFor(scope,context,stage),input={domain:memoryDomain,rules,scope,action,stage:stage||null,revision:data.revision,entries,messages,context:{sessionId:context.sessionId,projectId:project?.basic_info.id}}
@@ -53,10 +53,10 @@ export class MemoryMaintenance {
     const context={sessionId:options.sessionId,source:'api',signal:options.signal};try{await this.projects.context(context.sessionId)}catch(e){if(e.code==='PROJECT_SCOPE')return;throw e}
     const added=await this.conversations.append(context,options.messages)
     const users=added.pending.filter(m=>m.role==='user'),body=users.map(m=>m.text).join('\n')
-    if(users.length<3&&body.length<1500&&!/记住|以后.*(?:Drama|项目)|改为|不再|统一.*风格/i.test(body))return
+    if(users.length<3&&body.length<1500&&!/记住|以后.*(?:Drama|短剧)|改为|不再|统一.*风格/i.test(body))return
     const project=await this.projects.context(context.sessionId);if(this.projects.activeExecution(project.basic_info.id))return
-    // 工程提炼先读取同一原始对话；项目提炼成功后才推进共享处理游标。
-    if(/跨项目|所有项目|每个项目|以后.*Drama/i.test(body)){const engineering=await this.run({action:'extract',scope:'engineering'},{...context,source:'api'});const result=await this.wait(engineering.group_id,context.signal);if(result.status!=='completed')return}
+    // 工程提炼先读取同一原始对话；短剧提炼成功后才推进共享处理游标。
+    if(/跨短剧|所有短剧|每个短剧|以后.*Drama/i.test(body)){const engineering=await this.run({action:'extract',scope:'engineering'},{...context,source:'api'});const result=await this.wait(engineering.group_id,context.signal);if(result.status!=='completed')return}
     const started=await this.run({action:'extract',scope:'project'},context);await this.wait(started.group_id,context.signal)
   }
   async ensure(stage,context){
@@ -81,7 +81,7 @@ export class MemoryMaintenance {
       if(!['merge','conflict'].includes(op.action)&&!cited.length)throw new TypeError('新增/修改/取消必须有用户原话证据')
       if(['update','supersede','archive'].includes(op.action)&&targets.length!==1||op.action==='merge'&&targets.length<2||op.action==='conflict'&&targets.length<1)throw new TypeError('操作目标数量无效')
       if(['update','supersede','archive'].includes(op.action)&&!cited.some(q=>/改|取消|不再|不用|替换|instead|replace|no longer/i.test(q)))throw new TypeError('替代/失效必须有明确用户修改原话')
-      if(scope==='engineering'&&['add','update','supersede','archive'].includes(op.action)&&(!cited.some(q=>q.includes(op.global_quote||'\u0000'))||!/跨项目|所有项目|每个项目|Drama.*(?:都|统一)|all.*projects/i.test(op.global_quote||'')))throw new TypeError('工程新增必须有明确跨Drama通用原话')
+      if(scope==='engineering'&&['add','update','supersede','archive'].includes(op.action)&&(!cited.some(q=>q.includes(op.global_quote||'\u0000'))||!/跨短剧|所有短剧|每个短剧|Drama.*(?:都|统一)|all.*projects/i.test(op.global_quote||'')))throw new TypeError('工程新增必须有明确跨Drama通用原话')
       if(op.action==='merge'&&targets.some(t=>t.kind!==targets[0].kind||JSON.stringify(t.stages)!==JSON.stringify(targets[0].stages)))throw new TypeError('不能合并不同类型或适用范围')
       if(op.action==='add'&&unit.existing.some(e=>e.key===op.key))throw new TypeError('主题已存在，请先读取并使用明确替代或冲突操作，不能新增覆盖')
       if(op.action!=='archive'){

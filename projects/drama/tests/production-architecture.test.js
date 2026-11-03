@@ -56,12 +56,12 @@ test('当前插件浏览器资源依赖闭合，只公开前端文件；退役�
  const response=await fetch(`${f.api}/node-rules?session_id=${f.context.sessionId}&node_type=adaptation_plan`),rules=await response.json();assert.equal(response.status,200);assert.match(rules.bases.generate,/改编/);assert.ok(rules.bases.output_format)
 })
 
-test('当前创建工具保留用户目标与宿主上下文，创建仍为纯程序且不清理其他项目',async t=>{
- const f=await fixture(t),tool=new CreateProjectTool({projects:f.projects}),agent={session:{id:'source',snapshotEvents:()=>[{type:'user/message',data:{source:{kind:'user'},content:[{type:'text',text:'创建第二个短片项目'}]}}]}}
- const created=JSON.parse(await tool.execute({name:'第二个项目'},{agent,callId:'second-create'}))
+test('当前创建工具保留用户目标与宿主上下文，创建仍为纯程序且不清理其他短剧',async t=>{
+ const f=await fixture(t),tool=new CreateProjectTool({projects:f.projects}),agent={session:{id:'source',snapshotEvents:()=>[{type:'user/message',data:{source:{kind:'user'},content:[{type:'text',text:'创建第二个短片短剧'}]}}]}}
+ const created=JSON.parse(await tool.execute({name:'第二个短剧'},{agent,callId:'second-create'}))
  assert.notEqual(created.project_id,f.created.project_id);assert.equal((await f.project()).basic_info.name,'全流程测试')
  const detail=f.projects.records.tasks.detail(f.projects.records.scope,created.group_id);assert.deepEqual(detail.steps.map(s=>s.kind),['create']);assert.ok(detail.steps.every(s=>s.executor==='program'));assert.equal(f.requests.length,0)
- const again=JSON.parse(await tool.execute({name:'第二个项目'},{agent,callId:'second-create'}));assert.equal(again.project_id,created.project_id)
+ const again=JSON.parse(await tool.execute({name:'第二个短剧'},{agent,callId:'second-create'}));assert.equal(again.project_id,created.project_id)
 })
 
 

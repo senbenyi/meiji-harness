@@ -39,7 +39,7 @@ test('V2会话只注册当前新流程工具，不注入已退役的优化与大
 })
 
 
-test('V2记忆工具与制作工具沿同一注册入口挂载，指导限制跨项目范围和来源',()=>{
+test('V2记忆工具与制作工具沿同一注册入口挂载，指导限制跨短剧范围和来源',()=>{
  const tools=[],sections=[],memory=[{name:'drama-read-memory'},{name:'drama-write-memory'}],ctx={drama:{documentVersion:2,createProjectTool:{name:'drama-create-project'},productionTools:memory},tools:{register:tool=>{tools.push(tool.name);return ()=>{}}},systemPrompt:{getSectionOrder:()=>10200,section:s=>{sections.push(s);return ()=>{}}},effect:fn=>fn()}
- apply(ctx);assert.deepEqual(tools,['drama-create-project',...memory.map(t=>t.name)]);assert.match(sections[0].text,/只在Drama跨项目/);assert.match(sections[0].text,/保留原话/);assert.match(sections[0].text,/不自动提升AI推断或审核意见/)
+ apply(ctx);assert.deepEqual(tools,['drama-create-project',...memory.map(t=>t.name)]);assert.match(sections[0].text,/只在Drama跨短剧/);assert.match(sections[0].text,/保留原话/);assert.match(sections[0].text,/不自动提升AI推断或审核意见/)
 })

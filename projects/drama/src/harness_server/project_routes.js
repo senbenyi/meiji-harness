@@ -127,7 +127,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         const chunks = []; let size = 0
         for await (const chunk of req) {
           size += chunk.length
-          if (size > 70 * 1024 * 1024) return json(res, 413, { message: '项目资料过大' })
+          if (size > 70 * 1024 * 1024) return json(res, 413, { message: '短剧资料过大' })
           chunks.push(chunk)
         }
         const { project_id, command, request_id } = JSON.parse(Buffer.concat(chunks).toString())
@@ -139,7 +139,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
         let size = 0
         for await (const chunk of req) {
           size += chunk.length
-          if (size > 70 * 1024 * 1024) return json(res, 413, { message: '项目资料过大' })
+          if (size > 70 * 1024 * 1024) return json(res, 413, { message: '短剧资料过大' })
           chunks.push(chunk)
         }
         const { fields, request_id } = JSON.parse(Buffer.concat(chunks).toString())

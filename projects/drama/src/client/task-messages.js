@@ -1,7 +1,7 @@
 import { currentSessionId } from './workbench.js'
 import { createTaskOperation, groupTaskMessages } from './ui/task-operation.js'
 
-/** 仅适配本项目程序消息座位，不改宿主事件、其他聊天消息或输入实例。 */
+/** 仅适配本短剧程序消息座位，不改宿主事件、其他聊天消息或输入实例。 */
 export function mountTaskMessages({ document = globalThis.document, getSessionId = currentSessionId, fetcher = globalThis.fetch,
   copy = text => globalThis.navigator.clipboard.writeText(text), interval = 2000, onNotify } = {}) {
   const host = document.createElement('drama-task-messages')

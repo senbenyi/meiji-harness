@@ -6,7 +6,7 @@ import {join} from 'node:path'
 import {ProjectDocumentStore} from '../src/project_runtime/project_document_store.js'
 async function fixture(t){const root=await mkdtemp(join(tmpdir(),'drama-v2-'));const store=new ProjectDocumentStore(root);t.after(async()=>{await store.dispose();await rm(root,{recursive:true,force:true})});return {root,store}}
 
-test('新存储只保存V2文档，10MiB原稿外置且项目JSON不含正文副本',async t=>{
+test('新存储只保存V2文档，10MiB原稿外置且短剧JSON不含正文副本',async t=>{
  const {store,root}=await fixture(t),body='x'.repeat(10*1024*1024),p=await store.create({name:'长稿',original_script:body})
  assert.equal(p.schema_version,2);assert.equal(p.source.revisions[0].character_count,body.length)
  assert.ok((await readFile(join(root,'projects',p.basic_info.id,'project.json'))).length<12000)
@@ -55,7 +55,7 @@ test('文件引用不能越界、穿透符号链接或伪造尚不存在的产�
  assert.equal((await store.read(p.basic_info.id)).document_revision,0)
 })
 
-test('不迁移或静默接受旧JSON，禁止覆盖已存在项目',async t=>{
+test('不迁移或静默接受旧JSON，禁止覆盖已存在短剧',async t=>{
  const {store}=await fixture(t),p=await store.create({name:'版本'})
  await assert.rejects(store.create({id:p.basic_info.id,name:'覆盖'}),{code:'PROJECT_EXISTS'})
  await writeFile(join(store.directory(p.basic_info.id),'project.json'),JSON.stringify({basic_info:{id:p.basic_info.id}}))

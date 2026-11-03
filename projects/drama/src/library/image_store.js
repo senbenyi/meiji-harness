@@ -5,7 +5,7 @@ import {join} from 'node:path'
 import {randomUUID} from 'node:crypto'
 import {normalizeImage} from '../shared/media/media.js'
 
-/** 跨项目不可变图片；数据库严格只有id/url，不保存项目语义或选用状态。 */
+/** 跨短剧不可变图片；数据库严格只有id/url，不保存短剧语义或选用状态。 */
 export class ImageStore {
   constructor(root) {
     this.root = join(root, 'images'); mkdirSync(this.root, {recursive:true})

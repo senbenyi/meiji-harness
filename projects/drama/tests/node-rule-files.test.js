@@ -27,7 +27,7 @@ test('6个制作规则节点skills内直接放四份文件，根目录无残留�
  assert.throws(()=>nodeRuleFile('../script_revision','generate'),/无效/);assert.throws(()=>nodeRuleFile('script_revision','constructor'),/无效/)
 })
 
-test('当前四个文本节点动作和返回格式同源，项目字段引用保留实时描述与严格契约',async()=>{
+test('当前四个文本节点动作和返回格式同源，短剧字段引用保留实时描述与严格契约',async()=>{
  for(const stage of textStages){
   assert.match(await actionRules(stage,'generate'),/name: drama-/)
   assert.deepEqual(outputContract(stage,{},'review'),reviewContract)

@@ -20,12 +20,12 @@ export async function serveRecordRoute(req, res, url, records, json) {
     const text = (await readFile(asset, 'utf8')).replaceAll("'@agent-modules/http-client/ui'", "'/plugins/drama/packages/http-client/index.js'")
     res.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' }); return res.end(text)
   }
-  // 项目/节点关联属于drama；公共包只提供记录Model和UI。
+  // 短剧/节点关联属于drama；公共包只提供记录Model和UI。
   const projectId = url.searchParams.get('project_id')
   if (projectId) {
     const nodeType = url.searchParams.get('node_type')
     if (!/^p_[a-f0-9-]{36}$/i.test(projectId) || !records.nodeTypes.some(node => node.type === nodeType))
-      return json(res, 422, { message: '需提供有效的项目与节点类型' })
+      return json(res, 422, { message: '需提供有效的短剧与节点类型' })
     const offset = Number(url.searchParams.get('offset') || 0), limit = Number(url.searchParams.get('limit') || 20)
     if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 200)
       return json(res, 422, { message: '分页参数无效' })

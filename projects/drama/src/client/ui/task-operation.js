@@ -114,7 +114,7 @@ export function createTaskOperation(document, { loadMessage, getMessage, copy, l
     const files=disclosure('exchange-files','关联文件与步骤元数据')
     if(exchange.request.ref)payload(files.body,'本轮模型输入消息',exchange.request.ref)
     if(exchange.response.ref)payload(files.body,'模型返回与工具执行记录',exchange.response.ref)
-    if(data.input)payload(files.body,'执行单元与项目快照引用',data.input)
+    if(data.input)payload(files.body,'执行单元与短剧快照引用',data.input)
     if(data.result)payload(files.body,'步骤保存结果',data.result)
     body.append(files.details)
   }

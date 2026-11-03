@@ -10,15 +10,15 @@ async function remember(f,scope,key,content,{stages=[],kind=scope==='engineering
  return f.projects.memories.change(scope,{action:'upsert',key,title:key,content,stages,kind,expected_revision:data.revision,user_quote:content},{...context,source:'conversation'})
 }
 
-test('两层记忆持久保存、Drama跨项目共享偏好、项目隔离及按主题/步骤覆盖',async t=>{
- const f=await fixture(t);await remember(f,'engineering','tone','工程克制表达');const own=await remember(f,'project','tone','本项目强烈表达',{stages:['shot_design']});await remember(f,'project','unresolved','人物结局待用户决定',{kind:'open_question',stages:['adaptation_plan']})
- assert.equal((await f.projects.memories.capture(f.context,'shot_design')).domain,'video_production');const restarted=new MemoryService(f.projects);assert.equal((await restarted.read('engineering',{}, {sessionId:'new-before-project'})).total,1);const p=(await restarted.read('project',{id:own.entry.id},f.context)).entry;assert.equal(p.content,'本项目强烈表达');assert.equal(p.source.user_quote,p.content)
+test('两层记忆持久保存、Drama跨短剧共享偏好、短剧隔离及按主题/步骤覆盖',async t=>{
+ const f=await fixture(t);await remember(f,'engineering','tone','工程克制表达');const own=await remember(f,'project','tone','本短剧强烈表达',{stages:['shot_design']});await remember(f,'project','unresolved','人物结局待用户决定',{kind:'open_question',stages:['adaptation_plan']})
+ assert.equal((await f.projects.memories.capture(f.context,'shot_design')).domain,'video_production');const restarted=new MemoryService(f.projects);assert.equal((await restarted.read('engineering',{}, {sessionId:'new-before-project'})).total,1);const p=(await restarted.read('project',{id:own.entry.id},f.context)).entry;assert.equal(p.content,'本短剧强烈表达');assert.equal(p.source.user_quote,p.content)
  assert.equal((await restarted.capture(f.context,'shot_design')).entries.find(e=>e.key==='tone').scope,'project');assert.equal((await restarted.capture(f.context,'source_analysis')).entries.find(e=>e.key==='tone').scope,'engineering')
- const other=await f.projects.create({name:'第二个项目'},{sessionId:f.context.sessionId,requestId:randomUUID()}),context={sessionId:other.session_id,projectId:other.project_id},merged=await restarted.capture(context,'shot_design');assert.equal(merged.entries.length,1);assert.equal(merged.entries[0].content,'工程克制表达')
+ const other=await f.projects.create({name:'第二个短剧'},{sessionId:f.context.sessionId,requestId:randomUUID()}),context={sessionId:other.session_id,projectId:other.project_id},merged=await restarted.capture(context,'shot_design');assert.equal(merged.entries.length,1);assert.equal(merged.entries[0].content,'工程克制表达')
  await assert.rejects(restarted.read('project',{}, {...context,projectId:f.context.projectId}),/绑定/);await assert.rejects(remember(f,'engineering','bad','工程不允许故事决定',{kind:'decision'}),/工程记忆仅/)
  const read=new ReadMemoryTool(f.projects),write=new WriteMemoryTool(f.projects),exec={agent:{session:{id:f.context.sessionId}}};assert.equal(JSON.parse(await read.execute({scope:'project',id:own.entry.id},exec)).entry.id,own.entry.id)
  await assert.rejects(write.execute({scope:'engineering',action:'upsert',key:'x',title:'x',content:'推断',expected_revision:1,user_quote:''},exec),/用户原话/)
- assert.equal((await f.project()).schema_version,2);assert.equal(Object.hasOwn(await f.project(),'memory'),false,'正式项目产物不混入另一套内容权威')
+ assert.equal((await f.project()).schema_version,2);assert.equal(Object.hasOwn(await f.project(),'memory'),false,'正式短剧产物不混入另一套内容权威')
 })
 
 test('记忆并发冲突、同主题更新、归档恢复、删除及历史清除',async t=>{
@@ -53,13 +53,13 @@ test('记忆变更后失败续接沿用原快照，分页检索不会把所有�
 })
 
 test('记忆harness-http验证会话、请求标识、冲突；工程偏好只接受preference',async t=>{
- const f=await fixture(t),url=`${f.api}/production-memory?session_id=${f.context.sessionId}&scope=engineering`,command={action:'upsert',key:'tone',title:'表达偏好',content:'克制',kind:'preference',stages:[],expected_revision:0,user_quote:'以后Drama项目都克制'}
+ const f=await fixture(t),url=`${f.api}/production-memory?session_id=${f.context.sessionId}&scope=engineering`,command={action:'upsert',key:'tone',title:'表达偏好',content:'克制',kind:'preference',stages:[],expected_revision:0,user_quote:'以后Drama短剧都克制'}
  let res=await fetch(url,{method:'POST',body:JSON.stringify(command)});assert.equal(res.status,403);res=await fetch(url,{method:'POST',headers:{'x-drama-request':'1'},body:JSON.stringify(command)});assert.equal(res.status,200);res=await fetch(url,{method:'POST',headers:{'x-drama-request':'1'},body:JSON.stringify(command)});assert.equal(res.status,409)
  res=await fetch(url.replace('scope=engineering','scope=project').replace(f.context.sessionId,'unknown'));assert.equal(res.status,403);res=await fetch(url.replace(f.context.sessionId,'new-unbound-session'));assert.equal(res.status,200);res=await fetch(url+'&query=克制');assert.equal((await res.json()).total,1)
 })
 
-test('图片视频实际模型输入使用适用项目记忆，不混入被覆盖工程偏好或其他步骤记忆',async t=>{
- const f=await fixture(t,{script:'第一章\n张飞进入营帐。'});await remember(f,'engineering','visual','工程色调TOKEN_ENGINE',{stages:['asset_preparation']});await remember(f,'project','visual','本项目色调TOKEN_PROJECT',{stages:['asset_preparation']});await remember(f,'project','voice','稳定声线TOKEN_VOICE',{stages:['video_render']});await remember(f,'project','plan','只影响规划TOKEN_PLAN',{stages:['adaptation_plan']})
+test('图片视频实际模型输入使用适用短剧记忆，不混入被覆盖工程偏好或其他步骤记忆',async t=>{
+ const f=await fixture(t,{script:'第一章\n张飞进入营帐。'});await remember(f,'engineering','visual','工程色调TOKEN_ENGINE',{stages:['asset_preparation']});await remember(f,'project','visual','本短剧色调TOKEN_PROJECT',{stages:['asset_preparation']});await remember(f,'project','voice','稳定声线TOKEN_VOICE',{stages:['video_render']});await remember(f,'project','plan','只影响规划TOKEN_PLAN',{stages:['adaptation_plan']})
  for(const stage of ['source_analysis','adaptation_plan','story_segments','shot_design','asset_preparation'])await f.run(stage)
  const images=f.requests.filter(r=>r.path==='/images/generations');assert.ok(images.length);assert.ok(images.every(r=>r.body.prompt.includes('TOKEN_PROJECT')&&!r.body.prompt.includes('TOKEN_ENGINE')&&!r.body.prompt.includes('TOKEN_PLAN')))
  let p=await f.project();for(const key of ['scenes','character_looks'])for(const asset of p.asset_library[key])await f.edit({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:asset.image_ids[0]});p=await f.project();await f.edit({kind:'confirm_stage',stage:'asset_preparation',expected_revision:p.node_states.asset_preparation.product_revision})

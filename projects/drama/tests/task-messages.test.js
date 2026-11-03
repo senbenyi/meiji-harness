@@ -44,12 +44,12 @@ test('command/run成功而done失败：读取暂不展示，重试只补done', a
   assert.equal(f.events.length, 2); assert.equal((await f.display.read('s')).length, 1)
 })
 
-test('创建失败投来源会话；创建完成后步骤及结果投项目会话；错误归属拒绝', async () => {
+test('创建失败投来源会话；创建完成后步骤及结果投短剧会话；错误归属拒绝', async () => {
   const f = displayFixture(), creating = { ...report, node_type: 'project', action: 'create', project_id: 'new', session_id: 'origin', source_session_id: 'origin', status: 'failed' }
-  await f.display(creating, 'result', '创建项目')
+  await f.display(creating, 'result', '创建短剧')
   assert.equal(f.sessions[0], 'origin')
   const created = { ...creating, project_id: 'p', session_id: 's', status: 'completed', result: { session_id: 's' } }
-  await f.display(created, 'step', '创建项目', step)
+  await f.display(created, 'step', '创建短剧', step)
   assert.equal(f.sessions.at(-1), 's')
   await assert.rejects(f.display({ ...report, session_id: 'foreign' }, 'result', '优化'), /归属改变/)
 })

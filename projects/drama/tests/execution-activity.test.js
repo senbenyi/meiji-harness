@@ -30,10 +30,10 @@ test('时间线默认显示实际操作，详情保持折叠，用户折叠选�
  root.querySelector('[data-expand=process]').open=false;ui.update(groupTaskMessages(messages.map(m=>({...m,label:'更新'})))[0]);assert.equal(root.querySelector('[data-expand=process]').open,false)
 })
 
-test('旧trace只从历史任务所属项目恢复，compact保留摘要，缓存不改写历史',async()=>{
+test('旧trace只从历史任务所属短剧恢复，compact保留摘要，缓存不改写历史',async()=>{
  const step={id:'step',task_id:'t',kind:'generate',name:'generate',seq:2,step_status:'done',result:{trace:{file_ref:'artifacts/trace.json'}}},task={id:'t',node_type:'adaptation_plan',name:'联合改编',task_status:'completed',metadata:{document_version:2,project_id:'p_history'}},detail={group:{id:'g',source:'ui'},tasks:[task],steps:[step],status:'completed'},before=structuredClone(detail)
  let reads=0;const events=[{type:'command/run',seq:1,data:{commandId:'event',name:'盒子步骤',args:JSON.stringify({kind:'drama-task-display',phase:'step',group_id:'g',task_id:'t',step_id:'step',seq:2,label:'已完成',status:'done'})}},{type:'command/done',data:{commandId:'event',kind:'success'}}]
- const projects={records:{scope:'drama',tasks:{detail:()=>structuredClone(detail)}},documents:{readArtifact:async(id,ref)=>{assert.equal(id,'p_history');assert.equal(ref,'artifacts/trace.json');reads++;return Buffer.from(JSON.stringify(trace))}},snapshot:()=>{throw Error('不得读取当前项目')}}
+ const projects={records:{scope:'drama',tasks:{detail:()=>structuredClone(detail)}},documents:{readArtifact:async(id,ref)=>{assert.equal(id,'p_history');assert.equal(ref,'artifacts/trace.json');reads++;return Buffer.from(JSON.stringify(trace))}},snapshot:()=>{throw Error('不得读取当前短剧')}}
  const ui=createPanelTaskDisplay({sessionController:{resolveAgent:async()=>({agent:{session:{snapshotEvents:()=>events}}})}},projects)
  const cards=await ui.read('session',{compact:true});assert.equal(cards[0].step_name,'生成内容');assert.equal(cards[0].activities.length,4);assert.equal(cards[0].result,undefined);await ui.read('session',{eager:true});assert.equal(reads,1);assert.deepEqual(detail,before)
  projects.documents.readArtifact=async()=>{throw new Error('ENOENT')}

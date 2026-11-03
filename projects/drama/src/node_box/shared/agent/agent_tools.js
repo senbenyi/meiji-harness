@@ -61,7 +61,7 @@ export function createAgentTools({ctx,projects,unit,unitRef,snapshot,snapshotRef
       state.memoryReadIds.add(entry.id);return modelMemoryEntry(entry)
     }),
     ...(!unitMaterialIncluded?{read_unit:define('按Pointer读取未附带的长单元资料',{pointer:str},args=>{const result=bounded(pointer(unit.material||{},args.pointer));recordUnitRead(args.pointer);return result},[])}:{}),
-    read_context:define('按Pointer读取任务项目快照',{pointer:str},args=>{
+    read_context:define('按Pointer读取任务短剧快照',{pointer:str},args=>{
       const result=bounded(pointer(snapshot,args.pointer));recordSnapshotRead(args.pointer);return result
     },[]),
     search_context:define('检索快照中的文本并返回有限片段与Pointer',{pointer:str,query:str},args=>{
@@ -158,7 +158,7 @@ export function createAgentTools({ctx,projects,unit,unitRef,snapshot,snapshotRef
       delivered+=JSON.stringify(result).length
       delta.push({role:'tool',tool_call_id:call.id,content:JSON.stringify(result)})
     }
-    if(!assistant.tool_calls?.length)delta.push({role:'user',content:'请按需调用读取工具，再通过submit工具提交结果；直接文本不会写入项目。'})
+    if(!assistant.tool_calls?.length)delta.push({role:'user',content:'请按需调用读取工具，再通过submit工具提交结果；直接文本不会写入短剧。'})
     return {output:accepted,validationError,delta,trace:{memory:state.memory,memory_read_ids:[...state.memoryReadIds],unit_read:state.unitRead,unit_paths:state.unitPaths,candidate_read:state.candidateRead,candidate_ranges:state.candidateRanges,source_ranges:state.sourceRanges,file_ranges:state.fileRanges}}
   }
   return {tools,execute}

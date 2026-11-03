@@ -12,7 +12,7 @@ const freeze = value => {
 /** 使用宿主公开Agent收件箱投递业务通知，来源不是人类输入或授权。 */
 export function createMainAgentDelivery(ctx, projects) {
   return async report => {
-    if (!report.session_id) throw new Error('任务报告缺少项目关联会话，不能自动创建替代会话')
+    if (!report.session_id) throw new Error('任务报告缺少短剧关联会话，不能自动创建替代会话')
     await reportSession(projects, report, 'result')
     await projects.applyMainAgent(report.session_id)
     const agent = ctx.agents.get(report.session_id)

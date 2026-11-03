@@ -1,13 +1,13 @@
 import {element} from '../../../../client/ui/panel-dom.js'
 
-// 从本项目已复制的meiji创建弹窗提取导入控件，原文只通过导入更新，无文本编辑器。
+// 从本短剧已复制的meiji创建弹窗提取导入控件，原文只通过导入更新，无文本编辑器。
 export function scriptImport(root, { importScript, listScripts, readScript, maxScriptBytes=1024*1024 } = {}) {
   const group = element('div', '', 'project-script-import'), row = element('div', '', 'workflow-generation-row'),
     imp = element('button', '本地导入', 'script-import'), choose = element('button', '素材库导入', 'script-choose'),
     file = element('input'), picker = element('select', '', 'script-picker'), error = element('p', '', 'error')
   let ticket = 0, disposed = false, busy = false
-  file.type = 'file'; file.accept = '.txt,.text,.md'; file.hidden = true; file.setAttribute('aria-label', '导入项目剧本文件')
-  picker.hidden = true; picker.setAttribute('aria-label', '选择项目剧本'); error.setAttribute('role', 'status')
+  file.type = 'file'; file.accept = '.txt,.text,.md'; file.hidden = true; file.setAttribute('aria-label', '导入短剧剧本文件')
+  picker.hidden = true; picker.setAttribute('aria-label', '选择短剧剧本'); error.setAttribute('role', 'status')
   imp.type = choose.type = 'button'; choose.hidden = !listScripts || !readScript
   const active = value => !disposed && value === ticket
   const setBusy = value => { busy = value; imp.disabled = choose.disabled = picker.disabled = value }

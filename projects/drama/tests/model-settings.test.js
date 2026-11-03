@@ -41,7 +41,7 @@ test('制作文本直接使用packages/http-client，根据当前设置发模型
   assert.deepEqual(request.body.messages, [{ role: 'user', content: '测试' }])
 })
 
-test('设置HTTP独立于项目会话：鉴权、请求标识、保存与恢复', async t => {
+test('设置HTTP独立于短剧会话：鉴权、请求标识、保存与恢复', async t => {
   const { root } = await fixture(t)
   const handler = createProjectHttpHandler({ root }, { authorize: req => req.headers['x-test-user'] ? null : 401 })
   const server = createServer(handler)

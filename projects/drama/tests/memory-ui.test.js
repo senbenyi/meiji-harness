@@ -7,12 +7,12 @@ function setup(t,request){const dom=new JSDOM('<main class="production-workspace
 
 test('记忆面板按工程范围保存并保留冲突输入，不混入其他类型',async t=>{
  let submitted,conflict=true;const {root,panel,click}=setup(t,async(path,options)=>{assert.match(path,/scope=engineering/);if(options){submitted=JSON.parse(options.body);if(conflict)throw new Error('记忆已被修改');return {saved:true}}return {revision:7,total:0,entries:[]}})
- await panel.open('engineering');assert.match(root.textContent,/仅在Drama项目之间共享视频制作偏好/);click('新增记忆');await tick();root.querySelector('[aria-label="主题key（相同主题保持一致）"]').value='voice';root.querySelector('[aria-label="记忆标题"]').value='声线偏好';root.querySelector('[aria-label="记忆正文"]').value='优先低沉男声';assert.equal(root.querySelector('[aria-label="记忆类型"]').options.length,1)
+ await panel.open('engineering');assert.match(root.textContent,/仅在Drama短剧之间共享视频制作偏好/);click('新增记忆');await tick();root.querySelector('[aria-label="主题key（相同主题保持一致）"]').value='voice';root.querySelector('[aria-label="记忆标题"]').value='声线偏好';root.querySelector('[aria-label="记忆正文"]').value='优先低沉男声';assert.equal(root.querySelector('[aria-label="记忆类型"]').options.length,1)
  click('保存记忆');await tick();assert.match(root.querySelector('.production-memory-editor').textContent,/记忆已被修改/);assert.equal(root.querySelector('[aria-label="记忆正文"]').value,'优先低沉男声');assert.equal(submitted.expected_revision,7);assert.equal(submitted.kind,'preference');assert.equal(submitted.user_quote,'优先低沉男声')
  conflict=false;click('保存记忆');await tick();assert.equal(root.querySelector('.production-memory-editor'),null)
 })
 
-test('项目记忆提供正文读取、修改历史、归档和删除，销毁清理全部dialog/遮罩',async t=>{
+test('短剧记忆提供正文读取、修改历史、归档和删除，销毁清理全部dialog/遮罩',async t=>{
  const entry={id:'mem_test',scope:'project',key:'tone',title:'张飞表达',kind:'decision',stages:['shot_design'],status:'active',revision:1,content:'整体沉稳',source:{origin:'conversation',user_quote:'张飞整体沉稳'}},commands=[]
  const {root,panel,click}=setup(t,async(path,options)=>{if(options){commands.push(JSON.parse(options.body));return {saved:true}}if(path.includes('history=1'))return {revision:1,total:1,entries:[{action:'upsert',entry}]};if(path.includes('id='))return {revision:1,entry};return {revision:1,total:1,entries:[entry]}})
  await panel.open('project');click('查看/编辑');await tick();assert.equal(root.querySelector('[aria-label="记忆正文"]').value,'整体沉稳');click('取消');click('修改历史');await tick();assert.match(root.querySelector('textarea').value,/张飞整体沉稳/);click('关闭历史');click('归档');await tick();assert.equal(commands[0].action,'archive');click('删除');await tick();assert.equal(commands[1].action,'delete');panel.dispose();assert.equal(root.querySelectorAll('dialog,.panel-dialog-overlay').length,0)

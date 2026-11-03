@@ -50,7 +50,7 @@ export function renderLibrary(root, { state, request, openProject, back, removeA
   backButton.title = '返回上一页'
   backButton.onclick = () => back()
   heading.append(backButton)
-  const primary = tabs('片库分类', [['assets', '素材'], ['projects', '项目']], value => { state.tab = value; paint() })
+  const primary = tabs('片库分类', [['assets', '素材'], ['projects', '短剧']], value => { state.tab = value; paint() })
   const secondary = tabs('素材分类', [['scripts', '剧本'], ['characters', '人物'], ['clothing', '衣服'], ['props', '道具']], value => { state.category = value; paint() })
   const projects = element('section', '', 'library-projects'), assets = element('section', '', 'library-assets')
   projects.id = 'library-projects'
@@ -109,13 +109,13 @@ export function renderLibrary(root, { state, request, openProject, back, removeA
       rows.append(element('p', loading, 'meta'))
       return
     }
-    if (!data.projects.length) projects.append(element('p', '暂无项目，点击顶部 + 创建项目', 'meta'))
+    if (!data.projects.length) projects.append(element('p', '暂无短剧，点击顶部 + 创建短剧', 'meta'))
     for (const project of data.projects) {
       const open = actionButton('打开', 'library-open', () => openProject(project.session_id))
-      open.setAttribute('aria-label', `打开项目 ${project.name}`)
+      open.setAttribute('aria-label', `打开短剧 ${project.name}`)
       open.disabled = pending === project.id
       const remove = actionButton(pending === project.id ? '删除中…' : '删除', 'library-delete', () => deleteProject(project))
-      remove.setAttribute('aria-label', `删除项目 ${project.name}`)
+      remove.setAttribute('aria-label', `删除短剧 ${project.name}`)
       remove.disabled = pending === project.id
       const card = element('article', '', 'library-card'), main = element('div', '', 'library-card-main'), actions = element('div', '', 'library-card-actions')
       const title = element('h3', project.name)
@@ -153,7 +153,7 @@ export function renderLibrary(root, { state, request, openProject, back, removeA
     finally { if (alive) { pending = ''; paint() } }
   }
   const deleteProject = async project => {
-    if (!alive || pending || busy || !ask(`删除项目“${project.name}”及对应工作区？会话、磁盘文件和历史记录保留。`)) return
+    if (!alive || pending || busy || !ask(`删除短剧“${project.name}”及对应工作区？会话、磁盘文件和历史记录保留。`)) return
     pending = project.id
     failure = ''
     paint()

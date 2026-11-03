@@ -24,8 +24,8 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     heading = element('div', '', 'panel-heading'), brand = element('strong', '短剧制作', 'brand'), create = element('button', '+', 'create-project')
   create.type = 'button'
   create.disabled = true
-  create.title = '创建项目'
-  create.setAttribute('aria-label', '创建项目')
+  create.title = '创建短剧'
+  create.setAttribute('aria-label', '创建短剧')
   const titleRow = element('div', '', 'title-row')
   titleRow.append(brand, create)
   httpRecords.type = taskRecords.type = 'button'
@@ -90,7 +90,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     startingContext = { session: ownerSession, epoch: ownerEpoch }
     return attempt
   }
-  // 宿主默认新会话会复用项目工作区；此处仅适配原生全局新建入口。
+  // 宿主默认新会话会复用短剧工作区；此处仅适配原生全局新建入口。
   const newSessionClick = event => {
     if (disposed || event.defaultPrevented || event.button !== 0 || event.composedPath().includes(root)) return
     const button = event.composedPath().find(node => node?.tagName === 'BUTTON')
@@ -157,7 +157,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       return
     }
     if (page === 'library') {
-      if (!status.querySelector('button') && status.textContent.includes('项目已删除')) status.replaceChildren()
+      if (!status.querySelector('button') && status.textContent.includes('短剧已删除')) status.replaceChildren()
       disposeLibrary = renderLibrary(content, { state: libraryState, request, back: () => {
         page = ['settings', 'http', 'tasks'].includes(libraryReturnPage) ? libraryReturnPage : project ? 'project' : 'home'
         paint()
@@ -209,7 +209,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       const empty = element('div', '', 'home-empty'), plus = element('button', '', 'create-large'), mark = element('span', '＋')
       plus.type = 'button'
       plus.disabled = !session && !!starting
-      plus.setAttribute('aria-label', session ? '创建项目' : '开始会话')
+      plus.setAttribute('aria-label', session ? '创建短剧' : '开始会话')
       plus.append(mark)
       plus.onclick = () => { if (session) openCreate(); else void startSession() }
       empty.append(plus)
@@ -223,7 +223,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     projectView = createProjectView(content, { project, sessionId:ownerSession, scriptExecution, summaryExecution, storyExecution, shotExecution, sceneExecution, groupExecution, characterExecution, imageExecution, sceneImageExecution, request: (path, options) => request(path, options, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
       refresh: () => { void refresh().catch(report) },
       remove: async () => {
-        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
+        if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开短剧')
         deletingSession = ownerSession; version++; stream?.close(); stream = null
         let deleted
         try { deleted = await request('project', {
@@ -236,8 +236,8 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
         version++; project = null; projectStates.delete(projectId)
         if (page === 'project') page = 'home'
         clearProject(); paint()
-        if (deleted.session_id) { status.textContent = '项目已删除，正在切换到空会话…'; activate(deleted.session_id); return }
-        const message = element('span', deleted.session_error || '项目已删除，创建空会话失败。'), retry = element('button', '重试创建空会话')
+        if (deleted.session_id) { status.textContent = '短剧已删除，正在切换到空会话…'; activate(deleted.session_id); return }
+        const message = element('span', deleted.session_error || '短剧已删除，创建空会话失败。'), retry = element('button', '重试创建空会话')
         retry.type = 'button'
         retry.onclick = async () => {
           if (disposed || session !== ownerSession || getSessionId() !== ownerSession) return
@@ -246,13 +246,13 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
             const next = await request('sessions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
               body: JSON.stringify({ request_id: deleted.session_request_id }) }, ownerSession)
             if (!disposed && session === ownerSession && getSessionId() === ownerSession) activate(next.session_id)
-          } catch (error) { if (!disposed && session === ownerSession && getSessionId() === ownerSession) message.textContent = `项目已删除，创建空会话失败：${error.message}` }
+          } catch (error) { if (!disposed && session === ownerSession && getSessionId() === ownerSession) message.textContent = `短剧已删除，创建空会话失败：${error.message}` }
           finally { retry.disabled = false }
         }
         status.replaceChildren(message, retry)
       },
       save: async command => {
-        if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开项目')
+        if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开短剧')
         const result = await request('project', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Drama-Request': '1' },
           body: JSON.stringify({ project_id: projectId, command, ...(command.kind === 'import_script' ? { request_id: crypto.randomUUID() } : {}) }),
@@ -270,7 +270,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     const ownerSession = session, ownerEpoch = navigationEpoch
     if (!session) {
       project = null
-      status.textContent = starting ? '正在准备会话…' : '开始会话后即可创建项目'
+      status.textContent = starting ? '正在准备会话…' : '开始会话后即可创建短剧'
       if (!['settings', 'library', 'http', 'tasks'].includes(page)) page = 'home'
       paint()
       return

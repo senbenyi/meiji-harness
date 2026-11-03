@@ -39,7 +39,7 @@ test('公共任务卡片将done但审核有问题的步骤显示为红色未通�
   palette.window.close()
 })
 
-test('当前任务输入依赖仅展示当次冻结引用，不用现项目或重建模型输入',()=>{
+test('当前任务输入依赖仅展示当次冻结引用，不用现短剧或重建模型输入',()=>{
  const task={node_type:'adaptation_plan',metadata:{document_version:2,project_id:'p',input_ref:'artifacts/frozen.json',input_snapshot:{rules:'不得重建'}}};const original=structuredClone(task);assert.deepEqual(dependencies(task,[]),{project_id:'p',payload_ref:'artifacts/frozen.json'});assert.deepEqual(task,original)
 })
 test('当前输出取最后完成步骤，执行中不冒充交付，失败保留已保存步骤',()=>{

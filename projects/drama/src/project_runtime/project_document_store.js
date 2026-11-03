@@ -8,11 +8,11 @@ import {createProjectDocument,assertProjectDocument,editProjectProduct,projectSt
 // V2文档读写基础层：新建即使用新契约，不读取/迁移旧版数据，不依赖AI节点。
 export class ProjectDocumentStore {
  #pending=new Map()
- constructor(root){if(typeof root!=='string'||!root.trim())throw new TypeError('需要项目存储目录');this.root=resolve(root)}
- directory(id){if(typeof id!=='string'||!/^p_[a-zA-Z0-9_-]+$/.test(id))throw new TypeError('项目ID无效');return join(this.root,'projects',id)}
+ constructor(root){if(typeof root!=='string'||!root.trim())throw new TypeError('需要短剧存储目录');this.root=resolve(root)}
+ directory(id){if(typeof id!=='string'||!/^p_[a-zA-Z0-9_-]+$/.test(id))throw new TypeError('短剧ID无效');return join(this.root,'projects',id)}
  async #serial(id,work){const prior=this.#pending.get(id)||Promise.resolve();const next=prior.catch(()=>{}).then(work);this.#pending.set(id,next);try{return await next}finally{if(this.#pending.get(id)===next)this.#pending.delete(id)}}
  async #save(id,document){assertProjectDocument(document);if(document.source_analysis.source_revision_id){const source=document.source.revisions.find(row=>row.id===document.source_analysis.source_revision_id);assertSourceText((await this.readArtifact(id,source.file_ref)).toString(),document.source_analysis.chapters);}await this.validateImages?.(document);const path=join(this.directory(id),'project.json'),temp=join(this.directory(id),`.project-${randomUUID()}.tmp`);await writeFile(temp,JSON.stringify(document,null,2)+'\n',{flag:'wx',mode:0o600});await rename(temp,path);return structuredClone(document)}
- async read(id){const document=JSON.parse(await readFile(join(this.directory(id),'project.json'),'utf8'));if(document.schema_version!==2)throw Object.assign(new Error('旧数据不再支持，请清空后创建新项目'),{code:'UNSUPPORTED_PROJECT_VERSION'});if(document.basic_info?.id!==id)throw new TypeError('项目文件归属错误');return assertProjectDocument(document)}
+ async read(id){const document=JSON.parse(await readFile(join(this.directory(id),'project.json'),'utf8'));if(document.schema_version!==2)throw Object.assign(new Error('旧数据不再支持，请清空后创建新短剧'),{code:'UNSUPPORTED_PROJECT_VERSION'});if(document.basic_info?.id!==id)throw new TypeError('短剧文件归属错误');return assertProjectDocument(document)}
  async writeArtifact(id,body,{kind='artifacts',extension='txt'}={}){
   if(!['artifacts','sources','media','audio','exports'].includes(kind)||!['txt','json','png','jpg','webp','wav','mp3','mp4','srt'].includes(extension))throw new TypeError('文件类别或扩展名无效')
   if(typeof body!=='string'&&!Buffer.isBuffer(body))throw new TypeError('文件内容无效')
@@ -33,7 +33,7 @@ export class ProjectDocumentStore {
  async create(info){const {original_script='',original_name='剧本.txt',...metadata}=info;const id=metadata.id||`p_${randomUUID()}`
   if(typeof original_script!=='string'||Buffer.byteLength(original_script)>24*1024*1024)throw new TypeError('原稿需为不超过24MiB的文本')
   return this.#serial(id,async()=>{
-   try{await readFile(join(this.directory(id),'project.json'));throw Object.assign(new Error('项目已经存在'),{code:'PROJECT_EXISTS'})}catch(error){if(error.code!=='ENOENT')throw error}
+   try{await readFile(join(this.directory(id),'project.json'));throw Object.assign(new Error('短剧已经存在'),{code:'PROJECT_EXISTS'})}catch(error){if(error.code!=='ENOENT')throw error}
    const document=createProjectDocument({...metadata,id});await mkdir(this.directory(id),{recursive:true,mode:0o700})
    if(original_script.trim()){
     const file_ref=await this.writeArtifact(id,original_script,{kind:'sources'}),sourceId=`src_${randomUUID()}`
@@ -85,8 +85,8 @@ export class ProjectDocumentStore {
  async saveBasicInfo(id,value,{expectedRevision,source}={}){
   return this.#serial(id,async()=>{
    const document=await this.read(id)
-   if(expectedRevision!==document.node_states.project.product_revision)throw Object.assign(new Error('项目信息已被修改，请刷新'),{code:'EDIT_CONFLICT'})
-   if(!value||Object.keys(value).sort().join(',')!=='aspect_ratio,creation_mode,name,output_language')throw new TypeError('项目信息字段无效')
+   if(expectedRevision!==document.node_states.project.product_revision)throw Object.assign(new Error('短剧信息已被修改，请刷新'),{code:'EDIT_CONFLICT'})
+   if(!value||Object.keys(value).sort().join(',')!=='aspect_ratio,creation_mode,name,output_language')throw new TypeError('短剧信息字段无效')
    document.basic_info={id:document.basic_info.id,...value};assertProjectDocument(document)
    if(source!==undefined){
     if(!source||typeof source.text!=='string'||!source.text.trim()||Buffer.byteLength(source.text)>24*1024*1024||typeof(source.original_name??'剧本.txt')!=='string'||!(source.original_name??'剧本.txt').trim())throw new TypeError('原稿需为非空且不超过24MiB的文本，文件名不能为空')

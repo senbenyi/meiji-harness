@@ -57,13 +57,13 @@ for (const [error_code, http, expected] of [
   assert.equal(taskEndReason(task, detail.steps), expected)
   assert.equal(report.reason_type, expected); assert.equal(context.reason_type, expected)
   const records = { scope: 'drama', tasks: { history: () => ({ tasks: [task], total: 1 }), detail: () => detail } }
-  const dom = new JSDOM(), card = createFailureDecision(dom.window.document, { group: { name: '创建项目', status: 'failed', context: { ...context, saved: true } } }).shadowRoot
+  const dom = new JSDOM(), card = createFailureDecision(dom.window.document, { group: { name: '创建短剧', status: 'failed', context: { ...context, saved: true } } }).shadowRoot
   assert.match(card.textContent, new RegExp(`原因类型：${TASK_END_REASONS[expected].label}`))
   assert.doesNotMatch(card.textContent, /审核未通过/)
   dom.window.close()
 })
 
-test('创建项目网络失败只展示，不唤醒主Agent；历史错误一次性迁移且重启不补发', async t => {
+test('创建短剧网络失败只展示，不唤醒主Agent；历史错误一次性迁移且重启不补发', async t => {
   const root = await mkdtemp(join(tmpdir(), 'drama-network-reason-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   let records = createRecordService(root)

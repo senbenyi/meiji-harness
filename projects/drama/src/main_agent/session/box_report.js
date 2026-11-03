@@ -19,7 +19,7 @@ export async function waitBoxTask(records, groupId, signal) {
   return boxReport(records.tasks.detail(records.scope, groupId))
 }
 
-/** 报告只取任务保存的事实，不读取可能已经变化的项目来伪造旧执行结果。 */
+/** 报告只取任务保存的事实，不读取可能已经变化的短剧来伪造旧执行结果。 */
 export function boxReport(detail) {
   const task = detail.tasks[0], metadata = task.metadata
   const review = detail.steps.findLast(step => step.result?.review)?.result.review
@@ -48,7 +48,7 @@ export function boxReport(detail) {
     node_type: task.node_type, action: task.action, status: detail.status, decision,
     reason_type: reasonType, reason_label: reasonType ? TASK_END_REASONS[reasonType].label : '',
     requires_user_decision: (metadata.production||['script_revision', 'story_segments', 'scene_extraction', 'group_setting', 'character_extraction', 'costume_image', 'scene_image', 'shot_design'].includes(task.node_type)) && (detail.status === 'failed' || detail.status === 'rejected' && decision === 'content_issue'),
-    goal: metadata.goal || metadata.instruction || '创建项目',
+    goal: metadata.goal || metadata.instruction || '创建短剧',
     reason: detail.status === 'rejected' && review ? review.issues.map(issue => `${issue.location}：${issue.reason}；${issue.suggestion}`).join('\n') : detail.reason || '',
     parent_group_id: metadata.parent_group_id || null,
     issues: structuredClone(review?.issues || []),

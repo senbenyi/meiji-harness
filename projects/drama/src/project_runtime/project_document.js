@@ -1,7 +1,7 @@
 import { validateDocumentSchema } from './document_validation.js'
 import {projectStages} from '../shared/production/production_stages.js'
 
-// V2项目数据契约。此模块不创建节点、不调用模型、不迁移磁盘文件。
+// V2短剧数据契约。此模块不创建节点、不调用模型、不迁移磁盘文件。
 const string = (minLength=0) => ({type:'string',minLength})
 const number = (minimum=0) => ({type:'number',minimum})
 const integer = (minimum=0) => ({type:'integer',minimum})
@@ -38,7 +38,7 @@ const productSchemas={
  episodes:array(object({id,title:string(1),timeline_id:id,start_seconds:number(),end_seconds:number()})),
  delivery:object({settings:object({width:integer(16),height:integer(16),fps:integer(1),subtitle_mode:{type:'string',enum:['sidecar','burn']},normalize_audio:{type:'boolean'}}),exports:array(object({id,timeline_id:id,episode_id:nullable(id),input_snapshot_ref:ref,file_ref:ref,subtitles_ref:optionalRef,settings_ref:optionalRef,validation_report_ref:optionalRef}))}),
 }
-productSchemas.adaptation_plan.properties.goal.description='改编目标与原则：明确风格、受众、改编尺度、保留内容及允许调整的内容。用户未指定时依据原著自主作出明确方案选择，直接写成可执行原则，不写建议或待确认；方案选择不冒充用户已确认要求，不得直接复制项目名。'
+productSchemas.adaptation_plan.properties.goal.description='改编目标与原则：明确风格、受众、改编尺度、保留内容及允许调整的内容。用户未指定时依据原著自主作出明确方案选择，直接写成可执行原则，不写建议或待确认；方案选择不冒充用户已确认要求，不得直接复制短剧名。'
 productSchemas.adaptation_plan.properties.plot_text.description='整体剧情方向：主线、核心冲突、需强化的爽点和原著问题处理；不重复目标原则，不预设逐段事件或衔接。'
 productSchemas.source_analysis.properties.chapters.items.required=productSchemas.source_analysis.properties.chapters.items.required.filter(key=>key!=='summary')
 export const projectDocumentSchema=object({schema_version:{type:'integer',const:2},document_revision:integer(),basic_info:object({id,name:string(1),creation_mode:{type:'string',enum:['剧本','自由创作']},aspect_ratio:{type:'string',enum:['21:9','16:9','4:3','1:1','3:4','9:16']},output_language:string(1)}),...productSchemas,node_states:object(Object.fromEntries(projectStages.map(stage=>[stage.id,nodeState])))})

@@ -6,7 +6,7 @@ import {call,reply} from './helpers/production-fixture.js'
 const candidate={goal:'保留原著主线，强化人物动机',locked_requirements:[],plot_text:'保留冲突与关系，强化因果。',character_plans:[],scene_plans:[],group_plans:[]}
 function runtime({body='张飞走进营帐，说：“来战！”',material={goal:'保留对白'},required=true}={}){
   const files=new Map(),prompts=[],sourceId='source_current'
-  const snapshot={basic_info:{output_language:'zh'},node_states:{adaptation_plan:{opinion:'',rules:{generate:'本项目规则：保留营帐。',review:'独立核对当前候选。',revise:'只修有效意见。'}}},source:{revisions:[{id:sourceId,file_ref:'sources/original.txt'}]},source_analysis:{source_revision_id:sourceId,chapters:[{id:'chapter_one',sequence:1,title:'营帐',body,summary:'人物对峙'}]}}
+  const snapshot={basic_info:{output_language:'zh'},node_states:{adaptation_plan:{opinion:'',rules:{generate:'本短剧规则：保留营帐。',review:'独立核对当前候选。',revise:'只修有效意见。'}}},source:{revisions:[{id:sourceId,file_ref:'sources/original.txt'}]},source_analysis:{source_revision_id:sourceId,chapters:[{id:'chapter_one',sequence:1,title:'营帐',body,summary:'人物对峙'}]}}
   const unit={id:'unit_one',kind:'guidance',source_spans:[{source_revision_id:sourceId,start:0,end:body.length}],material}
   files.set('sources/original.txt',body);files.set('artifacts/snapshot.json',JSON.stringify(snapshot));files.set('artifacts/unit.json',JSON.stringify(unit));files.set('artifacts/candidate.json',JSON.stringify(candidate))
   const projects={documents:{readArtifact:async(_id,ref,range)=>{assert.ok(files.has(ref),ref);return range?files.get(ref).slice(range.start,range.end):files.get(ref)},writeArtifact:async(_id,text)=>{const ref=`artifacts/trace_${files.size}.json`;files.set(ref,text);return ref}},records:{http:{record:async()=>{}}}}
@@ -27,7 +27,7 @@ test('首轮提供当前动作规则、短单元与契约，固定资料不再�
   const f=runtime({required:false}),r=await f.turn([call('submit_candidate',{output:candidate})])
   assert.equal(r.pending,false)
   const [system,user]=r.request.messages,catalog=JSON.parse(user.content)
-  assert.equal(r.request.messages.length,2);assert.match(system.content,/本项目规则：保留营帐/)
+  assert.equal(r.request.messages.length,2);assert.match(system.content,/本短剧规则：保留营帐/)
   assert.doesNotMatch(system.content,/审核须完整读取当前候选/)
   assert.deepEqual(catalog.unit.material,{goal:'保留对白'});assert.ok(catalog.output_contract.properties.goal)
   assert.equal(catalog.unit_material_included,true);assert.equal('skill_index' in catalog,false)
@@ -84,7 +84,7 @@ test('长单元保持按需读取，未提供的资料不能直接提交',async(
 test('审核使用独立规则和上下文，读完候选后才允许提交，修订不继承生成历史',async()=>{
   const f=runtime({required:false});await f.turn([call('submit_candidate',{output:candidate})])
   let r=await f.turn([call('submit_review',{output:{status:'passed',issues:[],suggestions:[]}})],{action:'review',candidateRef:'artifacts/candidate.json'})
-  assert.equal(r.request.messages.length,2);assert.match(r.request.messages[0].content,/独立核对当前候选/);assert.doesNotMatch(r.request.messages[0].content,/本项目规则：保留营帐/)
+  assert.equal(r.request.messages.length,2);assert.match(r.request.messages[0].content,/独立核对当前候选/);assert.doesNotMatch(r.request.messages[0].content,/本短剧规则：保留营帐/)
   assert.match(r.stored.validation_error,/最新候选/)
   await f.turn([call('read_candidate')],{action:'review',candidateRef:'artifacts/candidate.json'})
   r=await f.turn([call('submit_review',{output:{status:'passed',issues:[],suggestions:[]}})],{action:'review',candidateRef:'artifacts/candidate.json'});assert.equal(r.pending,false)

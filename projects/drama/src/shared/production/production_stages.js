@@ -1,6 +1,6 @@
 // 浏览器与服务端共用的阶段目录，不导入模型、文件或业务执行器。
 export const projectStages=Object.freeze([
- {id:'project',title:'项目与原稿',field:'source',kind:'program'},
+ {id:'project',title:'短剧与原稿',field:'source',kind:'program'},
  {id:'source_analysis',title:'原著解析',field:'source_analysis',kind:'program'},
  {id:'adaptation_plan',title:'联合改编规划',field:'adaptation_plan',kind:'ai'},
  {id:'story_segments',title:'故事分段定稿',field:'story_segments',kind:'ai'},

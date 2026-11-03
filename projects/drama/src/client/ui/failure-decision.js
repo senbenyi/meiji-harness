@@ -11,11 +11,11 @@ export function createFailureDecision(document, { group, decision, onDecision, o
   const cause = group.context.reason_label
   if (cause) card.append(node('p', `原因类型：${cause}`, 'cause'))
   const saved = group.context.saved
-  card.append(node('p', saved ? `最新有效结果已自动保存。${group.status === 'rejected' ? '审核未通过不影响结果保存。' : '执行失败不撤销已保存的项目或结果。'}` : '本次没有已确认的项目保存结果，已有结果仍保留。', 'saved'))
+  card.append(node('p', saved ? `最新有效结果已自动保存。${group.status === 'rejected' ? '审核未通过不影响结果保存。' : '执行失败不撤销已保存的短剧或结果。'}` : '本次没有已确认的短剧保存结果，已有结果仍保留。', 'saved'))
   card.append(node('p', group.context.stop_reason || group.context.reason || '执行已停止。', 'reason'))
   const progress = [group.context.stopped_at, group.context.duration_seconds != null ? `用时 ${group.context.duration_seconds} 秒` : ''].filter(Boolean).join(' · ')
   if (progress) card.append(node('p', progress, 'muted'))
-  const hint = node('p', networkFailure ? '本次任务已结束，可查看任务详情。' : decision || (group.context.requires_user_decision ? '自动修订已停止。继续修改会沿用最后结果和审核意见；重新生成会读取当前项目资料。' : '请查看任务详情，确认需要处理的问题。'), 'hint')
+  const hint = node('p', networkFailure ? '本次任务已结束，可查看任务详情。' : decision || (group.context.requires_user_decision ? '自动修订已停止。继续修改会沿用最后结果和审核意见；重新生成会读取当前短剧资料。' : '请查看任务详情，确认需要处理的问题。'), 'hint')
   hint.setAttribute('role', 'status'); hint.setAttribute('aria-live', 'polite'); card.append(hint)
   const actions = node('div', null, 'actions'), controls = []
   if (!networkFailure && !decision && onDecision) for (const [action, label] of group.context.requires_user_decision ? [...(group.context.can_continue ?? saved ? [['continue', '继续修改']] : []), ['stop', '停止'], ['regenerate', '重新生成']] : [['stop', '停止']]) {

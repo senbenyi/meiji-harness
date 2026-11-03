@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom'
 import { scriptImport } from '../src/node_box/project/ui/panel/script-import.js'
 const tick=()=>new Promise(r=>setImmediate(r))
 
-test('项目内文件导入与素材库导入、失败保留旧文、销毁后拒绝迟到读取', async t => {
+test('短剧内文件导入与素材库导入、失败保留旧文、销毁后拒绝迟到读取', async t => {
   const dom=new JSDOM('<main></main>'),previous=globalThis.document
   globalThis.document=dom.window.document;t.after(()=>{globalThis.document=previous;dom.window.close()})
   const root=document.querySelector('main'),received=[]

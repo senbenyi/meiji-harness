@@ -1,5 +1,5 @@
 import {stepExecutionName} from '../../shared/agent/execution_activity.js'
-/** 历史只读业务适配；只从当次记录恢复输入，不读取现在的项目Model。 */
+/** 历史只读业务适配；只从当次记录恢复输入，不读取现在的短剧Model。 */
 export const taskHistoryPresentation = {
   stepName:stepExecutionName,
   review(step) {

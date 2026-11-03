@@ -1,6 +1,6 @@
 import {element,showPanelDialog} from './ui/panel-dom.js'
 import {projectStages} from '../shared/production/production_stages.js'
-const kindNames={decision:'用户决定',constraint:'项目约束',preference:'用户偏好',open_question:'未决问题'}
+const kindNames={decision:'用户决定',constraint:'短剧约束',preference:'用户偏好',open_question:'未决问题'}
 
 export function createMemoryPanel(root,{request}){
   let dialog=null,detail=null,alive=true,poll=null
@@ -10,10 +10,10 @@ export function createMemoryPanel(root,{request}){
   const endpoint=(scope,params={})=>`production-memory?${new URLSearchParams({scope,...params})}`
   const write=(scope,command)=>request(endpoint(scope),{method:'POST',headers:{'Content-Type':'application/json','X-Drama-Request':'1'},body:JSON.stringify(command)})
   async function open(scope){
-    close();dialog=element('dialog','','production-editor production-memory-panel');dialog.setAttribute('aria-label',scope==='project'?'项目长期记忆':'Drama跨项目视频制作偏好');const owned=dialog
+    close();dialog=element('dialog','','production-editor production-memory-panel');dialog.setAttribute('aria-label',scope==='project'?'短剧长期记忆':'Drama跨短剧视频制作偏好');const owned=dialog
     const heading=element('div','','section-head'),search=element('input'),archived=element('input'),list=element('div'),notice=element('p','','error'),bar=element('div','','node-ui-buttons');let offset=0,current
     search.placeholder='按主题或正文搜索';search.setAttribute('aria-label','搜索记忆');archived.type='checkbox';archived.setAttribute('aria-label','显示已归档');const include=element('label','显示已归档');include.prepend(archived)
-    heading.append(element('h3',scope==='project'?'项目长期记忆':'Drama跨项目视频制作偏好'),button('关闭',close));owned.append(heading,element('p',scope==='project'?'保存本剧人物、剧情、视觉、声音等视频创作决定与未决问题，可跨任务复用。':'仅在Drama项目之间共享视频制作偏好：改编节奏、镜头、画面、声线、字幕、后期等；不记录写代码或开发流程偏好。','meta'),element('p','本次明确目标优先于项目记忆，项目记忆优先于工程偏好。同主题使用相同key覆盖。修改只影响新任务；执行中及续接任务读取原快照。删除移除当前条目及其修改历史，既有任务快照仍保留。','meta'),bar,notice,list)
+    heading.append(element('h3',scope==='project'?'短剧长期记忆':'Drama跨短剧视频制作偏好'),button('关闭',close));owned.append(heading,element('p',scope==='project'?'保存本剧人物、剧情、视觉、声音等视频创作决定与未决问题，可跨任务复用。':'仅在Drama短剧之间共享视频制作偏好：改编节奏、镜头、画面、声线、字幕、后期等；不记录写代码或开发流程偏好。','meta'),element('p','本次明确目标优先于短剧记忆，短剧记忆优先于工程偏好。同主题使用相同key覆盖。修改只影响新任务；执行中及续接任务读取原快照。删除移除当前条目及其修改历史，既有任务快照仍保留。','meta'),bar,notice,list)
     const load=async()=>{try{current=await request(endpoint(scope,{query:search.value,offset:String(offset),limit:'10',include_archived:archived.checked?'1':'0'}));if(!alive||dialog!==owned)return;list.replaceChildren();for(const entry of current.entries){const card=element('article','','production-card');card.append(element('h4',entry.title),element('p',`${entry.key} · ${kindNames[entry.kind]} · ${entry.status==='archived'?'已归档':'生效'} · ${entry.stages.length?entry.stages.map(id=>projectStages.find(s=>s.id===id)?.title).join('、'):'全部步骤'}`,'meta'),button('查看/编辑',()=>edit(entry)),button(entry.status==='archived'?'恢复':'归档',()=>changeStatus(entry,entry.status==='archived'?'restore':'archive')),button('删除',()=>changeStatus(entry,'delete')),button('修改历史',()=>history(entry)));list.append(card)}if(!current.entries.length)list.append(element('p','暂无匹配记忆。','meta'));notice.textContent=''}catch(error){notice.textContent=error.message}}
     const changeStatus=async(entry,action)=>{try{await write(scope,{action,id:entry.id,expected_revision:current.revision,user_quote:`用户通过面板${action==='delete'?'删除':action==='archive'?'归档':'恢复'}此记忆`});await load()}catch(error){notice.textContent=error.message}}
     const history=async entry=>{try{const data=await request(endpoint(scope,{history:'1',id:entry.id,limit:'20'}));closeDetail();detail=element('dialog','','production-editor');detail.append(element('h3','记忆修改历史'),element('p','删除会移除当前记忆及其历史正文；已有任务的输入快照仍保留。','meta'));const value=element('textarea','','production-editor-input');value.readOnly=true;value.value=JSON.stringify(data,null,2);detail.append(value,button('关闭历史',closeDetail));root.append(detail);showPanelDialog(detail)}catch(error){notice.textContent=error.message}}

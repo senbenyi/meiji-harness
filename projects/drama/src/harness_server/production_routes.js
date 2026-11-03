@@ -11,7 +11,7 @@ export function createProductionRoutes(projects){
     if(req.method==='GET'&&url.pathname==='/api/drama/images'){json(res,200,service.images.list({offset:Number(url.searchParams.get('offset')||0),limit:Number(url.searchParams.get('limit')||40)}));return true}
     const image=url.pathname.match(/^\/api\/drama\/images\/(img_[a-f0-9-]{36})$/i)
     if(req.method==='GET'&&image){const bytes=await service.images.read(image[1]);res.writeHead(200,{'content-type':'image/png','cache-control':'private, max-age=31536000, immutable'});res.end(bytes);return true}
-    if(!sessionId)throw new TypeError('需要项目会话')
+    if(!sessionId)throw new TypeError('需要短剧会话')
     if(url.pathname==='/api/drama/production-memory-maintenance'){const context={sessionId,projectId:url.searchParams.get('project_id')||undefined,source:'ui'},id=url.searchParams.get('id');if(req.method==='GET'){json(res,200,id?await service.memoryMaintenance.status(id,context,url.searchParams.get('file')||undefined,{start:Number(url.searchParams.get('start')||0)}):await service.memoryMaintenance.history(context,url.searchParams.get('scope')||'project'));return true}if(req.method!=='POST'||req.headers['x-drama-request']!=='1'){json(res,403,{message:'缺少面板请求标识'});return true}const input=await body(req,24*1024*1024);json(res,202,input.cancel?await service.memoryMaintenance.cancel(input.cancel,context):await service.memoryMaintenance.run(input,context));return true}
     if(url.pathname==='/api/drama/production-memory'){
       const context={sessionId,projectId:url.searchParams.get('project_id')||undefined,source:'ui'},scope=url.searchParams.get('scope')||'project'

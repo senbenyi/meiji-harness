@@ -1,4 +1,4 @@
-// 项目文档独立校验器，不导入旧节点注册表或业务输出定义。
+// 短剧文档独立校验器，不导入旧节点注册表或业务输出定义。
 export function validateDocumentSchema(schema,value,path='project') {
  const fail=message=>{throw Object.assign(new TypeError(`${path}：${message}`),{code:'INVALID_PROJECT_DOCUMENT',path})}
  if(schema.oneOf){let count=0;for(const item of schema.oneOf)try{validateDocumentSchema(item,value,path);count++}catch(error){if(error.code!=='INVALID_PROJECT_DOCUMENT')throw error}if(count!==1)fail('需匹配唯一的数据类型');return}

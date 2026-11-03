@@ -62,7 +62,7 @@ test('无效审核证据不能驱动修订，联合规划仍保留最新候选�
  await f.run('source_analysis');const run=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'invalid-review'}),detail=await f.production.wait(run.group_id);assert.equal(detail.status,'failed');assert.match(detail.reason,/审核证据/);assert.ok(detail.steps.some(s=>s.result?.candidate_ref));assert.ok(!detail.steps.some(s=>s.kind==='revise'));assert.ok((await f.project()).adaptation_plan.plot_text)
 })
 
-test('共享图片立即落库、跨项目绑定、非法图片/悬空ID和活动任务保护',async t=>{
+test('共享图片立即落库、跨短剧绑定、非法图片/悬空ID和活动任务保护',async t=>{
  const f=await fixture(t),image=await f.production.images.put(f.png),p=await f.project()
  const asset={id:'prop_test',name:'蛇矛',description:'固定长矛',image_ids:[],selected_image_id:null}
  await f.edit({kind:'product',stage:'asset_preparation',expected_revision:0,value:{...p.asset_library,props:[asset]}})

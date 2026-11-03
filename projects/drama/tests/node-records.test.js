@@ -9,7 +9,7 @@ import { TaskGroupModel, TaskModel, StepModel } from '@agent-modules/task/models
 import { createRecordService } from '../src/records/service.js'
 import { serveRecordRoute } from '../src/harness_server/record_routes.js'
 
-test('节点公共历史只返回当前项目/节点，HTTP从步骤关联，拒绝跨节点详情', async t => {
+test('节点公共历史只返回当前短剧/节点，HTTP从步骤关联，拒绝跨节点详情', async t => {
   const root=await mkdtemp(join(tmpdir(),'drama-node-records-')),records=createRecordService(root),project=`p_${randomUUID()}`
   const group=new TaskGroupModel({id:'g',metadata:{project_id:project}}).toJSON(),other=new TaskGroupModel({id:'other',metadata:{project_id:`p_${randomUUID()}`}}).toJSON()
   const task=(id,group_id,node_type,queue_order)=>new TaskModel({id,group_id,node_type,queue_order,group_seq:queue_order}).toJSON()
