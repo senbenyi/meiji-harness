@@ -48,6 +48,6 @@ test('运行中显示实际阶段及等待本轮结果，缺失历史文件如�
 
 test('模拟模型真实生成与独立审核步骤携带当轮动作，原trace可恢复同一摘要',async t=>{
  const f=await fixture(t);await f.run('source_analysis');const detail=await f.run('adaptation_plan'),steps=detail.steps.filter(s=>s.result?.trace)
- assert.ok(steps.length>=4);assert.ok(steps.some(s=>s.result.trace.activities.some(a=>a.title==='读取生成规则')));assert.ok(steps.some(s=>s.result.trace.activities.some(a=>a.title==='提交审核结论'&&a.detail==='审核通过')))
+ assert.ok(steps.length>=4);assert.ok(steps.some(s=>s.result.trace.activities.some(a=>a.title==='读取原著')));assert.ok(steps.some(s=>s.result.trace.activities.some(a=>a.title==='提交审核结论'&&a.detail==='审核通过')))
  for(const step of steps){const stored=JSON.parse((await f.projects.documents.readArtifact(f.context.projectId,step.result.trace.file_ref)).toString());assert.deepEqual(step.result.trace.activities,executionActivities(stored))}
 })

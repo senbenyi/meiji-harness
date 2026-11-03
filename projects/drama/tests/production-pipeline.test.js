@@ -58,7 +58,7 @@ test('缺原稿的剧本模式如实失败，自由创作可保持空原著产�
 })
 
 test('无效审核证据不能驱动修订，联合规划仍保留最新候选和失败记录',async t=>{
- const f=await fixture(t,{author:async(body,ctx)=>{const c=JSON.parse(body.messages[1].content);if(c.action==='review'&&body.messages.some(m=>(m.tool_calls||[]).some(c=>c.function.name==='read_skill')))return reply([call('submit_review',{output:{status:'content_issue',issues:[{location:'/goal',evidence:'not present XYZ',reason:'invalid',suggestion:'invalid'}],suggestions:[]}})]);return defaultAuthor(body,ctx)}})
+ const f=await fixture(t,{author:async(body,ctx)=>{const c=JSON.parse(body.messages[1].content);if(c.action==='review'&&body.messages.some(m=>(m.tool_calls||[]).some(c=>c.function.name==='read_candidate')))return reply([call('submit_review',{output:{status:'content_issue',issues:[{location:'/goal',evidence:'not present XYZ',reason:'invalid',suggestion:'invalid'}],suggestions:[]}})]);return defaultAuthor(body,ctx)}})
  await f.run('source_analysis');const run=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'invalid-review'}),detail=await f.production.wait(run.group_id);assert.equal(detail.status,'failed');assert.match(detail.reason,/审核证据/);assert.ok(detail.steps.some(s=>s.result?.candidate_ref));assert.ok(!detail.steps.some(s=>s.kind==='revise'));assert.ok((await f.project()).adaptation_plan.plot_text)
 })
 
@@ -110,7 +110,7 @@ test('10MiB无章节原文分段保存完整body，保持换行空白和UTF16，
 test('无辅助摘要也可人工确认完整分段，联合规划与故事定稿必须实际读取body',async t=>{
  const f=await fixture(t),p=await f.project(),source=p.source.revisions[0],text=(await f.projects.documents.readArtifact(p.basic_info.id,source.file_ref)).toString(),chapters=sourceChapters(text).map(({summary,...chapter})=>chapter)
  await f.edit({kind:'product',stage:'source_analysis',expected_revision:0,value:{source_revision_id:source.id,chapters,facts_ref:null,coverage_ref:null}});let current=await f.project();await f.edit({kind:'confirm_stage',stage:'source_analysis',expected_revision:current.node_states.source_analysis.product_revision});await f.run('adaptation_plan');await f.run('story_segments');current=await f.project();assert.equal(current.source_analysis.chapters.map(c=>c.body).join(''),text);assert.equal(current.node_states.story_segments.status,'confirmed')
- for(const stage of ['adaptation_plan','story_segments']){const calls=f.calls.filter(c=>c.stage===stage);assert.ok(calls.some(c=>c.messages.some(m=>m.role==='tool'&&JSON.parse(m.content).body===chapters[0].body)));assert.ok(calls.every(c=>!JSON.parse(c.messages[1].content).unit.material))}
+ for(const stage of ['adaptation_plan','story_segments']){const calls=f.calls.filter(c=>c.stage===stage);assert.ok(calls.some(c=>c.messages.some(m=>m.role==='tool'&&JSON.parse(m.content).body===chapters[0].body)));assert.ok(calls.every(c=>JSON.parse(c.messages[1].content).unit_material_included))}
 })
 
 test('主会话按body指针分页读取正文，不要求原文文件引用',async t=>{
