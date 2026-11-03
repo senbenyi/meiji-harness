@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {JSDOM} from 'jsdom'
 import {projectDialog} from '../src/node_box/project/ui/panel/project-forms.js'
 import {createProjectDocumentView} from '../src/client/project-document-view.js'
-import {createProjectDocument,editProjectProduct} from '../src/project_runtime/project_document.js'
+import {createProjectDocument,editProjectProduct} from '../src/drama_runtime/drama_document.js'
 const tick=()=>new Promise(r=>setImmediate(r))
 function fixture(t){const dom=new JSDOM('<main/>'),previous=globalThis.document;dom.window.HTMLDialogElement.prototype.show=function(){this.open=true};dom.window.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new dom.window.Event('close'))};globalThis.document=dom.window.document;t.after(()=>{globalThis.document=previous;dom.window.close()});return {dom,root:document.querySelector('main')}}
 test('新文档左侧12步骤，键盘切换且每一步提供编辑或原稿导入',t=>{

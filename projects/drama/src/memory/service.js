@@ -2,7 +2,7 @@ import {applyMemoryChange} from './mutations.js'
 import {mkdir,readFile,writeFile,rename,lstat} from 'node:fs/promises'
 import {join,dirname} from 'node:path'
 import {randomUUID} from 'node:crypto'
-import {createWriteQueue} from '../project_runtime/write_queue.js'
+import {createWriteQueue} from '../drama_runtime/write_queue.js'
 import {projectStages} from '../shared/production/production_stages.js'
 
 export const memoryDomain='video_production'

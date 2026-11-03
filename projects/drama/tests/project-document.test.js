@@ -2,7 +2,7 @@ import {stageProduct} from '../src/shared/production/production_stages.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
-import {createProjectDocument,assertProjectDocument,editProjectProduct,projectStages,projectDocumentSchema} from '../src/project_runtime/project_document.js'
+import {createProjectDocument,assertProjectDocument,editProjectProduct,projectStages,projectDocumentSchema} from '../src/drama_runtime/drama_document.js'
 
 const empty=()=>createProjectDocument({id:'p_001',name:'完整制作短剧'})
 function populated(){

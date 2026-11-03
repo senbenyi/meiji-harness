@@ -12,7 +12,7 @@
 ## 新入口与分层
 
 - 插件 `index.js` 组装 `ProjectWorkspaceService`、公共记录、设置和路由；`src/main_agent/session/index.js` 注册当前可执行工具，不向主Agent注入已退役节点指导。
-- `src/project_runtime/project_document.js` 维护运行Schema和结构/引用校验；`project_document_store.js` 保存V2与不可变文件；`project_workspace_service.js` 提交Task、维护工作区/会话和请求幂等。
+- `src/drama_runtime/drama_document.js` 维护运行Schema和结构/引用校验；`drama_document_store.js` 保存V2与不可变文件；`drama_workspace_service.js` 提交Task、维护工作区/会话和请求幂等。
 - `src/node_box/project/runtime/executor.js` 执行创建/导入/人工编辑等程序步骤，`src/main_agent/tools/project/fields.js`声明创建工具入参，创建工具与参数同属main_agent/tools/project，实际执行器仍归盒子，`ui/panel`保留共用项目弹框及原稿导入。Service创建/提交Task；Executor执行步骤；公共TaskManager负责状态、时间和任务数据库，不直接写Task表。一次业务操作一个Task，内部重试追加Step。
 - `src/shared/production/production_stages.js` 是浏览器/服务端共用的阶段目录与产物投影。各步骤由ProductionService按executor_registry选择文本、图片、视频或程序执行器；不得将展示数据冒充实际生成结果。
 - `src/node_box/`包含与十二阶段同名的十二个盒子及盒子专用共用目录`shared/`，`registry.js`装配节点接口。文本节点的`runtime/pipeline.js`维护单元、产物校验/保存/回读；故事节点`runtime/execution.js`维护前段衔接和相邻段复核。程序节点`runtime/execute.js`维护实际业务；图片/视频节点各自的`runtime/executor.js`维护对应生成步骤；`runtime/confirm.js`、`runtime/manual.js`维护节点确认和专属人工操作。

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {createProjectDocument} from '../src/project_runtime/project_document.js'
+import {createProjectDocument} from '../src/drama_runtime/drama_document.js'
 import {applyCandidate,currentCandidate,prepareText} from '../src/node_box/shared/production/text_pipeline.js'
 import {parseCandidate,outputContract} from '../src/node_box/shared/agent/contracts.js'
 import {actionRules} from '../src/node_box/shared/agent/rules.js'

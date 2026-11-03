@@ -3885,5 +3885,5 @@
     "node_states"
   ],
   "additionalProperties": false,
-  "$comment": "Drama当前V2字段说明，与project_document.js运行Schema一致。联合改编是全篇指导；具体剧情、分段和衔接由故事定稿承担。无旧段计划、来源人物/场景引用、提前声线或制服版本字段；不做旧结构兼容。运行时不读取文档模板。"
+  "$comment": "Drama当前V2字段说明，与drama_document.js运行Schema一致。联合改编是全篇指导；具体剧情、分段和衔接由故事定稿承担。无旧段计划、来源人物/场景引用、提前声线或制服版本字段；不做旧结构兼容。运行时不读取文档模板。"
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {mkdtemp,rm,readFile,writeFile,mkdir,symlink} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
-import {ProjectDocumentStore} from '../src/project_runtime/project_document_store.js'
+import {ProjectDocumentStore} from '../src/drama_runtime/drama_document_store.js'
 async function fixture(t){const root=await mkdtemp(join(tmpdir(),'drama-v2-'));const store=new ProjectDocumentStore(root);t.after(async()=>{await store.dispose();await rm(root,{recursive:true,force:true})});return {root,store}}
 
 test('新存储只保存V2文档，10MiB原稿外置且短剧JSON不含正文副本',async t=>{

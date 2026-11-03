@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 import { mount } from '../src/client/workbench.js'
-import {createProjectDocument} from '../src/project_runtime/project_document.js'
+import {createProjectDocument} from '../src/drama_runtime/drama_document.js'
 const tick = () => new Promise(resolve => setImmediate(resolve))
 const poll = async check => { for(let n=0;n<80&&!check();n++)await new Promise(r=>setTimeout(r,10));assert.ok(check()) }
 

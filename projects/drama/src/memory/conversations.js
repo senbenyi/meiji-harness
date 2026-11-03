@@ -1,8 +1,8 @@
 import {readFile} from 'node:fs/promises'
 import {join} from 'node:path'
 import {randomUUID} from 'node:crypto'
-import {requestIdentity} from '../project_runtime/request-identity.js'
-import {createWriteQueue} from '../project_runtime/write_queue.js'
+import {requestIdentity} from '../drama_runtime/request-identity.js'
+import {createWriteQueue} from '../drama_runtime/write_queue.js'
 import {memoryDomain} from './service.js'
 const plain=content=>typeof content==='string'?content:Array.isArray(content)?content.filter(b=>b?.type==='text'&&typeof b.text==='string').map(b=>b.text).join('\n'):''
 const same=(a,b)=>a.role===b.role&&a.text===b.text

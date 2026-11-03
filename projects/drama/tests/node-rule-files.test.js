@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process'
 import {nodeRuleFile,readNodeRule,readNodeFormat} from '../src/shared/nodes/node_rule_files.js'
 import {actionRules,textStages} from '../src/node_box/shared/agent/rules.js'
 import {outputContract,reviewContract} from '../src/node_box/shared/agent/contracts.js'
-import {projectDocumentSchema} from '../src/project_runtime/project_document.js'
+import {projectDocumentSchema} from '../src/drama_runtime/drama_document.js'
 
 test('6个制作规则节点skills内直接放四份文件，根目录无残留且规则链接有效',async()=>{
  const root=new URL('../src/node_box/',import.meta.url),nodes=[]

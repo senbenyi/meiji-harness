@@ -3,7 +3,7 @@ import {mkdir,readFile,writeFile,rename,realpath,stat} from 'node:fs/promises'
 import {join,resolve,relative,sep} from 'node:path'
 import {stageProduct} from '../shared/production/production_stages.js'
 import {randomUUID} from 'node:crypto'
-import {createProjectDocument,assertProjectDocument,editProjectProduct,projectStages} from './project_document.js'
+import {createProjectDocument,assertProjectDocument,editProjectProduct,projectStages} from './drama_document.js'
 
 // V2文档读写基础层：新建即使用新契约，不读取/迁移旧版数据，不依赖AI节点。
 export class ProjectDocumentStore {

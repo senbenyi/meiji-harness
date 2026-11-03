@@ -1,7 +1,7 @@
 import {ReadMemoryTool,WriteMemoryTool,MaintainMemoryTool} from './src/main_agent/tools/memory_tools.js'
 import {RunProductionTool,ProductionContextTool,EditProductionTool} from './src/main_agent/tools/production_tools.js'
 import {ProductionService} from './src/node_box/shared/production/service.js'
-import {ProjectWorkspaceService} from './src/project_runtime/project_workspace_service.js'
+import {ProjectWorkspaceService} from './src/drama_runtime/drama_workspace_service.js'
 import { configureMainAgent, mainAgentProvider } from './src/main_agent/settings/main-agent.js'
 import { homedir } from 'node:os'
 import { join } from 'node:path'

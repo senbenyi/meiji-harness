@@ -51,7 +51,7 @@ test('当前插件浏览器资源依赖闭合，只公开前端文件；退役�
    const target=new URL(match[2],`http://test/${name}`).pathname.slice(1);assert.ok(clientAssets.has(target),`${name} → ${target}`)
   }
  }
- for(const name of ['main_agent/tools/production_tools.js','node_box/shared/production/service.js','node_box/shared/agent/agent_tools.js','shared/nodes/node_rule_files.js','node_box/registry.js','node_box/asset_preparation/runtime/executor.js','project_runtime/project_document.js'])assert.equal((await fetch(`${origin}/plugins/drama/src/${name}`)).status,404)
+ for(const name of ['main_agent/tools/production_tools.js','node_box/shared/production/service.js','node_box/shared/agent/agent_tools.js','shared/nodes/node_rule_files.js','node_box/registry.js','node_box/asset_preparation/runtime/executor.js','drama_runtime/drama_document.js'])assert.equal((await fetch(`${origin}/plugins/drama/src/${name}`)).status,404)
  assert.equal((await fetch(`${f.api}/story-outline?session_id=${f.context.sessionId}`,{method:'POST'})).status,410)
  const response=await fetch(`${f.api}/node-rules?session_id=${f.context.sessionId}&node_type=adaptation_plan`),rules=await response.json();assert.equal(response.status,200);assert.match(rules.bases.generate,/改编/);assert.ok(rules.bases.output_format)
 })

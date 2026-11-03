@@ -1,5 +1,5 @@
-import {projectDocumentSchema,assertProjectDocument} from '../../../project_runtime/project_document.js'
-import {validateDocumentSchema} from '../../../project_runtime/document_validation.js'
+import {projectDocumentSchema,assertProjectDocument} from '../../../drama_runtime/drama_document.js'
+import {validateDocumentSchema} from '../../../drama_runtime/document_validation.js'
 import {readFileSync} from 'node:fs'
 import {nodeRuleFile} from '../../../shared/nodes/node_rule_files.js'
 import {textStages} from './rules.js'

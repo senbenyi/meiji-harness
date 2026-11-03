@@ -1,4 +1,4 @@
-import {assertProjectDocument} from '../../../project_runtime/project_document.js'
+import {assertProjectDocument} from '../../../drama_runtime/drama_document.js'
 import {nodeBoxes} from '../../registry.js'
 
 const box=stage=>{const pipeline=nodeBoxes[stage]?.pipeline;if(!pipeline)throw new TypeError('此步骤没有文本产物');return pipeline}
