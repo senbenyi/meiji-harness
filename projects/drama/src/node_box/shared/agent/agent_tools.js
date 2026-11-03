@@ -1,5 +1,5 @@
-import {chapterRanges,readChapterText} from '../text/source.js'
-import {searchMemory,modelMemoryEntry} from '../../memory/service.js'
+import {chapterRanges,readChapterText} from '../../../shared/text/source.js'
+import {searchMemory,modelMemoryEntry} from '../../../memory/service.js'
 import {validateReview,parseCandidate} from './contracts.js'
 
 const str={type:'string'},integer={type:'integer',minimum:0}

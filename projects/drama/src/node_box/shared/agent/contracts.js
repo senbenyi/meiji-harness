@@ -1,7 +1,7 @@
-import {projectDocumentSchema,assertProjectDocument} from '../../project_runtime/project_document.js'
-import {validateDocumentSchema} from '../../project_runtime/document_validation.js'
+import {projectDocumentSchema,assertProjectDocument} from '../../../project_runtime/project_document.js'
+import {validateDocumentSchema} from '../../../project_runtime/document_validation.js'
 import {readFileSync} from 'node:fs'
-import {nodeRuleFile} from '../nodes/node_rule_files.js'
+import {nodeRuleFile} from '../../../shared/nodes/node_rule_files.js'
 import {textStages} from './rules.js'
 export const object=properties=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false})
 export const string={type:'string'}, text={type:'string',minLength:1}, list=items=>({type:'array',items})

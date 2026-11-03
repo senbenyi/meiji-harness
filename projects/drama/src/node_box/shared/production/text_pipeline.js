@@ -1,5 +1,5 @@
-import {assertProjectDocument} from '../../project_runtime/project_document.js'
-import {nodeBoxes} from '../../node_box/registry.js'
+import {assertProjectDocument} from '../../../project_runtime/project_document.js'
+import {nodeBoxes} from '../../registry.js'
 
 const box=stage=>{const pipeline=nodeBoxes[stage]?.pipeline;if(!pipeline)throw new TypeError('此步骤没有文本产物');return pipeline}
 export function applyCandidate(document,stage,unit,output,files={}){const next=structuredClone(document);box(stage).applyCandidate(next,unit,output,files);assertProjectDocument(next);return next}

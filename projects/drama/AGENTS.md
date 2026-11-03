@@ -11,12 +11,12 @@
 
 ## 新入口与分层
 
-- 插件 `index.js` 组装 `ProjectWorkspaceService`、公共记录、设置和路由；`src/session/index.js` 注册当前可执行工具，不向主Agent注入已退役节点指导。
+- 插件 `index.js` 组装 `ProjectWorkspaceService`、公共记录、设置和路由；`src/main_agent/session/index.js` 注册当前可执行工具，不向主Agent注入已退役节点指导。
 - `src/project_runtime/project_document.js` 维护运行Schema和结构/引用校验；`project_document_store.js` 保存V2与不可变文件；`project_workspace_service.js` 提交Task、维护工作区/会话和请求幂等。
-- `src/node_box/project/runtime/executor.js` 执行创建/导入/人工编辑等程序步骤，`src/node_box/project/tools/fields.js`声明创建工具入参，创建工具同属该盒子tools目录，`ui/panel`保留共用项目弹框及原稿导入。Service创建/提交Task；Executor执行步骤；公共TaskManager负责状态、时间和任务数据库，不直接写Task表。一次业务操作一个Task，内部重试追加Step。
+- `src/node_box/project/runtime/executor.js` 执行创建/导入/人工编辑等程序步骤，`src/main_agent/tools/project/fields.js`声明创建工具入参，创建工具与参数同属main_agent/tools/project，实际执行器仍归盒子，`ui/panel`保留共用项目弹框及原稿导入。Service创建/提交Task；Executor执行步骤；公共TaskManager负责状态、时间和任务数据库，不直接写Task表。一次业务操作一个Task，内部重试追加Step。
 - `src/shared/production/production_stages.js` 是浏览器/服务端共用的阶段目录与产物投影。各步骤由ProductionService按executor_registry选择文本、图片、视频或程序执行器；不得将展示数据冒充实际生成结果。
-- `src/node_box/`只保留与十二阶段同名的十二个盒子，`registry.js`装配节点接口。文本节点的`runtime/pipeline.js`维护单元、产物校验/保存/回读；故事节点`runtime/execution.js`维护前段衔接和相邻段复核。程序节点`runtime/execute.js`维护实际业务；图片/视频节点各自的`runtime/executor.js`维护对应生成步骤；`runtime/confirm.js`、`runtime/manual.js`维护节点确认和专属人工操作。
-- `src/shared/production/{text,program}_executor.js`共用类型调度与文本审核/修订循环；图片、视频执行器由registry直接引用对应盒子。`unit_executor.js`仅共用Task/单元/检查点生命周期，`model_loop.js`只供文本执行器调用。`text_pipeline.js`只委派节点业务并共用候选保存状态；`timeline_renderer.js`、`media.js`、`audio_import.js`、`subtitles.js`提供通用媒体能力，不维护阶段产物。不得向共用执行器重新塞入节点业务分支。
+- `src/node_box/`包含与十二阶段同名的十二个盒子及盒子专用共用目录`shared/`，`registry.js`装配节点接口。文本节点的`runtime/pipeline.js`维护单元、产物校验/保存/回读；故事节点`runtime/execution.js`维护前段衔接和相邻段复核。程序节点`runtime/execute.js`维护实际业务；图片/视频节点各自的`runtime/executor.js`维护对应生成步骤；`runtime/confirm.js`、`runtime/manual.js`维护节点确认和专属人工操作。
+- `src/node_box/shared/production/{text,program}_executor.js`共用类型调度与文本审核/修订循环；图片、视频执行器由registry直接引用对应盒子。`unit_executor.js`仅共用Task/单元/检查点生命周期，`model_loop.js`只供文本执行器调用。`text_pipeline.js`只委派节点业务并共用候选保存状态；`timeline_renderer.js`、`media.js`、`audio_import.js`、`subtitles.js`提供通用媒体能力，不维护阶段产物。不得向共用执行器重新塞入节点业务分支。
 - harness-http 路由只负责鉴权、请求/响应、静态资源及SSE，业务校验留Service/Store/Executor。面板与会话工具共用业务入口。
 - 新建/导入原稿及原著解析均为纯程序步骤。原著解析默认不拆分，将整份原稿直接保存为一条id/sequence/title/body/summary记录，summary为空、事实与覆盖报告引用为空；不调用生成、审核、修订或记忆整理模型。正文由程序完整复制并逐字校验，不保存分段范围或正文引用。不可变原稿仍外置，后续模型按工具上限有界读取body；Task保存不可变输入与产物引用，不逐轮把整稿注入提示词。
 - 新项目不提前分集；先原著解析、全篇联合改编指导，再故事自主分段定稿、文字分镜、素材准备与参考确认，后续分片/视频/剪辑，最后分集导出。联合改编只定全篇原则、人物动机关系成长、场景作用与团队指导，不写逐段计划；定稿直接读取原著与冻结指导，自行分段并写完整正文/衔接。旧段计划、提前声线和团队制服版本字段已删除，不做兼容或双写。
@@ -47,3 +47,9 @@
 - 业务放drama，不引用/转发/运行时读取/符号链接到meiji，反向依赖也禁止。共享能力仅通过根packages公开接口接入；从其他项目复用需复制实际源码并独立维护。
 - 根运行 `npm run test:drama`；跨插件/工程整合运行 `npm test`；工程入口变化运行 `npm run verify:copy -- drama`。模拟模型验证不代表真实供应商生成通过。
 - GitNexus使用根agent-harness索引（MCP注册名meiji-harness），CLI `node .gitnexus/run.cjs`；遵守根指引的impact、detect-changes与最终索引更新，UNKNOWN不解释为没有影响。
+
+## 主Agent与盒子共用边界
+
+- 主会话工具、Harness会话接入、用户目标、任务通知及主模型配置归`src/main_agent/`；主模型循环继续交给Harness。
+- 盒子专用Agent循环、上下文、工具、产物契约、制作Service/执行器及后期辅助归`src/node_box/shared/`，它不是制作阶段。
+- 真正同时服务多方的阶段目录、执行摘要、规则文件定位、原稿处理、基础媒体能力保留`src/shared/`；主Agent和面板调用同一业务服务，不复制执行/保存逻辑。

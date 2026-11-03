@@ -1,14 +1,14 @@
-import {nodeBoxes,manualStage} from '../../node_box/registry.js'
-import {MemoryMaintenance} from '../../memory/maintenance.js'
+import {nodeBoxes,manualStage} from '../../registry.js'
+import {MemoryMaintenance} from '../../../memory/maintenance.js'
 import {randomUUID} from 'node:crypto'
 import {modelClient} from '@agent-modules/http-client'
-import {projectStages,stageProduct} from './production_stages.js'
-import {ImageStore} from '../../library/image_store.js'
+import {projectStages,stageProduct} from '../../../shared/production/production_stages.js'
+import {ImageStore} from '../../../library/image_store.js'
 import {createProductionExecutors} from './executor_registry.js'
 import {readJSON} from './execution_support.js'
 import {actionRules,textStages} from '../agent/rules.js'
-import {readNodeFormat} from '../nodes/node_rule_files.js'
-import {requestIdentity} from '../../project_runtime/request-identity.js'
+import {readNodeFormat} from '../../../shared/nodes/node_rule_files.js'
+import {requestIdentity} from '../../../project_runtime/request-identity.js'
 const terminal=status=>!['queued','running'].includes(status)
 export class ProductionService {
   constructor({projects,models,textClient=modelClient,mediaClient=modelClient,images=new ImageStore(projects.root)}){

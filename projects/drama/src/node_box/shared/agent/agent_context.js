@@ -1,4 +1,4 @@
-import {taskMemory,searchMemory} from '../../memory/service.js'
+import {taskMemory,searchMemory} from '../../../memory/service.js'
 import {actionRules} from './rules.js'
 import {outputContract} from './contracts.js'
 

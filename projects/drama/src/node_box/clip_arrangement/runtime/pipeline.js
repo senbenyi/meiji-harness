@@ -1,4 +1,4 @@
-import {uid} from '../../../shared/production/execution_support.js'
+import {uid} from '../../shared/production/execution_support.js'
 export function arrangeClips(project){
   const beats=[...project.shot_design.shots].sort((a,b)=>a.sequence-b.sequence).flatMap(shot=>shot.beats.map(beat=>({shot,beat})))
   if(!beats.length)throw new TypeError('没有可分片节拍')

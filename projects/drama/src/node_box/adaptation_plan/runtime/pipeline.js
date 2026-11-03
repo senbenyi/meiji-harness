@@ -1,4 +1,4 @@
-import {uid} from '../../../shared/production/execution_support.js'
+import {uid} from '../../shared/production/execution_support.js'
 export const requireSourceCoverage=true
 import {chapterRanges,upsert} from '../../../shared/text/source.js'
 const baseAsset=(id,name,description)=>({id,name,description,image_ids:[],selected_image_id:null})

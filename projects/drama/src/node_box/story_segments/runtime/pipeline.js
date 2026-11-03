@@ -1,4 +1,4 @@
-import {uid} from '../../../shared/production/execution_support.js'
+import {uid} from '../../shared/production/execution_support.js'
 export const requireSourceCoverage=true
 import {chapterRanges,upsert} from '../../../shared/text/source.js'
 const inStoryUnit=(segment,unit)=>unit.source_chapter_ids.length?segment.source_chapter_ids.some(id=>unit.source_chapter_ids.includes(id)):!segment.source_chapter_ids.length

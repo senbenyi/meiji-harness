@@ -2,7 +2,7 @@ import {existsSync} from 'node:fs'
 import {createCanvas,GlobalFonts} from '@napi-rs/canvas'
 import {writeFile} from 'node:fs/promises'
 import {join} from 'node:path'
-import {srtTime} from './media.js'
+import {srtTime} from '../../../shared/media/media.js'
 
 export function parseSubtitles(text){
  const cues=[]

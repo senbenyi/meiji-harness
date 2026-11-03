@@ -1,6 +1,6 @@
 import {upsert} from '../../../shared/text/source.js'
 import {buildTimeline} from './pipeline.js'
-import {renderTimeline} from '../../../shared/media/timeline_renderer.js'
+import {renderTimeline} from '../../shared/media/timeline_renderer.js'
 
 export async function executeUnit(ctx){const id=ctx.task.metadata.project_id;let project=await this.projects.documents.read(id),result;
       if(project.node_states.video_render.status!=='confirmed')throw new TypeError('请先检查并选用所有分片视频')

@@ -1,4 +1,4 @@
-import {probeBytes,command as mediaCommand,withTemporary} from './media.js'
+import {probeBytes,command as mediaCommand,withTemporary} from '../../../shared/media/media.js'
 import {writeFile,readFile} from 'node:fs/promises'
 import {join} from 'node:path'
 const commandMedia=(args,signal)=>mediaCommand('ffmpeg',args,{signal})

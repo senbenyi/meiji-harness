@@ -3,14 +3,14 @@ import assert from 'node:assert/strict'
 import {readdir,readFile,access} from 'node:fs/promises'
 import {nodeBoxes,manualStage} from '../src/node_box/registry.js'
 import {projectStages} from '../src/shared/production/production_stages.js'
-import {TextProductionExecutor} from '../src/shared/production/text_executor.js'
+import {TextProductionExecutor} from '../src/node_box/shared/production/text_executor.js'
 import {readNodeRule,readNodeFormat} from '../src/shared/nodes/node_rule_files.js'
 import {clientAssets} from '../src/harness_server/client_assets.js'
-import {CreateProjectTool} from '../src/node_box/project/tools/creat_project_tool.js'
+import {CreateProjectTool} from '../src/main_agent/tools/project/creat_project_tool.js'
 import {fixture} from './helpers/production-fixture.js'
 
 test('十二制作盒子与左侧阶段一一对应，辅助记忆独立；每类节点有实际业务入口',async()=>{
- const dirs=(await readdir(new URL('../src/node_box/',import.meta.url),{withFileTypes:true})).filter(e=>e.isDirectory()).map(e=>e.name).sort()
+ const dirs=(await readdir(new URL('../src/node_box/',import.meta.url),{withFileTypes:true})).filter(e=>e.isDirectory()&&e.name!=='shared').map(e=>e.name).sort()
  assert.deepEqual(dirs,projectStages.map(s=>s.id).sort());assert.deepEqual(Object.keys(nodeBoxes).sort(),dirs)
  for(const [id,box]of Object.entries(nodeBoxes)){
   assert.equal(box.id,id)
@@ -26,7 +26,7 @@ test('十二制作盒子与左侧阶段一一对应，辅助记忆独立；每�
 
 test('通用执行器不包含阶段产物分支，故事复核与素材/视频人工操作由盒子持有',async()=>{
  for(const file of ['text_executor','text_pipeline','program_executor']){
-  const source=await readFile(new URL(`../src/shared/production/${file}.js`,import.meta.url),'utf8')
+  const source=await readFile(new URL(`../src/node_box/shared/production/${file}.js`,import.meta.url),'utf8')
   assert.doesNotMatch(source,/story_audit|stage\s*===\s*['"]|node_type\s*===\s*['"]|planAssets|arrangeClips|buildTimeline/)
  }
  for(const kind of ['image_import','image_select','voice_extract'])assert.equal(manualStage({kind}),'asset_preparation')
@@ -51,7 +51,7 @@ test('当前插件浏览器资源依赖闭合，只公开前端文件；退役�
    const target=new URL(match[2],`http://test/${name}`).pathname.slice(1);assert.ok(clientAssets.has(target),`${name} → ${target}`)
   }
  }
- for(const name of ['shared/production/service.js','shared/agent/agent_tools.js','shared/nodes/node_rule_files.js','node_box/registry.js','node_box/asset_preparation/runtime/executor.js','project_runtime/project_document.js'])assert.equal((await fetch(`${origin}/plugins/drama/src/${name}`)).status,404)
+ for(const name of ['main_agent/tools/production_tools.js','node_box/shared/production/service.js','node_box/shared/agent/agent_tools.js','shared/nodes/node_rule_files.js','node_box/registry.js','node_box/asset_preparation/runtime/executor.js','project_runtime/project_document.js'])assert.equal((await fetch(`${origin}/plugins/drama/src/${name}`)).status,404)
  assert.equal((await fetch(`${f.api}/story-outline?session_id=${f.context.sessionId}`,{method:'POST'})).status,410)
  const response=await fetch(`${f.api}/node-rules?session_id=${f.context.sessionId}&node_type=adaptation_plan`),rules=await response.json();assert.equal(response.status,200);assert.match(rules.bases.generate,/改编/);assert.ok(rules.bases.output_format)
 })
@@ -65,12 +65,18 @@ test('当前创建工具保留用户目标与宿主上下文，创建仍为纯�
 })
 
 
-test('公用能力统一在shared按功能归位，旧目录没有转发实现',async()=>{
+test('主Agent、盒子与双方共用能力按职责归位，旧目录没有转发实现',async()=>{
  const root=new URL('../src/',import.meta.url)
  const entries=await readdir(new URL('shared/',root),{withFileTypes:true})
  assert.ok(entries.every(entry=>entry.isDirectory()))
- assert.deepEqual(entries.map(entry=>entry.name).sort(),['agent','media','nodes','production','text','tools'])
- for(const old of ['production','node_runtime','tools'])await assert.rejects(access(new URL(old,root)),{code:'ENOENT'})
- await access(new URL('node_box/project/tools/creat_project_tool.js',root))
- await access(new URL('node_box/project/tools/fields.js',root))
+ assert.deepEqual(entries.map(entry=>entry.name).sort(),['agent','media','nodes','production','text'])
+ for(const old of ['production','node_runtime','tools','session'])await assert.rejects(access(new URL(old,root)),{code:'ENOENT'})
+ const boxShared=await readdir(new URL('node_box/shared/',root))
+ assert.deepEqual(boxShared.sort(),['agent','media','production'])
+ const main=await readdir(new URL('main_agent/',root))
+ assert.deepEqual(main.sort(),['session','settings','tools'])
+ await assert.rejects(access(new URL('shared/tools/',root)),{code:'ENOENT'})
+ await assert.rejects(access(new URL('node_box/project/tools/',root)),{code:'ENOENT'})
+ await access(new URL('main_agent/tools/project/creat_project_tool.js',root))
+ await access(new URL('main_agent/tools/project/fields.js',root))
 })

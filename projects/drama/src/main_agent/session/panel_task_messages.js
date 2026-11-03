@@ -1,7 +1,7 @@
-import {executionActivities} from '../shared/agent/execution_activity.js'
+import {executionActivities} from '../../shared/agent/execution_activity.js'
 import { createHash } from 'node:crypto'
 import { displayContext, compactDisplay } from './task_display_context.js'
-import { taskHistoryPresentation } from '../client/ui/task-presentation.js'
+import { taskHistoryPresentation } from '../../client/ui/task-presentation.js'
 
 const labels = { completed: '已完成', rejected: '未通过', failed: '执行失败', cancelled: '已取消', done: '已完成', skipped: '已跳过' }
 const marker = 'drama-task-display'

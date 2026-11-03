@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
-import { createPanelTaskDisplay } from '../src/session/panel_task_messages.js'
+import { createPanelTaskDisplay } from '../src/main_agent/session/panel_task_messages.js'
 import { groupTaskMessages } from '../src/client/ui/task-operation.js'
 import { mountTaskMessages } from '../src/client/task-messages.js'
 

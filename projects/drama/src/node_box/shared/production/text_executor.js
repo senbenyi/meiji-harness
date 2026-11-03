@@ -3,7 +3,7 @@ import {uid,readJSON,stageStep} from './execution_support.js'
 import {prepareText,applyCandidate,commitTextCandidate,currentCandidate} from './text_pipeline.js'
 import {modelTurn} from '../agent/model_loop.js'
 import {textStages} from '../agent/rules.js'
-import {nodeBoxes} from '../../node_box/registry.js'
+import {nodeBoxes} from '../../registry.js'
 
 /** 文本盒子共用读取、生成、独立审核和修订循环。 */
 export class TextProductionExecutor extends UnitProductionExecutor {

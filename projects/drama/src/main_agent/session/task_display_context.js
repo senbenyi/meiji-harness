@@ -1,5 +1,5 @@
-import {executionPhase,stepExecutionName} from '../shared/agent/execution_activity.js'
-import { boxReport } from '../shared/nodes/box_report.js'
+import {executionPhase,stepExecutionName} from '../../shared/agent/execution_activity.js'
+import { boxReport } from './box_report.js'
 
 /** 所有输入/输出取当次Task/Step事实，禁止用最新Project填补历史。 */
 export function displayContext(detail, task, step) {

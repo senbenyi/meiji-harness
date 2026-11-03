@@ -1,6 +1,6 @@
 import {TextProductionExecutor} from './text_executor.js'
-import {ImageProductionExecutor} from '../../node_box/asset_preparation/runtime/executor.js'
-import {VideoProductionExecutor} from '../../node_box/video_render/runtime/executor.js'
+import {ImageProductionExecutor} from '../../asset_preparation/runtime/executor.js'
+import {VideoProductionExecutor} from '../../video_render/runtime/executor.js'
 import {ProgramProductionExecutor} from './program_executor.js'
 
 /** 仅装配类型到执行器的映射；具体步骤由各执行器维护。 */

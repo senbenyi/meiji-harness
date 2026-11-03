@@ -1,4 +1,4 @@
-import {projectStages} from '../production/production_stages.js'
+import {projectStages} from '../../shared/production/production_stages.js'
 function context(exec){const sessionId=exec?.agent?.session?.id;if(!sessionId)throw new Error('必须从项目会话调用');return {sessionId,requestId:exec.callId,source:'conversation'}}
 const output={schema:{type:'string'},render:(_args,value)=>[{type:'text',text:value}]}
 export class RunProductionTool{

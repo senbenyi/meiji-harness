@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID, createHash } from 'node:crypto'
-import { boxReport } from '../shared/nodes/box_report.js'
+import { boxReport } from './box_report.js'
 import { reportSession } from './panel_task_messages.js'
 
 const freeze = value => {

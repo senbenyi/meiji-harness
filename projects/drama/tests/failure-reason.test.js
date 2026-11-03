@@ -7,9 +7,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { createRecordService } from '../src/records/service.js'
-import { ReportDispatcher } from '../src/session/report_dispatcher.js'
-import { boxReport } from '../src/shared/nodes/box_report.js'
-import { displayContext } from '../src/session/task_display_context.js'
+import { ReportDispatcher } from '../src/main_agent/session/report_dispatcher.js'
+import { boxReport } from '../src/main_agent/session/box_report.js'
+import { displayContext } from '../src/main_agent/session/task_display_context.js'
 import { createFailureDecision } from '../src/client/ui/failure-decision.js'
 
 test('网络失败卡片不等待选择且只保留可用的任务详情，其他失败仍可操作', async () => {

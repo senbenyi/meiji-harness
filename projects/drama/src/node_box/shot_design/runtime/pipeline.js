@@ -1,4 +1,4 @@
-import {uid} from '../../../shared/production/execution_support.js'
+import {uid} from '../../shared/production/execution_support.js'
 import {upsert} from '../../../shared/text/source.js'
 
 export function applyCandidate(next,unit,output,files={}){

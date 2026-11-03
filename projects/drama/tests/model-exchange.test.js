@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {JSDOM} from 'jsdom'
-import {createPanelTaskDisplay} from '../src/session/panel_task_messages.js'
+import {createPanelTaskDisplay} from '../src/main_agent/session/panel_task_messages.js'
 import {createTaskOperation,groupTaskMessages} from '../src/client/ui/task-operation.js'
-import {compactDisplay} from '../src/session/task_display_context.js'
+import {compactDisplay} from '../src/main_agent/session/task_display_context.js'
 import {fixture} from './helpers/production-fixture.js'
 
 const sent=[{role:'system',content:'当次完整规则'},{role:'user',content:'当次目标 <img src=x onerror=alert(1)>'},{role:'tool',tool_call_id:'previous',content:'上轮工具返回'}]

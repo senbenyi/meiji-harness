@@ -1,5 +1,5 @@
 import {subtitleTrack,clipSubtitles} from './subtitles.js'
-import {probeFile,command,withTemporary} from './media.js'
+import {probeFile,command,withTemporary} from '../../../shared/media/media.js'
 import {join} from 'node:path'
 import {writeFile,readFile} from 'node:fs/promises'
 

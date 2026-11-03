@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { apply } from '../src/session/index.js'
+import { apply } from '../src/main_agent/session/index.js'
 
 test('共享注册保留宿主工具和身份，业务工具与指导随插件销毁移除，重新挂载不重复', () => {
   const builtin = { name: 'read' }, project = { name: 'drama-create-project' }, optimize = { name: 'drama-optimize-script' }, story = { name: 'drama-generate-story-outline' }

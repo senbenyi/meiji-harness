@@ -1,4 +1,4 @@
-import {projectStages} from '../production/production_stages.js'
+import {projectStages} from '../../shared/production/production_stages.js'
 import { taskEndReason, TASK_END_REASONS } from '@agent-modules/task/models'
 
 /** 等待程序盒子终态；取消归任务管理器处理，不把未完成结果当成功。 */

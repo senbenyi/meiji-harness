@@ -1,8 +1,8 @@
 import {mediaMemory} from '../../../memory/service.js'
-import {UnitProductionExecutor} from '../../../shared/production/unit_executor.js'
-import {uid,readJSON} from '../../../shared/production/execution_support.js'
+import {UnitProductionExecutor} from '../../shared/production/unit_executor.js'
+import {uid,readJSON} from '../../shared/production/execution_support.js'
 import {findAsset,requiredAssets} from './assets.js'
-import {actionRules} from '../../../shared/agent/rules.js'
+import {actionRules} from '../../shared/agent/rules.js'
 
 /** 图片盒子：需求选择、参考组合、调用图片模型、立即入库，等待人工选用。 */
 export class ImageProductionExecutor extends UnitProductionExecutor {

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import {JSDOM} from 'jsdom'
 import {executionActivities,stepExecutionName} from '../src/shared/agent/execution_activity.js'
 import {createTaskOperation,groupTaskMessages} from '../src/client/ui/task-operation.js'
-import {createPanelTaskDisplay} from '../src/session/panel_task_messages.js'
-import {displayContext,compactDisplay} from '../src/session/task_display_context.js'
+import {createPanelTaskDisplay} from '../src/main_agent/session/panel_task_messages.js'
+import {displayContext,compactDisplay} from '../src/main_agent/session/task_display_context.js'
 import {fixture} from './helpers/production-fixture.js'
 const call=(id,name,args)=>({id,function:{name,arguments:JSON.stringify(args)}})
 const reply=(id,data)=>({role:'tool',tool_call_id:id,content:JSON.stringify(data)})

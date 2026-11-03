@@ -1,4 +1,4 @@
-import {uid} from '../../../shared/production/execution_support.js'
+import {uid} from '../../shared/production/execution_support.js'
 import {srtTime} from '../../../shared/media/media.js'
 export async function subtitleText(service,project,timeline){
   const lines=[]

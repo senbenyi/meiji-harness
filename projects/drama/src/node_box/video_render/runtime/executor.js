@@ -1,6 +1,6 @@
 import {mediaMemory} from '../../../memory/service.js'
-import {UnitProductionExecutor} from '../../../shared/production/unit_executor.js'
-import {uid,readJSON} from '../../../shared/production/execution_support.js'
+import {UnitProductionExecutor} from '../../shared/production/unit_executor.js'
+import {uid,readJSON} from '../../shared/production/execution_support.js'
 import {probeBytes} from '../../../shared/media/media.js'
 import {upsert} from '../../../shared/text/source.js'
 

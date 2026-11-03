@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {randomUUID} from 'node:crypto'
 import {MemoryService,searchMemory,mediaMemory} from '../src/memory/service.js'
-import {ReadMemoryTool,WriteMemoryTool} from '../src/shared/tools/memory_tools.js'
+import {ReadMemoryTool,WriteMemoryTool} from '../src/main_agent/tools/memory_tools.js'
 import {fixture,defaultAuthor,call,reply} from './helpers/production-fixture.js'
 
 async function remember(f,scope,key,content,{stages=[],kind=scope==='engineering'?'preference':'decision',context=f.context}={}){

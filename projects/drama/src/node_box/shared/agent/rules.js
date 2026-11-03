@@ -1,6 +1,6 @@
 import {readFile} from 'node:fs/promises'
-import {nodeRuleFile} from '../nodes/node_rule_files.js'
-import {projectStages} from '../production/production_stages.js'
+import {nodeRuleFile} from '../../../shared/nodes/node_rule_files.js'
+import {projectStages} from '../../../shared/production/production_stages.js'
 
 export const textStages=projectStages.filter(stage=>stage.kind==='ai').map(stage=>stage.id)
 export const skillPath=(stage,action)=>nodeRuleFile(stage,action)

@@ -1,6 +1,6 @@
 import {UnitProductionExecutor} from './unit_executor.js'
 import {uid} from './execution_support.js'
-import {nodeBoxes} from '../../node_box/registry.js'
+import {nodeBoxes} from '../../registry.js'
 
 /** 程序盒子执行原文赋值、绑定、分片、剪辑和导出，不调用生成模型。 */
 export class ProgramProductionExecutor extends UnitProductionExecutor {

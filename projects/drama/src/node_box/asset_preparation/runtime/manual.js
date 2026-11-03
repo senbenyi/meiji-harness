@@ -1,4 +1,4 @@
-import {importAudio} from '../../../shared/media/audio_import.js'
+import {importAudio} from '../../shared/media/audio_import.js'
 import {findAsset} from './assets.js'
 import {probeBytes,command as mediaCommand,withTemporary} from '../../../shared/media/media.js'
 import {writeFile,readFile} from 'node:fs/promises'

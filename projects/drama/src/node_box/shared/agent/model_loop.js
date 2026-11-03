@@ -1,4 +1,4 @@
-import {executionActivities} from './execution_activity.js'
+import {executionActivities} from '../../../shared/agent/execution_activity.js'
 import {modelClient} from '@agent-modules/http-client'
 import {buildAgentContext} from './agent_context.js'
 import {createAgentTools} from './agent_tools.js'

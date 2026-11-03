@@ -1,4 +1,4 @@
-import {uid,readJSON,stageStep} from '../../../shared/production/execution_support.js'
+import {uid,readJSON,stageStep} from '../../shared/production/execution_support.js'
 export function initialAction(unit){return unit.kind==='story_audit'?'review':'generate'}
 export async function prepareUnit(ctx,current,unit,unitRef){const id=ctx.task.metadata.project_id;if(unit.kind!=='story_audit'){
         const previous=current.story_segments.segments.filter(s=>s.source_chapter_ids.some(id=>(current.source_analysis.chapters.find(c=>c.id===id)?.sequence??Infinity)<unit.source_sequence)).sort((a,b)=>b.sequence-a.sequence)[0]

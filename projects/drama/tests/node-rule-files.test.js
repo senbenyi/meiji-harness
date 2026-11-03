@@ -5,8 +5,8 @@ import {tmpdir} from 'node:os'
 import {join,resolve} from 'node:path'
 import {execFileSync} from 'node:child_process'
 import {nodeRuleFile,readNodeRule,readNodeFormat} from '../src/shared/nodes/node_rule_files.js'
-import {actionRules,textStages} from '../src/shared/agent/rules.js'
-import {outputContract,reviewContract} from '../src/shared/agent/contracts.js'
+import {actionRules,textStages} from '../src/node_box/shared/agent/rules.js'
+import {outputContract,reviewContract} from '../src/node_box/shared/agent/contracts.js'
 import {projectDocumentSchema} from '../src/project_runtime/project_document.js'
 
 test('6个制作规则节点skills内直接放四份文件，根目录无残留且规则链接有效',async()=>{
@@ -42,6 +42,6 @@ test('复制src后返回格式文件修改实际影响契约，不依赖docs或�
  const dir=await mkdtemp(join(tmpdir(),'drama-flat-rule-'));t.after(()=>rm(dir,{recursive:true,force:true}))
  await cp(new URL('../src/',import.meta.url),join(dir,'src'),{recursive:true});await symlink(resolve(new URL('../../../node_modules',import.meta.url).pathname),join(dir,'node_modules'),'dir')
  const file=join(dir,'src/node_box/adaptation_plan/skills/adaptation_plan-output-format.json'),format=JSON.parse(await readFile(file,'utf8'));format.generate.schema.properties.goal.minLength=7;await writeFile(file,JSON.stringify(format))
- const code="import assert from 'node:assert/strict';import {outputContract} from './src/shared/agent/contracts.js';assert.equal(outputContract('adaptation_plan',{}).properties.goal.minLength,7);assert.equal(outputContract('adaptation_plan',{},'revise').properties.goal.minLength,1);console.log('ok')"
+ const code="import assert from 'node:assert/strict';import {outputContract} from './src/node_box/shared/agent/contracts.js';assert.equal(outputContract('adaptation_plan',{}).properties.goal.minLength,7);assert.equal(outputContract('adaptation_plan',{},'revise').properties.goal.minLength,1);console.log('ok')"
  assert.equal(execFileSync(process.execPath,['--input-type=module','-e',code],{cwd:dir,encoding:'utf8'}).trim(),'ok')
 })

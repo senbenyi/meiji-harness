@@ -6,7 +6,7 @@ import {join} from 'node:path'
 import {randomUUID} from 'node:crypto'
 import {createServer} from 'node:http'
 import {ProjectWorkspaceService} from '../src/project_runtime/project_workspace_service.js'
-import {boxReport} from '../src/shared/nodes/box_report.js'
+import {boxReport} from '../src/main_agent/session/box_report.js'
 import {createRecordService} from '../src/records/service.js'
 import {createProjectHttpHandler} from '../src/harness_server/project_routes.js'
 async function fixture(t){

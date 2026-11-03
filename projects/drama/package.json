@@ -11,7 +11,7 @@
   },
   "exports": {
     ".": "./index.js",
-    "./session": "./src/session/index.js",
+    "./session": "./src/main_agent/session/index.js",
     "./project": "./src/index.js"
   },
   "dependencies": {

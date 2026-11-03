@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { configureMainAgent, mainAgentProvider } from '../src/settings/main-agent.js'
+import { configureMainAgent, mainAgentProvider } from '../src/main_agent/settings/main-agent.js'
 import { createModelSettings } from '../src/settings/model-settings.js'
 
 test('登记主Agent GPT路由并配置宿主默认，模型地址与制作文本一致', async () => {

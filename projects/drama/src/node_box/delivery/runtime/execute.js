@@ -1,5 +1,5 @@
-import {uid} from '../../../shared/production/execution_support.js'
-import {renderTimeline} from '../../../shared/media/timeline_renderer.js'
+import {uid} from '../../shared/production/execution_support.js'
+import {renderTimeline} from '../../shared/media/timeline_renderer.js'
 
 export async function executeUnit(ctx){const id=ctx.task.metadata.project_id;let project=await this.projects.documents.read(id),result;
       if(project.node_states.editing.status!=='confirmed')throw new TypeError('请先确认连续剪辑')
