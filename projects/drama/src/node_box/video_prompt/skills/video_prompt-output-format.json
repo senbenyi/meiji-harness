@@ -5,21 +5,73 @@
       "type": "object",
       "properties": {
         "prompt": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 7000
-        },
-        "reference_images": {
-          "$ref": "project:/properties/video_prompt/properties/items/items/properties/reference_images"
-        },
-        "voice_references": {
-          "$ref": "project:/properties/video_prompt/properties/items/items/properties/voice_references"
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "subject_definitions": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "summary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retention_analysis": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "detailed_description": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "overall_soundscape": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "non_diegetic_music": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "subject_definitions",
+                "summary",
+                "retention_analysis",
+                "detailed_description",
+                "overall_soundscape",
+                "non_diegetic_music"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "integrated_multimodal_description": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "overall_soundscape": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "non_diegetic_music": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "integrated_multimodal_description",
+                "overall_soundscape",
+                "non_diegetic_music"
+              ],
+              "additionalProperties": false
+            }
+          ]
         }
       },
       "required": [
-        "prompt",
-        "reference_images",
-        "voice_references"
+        "prompt"
       ],
       "additionalProperties": false
     }
@@ -36,21 +88,73 @@
       "type": "object",
       "properties": {
         "prompt": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 7000
-        },
-        "reference_images": {
-          "$ref": "project:/properties/video_prompt/properties/items/items/properties/reference_images"
-        },
-        "voice_references": {
-          "$ref": "project:/properties/video_prompt/properties/items/items/properties/voice_references"
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "subject_definitions": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "summary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "retention_analysis": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "detailed_description": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "overall_soundscape": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "non_diegetic_music": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "subject_definitions",
+                "summary",
+                "retention_analysis",
+                "detailed_description",
+                "overall_soundscape",
+                "non_diegetic_music"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "integrated_multimodal_description": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "overall_soundscape": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "non_diegetic_music": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "integrated_multimodal_description",
+                "overall_soundscape",
+                "non_diegetic_music"
+              ],
+              "additionalProperties": false
+            }
+          ]
         }
       },
       "required": [
-        "prompt",
-        "reference_images",
-        "voice_references"
+        "prompt"
       ],
       "additionalProperties": false
     }

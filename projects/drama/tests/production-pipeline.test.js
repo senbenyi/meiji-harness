@@ -174,3 +174,12 @@ test('素材图片请求失败保留失败状态，不显示生成通过',async 
  const started=await f.production.run('asset_preparation',{}, {...f.context,requestId:'image-failed'}),detail=await f.production.wait(started.group_id),p=await f.project()
  assert.equal(detail.status,'failed');assert.match(detail.reason,/图片服务失败/);assert.notEqual(p.node_states.asset_preparation.status,'confirmed');assert.equal(f.production.images.list().total,0)
 })
+
+test('素材生成通过后无需手动逐图选用即可执行参考确认，绑定与默认选图正式保存',async t=>{
+ const f=await fixture(t);await f.run('source_analysis');await f.run('adaptation_plan');await f.run('story_segments');await f.run('shot_design');await f.run('asset_preparation')
+ const before=await f.project(),imageRequests=f.requests.filter(r=>r.path==='/images/generations').length
+ assert.equal(before.asset_library.scenes[0].selected_image_id,null);assert.equal(before.asset_library.character_looks[0].selected_image_id,null)
+ await f.run('reference_binding');const after=await f.project();assert.equal(after.node_states.reference_binding.status,'confirmed');assert.ok(after.shot_design.shots.every(s=>s.reference_images.length===2));assert.equal(after.asset_library.scenes[0].selected_image_id,after.asset_library.scenes[0].image_ids[0]);assert.equal(after.asset_library.character_looks[0].selected_image_id,after.asset_library.character_looks[0].image_ids[0])
+ assert.ok(after.node_states.asset_preparation.product_revision>before.node_states.asset_preparation.product_revision);assert.equal(f.requests.filter(r=>r.path==='/images/generations').length,imageRequests)
+ await f.run('clip_arrangement');assert.ok((await f.project()).clip_arrangement.clips.length)
+})

@@ -1,3 +1,4 @@
+import {promptContext} from '../../src/node_box/video_prompt/runtime/context.js'
 import {makePlan} from './adaptation-plan.js'
 import assert from 'node:assert/strict'
 import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises'
@@ -68,9 +69,13 @@ export async function defaultAuthor(body,{projects,calls}){
   const character=p.asset_library.characters.find(c=>c.character_plan_id==='cp_zhang'),scene=p.asset_library.scenes.find(s=>s.scene_plan_id==='sp_tent'),segment=p.story_segments.segments.find(s=>s.id===unit.segment_id),shotId='shot_'+segment.id
   output={assets:{characters:[{...character,voice_profile:{...character.voice_profile,description:'低沉浑厚的成熟男声'}}],clothing:[{id:'clothing_robe',name:'战袍',description:'深色战袍',group_key:'',image_ids:[],selected_image_id:null}],props:[],scenes:[],character_looks:[{id:'look_zhang',name:'张飞战袍定妆',description:'张飞穿深色战袍',image_ids:[],selected_image_id:null,character_id:character.id,clothing_ids:['clothing_robe'],prop_ids:[],hair_and_makeup:'束发'}]},shots:[{id:shotId,sequence:segment.sequence,revision:1,story_segment_id:segment.id,story_segment_revision:segment.revision,previous_shot_id:p.shot_design.shots.at(-1)?.id||null,scene_id:scene.id,characters:[{character_id:character.id,look_id:'look_zhang',opening_state:'帐中站立'}],props:[],reference_images:[],beats:[{id:'beat_'+shotId,duration_seconds:4,action:'张飞直视对方',camera:'固定中景',scene_changes:'',effects:'',dialogues:[{id:'line_'+shotId,speaker_id:character.id,text:'来战！',delivery:{emotion:'愤怒',volume:'高',pace:'短促',breath:'有力'}}],soundscape:'营帐内轻微风声',music:''}]}],requirements:[]}
  }
- if(stage==='video_prompt'){
-  const clip=p.clip_arrangement.clips.find(c=>c.id===unit.clip_id),shots=clip.sources.map(s=>p.shot_design.shots.find(shot=>shot.id===s.shot_id)),character=p.asset_library.characters[0]
-  output={prompt:'参考Image1中的人物定妆，保持Image2场景布局。张飞以低沉浑厚的愤怒男声说：“来战！”固定中景。',reference_images:[...new Set(shots.flatMap(s=>s.reference_images.map(r=>r.image_id)))].map((id,i)=>({image_id:id,role:'Image'+(i+1)})),voice_references:character.voice_profile.reference_audio_ref?[{character_id:character.id,voice_revision:character.voice_profile.revision,audio_ref:character.voice_profile.reference_audio_ref}]:[]}
- }
+ if(stage==='video_prompt')output={prompt:mockPrompt(promptContext(p,p.clip_arrangement.clips.find(c=>c.id===unit.clip_id)))}
  return reply([call('submit_candidate',{output})])
+}
+
+export function mockPrompt(unit){
+ const m=unit.material,body='Cinematic natural light.\n[Shot 1] A warrior stands in the tent. '+m.dialogues.map(line=>{const speaker=m.speakers.find(row=>row.character_id===line.speaker_id);return `${speaker.subject?speaker.subject+' ':''}${speaker.label} says in a deep, forceful voice: <d>[Chinese] ${line.text}</d>`}).join(' ')
+ const sound={overall_soundscape:'Quiet wind against canvas.',non_diegetic_music:'N/A'}
+ if(unit.mode!=='reference')return {integrated_multimodal_description:body,...sound}
+ return {subject_definitions:[...m.subjects.map(subject=>`${subject.label} is the visual subject shown in ${subject.pictures.join(' and ')}.`),...m.audio.map(audio=>`${audio.label} provides the voice for ${audio.subject||'the warrior'} ${audio.speaker}.`)].join('\n'),summary:`[reference generation${m.audio.length?' + audio reference':''}] A warrior challenges his opponent.`,retention_analysis:[...m.subjects.map(subject=>`${subject.label} (appears in [Shot 1]): fully_preserved - appearance and setting.`),...m.audio.map(audio=>`${audio.label}: reference - vocal identity.`)].join('\n'),detailed_description:body,...sound}
 }

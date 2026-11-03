@@ -6,7 +6,7 @@ export function applyCandidate(document,stage,unit,output,files={}){const next=s
 export async function prepareText(projects,stage,project,input,options){const units=await box(stage).prepareText(projects,project,input,options);for(const unit of units)unit.initial_action??=box(stage).initialAction?.(unit)||'generate';return units}
 export async function commitTextCandidate(projects,projectId,stage,unit,output,{signal,checkpoint}={}){
   signal?.throwIfAborted()
-  const files=await box(stage).writeCandidateFiles(projects,projectId,output)
+  const files=await box(stage).writeCandidateFiles(projects,projectId,output,unit)
   return projects.documents.mutate(projectId,p=>{
     signal?.throwIfAborted();const next=applyCandidate(p,stage,unit,output,files),node=next.node_states[stage];node.product_revision++;node.status='partial';node.reason='候选已保存，待独立审核';if(checkpoint)node.checkpoint={...checkpoint,product_revision:node.product_revision};box(stage).afterCommit?.(next);return next
   })

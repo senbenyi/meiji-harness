@@ -1,4 +1,5 @@
-import {mediaMemory} from '../../../memory/service.js'
+import {promptContext} from '../../video_prompt/runtime/context.js'
+import {parsePrompt,validateStoredReferences} from '../../video_prompt/runtime/h3_prompt.js'
 import {UnitProductionExecutor} from '../../shared/production/unit_executor.js'
 import {uid,readJSON} from '../../shared/production/execution_support.js'
 import {probeBytes} from '../../../shared/media/media.js'
@@ -7,21 +8,24 @@ import {upsert} from '../../../shared/text/source.js'
 /** 视频盒子：分片/声音预检、调用视频模型、下载技术校验，等待人工选用。 */
 export class VideoProductionExecutor extends UnitProductionExecutor {
   constructor(service){super(service,['video_render'])}
-  async createUnits(_ctx,project,input){
+  async createUnits(ctx,project,input){
     if(project.node_states.video_prompt.status!=='confirmed')throw new TypeError('请先完成并确认视频提示词')
     if(input.unit_id&&!project.clip_arrangement.clips.some(c=>c.id===input.unit_id))throw new TypeError('指定分片不存在')
-    return project.clip_arrangement.clips.filter(clip=>(!input.unit_id||clip.id===input.unit_id)&&(input.regenerate||!project.videos.some(v=>v.clip_id===clip.id))).map(clip=>({id:uid('unit'),clip_id:clip.id,take_id:uid('take'),operation_id:uid('op'),has_dialogue:clip.sources.some(s=>project.shot_design.shots.find(shot=>shot.id===s.shot_id).beats.some(b=>s.beat_ids.includes(b.id)&&b.dialogues.length))}))
+    if(ctx.task.metadata.instruction?.trim())throw new TypeError('请先在视频提示词步骤应用补充意见，再生成视频')
+    const clips=project.clip_arrangement.clips.filter(clip=>(!input.unit_id||clip.id===input.unit_id)&&(input.regenerate||!project.videos.some(v=>v.clip_id===clip.id)))
+    for(const clip of clips){const prompt=project.video_prompt.items.find(row=>row.clip_id===clip.id);if(!prompt)throw new TypeError('分片缺少已保存提示词');const unit=promptContext(project,clip);validateStoredReferences(unit,prompt);parsePrompt(unit,(await this.projects.documents.readArtifact(project.basic_info.id,prompt.prompt_ref)).toString())}
+    return clips.map(clip=>({id:uid('unit'),clip_id:clip.id,take_id:uid('take'),operation_id:uid('op'),has_dialogue:clip.sources.some(s=>project.shot_design.shots.find(shot=>shot.id===s.shot_id).beats.some(b=>s.beat_ids.includes(b.id)&&b.dialogues.length))}))
   }
   requiresConfirmation(ctx,project){return ctx.previousResults.some(s=>s.result?.requires_confirmation)||project.clip_arrangement.clips.some(c=>!project.videos.some(v=>v.clip_id===c.id&&v.status==='approved'))}
   async executeUnit(ctx){
     const unit=await readJSON(this.projects,ctx.task.metadata.project_id,ctx.step.metadata.unit_ref)
     const service=this.service,{projects,images,models}=service,id=ctx.task.metadata.project_id,project=await projects.documents.read(id),clip=project.clip_arrangement.clips.find(c=>c.id===unit.clip_id),prompt=project.video_prompt.items.find(p=>p.clip_id===clip?.id)
-    if(prompt&&prompt.mode!==clip?.mode)throw new TypeError('分片模式已变化，请重新生成此分片提示词')
     if(!clip||!prompt)throw new TypeError('分片缺少已保存提示词')
     const cached=project.videos.find(v=>v.id===unit.take_id);if(cached){await projects.documents.readArtifact(id,cached.file_ref);return this.acceptUnit(ctx,{saved:true,reused:true,take_id:cached.id,file_ref:cached.file_ref,requires_confirmation:cached.status!=='approved',input_snapshot_ref:cached.input_snapshot_ref})}
-    const options={mode:clip.mode,prompt:[await mediaMemory(projects,ctx.task),(await projects.documents.readArtifact(id,prompt.prompt_ref)).toString(),ctx.task.metadata.instruction?`本次补充意见：${ctx.task.metadata.instruction}`:''].filter(Boolean).join('\n'),duration:clip.duration_seconds,aspectRatio:project.basic_info.aspect_ratio}
-    const lines=clip.sources.flatMap(s=>project.shot_design.shots.find(shot=>shot.id===s.shot_id).beats.filter(b=>s.beat_ids.includes(b.id)).flatMap(b=>b.dialogues));if(lines.some(line=>!options.prompt.includes(line.text)))throw new TypeError('当前提示词遗漏最新对白，请先重新生成提示词')
-    for(const voice of prompt.voice_references){const profile=project.asset_library.characters.find(c=>c.id===voice.character_id)?.voice_profile;if(!profile||profile.revision!==voice.voice_revision||profile.reference_audio_ref!==voice.audio_ref)throw new TypeError('音色样本已变化，请先重新生成提示词')}
+    if(ctx.task.metadata.instruction?.trim())throw new TypeError('请先在视频提示词步骤应用补充意见，再生成视频')
+    const text=(await projects.documents.readArtifact(id,prompt.prompt_ref)).toString(),context=promptContext(project,clip)
+    validateStoredReferences(context,prompt);parsePrompt(context,text)
+    const options={mode:clip.mode,prompt:text,duration:clip.duration_seconds,aspectRatio:project.basic_info.aspect_ratio}
     const actual_prompt_ref=await projects.documents.writeArtifact(id,options.prompt)
     const imageUrl=async imageId=>`data:image/png;base64,${(await images.read(imageId)).toString('base64')}`
     if(clip.mode==='reference'){
