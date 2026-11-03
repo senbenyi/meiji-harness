@@ -12,7 +12,7 @@ const trace={action:'generate',messages:[{role:'assistant',content:'不能把这
 
 test('操作来自当轮工具返回，阶段/范围/错误中文展示且不包含正文或模型自由文本',()=>{
  const rows=executionActivities(trace);assert.deepEqual(rows.map(r=>r.status),['done','done','failed','done']);assert.equal(rows[0].title,'读取生成规则');assert.match(rows[1].detail,/1–5933/);assert.equal(rows[2].detail,'读取范围无效');assert.equal(rows[3].detail,'候选校验通过');assert.doesNotMatch(JSON.stringify(rows),/不要复制原著|不能把这段|不泄露整份|onerror/)
- assert.equal(stepExecutionName({kind:'review',name:'review'},{metadata:{document_version:3}}),'独立审核');assert.equal(stepExecutionName({kind:'review',name:'历史名称'},{metadata:{}}),'历史名称')
+ assert.equal(stepExecutionName({kind:'review',name:'review'},{metadata:{document_version:4}}),'独立审核');assert.equal(stepExecutionName({kind:'review',name:'历史名称'},{metadata:{}}),'历史名称')
 })
 
 test('无工具返回和未接受提交不能显示完成，审核结论仅由实际提交确认',()=>{
@@ -31,7 +31,7 @@ test('时间线默认显示实际操作，详情保持折叠，用户折叠选�
 })
 
 test('旧trace只从历史任务所属短剧恢复，compact保留摘要，缓存不改写历史',async()=>{
- const step={id:'step',task_id:'t',kind:'generate',name:'generate',seq:2,step_status:'done',result:{trace:{file_ref:'artifacts/trace.json'}}},task={id:'t',node_type:'adaptation_plan',name:'联合改编',task_status:'completed',metadata:{document_version:3,project_id:'p_history'}},detail={group:{id:'g',source:'ui'},tasks:[task],steps:[step],status:'completed'},before=structuredClone(detail)
+ const step={id:'step',task_id:'t',kind:'generate',name:'generate',seq:2,step_status:'done',result:{trace:{file_ref:'artifacts/trace.json'}}},task={id:'t',node_type:'adaptation_plan',name:'联合改编',task_status:'completed',metadata:{document_version:4,project_id:'p_history'}},detail={group:{id:'g',source:'ui'},tasks:[task],steps:[step],status:'completed'},before=structuredClone(detail)
  let reads=0;const events=[{type:'command/run',seq:1,data:{commandId:'event',name:'盒子步骤',args:JSON.stringify({kind:'drama-task-display',phase:'step',group_id:'g',task_id:'t',step_id:'step',seq:2,label:'已完成',status:'done'})}},{type:'command/done',data:{commandId:'event',kind:'success'}}]
  const projects={records:{scope:'drama',tasks:{detail:()=>structuredClone(detail)}},documents:{readArtifact:async(id,ref)=>{assert.equal(id,'p_history');assert.equal(ref,'artifacts/trace.json');reads++;return Buffer.from(JSON.stringify(trace))}},snapshot:()=>{throw Error('不得读取当前短剧')}}
  const ui=createPanelTaskDisplay({sessionController:{resolveAgent:async()=>({agent:{session:{snapshotEvents:()=>events}}})}},projects)
@@ -42,7 +42,7 @@ test('旧trace只从历史任务所属短剧恢复，compact保留摘要，缓�
 })
 
 test('运行中显示实际阶段及等待本轮结果，缺失历史文件如实提示',async()=>{
- const task={id:'t',node_type:'adaptation_plan',name:'联合改编',task_status:'running',metadata:{document_version:3}},step={id:'s',task_id:'t',seq:1,name:'generate',kind:'generate',executor:'ai',step_status:'running'},detail={group:{id:'g'},tasks:[task],steps:[step],status:'running'}
+ const task={id:'t',node_type:'adaptation_plan',name:'联合改编',task_status:'running',metadata:{document_version:4}},step={id:'s',task_id:'t',seq:1,name:'generate',kind:'generate',executor:'ai',step_status:'running'},detail={group:{id:'g'},tasks:[task],steps:[step],status:'running'}
  const context=displayContext(detail,task,step);assert.match(context.active_step.name,/生成内容，等待本轮调用结果/);assert.equal(compactDisplay(context).execution_detail_version,1)
 })
 

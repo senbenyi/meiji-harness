@@ -3,7 +3,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 3
+      "const": 4
     },
     "document_revision": {
       "type": "integer",
@@ -263,107 +263,9 @@
           "description": "全篇创作约束：明确风格、受众、改编尺度、保留内容与允许调整内容；locked_requirements记录用户明确锁定要求，其余方案依据原著和视频表达需要作出明确选择。"
         },
         "plot_development": {
-          "type": "object",
-          "properties": {
-            "main_goal": {
-              "type": "string",
-              "minLength": 0
-            },
-            "core_conflict": {
-              "type": "string",
-              "minLength": 0
-            },
-            "events": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "sequence": {
-                    "type": "integer",
-                    "minimum": 1
-                  },
-                  "title": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "cause": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "action": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "result": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "character_ids": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "group_ids": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "scene_ids": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "source_chapter_ids": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  }
-                },
-                "required": [
-                  "id",
-                  "sequence",
-                  "title",
-                  "cause",
-                  "action",
-                  "result",
-                  "character_ids",
-                  "group_ids",
-                  "scene_ids",
-                  "source_chapter_ids"
-                ],
-                "additionalProperties": false
-              }
-            },
-            "climax": {
-              "type": "string",
-              "minLength": 0
-            },
-            "ending": {
-              "type": "string",
-              "minLength": 0
-            }
-          },
-          "required": [
-            "main_goal",
-            "core_conflict",
-            "events",
-            "climax",
-            "ending"
-          ],
-          "additionalProperties": false,
-          "description": "剧情发展：明确主线目标、核心冲突、按因果推进的关键事件、高潮与结局方向；事件关联人物/团队/场景及原著章节。确定事件及因果关系，供故事分段定稿展开完整正文。"
+          "type": "string",
+          "minLength": 0,
+          "description": "全篇剧情发展：用连贯文本写清主线目标、核心冲突、因果推进、关键转折、高潮和结局方向，以及人物、团队、场景在剧情中的作用；故事定稿据此自主分段并展开正文。"
         },
         "character_plans": {
           "type": "array",
@@ -504,13 +406,6 @@
                 "type": "integer",
                 "minimum": 0
               },
-              "plot_event_ids": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              },
               "source_chapter_ids": {
                 "type": "array",
                 "items": {
@@ -569,7 +464,6 @@
               "sequence",
               "revision",
               "adaptation_revision",
-              "plot_event_ids",
               "source_chapter_ids",
               "title",
               "body_ref",

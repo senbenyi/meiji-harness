@@ -79,14 +79,14 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
       }
       const sessionId = url.searchParams.get('session_id')
       if (!sessionId) return json(res, 400, { message: '需提供会话ID' })
-      if(tool.documentVersion===3&&url.pathname==='/api/drama/document-file'&&req.method==='GET'){
+      if(tool.documentVersion===4&&url.pathname==='/api/drama/document-file'&&req.method==='GET'){
         const project=await tool.context(sessionId),ref=url.searchParams.get('ref'),stage=url.searchParams.get('stage')
         const product=stageProduct(project,stage),contains=value=>value&&typeof value==='object'&&Object.entries(value).some(([key,item])=>key.endsWith('_ref')&&item===ref||item&&typeof item==='object'&&contains(item))
         if(!contains(product))return json(res,403,{message:'文件不属于当前阶段产物'})
         const body=await tool.documents.readArtifact(project.basic_info.id,ref)
         const text=body.toString('utf8');return json(res,200,{body:text.slice(0,240000),truncated:text.length>240000})
       }
-      if(tool.documentVersion===3&&['script-optimization','story-outline','shots','scenes','groups','characters','costume-images','costume-image','scene-image','scene-images','scene-image-inputs'].some(path=>url.pathname===`/api/drama/${path}`))return json(res,410,{message:'旧流程已停用，请使用新的制作步骤'})
+      if(tool.documentVersion===4&&['script-optimization','story-outline','shots','scenes','groups','characters','costume-images','costume-image','scene-image','scene-images','scene-image-inputs'].some(path=>url.pathname===`/api/drama/${path}`))return json(res,410,{message:'旧流程已停用，请使用新的制作步骤'})
 
       if (url.pathname === '/api/drama/node-rules' && req.method === 'GET') {
         const type = url.searchParams.get('node_type')

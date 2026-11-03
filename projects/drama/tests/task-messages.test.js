@@ -17,13 +17,15 @@ function displayFixture() {
     events.push({ type, data })
   } }
   const ctx = { sessionController: { resolveAgent: async id => { sessions.push(id); return { agent: { session } } } } }
-  return { events, sessions, ctx, setFail: () => { fail = true }, display: createPanelTaskDisplay(ctx, projects) }
+  let cleared = false
+  const service = {...projects,records:{scope:'drama',tasks:{detail:()=>cleared?undefined:{group:{id:'g',source:'ui'},status:'completed',tasks:[{id:'t',node_type:'script_revision',action:'generate',name:'剧本优化',task_status:'completed',metadata:{project_id:'p',session_id:'s'}}],steps:events.filter(e=>e.type==='command/run').map(e=>JSON.parse(e.data.args)).filter(c=>c.step_id).map(c=>({id:c.step_id,task_id:c.task_id,seq:c.seq,round:c.round,name:c.title,kind:'review',executor:'program',step_status:'done',result:c.result}))}}}}
+  return { events, sessions, ctx, projects:service, clearTasks:()=>{cleared=true}, setFail: () => { fail = true }, display: createPanelTaskDisplay(ctx, service) }
 }
 
 test('步骤完整结果只写log-only；审核未通过、稳定ID、并发和重建适配器不重复', async () => {
   const f = displayFixture()
   await Promise.all([f.display(report, 'step', '剧本优化', step), f.display(report, 'step', '剧本优化', step)])
-  await createPanelTaskDisplay(f.ctx, projects)(report, 'step', '剧本优化', step)
+  await createPanelTaskDisplay(f.ctx, f.projects)(report, 'step', '剧本优化', step)
   assert.equal(f.events.length, 2)
   assert.deepEqual(f.events.map(event => event.type), ['command/run', 'command/done'])
   const [card] = await f.display.read('s')
@@ -40,7 +42,7 @@ test('command/run成功而done失败：读取暂不展示，重试只补done', a
   const f = displayFixture(); f.setFail()
   await assert.rejects(f.display(report, 'step', '剧本优化', step), /写入中断/)
   assert.deepEqual(await f.display.read('s'), [])
-  await createPanelTaskDisplay(f.ctx, projects)(report, 'step', '剧本优化', step)
+  await createPanelTaskDisplay(f.ctx, f.projects)(report, 'step', '剧本优化', step)
   assert.equal(f.events.length, 2); assert.equal((await f.display.read('s')).length, 1)
 })
 
@@ -321,4 +323,43 @@ test('独立失败卡片区分审核未通过和已保存，提供本次结果�
   assert.match(card.textContent, /审核未通过/)
   assert.deepEqual([...card.querySelectorAll('button')].map(button => button.textContent), ['继续修改', '停止', '重新生成', '任务详情'])
   assert.ok([...card.querySelectorAll('button')].some(button=>button.textContent==='任务详情'))
+})
+
+test('刷新和重建适配器不恢复已清理任务的创建受理卡',async()=>{
+ const f=displayFixture(),card={kind:'drama-task-display',phase:'start',group_id:'g',task_id:'t',node_type:'project',action:'create',title:'创建短剧',operation_name:'创建短剧',operation_status:'running',active_step:{name:'创建短剧'},status:'accepted'}
+ f.events.push({type:'command/run',data:{commandId:'old-create',name:'面板操作',args:JSON.stringify(card)}},{type:'command/done',data:{commandId:'old-create',kind:'success',text:'创建短剧：已受理'}})
+ f.clearTasks()
+ for(let n=0;n<3;n++){
+  const display=n?createPanelTaskDisplay(f.ctx,f.projects):f.display
+  assert.deepEqual(await display.read('s'),[])
+  const eager=await display.read('s',{compact:true,eager:true});assert.deepEqual(eager.messages,[]);assert.deepEqual(eager.details,[])
+  assert.deepEqual(await display.read('s',{id:'old-create'}),[])
+ }
+ assert.equal(f.events.length,2,'读取不改写原始会话事件')
+})
+
+test('任务存在但对应步骤缺失时不返回孤立步骤卡',async()=>{
+ const f=displayFixture();await f.display(report,'step','剧本优化',step)
+ const detail={group:{id:'g',source:'ui'},status:'completed',tasks:[{id:'t',node_type:'script_revision',action:'generate',task_status:'completed',name:'剧本优化',metadata:{}}],steps:[]}
+ const display=createPanelTaskDisplay(f.ctx,{...projects,records:{scope:'drama',tasks:{detail:()=>detail}}})
+ assert.deepEqual(await display.read('s'),[])
+})
+
+test('真实终态覆盖会话受理卡中保存的旧running状态',async()=>{
+ const f=displayFixture();await f.display(report,'start','剧本优化')
+ const [card]=await f.display.read('s');assert.equal(card.operation_status,'completed')
+ const [group]=groupTaskMessages([card]);assert.equal(group.status,'completed');assert.equal(group.context.active_step,null)
+})
+
+test('清理后的旧创建消息原生座位也隐藏，会话切换清理标记且不影响普通聊天',async t=>{
+ let removed=true
+ const f=uiFixture(t,{phase:'messages',fetcher:async()=>({ok:true,json:async()=>({messages:[],details:[],removed_message_ids:removed?['old-create']:[]})})})
+ const scroller=f.dom.window.document.querySelector('[data-conversation-scroll]'),old=f.dom.window.document.createElement('div'),normal=f.dom.window.document.createElement('div')
+ old.setAttribute('data-chat-node-key','7:commandold-create');old.textContent='创建短剧：已受理'
+ normal.setAttribute('data-chat-node-key','user-message');normal.textContent='普通聊天'
+ scroller.prepend(old,normal);await f.ui.refresh()
+ assert.equal(old.hasAttribute('data-drama-operation-hidden'),true);assert.equal(normal.hasAttribute('data-drama-operation-hidden'),false)
+ assert.equal(f.operation(),undefined)
+ removed=false;f.setSession('another');await f.ui.refresh();assert.equal(old.hasAttribute('data-drama-operation-hidden'),false)
+ f.ui.dispose();assert.equal(old.hasAttribute('data-drama-operation-hidden'),false)
 })

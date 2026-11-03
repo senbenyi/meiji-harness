@@ -5,14 +5,14 @@ import {stageProduct} from '../shared/production/production_stages.js'
 import {randomUUID} from 'node:crypto'
 import {createProjectDocument,assertProjectDocument,editProjectProduct,projectStages} from './drama_document.js'
 
-// V3文档读写基础层：新建即使用新契约，不读取/迁移旧版数据，不依赖AI节点。
+// V4文档读写基础层：新建即使用新契约，不读取/迁移旧版数据，不依赖AI节点。
 export class ProjectDocumentStore {
  #pending=new Map()
  constructor(root){if(typeof root!=='string'||!root.trim())throw new TypeError('需要短剧存储目录');this.root=resolve(root)}
  directory(id){if(typeof id!=='string'||!/^p_[a-zA-Z0-9_-]+$/.test(id))throw new TypeError('短剧ID无效');return join(this.root,'projects',id)}
  async #serial(id,work){const prior=this.#pending.get(id)||Promise.resolve();const next=prior.catch(()=>{}).then(work);this.#pending.set(id,next);try{return await next}finally{if(this.#pending.get(id)===next)this.#pending.delete(id)}}
  async #save(id,document){assertProjectDocument(document);if(document.source_analysis.source_revision_id){const source=document.source.revisions.find(row=>row.id===document.source_analysis.source_revision_id);assertSourceText((await this.readArtifact(id,source.file_ref)).toString(),document.source_analysis.chapters);}await this.validateImages?.(document);const path=join(this.directory(id),'project.json'),temp=join(this.directory(id),`.project-${randomUUID()}.tmp`);await writeFile(temp,JSON.stringify(document,null,2)+'\n',{flag:'wx',mode:0o600});await rename(temp,path);return structuredClone(document)}
- async read(id){const document=JSON.parse(await readFile(join(this.directory(id),'project.json'),'utf8'));if(document.schema_version!==3)throw Object.assign(new Error('旧数据不再支持，请清空后创建新短剧'),{code:'UNSUPPORTED_PROJECT_VERSION'});if(document.basic_info?.id!==id)throw new TypeError('短剧文件归属错误');return assertProjectDocument(document)}
+ async read(id){const document=JSON.parse(await readFile(join(this.directory(id),'project.json'),'utf8'));if(document.schema_version!==4)throw Object.assign(new Error('旧数据不再支持，请清空后创建新短剧'),{code:'UNSUPPORTED_PROJECT_VERSION'});if(document.basic_info?.id!==id)throw new TypeError('短剧文件归属错误');return assertProjectDocument(document)}
  async writeArtifact(id,body,{kind='artifacts',extension='txt'}={}){
   if(!['artifacts','sources','media','audio','exports'].includes(kind)||!['txt','json','png','jpg','webp','wav','mp3','mp4','srt'].includes(extension))throw new TypeError('文件类别或扩展名无效')
   if(typeof body!=='string'&&!Buffer.isBuffer(body))throw new TypeError('文件内容无效')

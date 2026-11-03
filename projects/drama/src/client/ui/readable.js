@@ -1,6 +1,6 @@
 // 字段标签与readable布局复制自meiji/client/content-forms.js，按drama节点契约补齐。
 const fieldLabels = {
-  locked_requirements:'用户锁定要求',creative_constraints:'全篇创作约束',style:'风格',audience:'受众',adaptation_scope:'改编尺度',preserve:'必须保留',allowed_changes:'允许调整',plot_development:'剧情发展',main_goal:'主线目标',core_conflict:'核心冲突',events:'关键事件',cause:'原因',action:'行动',result:'结果',climax:'高潮',character_ids:'关联人物',group_ids:'关联团队',scene_ids:'关联场景',plot_event_ids:'剧情事件',
+  locked_requirements:'用户锁定要求',creative_constraints:'全篇创作约束',style:'风格',audience:'受众',adaptation_scope:'改编尺度',preserve:'必须保留',allowed_changes:'允许调整',plot_development:'剧情发展',action:'行动',result:'结果',character_ids:'关联人物',group_ids:'关联团队',scene_ids:'关联场景',
   shots: '分镜', name: '名称', title: '标题', body: '正文', description: '描述',
   world_background: '世界背景', key_anchors: '关键锚点', content: '内容', expression: '视听表达',
   characters_and_groups: '参与人物与群体', scene_and_space: '场景与空间', emotion_and_rhythm: '情绪与节奏',

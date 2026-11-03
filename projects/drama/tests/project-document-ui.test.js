@@ -118,7 +118,7 @@ test('原著解析仅展示分段，内部事实/覆盖报告不展示或编辑�
  const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},save:async value=>{command=value;return p}});t.after(()=>view.dispose());assert.equal(root.querySelectorAll('.production-card').length,1);assert.doesNotMatch(root.textContent,/原著事实|覆盖报告|facts_ref|coverage_ref|artifacts\//);assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent.startsWith('查看正文')));assert.equal([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑正文'),false)
  const click=text=>[...root.querySelectorAll('button')].find(b=>b.textContent===text).click();click('人工编辑产物');const textarea=root.querySelector('dialog textarea'),value=JSON.parse(textarea.value);assert.deepEqual(Object.keys(value),['chapters']);assert.doesNotMatch(root.querySelector('dialog').textContent,/\$text/);value.chapters[0].title='新的分段标题';value.facts_ref='artifacts/overwrite.json';textarea.value=JSON.stringify(value);await [...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').onclick();assert.equal(command.value.chapters[0].title,'新的分段标题');assert.equal(command.value.source_revision_id,'src');assert.equal(command.value.facts_ref,'artifacts/facts.json');assert.equal(command.value.coverage_ref,'artifacts/coverage.json')
  const empty=structuredClone(p);empty.source_analysis.chapters=[];view.update(empty);assert.equal(root.querySelectorAll('[data-guidance-group=character_plans]').length,0);assert.match(root.querySelector('.production-empty').textContent,/暂无原著解析产物/)
- empty.adaptation_plan.plot_development.main_goal='保留主线，强化人物动机';view.update(empty);root.querySelector('[data-stage=adaptation_plan]').click();assert.match(root.textContent,/剧情发展/);assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑剧情发展'))
+ empty.adaptation_plan.plot_development='保留主线，强化人物动机';view.update(empty);root.querySelector('[data-stage=adaptation_plan]').click();assert.match(root.textContent,/剧情发展/);assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑剧情发展'))
 })
 
 test('原著解析展示程序执行按钮，隐藏AI规则和修订，保留人工编辑及历史',t=>{
@@ -136,17 +136,24 @@ test('联合改编中文展示精简团队指导，人工编辑保留ID与版本
  assert.equal(saved.value.group_plans[0].description,'共同灰甲，成员面容各异');assert.equal(saved.value.group_plans[0].id,'guard');assert.equal(saved.expected_revision,0)
 })
 
-test('剧情事件与人物团队场景分组显示，编辑发展保留关联和版本',async t=>{
+test('剧情发展按全篇纯文本展示和编辑，保留人物团队场景及版本',async t=>{
  const {root}=fixture(t),p=createProjectDocument({id:'p_global',name:'全篇指导'});let saved
- p.adaptation_plan=makePlan({direction:'科学冒险',development:'主角争取支持',character_plans:[{id:'cp_a',name:'主角',description:'探索者',motivation:'争取支持',relationships:'与委员会冲突',arc:'坚定'}],scene_plans:[{id:'sp_a',name:'会议厅',function:'公开论证',description:'圆桌会议厅'}],group_plans:[{id:'gp_a',name:'委员会',social_role:'审议',description:'评估计划'}]})
- p.adaptation_plan.revision=1;p.adaptation_plan.source_revision_id=null
+ p.adaptation_plan={...makePlan({development:'主角争取支持，经历公开论证后获得附带条件的通过。',character_plans:[{id:'cp_a',name:'主角',description:'探索者',motivation:'争取支持',relationships:'与委员会冲突',arc:'坚定'}],scene_plans:[{id:'sp_a',name:'会议厅',function:'公开论证',description:'圆桌会议厅'}],group_plans:[{id:'gp_a',name:'委员会',social_role:'审议',description:'评估计划'}]}),revision:1,source_revision_id:null}
  const view=createProjectDocumentView(root,{project:p,state:{documentStage:'adaptation_plan'},save:async c=>{saved=c;return editProjectProduct(p,c.stage,c.value,{expectedRevision:c.expected_revision})}});t.after(()=>view.dispose())
  assert.deepEqual([...root.querySelectorAll('.production-guidance-group h3')].map(e=>e.textContent),['全篇创作约束','剧情发展','人物规划','团队规划','场景规划'])
- assert.match(root.querySelector('[data-guidance-group=plot_development]').textContent,/主线推进|主角争取支持/)
- ;[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑剧情发展').click()
- const text=root.querySelector('dialog textarea'),value=JSON.parse(text.value);value.events[0].result='获得附带条件的支持';text.value=JSON.stringify(value)
+ const plot=root.querySelector('[data-guidance-group=plot_development]');assert.match(plot.textContent,/主角争取支持/);assert.equal(plot.querySelectorAll('.production-card').length,1)
+ assert.doesNotMatch(plot.textContent,/sequence|character_|scene_|group_|chapter_|事件ID|标题：/)
+ ;[...plot.querySelectorAll('button')].find(b=>b.textContent==='编辑剧情发展').click()
+ const text=root.querySelector('dialog textarea');assert.equal(text.value,p.adaptation_plan.plot_development);text.value='主角通过辩论获得支持，附带条件引出新的风险。'
  ;[...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').click();await tick()
- assert.equal(saved.value.plot_development.events[0].result,'获得附带条件的支持');assert.deepEqual(saved.value.plot_development.events[0].character_ids,['cp_a']);assert.equal(saved.expected_revision,0)
+ assert.equal(saved.value.plot_development,text.value);assert.deepEqual(saved.value.character_plans,p.adaptation_plan.character_plans);assert.equal(saved.expected_revision,0)
+})
+
+test('空团队规划始终展示卡片和占位文字',t=>{
+ const {root}=fixture(t),p=createProjectDocument({id:'p_no_group',name:'个人冒险'})
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'adaptation_plan'}});t.after(()=>view.dispose())
+ const group=root.querySelector('[data-guidance-group=group_plans]');assert.ok(group);assert.match(group.querySelector('h3').textContent,/团队规划/)
+ assert.equal(group.querySelectorAll('.production-card').length,1);assert.equal(group.querySelector('.production-card').textContent,'暂无团队规划。');assert.deepEqual(p.adaptation_plan.group_plans,[])
 })
 
 test('全篇创作约束独立编辑，保留剧情事件和人物规划',async t=>{

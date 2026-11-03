@@ -21,7 +21,7 @@ export function mountTaskMessages({ document = globalThis.document, getSessionId
   document.head.append(layout)
   let disposed = false, session, version = 0, pending = null, cursor = -1
   let pendingGroups = []
-  let groups = []
+  let groups = [], removedMessageIds = new Set()
   const requests = new Map()
   const views = new Map(), full = new Map(), ready = new Map(), anchors = new Set(), hidden = new Set()
   const locate = () => [...document.querySelectorAll('[data-conversation-content]')].find(node => node.dataset.conversationSession === getSessionId())
@@ -37,10 +37,12 @@ export function mountTaskMessages({ document = globalThis.document, getSessionId
   }
   const seat = () => {
     const content = locate(), scroller = content?.querySelector('[data-conversation-scroll]')
-    if (!scroller || !groups.length) { host.remove(); clearHero(); clearNative(); for (const view of views.values()) view.element.remove(); return }
+    const removedSeats = content ? [...content.querySelectorAll('[data-chat-node-key]')].filter(node => [...removedMessageIds].some(id => node.getAttribute('data-chat-node-key') === `7:command${id}`)) : []
+    const hideRemoved = () => { for (const node of removedSeats) { node.setAttribute('data-drama-operation-hidden', ''); hidden.add(node) } }
+    if (!scroller || !groups.length) { host.remove(); clearHero(); clearNative(); hideRemoved(); for (const view of views.values()) view.element.remove(); return }
     const hero = content.dataset.contentPhase === 'hero'
     if (hero) {
-      clearNative()
+      clearNative(); hideRemoved()
       for (const group of groups) { const el = views.get(group.id).element; if (el.parentNode !== list) list.append(el) }
       if (host.parentNode !== scroller) scroller.prepend(host)
       const composer = scroller.querySelector('[data-composer-seat]'), input = composer?.querySelector('[data-slot="conversation.composer.bar"]')
@@ -51,9 +53,10 @@ export function mountTaskMessages({ document = globalThis.document, getSessionId
       }
     } else {
       host.remove(); clearHero()
-      const nextAnchors = new Set(), nextHidden = new Set(), seats = [...content.querySelectorAll('[data-chat-node-key]')]
+      const nextAnchors = new Set(), nextHidden = new Set(removedSeats), seats = [...content.querySelectorAll('[data-chat-node-key]')]
       const byKey = new Map(), positions = new Map()
       seats.forEach((node, index) => { const key = node.getAttribute('data-chat-node-key'); if (!byKey.has(key)) byKey.set(key, []); byKey.get(key).push(node); positions.set(node, index) })
+      for (const node of removedSeats) node.setAttribute('data-drama-operation-hidden', '')
       for (const group of groups) {
         const members = group.messages.flatMap(message => byKey.get(`7:command${message.id}`) || []).sort((a, b) => positions.get(a) - positions.get(b))
         const anchor = members[0], view = views.get(group.id)
@@ -68,7 +71,7 @@ export function mountTaskMessages({ document = globalThis.document, getSessionId
       anchors.clear(); hidden.clear(); for (const node of nextAnchors) anchors.add(node); for (const node of nextHidden) hidden.add(node)
     }
   }
-  const reset = () => { version++; groups = []; cursor = -1; pendingGroups = []; full.clear(); ready.clear(); for (const view of views.values()) view.dispose(); views.clear(); host.remove(); clearHero(); clearNative() }
+  const reset = () => { version++; groups = []; removedMessageIds.clear(); cursor = -1; pendingGroups = []; full.clear(); ready.clear(); for (const view of views.values()) view.dispose(); views.clear(); host.remove(); clearHero(); clearNative() }
   const loadMessage = (id, owner = session) => {
     if (owner !== session || disposed) return Promise.reject(new Error('会话已切换'))
     if (full.has(id)) return full.get(id)
@@ -94,13 +97,14 @@ export function mountTaskMessages({ document = globalThis.document, getSessionId
       try {
         const response = await fetcher(`/api/drama/task-messages?session_id=${encodeURIComponent(id)}&compact=1&eager=1&after=${cursor}${pendingGroups.length ? `&pending=${encodeURIComponent(pendingGroups.join(','))}` : ''}`)
         if (!response.ok) throw new Error('任务消息读取失败')
-        const { messages, details = [], cursor: nextCursor } = await response.json()
+        const { messages, details = [], cursor: nextCursor, removed_message_ids = [] } = await response.json()
         if (disposed || ticket !== version || id !== getSessionId()) return
         for (const message of details) { if(message.model_call&&!message.model_exchange)continue;ready.set(message.id, message); full.set(message.id, Promise.resolve(message)) }
         if (Number.isSafeInteger(nextCursor)) cursor = nextCursor
         pendingGroups = [...new Set(messages.filter(message => ['queued', 'running'].includes(message.operation_status)).map(message => message.group_id).filter(Boolean))]
         const scroller = locate()?.querySelector('[data-conversation-scroll]')
         const follow = locate()?.dataset.contentPhase === 'hero' && scroller && scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80
+        removedMessageIds = new Set(removed_message_ids)
         groups = groupTaskMessages(messages)
         const wanted = new Set(groups.map(group => group.id))
         for (const [key, view] of views) if (!wanted.has(key)) { view.dispose(); views.delete(key) }

@@ -106,19 +106,18 @@ export function createProjectDocumentView(root,{project:initial,save,request,ope
   const rows=Array.isArray(product)?product:Object.entries(product).filter(([key,value])=>Array.isArray(value)).flatMap(([key,value])=>value.length&&value.every(row=>typeof row==='string')?[{title:collectionTitles[key]||key,content:value,_collection:key,_textList:true}]:value.map(row=>({...row,_collection:key})))
   if(stage.id!=='source_analysis'&&!Array.isArray(product))for(const [key,ref]of Object.entries(product))if(key.endsWith('_ref')&&typeof ref==='string')rows.push({title:({facts_ref:'原著事实',coverage_ref:'覆盖报告'})[key]||key,[key]:ref})
   if(stage.id==='shot_design')rows.push(...project.shot_design.shots,...project.asset_requirements.items)
-  if(!rows.length&&!(stage.id==='adaptation_plan'&&product.plot_development.events.length))section.append(element('p',stage.id==='project'?'尚未导入原稿，请从本地或素材库导入。':`暂无${stage.title}产物；支持人工创建和编辑。`,stage.id==='project'?'production-source-empty':'production-empty'))
+  if(!rows.length&&!(stage.id==='adaptation_plan'&&product.plot_development.trim()))section.append(element('p',stage.id==='project'?'尚未导入原稿，请从本地或素材库导入。':`暂无${stage.title}产物；支持人工创建和编辑。`,stage.id==='project'?'production-source-empty':'production-empty'))
   const guidanceGroups=new Map()
   if(stage.id==='adaptation_plan'){
    for(const [key,title]of [['creative_constraints','全篇创作约束'],['plot_development','剧情发展'],['character_plans','人物规划'],['group_plans','团队规划'],['scene_plans','场景规划']]){
     const group=element('section','','role-module-card production-guidance-group'),cards=element('div','','production-guidance-cards');group.dataset.guidanceGroup=key;group.append(element('h3',title),cards);guidanceGroups.set(key,{group,cards})
    }
    const constraints=element('article','','production-card');constraints.append(element('p',readable(product.creative_constraints),'production-text'),button('编辑全篇创作约束',()=>editor('编辑全篇创作约束',product.creative_constraints,value=>({kind:'product',stage:stage.id,value:{...product,creative_constraints:value},expected_revision:node.product_revision}))));guidanceGroups.get('creative_constraints').cards.append(constraints)
-   const plot=element('article','','production-card'),{events,...direction}=product.plot_development
-   plot.append(element('p',readable(direction),'production-text'),button('编辑剧情发展',()=>editor('编辑剧情发展',product.plot_development,value=>({kind:'product',stage:stage.id,value:{...product,plot_development:value},expected_revision:node.product_revision}))));guidanceGroups.get('plot_development').cards.append(plot)
-   rows.unshift(...events.map(event=>({...event,_collection:'plot_development',_displayTitle:`${event.sequence}. ${event.title}`})))
+   const plot=element('article','','production-card')
+   plot.append(element('p',product.plot_development||'暂无剧情发展规划。','production-text'),button('编辑剧情发展',()=>editor('编辑剧情发展',product.plot_development,value=>({kind:'product',stage:stage.id,value:{...product,plot_development:value},expected_revision:node.product_revision}),{text:true})));guidanceGroups.get('plot_development').cards.append(plot)
   }
   if(stage.id==='project'&&rows.length)section.append(element('h4','原稿文件','production-source-heading'))
-  for(const row of (['asset_preparation','video_render','clip_arrangement','editing','delivery'].includes(stage.id)?[]:rows)){const card=element('article','',stage.id==='project'?'production-source-row':'production-card');if(row._collection==='group_plans')card.append(element('small','团队规划'));card.append(element('h4',stage.id==='project'?`${row.original_name||'原稿'}${row.id===project.source.current_revision_id?' · 当前原稿':''}`:row._displayTitle||row.title||row.name||row.id||collectionTitles[row._collection]||row._collection||'产物'),element('p',stage.id==='project'?`${row.character_count.toLocaleString()} 字符`:readable(row._textList?row.content:Object.fromEntries(Object.entries(row).filter(([key])=>!['_collection','_displayTitle'].includes(key)&&!(stage.id==='source_analysis'&&key==='body')))),'production-text'))
+  for(const row of (['asset_preparation','video_render','clip_arrangement','editing','delivery'].includes(stage.id)?[]:rows)){const card=element('article','',stage.id==='project'?'production-source-row':'production-card');if(row._collection==='group_plans')card.append(element('small','团队规划'));card.append(element('h4',stage.id==='project'?`${row.original_name||'原稿'}${row.id===project.source.current_revision_id?' · 当前原稿':''}`:row.title||row.name||row.id||collectionTitles[row._collection]||row._collection||'产物'),element('p',stage.id==='project'?`${row.character_count.toLocaleString()} 字符`:readable(row._textList?row.content:Object.fromEntries(Object.entries(row).filter(([key])=>key!=='_collection'&&!(stage.id==='source_analysis'&&key==='body')))),'production-text'))
    for(const [key,ref]of Object.entries(row))if(stage.id!=='project'&&key.endsWith('_ref')&&typeof ref==='string'&&/\.(txt|json|srt)$/.test(ref))card.append(button('编辑正文',()=>openFile(ref,stage.id)))
    if(row.id&&stage.id!=='project'){
     const fields=Object.fromEntries(Object.entries(row).filter(([key,value])=>Object.hasOwn(fieldNames,key)&&(typeof value==='string'||typeof value==='number')))
@@ -130,7 +129,7 @@ export function createProjectDocumentView(root,{project:initial,save,request,ope
    const target=stage.id==='adaptation_plan'?guidanceGroups.get(row._collection)?.cards:section
    ;(target||section).append(card)
   }
-  for(const {group,cards}of guidanceGroups.values())if(cards.children.length)section.append(group)
+  for(const [key,{group,cards}]of guidanceGroups){if(key==='group_plans'&&!cards.children.length){const empty=element('article','','production-card');empty.append(element('p','暂无团队规划。','meta'));cards.append(empty)}if(cards.children.length)section.append(group)}
   mediaControls=productionControls({root,section,project,stage:stage.id,command:async command=>{await commit(command);paint()},request,run,openEditor:editor,openFields,openFile,fileUrl,active})
   body.setAttribute('aria-labelledby',`step-${stage.id}`);body.append(section);layout.append(workflow,body);root.append(layout)
  }

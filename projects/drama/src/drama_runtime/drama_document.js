@@ -1,7 +1,7 @@
 import { validateDocumentSchema } from './document_validation.js'
 import {projectStages} from '../shared/production/production_stages.js'
 
-// V3短剧数据契约。此模块不创建节点、不调用模型、不迁移磁盘文件。
+// V4短剧数据契约。此模块不创建节点、不调用模型、不迁移磁盘文件。
 const string = (minLength=0) => ({type:'string',minLength})
 const number = (minimum=0) => ({type:'number',minimum})
 const integer = (minimum=0) => ({type:'integer',minimum})
@@ -20,8 +20,8 @@ export {projectStages} from '../shared/production/production_stages.js'
 const productSchemas={
  source:object({current_revision_id:nullable(id),revisions:array(object({id,file_ref:ref,original_name:string(1),character_count:integer(),line_index_ref:optionalRef}))}),
  source_analysis:object({source_revision_id:nullable(id),chapters:array(object({id,sequence:integer(1),title:string(1),body:string(1),summary:string()})),facts_ref:optionalRef,coverage_ref:optionalRef}),
- adaptation_plan:object({revision:integer(),source_revision_id:nullable(id),creative_constraints:object({style:string(),audience:string(),adaptation_scope:string(),preserve:array(string(1)),allowed_changes:array(string(1)),locked_requirements:array(string(1))}),plot_development:object({main_goal:string(),core_conflict:string(),events:array(object({id,sequence:integer(1),title:string(1),cause:string(1),action:string(1),result:string(1),character_ids:ids,group_ids:ids,scene_ids:ids,source_chapter_ids:ids})),climax:string(),ending:string()}),character_plans:array(object({id,name:string(1),description:string(),motivation:string(),relationships:string(),arc:string()})),scene_plans:array(object({id,name:string(1),function:string(),description:string()})),group_plans:array(object({id,name:string(1),social_role:string(),description:string()}))}),
- story_segments:object({segments:array(object({id,sequence:integer(1),revision:integer(1),adaptation_revision:integer(),plot_event_ids:ids,source_chapter_ids:ids,title:string(1),body_ref:ref,source_spans:array(sourceSpan),continuity_ref:optionalRef}))}),
+ adaptation_plan:object({revision:integer(),source_revision_id:nullable(id),creative_constraints:object({style:string(),audience:string(),adaptation_scope:string(),preserve:array(string(1)),allowed_changes:array(string(1)),locked_requirements:array(string(1))}),plot_development:string(),character_plans:array(object({id,name:string(1),description:string(),motivation:string(),relationships:string(),arc:string()})),scene_plans:array(object({id,name:string(1),function:string(),description:string()})),group_plans:array(object({id,name:string(1),social_role:string(),description:string()}))}),
+ story_segments:object({segments:array(object({id,sequence:integer(1),revision:integer(1),adaptation_revision:integer(),source_chapter_ids:ids,title:string(1),body_ref:ref,source_spans:array(sourceSpan),continuity_ref:optionalRef}))}),
  asset_library:object({
   characters:array(object({...assetBase,character_plan_id:nullable(id),voice_profile:object({description:string(),reference_audio_ref:optionalRef,revision:integer()})})),
   clothing:array(object({...assetBase,group_key:string()})),
@@ -39,15 +39,15 @@ const productSchemas={
  delivery:object({settings:object({width:integer(16),height:integer(16),fps:integer(1),subtitle_mode:{type:'string',enum:['sidecar','burn']},normalize_audio:{type:'boolean'}}),exports:array(object({id,timeline_id:id,episode_id:nullable(id),input_snapshot_ref:ref,file_ref:ref,subtitles_ref:optionalRef,settings_ref:optionalRef,validation_report_ref:optionalRef}))}),
 }
 productSchemas.adaptation_plan.properties.creative_constraints.description='全篇创作约束：明确风格、受众、改编尺度、保留内容与允许调整内容；locked_requirements记录用户明确锁定要求，其余方案依据原著和视频表达需要作出明确选择。'
-productSchemas.adaptation_plan.properties.plot_development.description='剧情发展：明确主线目标、核心冲突、按因果推进的关键事件、高潮与结局方向；事件关联人物/团队/场景及原著章节。确定事件及因果关系，供故事分段定稿展开完整正文。'
+productSchemas.adaptation_plan.properties.plot_development.description='全篇剧情发展：用连贯文本写清主线目标、核心冲突、因果推进、关键转折、高潮和结局方向，以及人物、团队、场景在剧情中的作用；故事定稿据此自主分段并展开正文。'
 productSchemas.source_analysis.properties.chapters.items.required=productSchemas.source_analysis.properties.chapters.items.required.filter(key=>key!=='summary')
-export const projectDocumentSchema=object({schema_version:{type:'integer',const:3},document_revision:integer(),basic_info:object({id,name:string(1),creation_mode:{type:'string',enum:['剧本','自由创作']},aspect_ratio:{type:'string',enum:['21:9','16:9','4:3','1:1','3:4','9:16']},output_language:string(1)}),...productSchemas,node_states:object(Object.fromEntries(projectStages.map(stage=>[stage.id,nodeState])))})
+export const projectDocumentSchema=object({schema_version:{type:'integer',const:4},document_revision:integer(),basic_info:object({id,name:string(1),creation_mode:{type:'string',enum:['剧本','自由创作']},aspect_ratio:{type:'string',enum:['21:9','16:9','4:3','1:1','3:4','9:16']},output_language:string(1)}),...productSchemas,node_states:object(Object.fromEntries(projectStages.map(stage=>[stage.id,nodeState])))})
 
 export function createProjectDocument({id:projectId,name,creation_mode='剧本',aspect_ratio='9:16',output_language='zh-CN'}){
  const dimensions={'9:16':[1080,1920],'16:9':[1920,1080],'21:9':[2520,1080],'4:3':[1440,1080],'1:1':[1080,1080],'3:4':[1080,1440]},[width,height]=dimensions[aspect_ratio]||dimensions['9:16']
- const document={schema_version:3,document_revision:0,basic_info:{id:projectId,name,creation_mode,aspect_ratio,output_language},
+ const document={schema_version:4,document_revision:0,basic_info:{id:projectId,name,creation_mode,aspect_ratio,output_language},
  source:{current_revision_id:null,revisions:[]},source_analysis:{source_revision_id:null,chapters:[],facts_ref:null,coverage_ref:null},
- adaptation_plan:{revision:0,source_revision_id:null,creative_constraints:{style:'',audience:'',adaptation_scope:'',preserve:[],allowed_changes:[],locked_requirements:[]},plot_development:{main_goal:'',core_conflict:'',events:[],climax:'',ending:''},character_plans:[],scene_plans:[],group_plans:[]},
+ adaptation_plan:{revision:0,source_revision_id:null,creative_constraints:{style:'',audience:'',adaptation_scope:'',preserve:[],allowed_changes:[],locked_requirements:[]},plot_development:'',character_plans:[],scene_plans:[],group_plans:[]},
  story_segments:{segments:[]},asset_library:{characters:[],clothing:[],props:[],scenes:[],character_looks:[]},asset_requirements:{items:[]},shot_design:{shots:[]},clip_arrangement:{clips:[]},video_prompt:{items:[]},videos:[],editing:{preview_ref:null,timelines:[]},episodes:[],delivery:{settings:{width,height,fps:24,subtitle_mode:'sidecar',normalize_audio:true},exports:[]},
  node_states:Object.fromEntries(projectStages.map(stage=>[stage.id,{status:'empty',product_revision:0,opinion:'',reason:'',rules:{generate:'',review:'',revise:''},last_execution:null,checkpoint:null}]))}
  return assertProjectDocument(document)
@@ -59,7 +59,7 @@ export function assertProjectDocument(document){
  const index=(name,rows)=>{const map=new Map();for(const row of rows){if(map.has(row.id))failure(name,'ID重复');map.set(row.id,row)}indexes.set(name,map);return map}
  const requireId=(name,value,path)=>{if(value!==null&&!indexes.get(name)?.has(value))failure(path,`引用不存在：${value}`)}
  const sources=index('sources',document.source.revisions),chapters=index('chapters',document.source_analysis.chapters)
- index('character_plans',document.adaptation_plan.character_plans);index('scene_plans',document.adaptation_plan.scene_plans);index('group_plans',document.adaptation_plan.group_plans);index('plot_events',document.adaptation_plan.plot_development.events)
+ index('character_plans',document.adaptation_plan.character_plans);index('scene_plans',document.adaptation_plan.scene_plans);index('group_plans',document.adaptation_plan.group_plans)
  const segments=index('segments',document.story_segments.segments)
  for(const [key,rows]of Object.entries(document.asset_library))index(key,rows)
  const shots=index('shots',document.shot_design.shots),clips=index('clips',document.clip_arrangement.clips),prompts=index('prompts',document.video_prompt.items),takes=index('takes',document.videos),timelines=index('timelines',document.editing.timelines)
@@ -67,16 +67,7 @@ export function assertProjectDocument(document){
  const span=(value,path)=>{requireId('sources',value.source_revision_id,path);if(value.end<=value.start||value.end>(sources.get(value.source_revision_id)?.character_count??0))failure(path,'原文区间越界')}
  requireId('sources',document.source.current_revision_id,'source.current_revision_id');requireId('sources',document.source_analysis.source_revision_id,'source_analysis.source_revision_id');requireId('sources',document.adaptation_plan.source_revision_id,'adaptation_plan.source_revision_id')
  if(chapters.size||document.source_analysis.source_revision_id){if(!document.source_analysis.source_revision_id)failure('source_analysis','分段缺少原稿版本');let length=0;for(const [i,chapter]of document.source_analysis.chapters.entries()){if(chapter.sequence!==i+1)failure('source_analysis.chapters.sequence','分段必须按连续顺序保存');length+=chapter.body.length}if(length!==sources.get(document.source_analysis.source_revision_id).character_count)failure('source_analysis.chapters.body','分段正文长度与原稿不一致')}
- const events=document.adaptation_plan.plot_development.events
- for(const [i,event]of events.entries()){
-  if(event.sequence!==i+1)failure('plot_development.events.sequence','剧情事件必须按连续顺序保存')
-  for(const [field,target]of [['character_ids','character_plans'],['group_ids','group_plans'],['scene_ids','scene_plans'],['source_chapter_ids','chapters']]){
-   if(new Set(event[field]).size!==event[field].length)failure('plot_development.events.'+field,'事件引用不能重复')
-   for(const value of event[field])requireId(target,value,'plot_development.events.'+field)
-  }
-  if(document.source.current_revision_id&&!event.source_chapter_ids.length)failure('plot_development.events.source_chapter_ids','有原稿的剧情事件必须关联原著章节')
- }
- for(const segment of segments.values()){if(!segment.plot_event_ids.length||new Set(segment.plot_event_ids).size!==segment.plot_event_ids.length)failure('segments.plot_event_ids','故事段必须关联不重复的剧情事件');for(const eventId of segment.plot_event_ids)requireId('plot_events',eventId,'segments.plot_event_ids');for(const value of segment.source_chapter_ids)requireId('chapters',value,'segments.source_chapter_ids');for(const item of segment.source_spans)span(item,'segments.source_spans');if(segment.adaptation_revision>document.adaptation_plan.revision)failure('segments.adaptation_revision','不能引用未来改编版本')}
+ for(const segment of segments.values()){for(const value of segment.source_chapter_ids)requireId('chapters',value,'segments.source_chapter_ids');for(const item of segment.source_spans)span(item,'segments.source_spans');if(segment.adaptation_revision>document.adaptation_plan.revision)failure('segments.adaptation_revision','不能引用未来改编版本')}
  const assetIds=new Set();for(const rows of Object.values(document.asset_library))for(const asset of rows){if(assetIds.has(asset.id))failure('asset_library','跨类型资产ID重复');assetIds.add(asset.id)}
  for(const [kind,rows]of Object.entries(document.asset_library))for(const asset of rows){if(asset.selected_image_id!==null&&!asset.image_ids.includes(asset.selected_image_id))failure(`asset_library.${kind}.selected_image_id`,'所选图片必须来自候选图片');if(new Set(asset.image_ids).size!==asset.image_ids.length)failure('image_ids','图片ID重复')}
  for(const character of document.asset_library.characters)requireId('character_plans',character.character_plan_id,'characters.character_plan_id')

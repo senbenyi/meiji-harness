@@ -35,7 +35,7 @@ test('当前四个文本节点动作和返回格式同源，短剧字段引用�
  }
  assert.deepEqual(outputContract('shot_design',{}).properties.assets,projectDocumentSchema.properties.asset_library)
  assert.equal(outputContract('adaptation_plan',{}).properties.creative_constraints.description,projectDocumentSchema.properties.adaptation_plan.properties.creative_constraints.description)
- assert.equal(outputContract('adaptation_plan',{}).properties.plot_development.type,'object')
+ assert.equal(outputContract('adaptation_plan',{}).properties.plot_development.type,'string')
 })
 
 test('复制src后返回格式文件修改实际影响契约，不依赖docs或旧集中目录',async t=>{

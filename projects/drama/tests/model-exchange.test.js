@@ -11,7 +11,7 @@ const call={id:'contract',type:'function',function:{name:'read_contract',argumen
 const trace={action:'generate',messages:[{role:'assistant',content:null,tool_calls:[call],reasoning_content:'不应展示的内部推理'}, {role:'tool',tool_call_id:'contract',content:'{"fields":["goal","plot_text"]}'}]}
 function history({files={},noResponse=false}={}){
  const step={id:'step',task_id:'t',kind:'generate',executor:'ai',name:'generate',seq:2,step_status:noResponse?'failed':'done',prompt:{model:'codex-gpt',input:{messages_ref:'artifacts/messages.json'}},result:noResponse?null:{trace:{file_ref:'artifacts/trace.json'}}}
- const task={id:'t',node_type:'adaptation_plan',name:'联合改编',task_status:'completed',metadata:{document_version:3,project_id:'p_history'}},detail={group:{id:'g',source:'ui'},tasks:[task],steps:[step],status:'completed'}
+ const task={id:'t',node_type:'adaptation_plan',name:'联合改编',task_status:'completed',metadata:{document_version:4,project_id:'p_history'}},detail={group:{id:'g',source:'ui'},tasks:[task],steps:[step],status:'completed'}
  const events=[{type:'command/run',seq:1,data:{commandId:'event',name:'盒子步骤',args:JSON.stringify({kind:'drama-task-display',phase:'step',group_id:'g',task_id:'t',step_id:'step',seq:2,status:step.step_status,label:'已结束'})}},{type:'command/done',data:{commandId:'event',kind:'success'}}],reads=[]
  const records={'artifacts/messages.json':sent,'artifacts/trace.json':trace,...files}
  const projects={records:{scope:'drama',tasks:{detail:()=>structuredClone(detail)}},documents:{readArtifact:async(project,ref)=>{assert.equal(project,'p_history');reads.push(ref);if(records[ref]===null)throw Error('ENOENT');return Buffer.from(JSON.stringify(records[ref]))}},snapshot:()=>{throw Error('不能读取当前短剧')}}

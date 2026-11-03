@@ -31,4 +31,4 @@ export function executionActivities(trace){
  if(calls.length>32)rows.push({tool:'more',title:`另有 ${calls.length-32} 项工具调用`,detail:'完整内容见原始记录',status:'pending'})
  return rows
 }
-export function stepExecutionName(step,task){return task?.metadata?.document_version===3?executionPhase(step.kind):step.name}
+export function stepExecutionName(step,task){return task?.metadata?.document_version===4?executionPhase(step.kind):step.name}

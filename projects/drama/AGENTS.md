@@ -4,22 +4,22 @@
 
 ## 当前改造边界
 
-- 用户已确认清空全部旧Drama业务数据，不考虑迁移。新入口仅使用V3，不增加旧数据兼容、双写或迁移层。模型配置、宿主凭据和其他业务项目不在清理范围。
-- 当前已接通V3全部制作阶段、共享图片库、原生工具循环与真实媒体剪辑/导出。阶段计划见根 `docs/plans/1028-计划-完整制作流程与左侧步骤面板.md`；最终业务方案见 `1028-计划-剧本到视频与共享图片库.md`。
-- 当前数据契约、人工编辑矩阵和限制见 `docs/项目数据契约.md`。`docs/drama_v3.schema.json`、`drama_v3.example.json` 是文档快照，运行时不能读取文档作为模板。
-- `docs/开发方向.md` 维护当前目录职责；`docs/drama_detail.json` 是带中文字段说明的V3 Schema。V1入口、旧盒子和专属测试已清理，不重新注册。
+- 用户已确认清空全部旧Drama业务数据，不考虑迁移。新入口仅使用V4，不增加旧数据兼容、双写或迁移层。模型配置、宿主凭据和其他业务项目不在清理范围。
+- 当前已接通V4全部制作阶段、共享图片库、原生工具循环与真实媒体剪辑/导出。阶段计划见根 `docs/plans/1028-计划-完整制作流程与左侧步骤面板.md`；最终业务方案见 `1028-计划-剧本到视频与共享图片库.md`。
+- 当前数据契约、人工编辑矩阵和限制见 `docs/项目数据契约.md`。`docs/drama_v4.schema.json`、`drama_v4.example.json` 是文档快照，运行时不能读取文档作为模板。
+- `docs/开发方向.md` 维护当前目录职责；`docs/drama_detail.json` 是带中文字段说明的V4 Schema。V1入口、旧盒子和专属测试已清理，不重新注册。
 
 ## 新入口与分层
 
 - 插件 `index.js` 组装 `ProjectWorkspaceService`、公共记录、设置和路由；`src/main_agent/session/index.js` 注册当前可执行工具，不向主Agent注入已退役节点指导。
-- `src/drama_runtime/drama_document.js` 维护运行Schema和结构/引用校验；`drama_document_store.js` 保存V3与不可变文件；`drama_workspace_service.js` 提交Task、维护工作区/会话和请求幂等。
+- `src/drama_runtime/drama_document.js` 维护运行Schema和结构/引用校验；`drama_document_store.js` 保存V4与不可变文件；`drama_workspace_service.js` 提交Task、维护工作区/会话和请求幂等。
 - `src/node_box/project/runtime/executor.js` 执行创建/导入/人工编辑等程序步骤，`src/main_agent/tools/project/fields.js`声明创建工具入参，创建工具与参数同属main_agent/tools/project，实际执行器仍归盒子，`ui/panel`保留共用项目弹框及原稿导入。Service创建/提交Task；Executor执行步骤；公共TaskManager负责状态、时间和任务数据库，不直接写Task表。一次业务操作一个Task，内部重试追加Step。
 - `src/shared/production/production_stages.js` 是浏览器/服务端共用的阶段目录与产物投影。各步骤由ProductionService按executor_registry选择文本、图片、视频或程序执行器；不得将展示数据冒充实际生成结果。
 - `src/node_box/`包含与十二阶段同名的十二个盒子及盒子专用共用目录`shared/`，`registry.js`装配节点接口。文本节点的`runtime/pipeline.js`维护单元、产物校验/保存/回读；故事节点`runtime/execution.js`维护前段衔接和相邻段复核。程序节点`runtime/execute.js`维护实际业务；图片/视频节点各自的`runtime/executor.js`维护对应生成步骤；`runtime/confirm.js`、`runtime/manual.js`维护节点确认和专属人工操作。
 - `src/node_box/shared/production/{text,program}_executor.js`共用类型调度与文本审核/修订循环；图片、视频执行器由registry直接引用对应盒子。`unit_executor.js`仅共用Task/单元/检查点生命周期，`model_loop.js`只供文本执行器调用。`text_pipeline.js`只委派节点业务并共用候选保存状态；`timeline_renderer.js`、`media.js`、`audio_import.js`、`subtitles.js`提供通用媒体能力，不维护阶段产物。不得向共用执行器重新塞入节点业务分支。
 - harness-http 路由只负责鉴权、请求/响应、静态资源及SSE，业务校验留Service/Store/Executor。面板与会话工具共用业务入口。
 - 新建/导入原稿及原著解析均为纯程序步骤。原著解析默认不拆分，将整份原稿直接保存为一条id/sequence/title/body/summary记录，summary为空、事实与覆盖报告引用为空；不调用生成、审核、修订或记忆整理模型。正文由程序完整复制并逐字校验，不保存分段范围或正文引用。不可变原稿仍外置，后续模型按工具上限有界读取body；Task保存不可变输入与产物引用，不逐轮把整稿注入提示词。
-- 新项目不提前分集；先原著解析、全篇联合改编指导，再故事自主分段定稿、文字分镜、素材准备与参考确认，后续分片/视频/剪辑，最后分集导出。联合改编交付全篇创作约束、剧情事件因果链、人物/团队/场景规划，确定关键转折、高潮与结局方向，不固定故事段边界；定稿读取原著与冻结规划，覆盖本单元全部剧情事件，保存plot_event_ids，自行分段并写完整动作、对白和衔接。旧段计划、提前声线和团队制服版本字段已删除，不做兼容或双写。
+- 新项目不提前分集；先原著解析、全篇联合改编指导，再故事自主分段定稿、文字分镜、素材准备与参考确认，后续分片/视频/剪辑，最后分集导出。联合改编交付全篇创作约束、全篇连贯剧情发展及人物/团队/场景规划，写清因果推进、关键转折、高潮和结局方向；定稿读取原著与冻结规划，自主确定具体段落并写完整动作、对白和衔接。旧段计划、提前声线和团队制服版本字段已删除，不做兼容或双写。
 - 项目资产定义统一在asset_library；全局图片数据库仅id/url，生成/导入图片成功后立即入库。稳定声线与逐镜表演分离，音频不放图片表。
 
 ## 长期记忆

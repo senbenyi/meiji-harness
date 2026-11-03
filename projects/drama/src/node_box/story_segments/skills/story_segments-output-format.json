@@ -25,22 +25,13 @@
               "continuity": {
                 "type": "string",
                 "minLength": 1
-              },
-              "plot_event_ids": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "minItems": 1
               }
             },
             "required": [
               "id",
               "title",
               "body",
-              "continuity",
-              "plot_event_ids"
+              "continuity"
             ],
             "additionalProperties": false
           },
@@ -85,22 +76,13 @@
               "continuity": {
                 "type": "string",
                 "minLength": 1
-              },
-              "plot_event_ids": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "minItems": 1
               }
             },
             "required": [
               "id",
               "title",
               "body",
-              "continuity",
-              "plot_event_ids"
+              "continuity"
             ],
             "additionalProperties": false
           },

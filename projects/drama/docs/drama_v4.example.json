@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "document_revision": 0,
   "basic_info": {
     "id": "p_example",
@@ -29,13 +29,7 @@
       "allowed_changes": [],
       "locked_requirements": []
     },
-    "plot_development": {
-      "main_goal": "",
-      "core_conflict": "",
-      "events": [],
-      "climax": "",
-      "ending": ""
-    },
+    "plot_development": "",
     "character_plans": [],
     "scene_plans": [],
     "group_plans": []

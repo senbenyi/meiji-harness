@@ -10,7 +10,7 @@ function planAssets(document,plan){
 
 export function applyCandidate(next,unit,output,files={}){
     if(['style','audience','adaptation_scope'].some(key=>!output.creative_constraints[key].trim()))throw new TypeError('全篇创作约束必须明确风格、受众和改编尺度')
-    if(!output.plot_development.main_goal.trim()||!output.plot_development.core_conflict.trim()||!output.plot_development.climax.trim()||!output.plot_development.ending.trim()||!output.plot_development.events.length)throw new TypeError('剧情发展必须包含主线目标、核心冲突、关键事件、高潮与结局方向')
+    if(!output.plot_development.trim())throw new TypeError('请提供完整的全篇剧情发展规划')
     if(next.adaptation_plan.creative_constraints.locked_requirements.some(rule=>!output.creative_constraints.locked_requirements.includes(rule)))throw new TypeError('不能丢失既有锁定要求')
     if(next.source.current_revision_id){
       if(!output.character_plans.length)throw new TypeError('有原稿的联合改编必须提供主要人物规划，不能提交空的character_plans')
@@ -24,7 +24,7 @@ export async function prepareText(projects,project,input,{signal}={}){
  const id=project.basic_info.id,units=[];
     if(project.source.current_revision_id&&(project.node_states.source_analysis.status!=='confirmed'||project.source_analysis.source_revision_id!==project.source.current_revision_id))throw new TypeError('请先完成当前原稿的原著解析')
     if(input.unit_id&&input.unit_id!=='global')throw new TypeError('联合改编只生成全篇指导，不支持章节或段计划单元')
-    units.push({id:uid('unit'),kind:'guidance',source_spans:chapterRanges(project.source_analysis.chapters,project.source.current_revision_id).map(({chapter_id,...range})=>range),material:{goal:input.instruction||project.node_states.adaptation_plan.opinion||'制定全篇创作约束与四类规划，确定关键事件因果链，供故事分段定稿执行',source_index_ref:'snapshot:/source_analysis/chapters',existing_guidance_ref:'snapshot:/adaptation_plan',instruction:'通读原著，形成全篇创作约束、剧情发展、人物规划、团队规划、场景规划。关键事件按因果顺序写清原因、行动、结果，关联规划对象与原著章节ID。覆盖主要人物、关键场景和实际相关团队。依据原著及用户要求作出明确改编决策，保留有效内容和稳定ID。故事分段定稿据此确定段落边界并展开完整正文。'}})
+    units.push({id:uid('unit'),kind:'guidance',source_spans:chapterRanges(project.source_analysis.chapters,project.source.current_revision_id).map(({chapter_id,...range})=>range),material:{goal:input.instruction||project.node_states.adaptation_plan.opinion||'制定全篇创作约束与四类规划，确定关键事件因果链，供故事分段定稿执行',source_index_ref:'snapshot:/source_analysis/chapters',existing_guidance_ref:'snapshot:/adaptation_plan',instruction:'通读原著，形成全篇创作约束、全篇剧情发展、人物规划、团队规划、场景规划。剧情发展用连贯文本写清主线目标、因果推进、关键转折、高潮和结局方向，结合人物动机、团队关系与场景作用。覆盖主要人物、关键场景和实际相关团队，保留有效内容和稳定ID。故事分段定稿据此自主确定段落并展开完整正文。'}})
 
  if(input.unit_id&&units.length===0)throw new TypeError('指定单元不存在');return units
 }

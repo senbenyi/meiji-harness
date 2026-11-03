@@ -8,7 +8,7 @@ async function fixture(t){const root=await mkdtemp(join(tmpdir(),'drama-v2-'));c
 
 test('新存储只保存V3文档，10MiB原稿外置且短剧JSON不含正文副本',async t=>{
  const {store,root}=await fixture(t),body='x'.repeat(10*1024*1024),p=await store.create({name:'长稿',original_script:body})
- assert.equal(p.schema_version,3);assert.equal(p.source.revisions[0].character_count,body.length)
+ assert.equal(p.schema_version,4);assert.equal(p.source.revisions[0].character_count,body.length)
  assert.ok((await readFile(join(root,'projects',p.basic_info.id,'project.json'))).length<12000)
  const first=await store.readArtifact(p.basic_info.id,p.source.revisions[0].file_ref,{start:0,end:16000});assert.equal(first.length,16000)
  assert.equal((await store.readArtifact(p.basic_info.id,p.source.revisions[0].file_ref)).length,body.length)

@@ -18,7 +18,7 @@ test('两层记忆持久保存、Drama跨短剧共享偏好、短剧隔离及按
  await assert.rejects(restarted.read('project',{}, {...context,projectId:f.context.projectId}),/绑定/);await assert.rejects(remember(f,'engineering','bad','工程不允许故事决定',{kind:'decision'}),/工程记忆仅/)
  const read=new ReadMemoryTool(f.projects),write=new WriteMemoryTool(f.projects),exec={agent:{session:{id:f.context.sessionId}}};assert.equal(JSON.parse(await read.execute({scope:'project',id:own.entry.id},exec)).entry.id,own.entry.id)
  await assert.rejects(write.execute({scope:'engineering',action:'upsert',key:'x',title:'x',content:'推断',expected_revision:1,user_quote:''},exec),/用户原话/)
- assert.equal((await f.project()).schema_version,3);assert.equal(Object.hasOwn(await f.project(),'memory'),false,'正式短剧产物不混入另一套内容权威')
+ assert.equal((await f.project()).schema_version,4);assert.equal(Object.hasOwn(await f.project(),'memory'),false,'正式短剧产物不混入另一套内容权威')
 })
 
 test('记忆并发冲突、同主题更新、归档恢复、删除及历史清除',async t=>{

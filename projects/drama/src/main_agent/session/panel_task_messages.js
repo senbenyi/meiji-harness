@@ -58,7 +58,7 @@ export function createPanelTaskDisplay(ctx, projects) {
   }
   const activityContext=async(task,step,context)=>{
     const ref=step?.result?.trace?.file_ref
-    if(task?.metadata?.document_version!==3||!ref||Array.isArray(step.result.trace.activities))return context
+    if(task?.metadata?.document_version!==4||!ref||Array.isArray(step.result.trace.activities))return context
     const key=task.metadata.project_id+':'+ref
     try{
       let activities=activityCache.get(key)
@@ -97,7 +97,7 @@ export function createPanelTaskDisplay(ctx, projects) {
     const events = agent?.session?.snapshotEvents() || []
     const done = new Map(events.filter(event => event.type === 'command/done').map(event => [event.data.commandId, event.data]))
     const details = new Map()
-    const messages=[]
+    const messages=[],removedMessageIds=[]
     for(const event of events.filter(event => event.type === 'command/run' && done.has(event.data.commandId) && (!id || event.data.commandId === id))){
       try {
         const card = JSON.parse(event.data.args)
@@ -105,9 +105,11 @@ export function createPanelTaskDisplay(ctx, projects) {
         if (!details.has(card.group_id)) details.set(card.group_id, projects.records?.tasks.detail(projects.records.scope, card.group_id))
         const detail = details.get(card.group_id)
         const task = detail?.tasks.find(task => task.id === card.task_id)
-        const step = card.step_id ? detail?.steps.find(step => step.id === card.step_id && step.task_id === card.task_id) : undefined
-        let context=task?await activityContext(task,step,displayContext(detail,task,step)):{}
-        if(task&&(!compact&&!eager||id))context=await exchangeContext(task,step,context)
+        if (!task) { removedMessageIds.push(event.data.commandId); continue }
+        const step = card.step_id ? detail.steps.find(step => step.id === card.step_id && step.task_id === card.task_id) : undefined
+        if (card.step_id && !step) { removedMessageIds.push(event.data.commandId); continue }
+        let context=await activityContext(task,step,displayContext(detail,task,step))
+        if(!compact&&!eager||id)context=await exchangeContext(task,step,context)
         const enriched = { ...card, ...context, id: event.data.commandId, event_seq: event.seq ?? events.indexOf(event) }
         messages.push(enriched)
       }
@@ -119,7 +121,7 @@ export function createPanelTaskDisplay(ctx, projects) {
     }
     if (eager) {
       const pendingGroups = new Set(pending)
-      return { messages: messages.map(compactDisplay),
+      return { messages: messages.map(compactDisplay), removed_message_ids: removedMessageIds,
         details: messages.filter(message => message.event_seq > after || (pendingGroups.has(message.group_id) && !['queued', 'running'].includes(message.operation_status))),
         cursor: Math.max(after, ...messages.map(message => message.event_seq)),
       }

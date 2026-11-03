@@ -11,7 +11,7 @@ import {fixture,defaultAuthor,call,reply} from './helpers/production-fixture.js'
 
 test('从创建到所有制作阶段：真实模拟网关、独立审核、共享图片、声音、ffmpeg剪辑与最终导出',async t=>{
  const f=await fixture(t);await f.run('source_analysis');let p=await f.project();assert.equal(p.source_analysis.chapters.length,1);assert.equal(p.source_analysis.coverage_ref,null);assert.equal(f.requests.length,0)
- await f.run('adaptation_plan');p=await f.project();assert.ok(p.adaptation_plan.plot_development.main_goal);assert.equal(Object.hasOwn(p.adaptation_plan,'segment_plans'),false);assert.equal(p.episodes.length,0);assert.equal(p.asset_library.characters.length,1)
+ await f.run('adaptation_plan');p=await f.project();assert.ok(p.adaptation_plan.plot_development);assert.equal(Object.hasOwn(p.adaptation_plan,'segment_plans'),false);assert.equal(p.episodes.length,0);assert.equal(p.asset_library.characters.length,1)
  await f.run('story_segments');await f.run('shot_design');p=await f.project();assert.equal(p.shot_design.shots.length,2)
  await f.run('asset_preparation');p=await f.project();assert.equal(p.node_states.asset_preparation.status,'draft');assert.equal(f.production.images.list().total,2)
  for(const key of ['scenes','character_looks'])for(const asset of p.asset_library[key])await f.edit({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:asset.image_ids[0]})
@@ -59,7 +59,7 @@ test('缺原稿的剧本模式如实失败，自由创作可保持空原著产�
 
 test('无效审核证据不能驱动修订，联合规划仍保留最新候选和失败记录',async t=>{
  const f=await fixture(t,{author:async(body,ctx)=>{const c=JSON.parse(body.messages[1].content);if(c.action==='review'&&body.messages.some(m=>(m.tool_calls||[]).some(c=>c.function.name==='read_candidate')))return reply([call('submit_review',{output:{status:'content_issue',issues:[{location:'/goal',evidence:'not present XYZ',reason:'invalid',suggestion:'invalid'}],suggestions:[]}})]);return defaultAuthor(body,ctx)}})
- await f.run('source_analysis');const run=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'invalid-review'}),detail=await f.production.wait(run.group_id);assert.equal(detail.status,'failed');assert.match(detail.reason,/审核证据/);assert.ok(detail.steps.some(s=>s.result?.candidate_ref));assert.ok(!detail.steps.some(s=>s.kind==='revise'));assert.ok((await f.project()).adaptation_plan.plot_development.main_goal)
+ await f.run('source_analysis');const run=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'invalid-review'}),detail=await f.production.wait(run.group_id);assert.equal(detail.status,'failed');assert.match(detail.reason,/审核证据/);assert.ok(detail.steps.some(s=>s.result?.candidate_ref));assert.ok(!detail.steps.some(s=>s.kind==='revise'));assert.ok((await f.project()).adaptation_plan.plot_development)
 })
 
 test('共享图片立即落库、跨短剧绑定、非法图片/悬空ID和活动任务保护',async t=>{
@@ -92,7 +92,7 @@ test('五个文本阶段均可按现有产物修订，独立审核的问题触�
 test('取消中的模型请求不提交晚到候选，人工改动后不能沿旧检查点续接',async t=>{
  let release,entered;const gate=new Promise(r=>release=r),started=new Promise(r=>entered=r);let block=true
  const f=await fixture(t,{script:'第一章\n张飞走进营帐。',author:async(body,ctx)=>{const catalog=JSON.parse(body.messages[1].content);if(block&&catalog.action==='generate'){entered();await gate}return defaultAuthor(body,ctx)}})
- await f.run('source_analysis');const run=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'cancel-request'});await started;await f.production.cancel(run.group_id,f.context);release();const stopped=await f.production.wait(run.group_id);assert.equal(stopped.status,'cancelled');let p=await f.project();assert.equal(p.adaptation_plan.plot_development.main_goal,'');block=false
+ await f.run('source_analysis');const run=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'cancel-request'});await started;await f.production.cancel(run.group_id,f.context);release();const stopped=await f.production.wait(run.group_id);assert.equal(stopped.status,'cancelled');let p=await f.project();assert.equal(p.adaptation_plan.plot_development,'');block=false
  // A normal candidate followed by review failure leaves an auditable checkpoint.
  const original=f.production.textClient;f.production.textClient={...original,turn:async args=>{if(JSON.parse(args.messages[1].content).action==='review')throw new Error('审核暂不可用');return original.turn(args)}}
  const broken=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'checkpoint-request'});assert.equal((await f.production.wait(broken.group_id)).status,'failed');p=await f.project();assert.equal(p.node_states.adaptation_plan.checkpoint.state,'saved')
