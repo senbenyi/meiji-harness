@@ -1,3 +1,4 @@
+import {makePlan} from './helpers/adaptation-plan.js'
 import {stageProduct} from '../src/shared/production/production_stages.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -9,8 +10,8 @@ function populated(){
  const p=empty()
  p.source={current_revision_id:'src_001',revisions:[{id:'src_001',file_ref:'sources/src_001.txt',original_name:'原稿.txt',character_count:100,line_index_ref:null}]}
  p.source_analysis={source_revision_id:'src_001',chapters:[{id:'chapter_001',sequence:1,title:'第一章',summary:'原著事实',body:'x'.repeat(100)}],facts_ref:null,coverage_ref:null}
- p.adaptation_plan={revision:1,source_revision_id:'src_001',goal:'尊重原著，增强因果',locked_requirements:['原话不变'],plot_text:'保留原著主线，以人物动机增强冲突',character_plans:[{id:'cp_001',name:'张飞',description:'叙事人物',motivation:'迎战',relationships:'与对手对峙',arc:'成长'}],scene_plans:[{id:'sp_001',name:'战场',function:'对峙',description:'场景指导'}],group_plans:[]}
- p.story_segments={segments:[{id:'seg_001',sequence:1,revision:1,adaptation_revision:1,source_chapter_ids:['chapter_001'],title:'对峙',body_ref:'story/seg_001.txt',source_spans:[{source_revision_id:'src_001',start:0,end:100}],continuity_ref:null}]}
+ p.adaptation_plan=makePlan({revision:1,source_revision_id:'src_001',direction:'尊重原著，增强因果',requirements:['原话不变'],development:'保留原著主线，以人物动机增强冲突',character_plans:[{id:'cp_001',name:'张飞',description:'叙事人物',motivation:'迎战',relationships:'与对手对峙',arc:'成长'}],scene_plans:[{id:'sp_001',name:'战场',function:'对峙',description:'场景指导'}],group_plans:[]},['chapter_001'])
+ p.story_segments={segments:[{id:'seg_001',sequence:1,revision:1,adaptation_revision:1,plot_event_ids:['event_main'],source_chapter_ids:['chapter_001'],title:'对峙',body_ref:'story/seg_001.txt',source_spans:[{source_revision_id:'src_001',start:0,end:100}],continuity_ref:null}]}
  const asset=(id,name,image)=>({id,name,description:name,image_ids:[image],selected_image_id:image})
  p.asset_library={characters:[{...asset('char_001','张飞','img_face'),character_plan_id:'cp_001',voice_profile:{description:'低沉浑厚',reference_audio_ref:null,revision:1}}],clothing:[{...asset('clothing_001','战袍','img_clothing'),group_key:''}],props:[asset('prop_001','蛇矛','img_prop')],scenes:[{...asset('scene_001','战场','img_scene'),scene_plan_id:'sp_001',layout:'开阔',entrances:'东侧入口',landmarks:'大旗'}],character_looks:[{...asset('look_001','持矛造型','img_look'),character_id:'char_001',clothing_ids:['clothing_001'],prop_ids:['prop_001'],hair_and_makeup:'束发'}]}
  p.shot_design={shots:[{id:'shot_001',sequence:1,revision:1,story_segment_id:'seg_001',story_segment_revision:1,previous_shot_id:null,scene_id:'scene_001',characters:[{character_id:'char_001',look_id:'look_001',opening_state:'站立'}],props:[{prop_id:'prop_001',holder_character_id:'char_001',opening_state:'右手持矛'}],reference_images:[{image_id:'img_look',role:'人物定妆'},{image_id:'img_scene',role:'场景布局'}],beats:[{id:'beat_001',duration_seconds:5,action:'举矛',camera:'固定全景',scene_changes:'',effects:'',dialogues:[{id:'dialogue_001',speaker_id:'char_001',text:'来战！',delivery:{emotion:'愤怒',volume:'高',pace:'短促',breath:'有力'}}],soundscape:'风声',music:''}]}]}
@@ -24,8 +25,8 @@ function populated(){
  return assertProjectDocument(p)
 }
 
-test('V2空短剧不包含旧优化/重复资产/output包装，状态与业务产物分离',()=>{
- const p=empty();assert.equal(p.schema_version,2);assert.equal(p.episodes.length,0)
+test('V3空短剧不包含旧优化/重复资产/output包装，状态与业务产物分离',()=>{
+ const p=empty();assert.equal(p.schema_version,3);assert.equal(p.episodes.length,0)
  for(const key of ['actual_script','summary','estimated_duration_seconds','script_revision_node','create_project_node'])assert.equal(Object.hasOwn(p.basic_info,key),false)
  for(const key of ['script_revision','character_extraction','scene_extraction','group_setting','legacy_archive_ref'])assert.equal(Object.hasOwn(p,key),false)
  assert.deepEqual(Object.keys(p.node_states),projectStages.map(row=>row.id))
@@ -33,8 +34,8 @@ test('V2空短剧不包含旧优化/重复资产/output包装，状态与业务�
 })
 
 test('文档参考Schema和示例与真实契约一致，不能运行时读取文档作为模板',async()=>{
- assert.deepEqual(JSON.parse(await readFile(new URL('../docs/project_v2.schema.json',import.meta.url),'utf8')),projectDocumentSchema)
- assertProjectDocument(JSON.parse(await readFile(new URL('../docs/project_v2.example.json',import.meta.url),'utf8')))
+ assert.deepEqual(JSON.parse(await readFile(new URL('../docs/drama_v3.schema.json',import.meta.url),'utf8')),projectDocumentSchema)
+ assertProjectDocument(JSON.parse(await readFile(new URL('../docs/drama_v3.example.json',import.meta.url),'utf8')))
 })
 
 test('所有阶段产物都可以通过同一人工编辑契约更新，保留意见/历史且不会冒充审核通过',()=>{
@@ -87,7 +88,7 @@ test('字段详解覆盖当前全部运行字段，注释不改变真实Schema',
  const detail=JSON.parse(await readFile(new URL('../docs/drama_detail.json',import.meta.url),'utf8'))
  function strip(value){if(Array.isArray(value))return value.map(strip);if(!value||typeof value!=='object')return value;return Object.fromEntries(Object.entries(value).filter(([key,value])=>!(typeof value==='string'&&['description','$comment'].includes(key))).map(([key,value])=>[key,strip(value)]))}
  function check(value){for(const schema of Object.values(value.properties||{}))assert.ok(schema.description);for(const item of Object.values(value))if(Array.isArray(item))item.filter(v=>v&&typeof v==='object').forEach(check);else if(item&&typeof item==='object')check(item)}
- check(detail);assert.deepEqual(strip(detail),strip(projectDocumentSchema));assert.equal(detail.properties.adaptation_plan.properties.goal.description,projectDocumentSchema.properties.adaptation_plan.properties.goal.description)
+ check(detail);assert.deepEqual(strip(detail),strip(projectDocumentSchema));assert.equal(detail.properties.adaptation_plan.properties.creative_constraints.description,projectDocumentSchema.properties.adaptation_plan.properties.creative_constraints.description)
  assert.match(detail.properties.source_analysis.properties.facts_ref.description,/事实资料/)
  assert.match(detail.properties.adaptation_plan.properties.group_plans.items.properties.social_role.description,/团队身份/)
  assert.equal(detail.properties.basic_info.properties.id.description,'稳定唯一标识')

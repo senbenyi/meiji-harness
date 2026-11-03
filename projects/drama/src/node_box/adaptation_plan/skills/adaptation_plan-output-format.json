@@ -4,34 +4,28 @@
     "schema": {
       "type": "object",
       "properties": {
-        "goal": {
-          "$ref": "project:/properties/adaptation_plan/properties/goal",
-          "minLength": 1
+        "creative_constraints": {
+          "$ref": "project:/properties/adaptation_plan/properties/creative_constraints"
         },
-        "locked_requirements": {
-          "$ref": "project:/properties/adaptation_plan/properties/locked_requirements"
-        },
-        "plot_text": {
-          "$ref": "project:/properties/adaptation_plan/properties/plot_text",
-          "minLength": 1
+        "plot_development": {
+          "$ref": "project:/properties/adaptation_plan/properties/plot_development"
         },
         "character_plans": {
           "$ref": "project:/properties/adaptation_plan/properties/character_plans"
         },
-        "scene_plans": {
-          "$ref": "project:/properties/adaptation_plan/properties/scene_plans"
-        },
         "group_plans": {
           "$ref": "project:/properties/adaptation_plan/properties/group_plans"
+        },
+        "scene_plans": {
+          "$ref": "project:/properties/adaptation_plan/properties/scene_plans"
         }
       },
       "required": [
-        "goal",
-        "locked_requirements",
-        "plot_text",
+        "creative_constraints",
+        "plot_development",
         "character_plans",
-        "scene_plans",
-        "group_plans"
+        "group_plans",
+        "scene_plans"
       ],
       "additionalProperties": false
     }
@@ -47,34 +41,28 @@
     "schema": {
       "type": "object",
       "properties": {
-        "goal": {
-          "$ref": "project:/properties/adaptation_plan/properties/goal",
-          "minLength": 1
+        "creative_constraints": {
+          "$ref": "project:/properties/adaptation_plan/properties/creative_constraints"
         },
-        "locked_requirements": {
-          "$ref": "project:/properties/adaptation_plan/properties/locked_requirements"
-        },
-        "plot_text": {
-          "$ref": "project:/properties/adaptation_plan/properties/plot_text",
-          "minLength": 1
+        "plot_development": {
+          "$ref": "project:/properties/adaptation_plan/properties/plot_development"
         },
         "character_plans": {
           "$ref": "project:/properties/adaptation_plan/properties/character_plans"
         },
-        "scene_plans": {
-          "$ref": "project:/properties/adaptation_plan/properties/scene_plans"
-        },
         "group_plans": {
           "$ref": "project:/properties/adaptation_plan/properties/group_plans"
+        },
+        "scene_plans": {
+          "$ref": "project:/properties/adaptation_plan/properties/scene_plans"
         }
       },
       "required": [
-        "goal",
-        "locked_requirements",
-        "plot_text",
+        "creative_constraints",
+        "plot_development",
         "character_plans",
-        "scene_plans",
-        "group_plans"
+        "group_plans",
+        "scene_plans"
       ],
       "additionalProperties": false
     }

@@ -14,7 +14,7 @@ test('共享注册保留宿主工具和身份，业务工具与指导随插件�
     return () => map.delete(item.name)
   }
   const ctx = {
-    drama: {documentVersion:2,createProjectTool:project,productionTools:[optimize,story]},
+    drama: {documentVersion:3,createProjectTool:project,productionTools:[optimize,story]},
     tools: { register: item => register(tools, item) },
     systemPrompt: { getSectionOrder: () => 10200, section: item => register(sections, item) },
     effect(fn) { disposers.push(fn()) },
@@ -33,13 +33,13 @@ test('共享注册保留宿主工具和身份，业务工具与指导随插件�
   }
 })
 
-test('V2会话只注册当前新流程工具，不注入已退役的优化与大纲指导',()=>{
- const tools=[],sections=[];const ctx={drama:{documentVersion:2,createProjectTool:{name:'drama-create-project'}},tools:{register:tool=>{tools.push(tool.name);return ()=>{}}},systemPrompt:{getSectionOrder:()=>10200,section:section=>{sections.push(section);return ()=>{}}},effect:fn=>fn()}
+test('V3会话只注册当前新流程工具，不注入已退役的优化与大纲指导',()=>{
+ const tools=[],sections=[];const ctx={drama:{documentVersion:3,createProjectTool:{name:'drama-create-project'}},tools:{register:tool=>{tools.push(tool.name);return ()=>{}}},systemPrompt:{getSectionOrder:()=>10200,section:section=>{sections.push(section);return ()=>{}}},effect:fn=>fn()}
  apply(ctx);assert.deepEqual(tools,['drama-create-project']);assert.deepEqual(sections.map(s=>s.name),['drama:production']);assert.match(sections[0].text,/前期不分集/);assert.match(sections[0].text,/纯程序/)
 })
 
 
-test('V2记忆工具与制作工具沿同一注册入口挂载，指导限制跨短剧范围和来源',()=>{
- const tools=[],sections=[],memory=[{name:'drama-read-memory'},{name:'drama-write-memory'}],ctx={drama:{documentVersion:2,createProjectTool:{name:'drama-create-project'},productionTools:memory},tools:{register:tool=>{tools.push(tool.name);return ()=>{}}},systemPrompt:{getSectionOrder:()=>10200,section:s=>{sections.push(s);return ()=>{}}},effect:fn=>fn()}
+test('V3记忆工具与制作工具沿同一注册入口挂载，指导限制跨短剧范围和来源',()=>{
+ const tools=[],sections=[],memory=[{name:'drama-read-memory'},{name:'drama-write-memory'}],ctx={drama:{documentVersion:3,createProjectTool:{name:'drama-create-project'},productionTools:memory},tools:{register:tool=>{tools.push(tool.name);return ()=>{}}},systemPrompt:{getSectionOrder:()=>10200,section:s=>{sections.push(s);return ()=>{}}},effect:fn=>fn()}
  apply(ctx);assert.deepEqual(tools,['drama-create-project',...memory.map(t=>t.name)]);assert.match(sections[0].text,/只在Drama跨短剧/);assert.match(sections[0].text,/保留原话/);assert.match(sections[0].text,/不自动提升AI推断或审核意见/)
 })

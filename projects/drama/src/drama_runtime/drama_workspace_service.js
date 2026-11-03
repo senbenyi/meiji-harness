@@ -9,10 +9,10 @@ import {ProjectDocumentExecutor} from '../node_box/project/runtime/executor.js'
 import {createWriteQueue} from './write_queue.js'
 import {requestIdentity} from './request-identity.js'
 
-/** 全新V2短剧入口；不读取旧节点、旧工作稿或执行旧数据迁移。 */
+/** 全新V3短剧入口；不读取旧节点、旧工作稿或执行旧数据迁移。 */
 export class ProjectWorkspaceService extends EventEmitter {
  constructor({root,records,workspaceController,sessionController,workspaceForSession}){
-  super();Object.assign(this,{root,records,workspaceController,sessionController,workspaceForSession});this.documentVersion=2;this.records.nodeTypes=projectStages.map(row=>({type:row.id,label:row.title}));this.writes=createWriteQueue();this.documents=new ProjectDocumentStore(root)
+  super();Object.assign(this,{root,records,workspaceController,sessionController,workspaceForSession});this.documentVersion=3;this.records.nodeTypes=projectStages.map(row=>({type:row.id,label:row.title}));this.writes=createWriteQueue();this.documents=new ProjectDocumentStore(root)
   this.memories=new MemoryService(this)
   this.executor=new ProjectDocumentExecutor(this)
   this.records.tasks.register('project',{label:'短剧与原稿',plan:task=>[{kind:task.action,name:task.name,executor:'program'}],execute:ctx=>this.executor.execute(ctx)})
@@ -31,7 +31,7 @@ export class ProjectWorkspaceService extends EventEmitter {
  async startSession(requestId){if(typeof requestId!=='string'||!requestId)throw new TypeError('缺少请求ID');return this.writes.run(async()=>{const state=await this.bindings(),id=state.drafts[requestId]||`session-${randomUUID()}`;state.drafts[requestId]=id;await this.saveBindings(state);const cwd=join(this.root,'sessions',id);await mkdir(cwd,{recursive:true});await this.sessionController.create({sessionId:id,cwd,agentPreset:'standard'});await this.applyMainAgent?.(id);return {session_id:id}})}
  async create(input,{sessionId,requestId,source='api'}={}){
   if(!sessionId||!requestId||typeof input?.name!=='string'||!input.name.trim()||input.name.trim().length>100)throw new TypeError('短剧名称、会话和请求ID必填')
-  let groupId=requestIdentity(['project-v2',sessionId,requestId])
+  let groupId=requestIdentity(['project-v3',sessionId,requestId])
   await this.writes.run(async()=>{
    const state=await this.bindings(),key=JSON.stringify([sessionId,requestId]);let row=state.requests[key]
    const info={name:input.name.trim(),creation_mode:input.creation_mode||'剧本',aspect_ratio:input.aspect_ratio||'9:16'},body=input.original_script??''
@@ -40,9 +40,9 @@ export class ProjectWorkspaceService extends EventEmitter {
    else{const input_ref=`requests/${randomUUID()}.txt`;await mkdir(join(this.root,'requests'),{recursive:true});await writeFile(join(this.root,input_ref),body,{mode:0o600});row=state.requests[key]={project_id:`p_${randomUUID()}`,info,input_ref,original_name:input.original_script_filename||'剧本.txt'};await this.saveBindings(state)}
    groupId=row.creation_group_id||groupId
    const previous=this.records.tasks.detail(this.records.scope,groupId)
-   if(previous&&['failed','cancelled'].includes(previous.status)){row.creation_attempt=(row.creation_attempt||0)+1;groupId=requestIdentity(['project-v2',sessionId,requestId,row.creation_attempt])}
+   if(previous&&['failed','cancelled'].includes(previous.status)){row.creation_attempt=(row.creation_attempt||0)+1;groupId=requestIdentity(['project-v3',sessionId,requestId,row.creation_attempt])}
    row.creation_group_id=groupId;await this.saveBindings(state)
-   if(!this.records.tasks.detail(this.records.scope,groupId))this.records.tasks.submit(this.records.scope,{group:{id:groupId,name:'创建短剧',source},tasks:[{node_type:'project',action:'create',name:'创建短剧',metadata:{project_id:row.project_id,source_session_id:sessionId,request_key:key,input_ref:row.input_ref,document_version:2,goal:'创建短剧'}}]})
+   if(!this.records.tasks.detail(this.records.scope,groupId))this.records.tasks.submit(this.records.scope,{group:{id:groupId,name:'创建短剧',source},tasks:[{node_type:'project',action:'create',name:'创建短剧',metadata:{project_id:row.project_id,source_session_id:sessionId,request_key:key,input_ref:row.input_ref,document_version:3,goal:'创建短剧'}}]})
   })
   this.records.tasks.start(this.records.scope);const detail=await this.wait(groupId);await this.projectTaskResult(detail);if(detail.status!=='completed')throw new Error(detail.reason||'创建失败');return {...detail.steps.find(row=>row.result?.created).result.created,group_id:groupId,status:detail.status}
  }
@@ -58,9 +58,9 @@ export class ProjectWorkspaceService extends EventEmitter {
   const project=await this.context(sessionId,projectId);projectId=project.basic_info.id
   if(this.activeExecution(projectId))throw Object.assign(new Error('短剧任务正在执行'),{code:'PROJECT_ACTIVE'})
   const stage=command.stage||command.node_type||'project';if(!projectStages.some(row=>row.id===stage))throw new TypeError('未知制作步骤')
-  const groupId=requestIdentity(['manual-v2',sessionId,requestId]);const existing=this.records.tasks.detail(this.records.scope,groupId);if(existing){const old=JSON.parse((await this.documents.readArtifact(projectId,existing.tasks[0].metadata.payload_ref)).toString());if(JSON.stringify(old)!==JSON.stringify(command))throw new TypeError('同一请求ID不能使用不同编辑内容')}
+  const groupId=requestIdentity(['manual-v3',sessionId,requestId]);const existing=this.records.tasks.detail(this.records.scope,groupId);if(existing){const old=JSON.parse((await this.documents.readArtifact(projectId,existing.tasks[0].metadata.payload_ref)).toString());if(JSON.stringify(old)!==JSON.stringify(command))throw new TypeError('同一请求ID不能使用不同编辑内容')}
   const payload_ref=existing?.tasks[0].metadata.payload_ref||await this.documents.writeArtifact(projectId,JSON.stringify(command),{extension:'json'})
-  if(!this.records.tasks.detail(this.records.scope,groupId))this.records.tasks.submit(this.records.scope,{group:{id:groupId,name:'人工编辑',source:'ui'},tasks:[{node_type:command.stage||command.node_type||'project',action:'manual_edit',name:'人工编辑产物',metadata:{project_id:projectId,session_id:sessionId,payload_ref,document_version:2,goal:'人工编辑产物'}}]})
+  if(!this.records.tasks.detail(this.records.scope,groupId))this.records.tasks.submit(this.records.scope,{group:{id:groupId,name:'人工编辑',source:'ui'},tasks:[{node_type:command.stage||command.node_type||'project',action:'manual_edit',name:'人工编辑产物',metadata:{project_id:projectId,session_id:sessionId,payload_ref,document_version:3,goal:'人工编辑产物'}}]})
   this.records.tasks.start(this.records.scope);const result=await this.wait(groupId);await this.projectTaskResult(result);if(result.status!=='completed')throw Object.assign(new Error(result.reason||'保存失败'),{status:409});this.emit('updated',{project_id:projectId,session_ids:[sessionId]});return {...await this.snapshot(sessionId),group_id:groupId,operation_result:result.steps.findLast(step=>step.result?.operation_result)?.result.operation_result||null}
  }
  async readOriginalScript(sessionId){const project=await this.context(sessionId),source=project.source.revisions.find(row=>row.id===project.source.current_revision_id);if(!source)throw new Error('尚未导入原稿');return {body:(await this.documents.readArtifact(project.basic_info.id,source.file_ref)).toString(),originalName:source.original_name}}

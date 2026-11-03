@@ -1,9 +1,10 @@
+import {makePlan} from './helpers/adaptation-plan.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {modelTurn} from '../src/node_box/shared/agent/model_loop.js'
 import {call,reply} from './helpers/production-fixture.js'
 
-const candidate={goal:'保留原著主线，强化人物动机',locked_requirements:[],plot_text:'保留冲突与关系，强化因果。',character_plans:[],scene_plans:[],group_plans:[]}
+const candidate=makePlan({direction:'保留原著主线，强化人物动机',requirements:[],development:'保留冲突与关系，强化因果。',character_plans:[],scene_plans:[],group_plans:[]})
 function runtime({body='张飞走进营帐，说：“来战！”',material={goal:'保留对白'},required=true}={}){
   const files=new Map(),prompts=[],sourceId='source_current'
   const snapshot={basic_info:{output_language:'zh'},node_states:{adaptation_plan:{opinion:'',rules:{generate:'本短剧规则：保留营帐。',review:'独立核对当前候选。',revise:'只修有效意见。'}}},source:{revisions:[{id:sourceId,file_ref:'sources/original.txt'}]},source_analysis:{source_revision_id:sourceId,chapters:[{id:'chapter_one',sequence:1,title:'营帐',body,summary:'人物对峙'}]}}
@@ -29,7 +30,7 @@ test('首轮提供当前动作规则、短单元与契约，固定资料不再�
   const [system,user]=r.request.messages,catalog=JSON.parse(user.content)
   assert.equal(r.request.messages.length,2);assert.match(system.content,/本短剧规则：保留营帐/)
   assert.doesNotMatch(system.content,/审核须完整读取当前候选/)
-  assert.deepEqual(catalog.unit.material,{goal:'保留对白'});assert.ok(catalog.output_contract.properties.goal)
+  assert.deepEqual(catalog.unit.material,{goal:'保留对白'});assert.ok(catalog.output_contract.properties.creative_constraints)
   assert.equal(catalog.unit_material_included,true);assert.equal('skill_index' in catalog,false)
   assert.ok(r.request.tools.every(t=>!['read_skill','read_contract','read_unit'].includes(t.function.name)))
   assert.deepEqual(JSON.parse(f.files.get(f.prompts[0].input.messages_ref)),r.request.messages)

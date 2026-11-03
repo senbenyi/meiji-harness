@@ -6,9 +6,9 @@ import {join} from 'node:path'
 import {ProjectDocumentStore} from '../src/drama_runtime/drama_document_store.js'
 async function fixture(t){const root=await mkdtemp(join(tmpdir(),'drama-v2-'));const store=new ProjectDocumentStore(root);t.after(async()=>{await store.dispose();await rm(root,{recursive:true,force:true})});return {root,store}}
 
-test('新存储只保存V2文档，10MiB原稿外置且短剧JSON不含正文副本',async t=>{
+test('新存储只保存V3文档，10MiB原稿外置且短剧JSON不含正文副本',async t=>{
  const {store,root}=await fixture(t),body='x'.repeat(10*1024*1024),p=await store.create({name:'长稿',original_script:body})
- assert.equal(p.schema_version,2);assert.equal(p.source.revisions[0].character_count,body.length)
+ assert.equal(p.schema_version,3);assert.equal(p.source.revisions[0].character_count,body.length)
  assert.ok((await readFile(join(root,'projects',p.basic_info.id,'project.json'))).length<12000)
  const first=await store.readArtifact(p.basic_info.id,p.source.revisions[0].file_ref,{start:0,end:16000});assert.equal(first.length,16000)
  assert.equal((await store.readArtifact(p.basic_info.id,p.source.revisions[0].file_ref)).length,body.length)
@@ -25,16 +25,16 @@ test('原稿人工修改创建新版本，旧来源文件及引用保持不变',
 
 test('各阶段人工产物可持久保存且旧版本写入会被拒绝',async t=>{
  const {store}=await fixture(t),p=await store.create({name:'编辑'})
- const plan={...p.adaptation_plan,goal:'人工调整改编目标'}
+ const plan={...p.adaptation_plan,creative_constraints:{...p.adaptation_plan.creative_constraints,style:'人工调整改编目标'}}
  const next=await store.saveProduct(p.basic_info.id,'adaptation_plan',plan,{expectedRevision:0})
- assert.equal((await store.read(p.basic_info.id)).adaptation_plan.goal,plan.goal)
+ assert.equal((await store.read(p.basic_info.id)).adaptation_plan.creative_constraints.style,plan.creative_constraints.style)
  assert.equal(next.node_states.adaptation_plan.status,'draft')
  await assert.rejects(store.saveProduct(p.basic_info.id,'adaptation_plan',plan,{expectedRevision:0}),{code:'EDIT_CONFLICT'})
 })
 
 test('同版本并发编辑只接受一个，不丢失已提交内容',async t=>{
  const {store}=await fixture(t),p=await store.create({name:'并发'})
- const results=await Promise.allSettled(['甲','乙'].map(goal=>store.saveProduct(p.basic_info.id,'adaptation_plan',{...p.adaptation_plan,goal},{expectedRevision:0})))
+ const results=await Promise.allSettled(['甲','乙'].map(goal=>store.saveProduct(p.basic_info.id,'adaptation_plan',{...p.adaptation_plan,creative_constraints:{...p.adaptation_plan.creative_constraints,style:goal}},{expectedRevision:0})))
  assert.equal(results.filter(row=>row.status==='fulfilled').length,1);assert.equal(results.filter(row=>row.status==='rejected')[0].reason.code,'EDIT_CONFLICT')
 })
 

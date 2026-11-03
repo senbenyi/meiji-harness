@@ -1,9 +1,9 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "document_revision": 0,
   "basic_info": {
     "id": "p_example",
-    "name": "示例短剧",
+    "name": "短剧示例",
     "creation_mode": "剧本",
     "aspect_ratio": "9:16",
     "output_language": "zh-CN"
@@ -21,12 +21,24 @@
   "adaptation_plan": {
     "revision": 0,
     "source_revision_id": null,
-    "goal": "",
-    "locked_requirements": [],
+    "creative_constraints": {
+      "style": "",
+      "audience": "",
+      "adaptation_scope": "",
+      "preserve": [],
+      "allowed_changes": [],
+      "locked_requirements": []
+    },
+    "plot_development": {
+      "main_goal": "",
+      "core_conflict": "",
+      "events": [],
+      "climax": "",
+      "ending": ""
+    },
     "character_plans": [],
     "scene_plans": [],
-    "group_plans": [],
-    "plot_text": ""
+    "group_plans": []
   },
   "story_segments": {
     "segments": []

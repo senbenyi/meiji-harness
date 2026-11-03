@@ -1,0 +1,4 @@
+// Shared valid V3 plan for simulated model and document tests.
+export function makePlan({direction='明快的戏剧叙事',requirements=[],development='主角为目标采取行动，冲突推动局面变化',character_plans=[],scene_plans=[],group_plans=[],...metadata}={},source_chapter_ids=[]){
+ return {...metadata,creative_constraints:{style:direction,audience:'成年与青少年',adaptation_scope:'保留主线，强化因果',preserve:requirements,allowed_changes:['调整叙事表达'],locked_requirements:requirements},plot_development:{main_goal:development,core_conflict:'主角与阻力的冲突',events:[{id:'event_main',sequence:1,title:'主线推进',cause:'主角面临阻力',action:development,result:'冲突改变人物处境',character_ids:character_plans.map(p=>p.id),group_ids:group_plans.map(p=>p.id),scene_ids:scene_plans.map(p=>p.id),source_chapter_ids}],climax:'主角面对关键冲突',ending:'冲突取得阶段性结果'},character_plans,scene_plans,group_plans}
+}

@@ -19,7 +19,7 @@ export function executionActivities(trace){
   if(['read_source','read_candidate','read_file'].includes(name))detail=range(args)
   if(['read_context','search_context','read_unit','read_file_json'].includes(name))detail=location(args)
   if(['search_source','search_context','search_memory'].includes(name))detail=[detail,args.query?`检索“${trim(args.query,60)}”`:''].filter(Boolean).join(' · ')
-  if(name==='read_file'&&typeof result.body==='string')try{const body=JSON.parse(result.body);if(body?.plot_text&&Array.isArray(body.character_plans))title='读取全篇改编指导'}catch{}
+  if(name==='read_file'&&typeof result.body==='string')try{const body=JSON.parse(result.body);if(body?.plot_development&&Array.isArray(body.character_plans))title='读取全篇改编指导'}catch{}
   const status=!response?'pending':!readable||result.error?'failed':['submit_candidate','submit_review'].includes(name)&&result.accepted!==true?'pending':'done'
   if(status==='pending')detail=response?'提交尚未得到确认':'尚无工具返回记录'
   else if(status==='failed')detail=trim(result.error)||'工具返回无法解析，请查看原始记录'
@@ -31,4 +31,4 @@ export function executionActivities(trace){
  if(calls.length>32)rows.push({tool:'more',title:`另有 ${calls.length-32} 项工具调用`,detail:'完整内容见原始记录',status:'pending'})
  return rows
 }
-export function stepExecutionName(step,task){return task?.metadata?.document_version===2?executionPhase(step.kind):step.name}
+export function stepExecutionName(step,task){return task?.metadata?.document_version===3?executionPhase(step.kind):step.name}

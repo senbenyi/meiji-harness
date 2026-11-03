@@ -3,7 +3,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 2
+      "const": 3
     },
     "document_revision": {
       "type": "integer",
@@ -214,22 +214,156 @@
             }
           ]
         },
-        "goal": {
-          "type": "string",
-          "minLength": 0,
-          "description": "改编目标与原则：明确风格、受众、改编尺度、保留内容及允许调整的内容。用户未指定时依据原著自主作出明确方案选择，直接写成可执行原则，不写建议或待确认；方案选择不冒充用户已确认要求，不得直接复制短剧名。"
+        "creative_constraints": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "string",
+              "minLength": 0
+            },
+            "audience": {
+              "type": "string",
+              "minLength": 0
+            },
+            "adaptation_scope": {
+              "type": "string",
+              "minLength": 0
+            },
+            "preserve": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "allowed_changes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "locked_requirements": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "style",
+            "audience",
+            "adaptation_scope",
+            "preserve",
+            "allowed_changes",
+            "locked_requirements"
+          ],
+          "additionalProperties": false,
+          "description": "全篇创作约束：明确风格、受众、改编尺度、保留内容与允许调整内容；locked_requirements记录用户明确锁定要求，其余方案依据原著和视频表达需要作出明确选择。"
         },
-        "locked_requirements": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "plot_text": {
-          "type": "string",
-          "minLength": 0,
-          "description": "整体剧情方向：主线、核心冲突、需强化的爽点和原著问题处理；不重复目标原则，不预设逐段事件或衔接。"
+        "plot_development": {
+          "type": "object",
+          "properties": {
+            "main_goal": {
+              "type": "string",
+              "minLength": 0
+            },
+            "core_conflict": {
+              "type": "string",
+              "minLength": 0
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cause": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "action": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "result": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "character_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "group_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "scene_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "source_chapter_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "sequence",
+                  "title",
+                  "cause",
+                  "action",
+                  "result",
+                  "character_ids",
+                  "group_ids",
+                  "scene_ids",
+                  "source_chapter_ids"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "climax": {
+              "type": "string",
+              "minLength": 0
+            },
+            "ending": {
+              "type": "string",
+              "minLength": 0
+            }
+          },
+          "required": [
+            "main_goal",
+            "core_conflict",
+            "events",
+            "climax",
+            "ending"
+          ],
+          "additionalProperties": false,
+          "description": "剧情发展：明确主线目标、核心冲突、按因果推进的关键事件、高潮与结局方向；事件关联人物/团队/场景及原著章节。确定事件及因果关系，供故事分段定稿展开完整正文。"
         },
         "character_plans": {
           "type": "array",
@@ -338,9 +472,8 @@
       "required": [
         "revision",
         "source_revision_id",
-        "goal",
-        "locked_requirements",
-        "plot_text",
+        "creative_constraints",
+        "plot_development",
         "character_plans",
         "scene_plans",
         "group_plans"
@@ -370,6 +503,13 @@
               "adaptation_revision": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "plot_event_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               },
               "source_chapter_ids": {
                 "type": "array",
@@ -429,6 +569,7 @@
               "sequence",
               "revision",
               "adaptation_revision",
+              "plot_event_ids",
               "source_chapter_ids",
               "title",
               "body_ref",

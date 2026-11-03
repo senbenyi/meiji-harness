@@ -16,21 +16,21 @@ async function fixture(t){
  return {root,projects,records,workspaces}
 }
 async function created(f){const c=await f.projects.create({name:'新流程',original_script:'原稿'}, {sessionId:'source',requestId:'create-1'});return {c,context:{sessionId:c.session_id,projectId:c.project_id}}}
-test('新入口纯程序创建V2并保持幂等、短剧归属与外置原稿',async t=>{
+test('新入口纯程序创建V3并保持幂等、短剧归属与外置原稿',async t=>{
  const f=await fixture(t),{c,context}=await created(f),p=(await f.projects.snapshot(c.session_id)).project
- assert.equal(p.schema_version,2);assert.equal(f.records.http.list().length,0);assert.equal((await f.projects.readOriginalScript(c.session_id)).body,'原稿')
+ assert.equal(p.schema_version,3);assert.equal(f.records.http.list().length,0);assert.equal((await f.projects.readOriginalScript(c.session_id)).body,'原稿')
  assert.equal((await f.projects.create({name:'新流程',original_script:'原稿'},{sessionId:'source',requestId:'create-1'})).project_id,c.project_id)
  assert.equal(f.workspaces.length,1);await assert.rejects(f.projects.context('source',c.project_id),{code:'PROJECT_SCOPE'})
  assert.equal((await f.projects.context(context.sessionId,context.projectId)).basic_info.id,c.project_id)
- const task=f.records.tasks.detail(f.records.scope,c.group_id);assert.deepEqual(task.steps.map(s=>s.executor),['program']);assert.equal(task.tasks[0].metadata.document_version,2);assert.equal(boxReport(task).session_id,c.session_id)
+ const task=f.records.tasks.detail(f.records.scope,c.group_id);assert.deepEqual(task.steps.map(s=>s.executor),['program']);assert.equal(task.tasks[0].metadata.document_version,3);assert.equal(boxReport(task).session_id,c.session_id)
 })
 test('人工编辑走Task，冲突保留旧产物，重试不重复写入',async t=>{
- const f=await fixture(t),{c,context}=await created(f),p=(await f.projects.snapshot(c.session_id)).project,command={kind:'product',stage:'adaptation_plan',expected_revision:0,value:{...p.adaptation_plan,goal:'尊重原著'}}
- const result=await f.projects.edit(command,{...context,requestId:'manual-1'});assert.equal(result.project.adaptation_plan.goal,'尊重原著');assert.equal(result.project.node_states.adaptation_plan.status,'draft')
+ const f=await fixture(t),{c,context}=await created(f),p=(await f.projects.snapshot(c.session_id)).project,command={kind:'product',stage:'adaptation_plan',expected_revision:0,value:{...p.adaptation_plan,creative_constraints:{...p.adaptation_plan.creative_constraints,style:'尊重原著'}}}
+ const result=await f.projects.edit(command,{...context,requestId:'manual-1'});assert.equal(result.project.adaptation_plan.creative_constraints.style,'尊重原著');assert.equal(result.project.node_states.adaptation_plan.status,'draft')
  const repeated=await f.projects.edit(command,{...context,requestId:'manual-1'});assert.equal(repeated.project.document_revision,result.project.document_revision)
- await assert.rejects(f.projects.edit({...command,value:{...command.value,goal:'覆盖'}},{...context,requestId:'manual-1'}),/不同编辑内容/)
+ await assert.rejects(f.projects.edit({...command,value:{...command.value,creative_constraints:{...command.value.creative_constraints,style:'覆盖'}}},{...context,requestId:'manual-1'}),/不同编辑内容/)
  await assert.rejects(f.projects.edit(command,{...context,requestId:'manual-2'}),/已被修改/)
- assert.equal((await f.projects.snapshot(c.session_id)).project.adaptation_plan.goal,'尊重原著')
+ assert.equal((await f.projects.snapshot(c.session_id)).project.adaptation_plan.creative_constraints.style,'尊重原著')
  const task=f.records.tasks.detail(f.records.scope,result.group_id);assert.equal(task.steps[0].result.saved,true);assert.equal(task.steps[0].result.payload_ref,task.tasks[0].metadata.payload_ref)
 })
 test('正文编辑创建不可变文件版本，不改其他阶段或原始文件',async t=>{
@@ -41,12 +41,12 @@ test('正文编辑创建不可变文件版本，不改其他阶段或原始文�
  assert.equal((await f.projects.documents.readArtifact(c.project_id,result.project.editing.preview_ref)).toString(),'新预览说明')
  await assert.rejects(f.projects.edit({kind:'artifact_text',stage:'story_segments',ref,value:'错误跨阶段',expected_revision:0},context),/不属于/)
 })
-test('V2短剧HTTP支持创建/人工编辑/分页正文并拒绝旧AI端点',async t=>{
+test('V3短剧HTTP支持创建/人工编辑/分页正文并拒绝旧AI端点',async t=>{
  const f=await fixture(t),handler=createProjectHttpHandler(f.projects,{authorize:()=>null,models:{read:async()=>({}),save:async x=>x}}),server=createServer(handler)
  await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(async()=>{await handler.dispose();await new Promise(r=>server.close(r))})
  const base=`http://127.0.0.1:${server.address().port}/api/drama`,send=(path,value,method='POST')=>fetch(base+path,{method,headers:{'x-drama-request':'1','content-type':'application/json'},body:JSON.stringify(value)})
  const response=await send('/projects?session_id=source',{fields:{basic_info:{name:'接口短剧',original_script:'x'.repeat(3*1024*1024)}},request_id:'http-create'});assert.equal(response.status,200)
- const c=await response.json(),query=`?session_id=${c.session_id}`,snapshot=await (await fetch(base+'/project'+query)).json();assert.equal(snapshot.project.schema_version,2)
+ const c=await response.json(),query=`?session_id=${c.session_id}`,snapshot=await (await fetch(base+'/project'+query)).json();assert.equal(snapshot.project.schema_version,3)
  const changed=await send('/project'+query,{project_id:c.project_id,request_id:'http-edit',command:{kind:'basic_info',expected_revision:0,value:{name:'改名',creation_mode:'剧本',aspect_ratio:'16:9',output_language:'zh-CN'}}},'PATCH');assert.equal(changed.status,200);assert.equal((await changed.json()).project.basic_info.name,'改名')
  assert.equal((await send('/script-optimization'+query,{})).status,410)
  assert.equal((await fetch(base+'/node-rules'+query+'&node_type=source_analysis')).status,200)

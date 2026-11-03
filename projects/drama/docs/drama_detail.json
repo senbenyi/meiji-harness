@@ -3,7 +3,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 2,
+      "const": 3,
       "description": "短剧结构版本，固定为2"
     },
     "document_revision": {
@@ -242,23 +242,177 @@
           ],
           "description": "关联原稿版本ID"
         },
-        "goal": {
-          "type": "string",
-          "minLength": 0,
-          "description": "改编目标与原则：明确风格、受众、改编尺度、保留内容及允许调整的内容。用户未指定时依据原著自主作出明确方案选择，直接写成可执行原则，不写建议或待确认；方案选择不冒充用户已确认要求，不得直接复制短剧名。"
-        },
-        "locked_requirements": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
+        "creative_constraints": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "string",
+              "minLength": 0,
+              "description": "风格"
+            },
+            "audience": {
+              "type": "string",
+              "minLength": 0,
+              "description": "受众"
+            },
+            "adaptation_scope": {
+              "type": "string",
+              "minLength": 0,
+              "description": "改编尺度"
+            },
+            "preserve": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "必须保留的内容"
+            },
+            "allowed_changes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "允许调整的内容"
+            },
+            "locked_requirements": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "用户明确锁定要求"
+            }
           },
-          "description": "用户明确锁定的改编要求"
+          "required": [
+            "style",
+            "audience",
+            "adaptation_scope",
+            "preserve",
+            "allowed_changes",
+            "locked_requirements"
+          ],
+          "additionalProperties": false,
+          "description": "全篇创作约束：明确风格、受众、改编尺度、保留内容与允许调整内容；locked_requirements记录用户明确锁定要求，其余方案依据原著和视频表达需要作出明确选择。"
         },
-        "plot_text": {
-          "type": "string",
-          "minLength": 0,
-          "description": "整体剧情方向：主线、核心冲突、需强化的爽点和原著问题处理；不重复目标原则，不预设逐段事件或衔接。"
+        "plot_development": {
+          "type": "object",
+          "properties": {
+            "main_goal": {
+              "type": "string",
+              "minLength": 0,
+              "description": "主线目标"
+            },
+            "core_conflict": {
+              "type": "string",
+              "minLength": 0,
+              "description": "核心冲突"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "字段说明：id"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "字段说明：sequence"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "字段说明：title"
+                  },
+                  "cause": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "事件原因"
+                  },
+                  "action": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "事件行动"
+                  },
+                  "result": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "事件结果"
+                  },
+                  "character_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "description": "关联人物规划ID"
+                  },
+                  "group_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "description": "关联团队规划ID"
+                  },
+                  "scene_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "description": "关联场景规划ID"
+                  },
+                  "source_chapter_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "description": "关联原著章节ID"
+                  }
+                },
+                "required": [
+                  "id",
+                  "sequence",
+                  "title",
+                  "cause",
+                  "action",
+                  "result",
+                  "character_ids",
+                  "group_ids",
+                  "scene_ids",
+                  "source_chapter_ids"
+                ],
+                "additionalProperties": false
+              },
+              "description": "按因果顺序排列的关键事件"
+            },
+            "climax": {
+              "type": "string",
+              "minLength": 0,
+              "description": "高潮方向"
+            },
+            "ending": {
+              "type": "string",
+              "minLength": 0,
+              "description": "结局方向"
+            }
+          },
+          "required": [
+            "main_goal",
+            "core_conflict",
+            "events",
+            "climax",
+            "ending"
+          ],
+          "additionalProperties": false,
+          "description": "剧情发展：明确主线目标、核心冲突、按因果推进的关键事件、高潮与结局方向；事件关联人物/团队/场景及原著章节。确定事件及因果关系，供故事分段定稿展开完整正文。"
         },
         "character_plans": {
           "type": "array",
@@ -384,9 +538,8 @@
       "required": [
         "revision",
         "source_revision_id",
-        "goal",
-        "locked_requirements",
-        "plot_text",
+        "creative_constraints",
+        "plot_development",
         "character_plans",
         "scene_plans",
         "group_plans"
@@ -421,6 +574,14 @@
                 "type": "integer",
                 "minimum": 0,
                 "description": "本次定稿采用的全篇改编指导版本"
+              },
+              "plot_event_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "本故事段展开的剧情事件ID"
               },
               "source_chapter_ids": {
                 "type": "array",
@@ -488,6 +649,7 @@
               "sequence",
               "revision",
               "adaptation_revision",
+              "plot_event_ids",
               "source_chapter_ids",
               "title",
               "body_ref",
@@ -3884,6 +4046,5 @@
     "delivery",
     "node_states"
   ],
-  "additionalProperties": false,
-  "$comment": "Drama当前V2字段说明，与drama_document.js运行Schema一致。联合改编是全篇指导；具体剧情、分段和衔接由故事定稿承担。无旧段计划、来源人物/场景引用、提前声线或制服版本字段；不做旧结构兼容。运行时不读取文档模板。"
+  "additionalProperties": false
 }

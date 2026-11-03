@@ -1,12 +1,13 @@
 // 字段标签与readable布局复制自meiji/client/content-forms.js，按drama节点契约补齐。
 const fieldLabels = {
+  locked_requirements:'用户锁定要求',creative_constraints:'全篇创作约束',style:'风格',audience:'受众',adaptation_scope:'改编尺度',preserve:'必须保留',allowed_changes:'允许调整',plot_development:'剧情发展',main_goal:'主线目标',core_conflict:'核心冲突',events:'关键事件',cause:'原因',action:'行动',result:'结果',climax:'高潮',character_ids:'关联人物',group_ids:'关联团队',scene_ids:'关联场景',plot_event_ids:'剧情事件',
   shots: '分镜', name: '名称', title: '标题', body: '正文', description: '描述',
   world_background: '世界背景', key_anchors: '关键锚点', content: '内容', expression: '视听表达',
   characters_and_groups: '参与人物与群体', scene_and_space: '场景与空间', emotion_and_rhythm: '情绪与节奏',
   duration_seconds: '预估时长（秒）', continuity: '衔接', opening: '开场', ending: '结尾',
   social_role: '身份', age_range: '年龄段', nationality: '国籍或族群', gender: '性别', era: '年代',
   height: '身高', body_type: '体型', facial_features: '面部特征', hairstyle: '发型', voice: '声线',
-  group_plans: '团队指导', plot_text:'全篇改编指导', function:'场景作用', motivation:'人物动机', relationships:'人物关系', arc:'人物成长方向', adaptation_revision:'改编指导版本', source_chapter_ids:'原著正文记录', groups: '团队', group_ids: '所属团队', group_id: '团队', group_costume_id: '团队服装版本', story_segment_ids: '适用故事段',
+  group_plans: '团队规划',  function:'场景作用', motivation:'人物动机', relationships:'人物关系', arc:'人物成长方向', adaptation_revision:'改编指导版本', source_chapter_ids:'原著正文记录', groups: '团队', group_ids: '所属团队', group_id: '团队', group_costume_id: '团队服装版本', story_segment_ids: '适用故事段',
   region: '地域与气候', appearance: '基本团队形象', demeanor: '群体气质', visual_identity: '视觉标识',
   signature_props: '标志性道具', immutable_traits: '不可改特征', costumes: '服装',
   layout: '固定布局', materials: '材质与色彩', lighting: '基础光照', entrances_and_routes: '出入口与路线', fixed_landmarks: '固定地标',

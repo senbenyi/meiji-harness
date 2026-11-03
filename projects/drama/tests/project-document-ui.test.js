@@ -1,3 +1,4 @@
+import {makePlan} from './helpers/adaptation-plan.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {JSDOM} from 'jsdom'
@@ -16,7 +17,7 @@ test('产物编辑保存携带原版本，失败保留输入且不会修改只�
  const {root}=fixture(t);let p=createProjectDocument({id:'p_ui',name:'编辑'}),command,fail=true
  const state={documentStage:'adaptation_plan'},view=createProjectDocumentView(root,{project:p,state,request:async()=>({}),save:async c=>{command=c;if(fail)throw new Error('编辑冲突');p=editProjectProduct(p,c.stage,c.value,{expectedRevision:c.expected_revision});return p}});t.after(()=>view.dispose())
  const click=text=>[...root.querySelectorAll('button')].find(b=>b.textContent===text).click()
- click('人工编辑产物');const input=root.querySelector('dialog textarea');input.value=JSON.stringify({...p.adaptation_plan,goal:'人工目标'});click('保存');await tick();assert.match(root.querySelector('dialog').textContent,/编辑冲突/);assert.match(input.value,/人工目标/)
+ click('人工编辑产物');const input=root.querySelector('dialog textarea');input.value=JSON.stringify({...p.adaptation_plan,creative_constraints:{...p.adaptation_plan.creative_constraints,style:'人工目标'}});click('保存');await tick();assert.match(root.querySelector('dialog').textContent,/编辑冲突/);assert.match(input.value,/人工目标/)
  fail=false;click('保存');await tick();assert.equal(root.querySelector('dialog'),null);assert.equal(command.expected_revision,0);assert.match(root.textContent,/人工目标/);assert.match(root.textContent,/待核对/)
  click('查看规则');assert.equal(root.querySelector('textarea').readOnly,true);assert.equal([...root.querySelectorAll('dialog button')].some(b=>b.textContent==='保存'),false)
 })
@@ -101,10 +102,10 @@ test('仅真实执行中的当前节点显示加载圆环，结束隐藏受理�
 })
 
 test('联合改编约束按完整文本列表展示，实体编辑保留且空列表不生成卡片',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_requirements',name:'完整约束'});p.adaptation_plan.locked_requirements=['本单元覆盖原稿0—1200字符。','保留原著人物关系与关键对白。'];p.adaptation_plan.character_plans=[{id:'cp_one',name:'张飞',description:'勇猛',motivation:'迎战',relationships:'对峙',arc:'坚守'}];p.node_states.adaptation_plan.product_revision=3;let saved
- const view=createProjectDocumentView(root,{project:p,state:{documentStage:'adaptation_plan'},save:async command=>{saved=command;return p}});t.after(()=>view.dispose());let cards=[...root.querySelectorAll('.production-card')],requirements=cards.find(card=>card.querySelector('h4').textContent==='改编约束');assert.ok(requirements);assert.match(requirements.textContent,/1\. 本单元覆盖原稿0—1200字符。/);assert.match(requirements.textContent,/2\. 保留原著人物关系与关键对白。/);assert.doesNotMatch(requirements.textContent,/locked_requirements|0：本|1：单/)
- const character=cards.find(card=>card.querySelector('h4').textContent==='张飞');assert.ok(character);[...character.querySelectorAll('button')].find(button=>button.textContent==='编辑此项').click();root.querySelector('dialog [aria-label=描述]').value='勇猛忠诚';await [...root.querySelectorAll('dialog button')].find(button=>button.textContent==='保存').onclick();assert.equal(saved.kind,'product');assert.equal(saved.stage,'adaptation_plan');assert.equal(saved.expected_revision,3);assert.equal(saved.value.character_plans[0].description,'勇猛忠诚');assert.deepEqual(saved.value.locked_requirements,p.adaptation_plan.locked_requirements)
- const empty=createProjectDocument({id:'p_empty',name:'无产物'});view.update(empty);assert.equal(root.querySelectorAll('.production-card').length,0);assert.match(root.querySelector('.production-empty').textContent,/暂无联合改编规划产物/)
+ const {root}=fixture(t),p=createProjectDocument({id:'p_requirements',name:'完整约束'});p.adaptation_plan.creative_constraints.locked_requirements=['本单元覆盖原稿0—1200字符。','保留原著人物关系与关键对白。'];p.adaptation_plan.character_plans=[{id:'cp_one',name:'张飞',description:'勇猛',motivation:'迎战',relationships:'对峙',arc:'坚守'}];p.node_states.adaptation_plan.product_revision=3;let saved
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'adaptation_plan'},save:async command=>{saved=command;return p}});t.after(()=>view.dispose());let cards=[...root.querySelectorAll('.production-card')],requirements=root.querySelector('[data-guidance-group=creative_constraints] .production-card');assert.ok(requirements);assert.match(requirements.textContent,/1\. 本单元覆盖原稿0—1200字符。/);assert.match(requirements.textContent,/2\. 保留原著人物关系与关键对白。/);assert.doesNotMatch(requirements.textContent,/locked_requirements|0：本|1：单/)
+ const character=cards.find(card=>card.querySelector('h4')?.textContent==='张飞');assert.ok(character);[...character.querySelectorAll('button')].find(button=>button.textContent==='编辑此项').click();root.querySelector('dialog [aria-label=描述]').value='勇猛忠诚';await [...root.querySelectorAll('dialog button')].find(button=>button.textContent==='保存').onclick();assert.equal(saved.kind,'product');assert.equal(saved.stage,'adaptation_plan');assert.equal(saved.expected_revision,3);assert.equal(saved.value.character_plans[0].description,'勇猛忠诚');assert.deepEqual(saved.value.creative_constraints.locked_requirements,p.adaptation_plan.creative_constraints.locked_requirements)
+ const empty=createProjectDocument({id:'p_empty',name:'无产物'});view.update(empty);assert.equal(root.querySelectorAll('[data-guidance-group=character_plans]').length,0);assert.match(root.querySelector('.production-empty').textContent,/暂无联合改编规划产物/)
 })
 
 test('原著分段正文可查看和编辑，页面不再提供来源范围控件',async t=>{
@@ -116,8 +117,8 @@ test('原著解析仅展示分段，内部事实/覆盖报告不展示或编辑�
  const {root}=fixture(t),p=createProjectDocument({id:'p_internal',name:'内部报告'});p.source_analysis={source_revision_id:'src',chapters:[{id:'c1',sequence:1,title:'原稿分段',body:'完整正文',summary:'摘要'}],facts_ref:'artifacts/facts.json',coverage_ref:'artifacts/coverage.json'};let command
  const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},save:async value=>{command=value;return p}});t.after(()=>view.dispose());assert.equal(root.querySelectorAll('.production-card').length,1);assert.doesNotMatch(root.textContent,/原著事实|覆盖报告|facts_ref|coverage_ref|artifacts\//);assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent.startsWith('查看正文')));assert.equal([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑正文'),false)
  const click=text=>[...root.querySelectorAll('button')].find(b=>b.textContent===text).click();click('人工编辑产物');const textarea=root.querySelector('dialog textarea'),value=JSON.parse(textarea.value);assert.deepEqual(Object.keys(value),['chapters']);assert.doesNotMatch(root.querySelector('dialog').textContent,/\$text/);value.chapters[0].title='新的分段标题';value.facts_ref='artifacts/overwrite.json';textarea.value=JSON.stringify(value);await [...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').onclick();assert.equal(command.value.chapters[0].title,'新的分段标题');assert.equal(command.value.source_revision_id,'src');assert.equal(command.value.facts_ref,'artifacts/facts.json');assert.equal(command.value.coverage_ref,'artifacts/coverage.json')
- const empty=structuredClone(p);empty.source_analysis.chapters=[];view.update(empty);assert.equal(root.querySelectorAll('.production-card').length,0);assert.match(root.querySelector('.production-empty').textContent,/暂无原著解析产物/)
- empty.adaptation_plan.plot_text='保留主线，强化人物动机';view.update(empty);root.querySelector('[data-stage=adaptation_plan]').click();assert.match(root.textContent,/全篇改编指导/);assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑全篇指导'))
+ const empty=structuredClone(p);empty.source_analysis.chapters=[];view.update(empty);assert.equal(root.querySelectorAll('[data-guidance-group=character_plans]').length,0);assert.match(root.querySelector('.production-empty').textContent,/暂无原著解析产物/)
+ empty.adaptation_plan.plot_development.main_goal='保留主线，强化人物动机';view.update(empty);root.querySelector('[data-stage=adaptation_plan]').click();assert.match(root.textContent,/剧情发展/);assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑剧情发展'))
 })
 
 test('原著解析展示程序执行按钮，隐藏AI规则和修订，保留人工编辑及历史',t=>{
@@ -129,24 +130,30 @@ test('联合改编中文展示精简团队指导，人工编辑保留ID与版本
  const {root}=fixture(t),p=createProjectDocument({id:'p_groups',name:'团队展示'});let saved
  p.adaptation_plan.group_plans=[{id:'guard',name:'营地守卫队',social_role:'守卫营地',description:'保持共同组织形象，面容各异'}]
  const view=createProjectDocumentView(root,{project:p,state:{documentStage:'adaptation_plan'},save:async c=>{saved=c;return editProjectProduct(p,c.stage,c.value,{expectedRevision:c.expected_revision})}});t.after(()=>view.dispose())
- const card=root.querySelector('.production-card');assert.match(card.textContent,/团队指导/);assert.match(card.textContent,/营地守卫队/);assert.match(card.textContent,/身份：守卫营地/);assert.doesNotMatch(card.textContent,/costumes|segment_plans|social_role/)
+ const card=root.querySelector('[data-guidance-group=group_plans] .production-card');assert.match(card.textContent,/团队规划/);assert.match(card.textContent,/营地守卫队/);assert.match(card.textContent,/身份：守卫营地/);assert.doesNotMatch(card.textContent,/costumes|segment_plans|social_role/)
  ;[...card.querySelectorAll('button')].find(b=>b.textContent==='编辑此项').click();root.querySelector('[aria-label="描述"]').value='共同灰甲，成员面容各异'
  ;[...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').click();await tick()
  assert.equal(saved.value.group_plans[0].description,'共同灰甲，成员面容各异');assert.equal(saved.value.group_plans[0].id,'guard');assert.equal(saved.expected_revision,0)
 })
 
-test('全篇改编指导直接展示和弹框编辑，不显示旧剧情文件或段计划',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_global',name:'全篇指导'});let saved;p.adaptation_plan.plot_text='保持主线，以人物动机增强冲突'
+test('剧情事件与人物团队场景分组显示，编辑发展保留关联和版本',async t=>{
+ const {root}=fixture(t),p=createProjectDocument({id:'p_global',name:'全篇指导'});let saved
+ p.adaptation_plan=makePlan({direction:'科学冒险',development:'主角争取支持',character_plans:[{id:'cp_a',name:'主角',description:'探索者',motivation:'争取支持',relationships:'与委员会冲突',arc:'坚定'}],scene_plans:[{id:'sp_a',name:'会议厅',function:'公开论证',description:'圆桌会议厅'}],group_plans:[{id:'gp_a',name:'委员会',social_role:'审议',description:'评估计划'}]})
+ p.adaptation_plan.revision=1;p.adaptation_plan.source_revision_id=null
  const view=createProjectDocumentView(root,{project:p,state:{documentStage:'adaptation_plan'},save:async c=>{saved=c;return editProjectProduct(p,c.stage,c.value,{expectedRevision:c.expected_revision})}});t.after(()=>view.dispose())
- assert.match(root.textContent,/全篇改编指导/);assert.match(root.textContent,/以人物动机增强冲突/);assert.doesNotMatch(root.textContent,/故事分段规划|plot_plan_ref/)
- ;[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑全篇指导').click();root.querySelector('[aria-label="全篇改编指导"]').value='保留原著主题，合并重复冲突'
- ;[...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').click();await tick();assert.equal(saved.value.plot_text,'保留原著主题，合并重复冲突');assert.equal(Object.hasOwn(saved.value,'segment_plans'),false)
+ assert.deepEqual([...root.querySelectorAll('.production-guidance-group h3')].map(e=>e.textContent),['全篇创作约束','剧情发展','人物规划','团队规划','场景规划'])
+ assert.match(root.querySelector('[data-guidance-group=plot_development]').textContent,/主线推进|主角争取支持/)
+ ;[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑剧情发展').click()
+ const text=root.querySelector('dialog textarea'),value=JSON.parse(text.value);value.events[0].result='获得附带条件的支持';text.value=JSON.stringify(value)
+ ;[...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').click();await tick()
+ assert.equal(saved.value.plot_development.events[0].result,'获得附带条件的支持');assert.deepEqual(saved.value.plot_development.events[0].character_ids,['cp_a']);assert.equal(saved.expected_revision,0)
 })
 
-test('短剧名占位目标提示补充五项原则，编辑仍保留其他产物和版本',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_principles',name:'月界旅行4'});p.adaptation_plan.goal=p.basic_info.name;p.adaptation_plan.plot_text='保留主线';let saved
+test('全篇创作约束独立编辑，保留剧情事件和人物规划',async t=>{
+ const {root}=fixture(t),p=createProjectDocument({id:'p_constraints',name:'科学冒险'});p.adaptation_plan={...p.adaptation_plan,...makePlan({direction:'科学冒险'})};let saved
  const view=createProjectDocumentView(root,{project:p,state:{documentStage:'adaptation_plan'},save:async c=>{saved=c;return editProjectProduct(p,c.stage,c.value,{expectedRevision:c.expected_revision})}});t.after(()=>view.dispose())
- assert.match(root.textContent,/改编目标与原则/);assert.match(root.textContent,/当前内容只有短剧名称/);assert.match(root.textContent,/风格、受众、改编尺度、保留和允许调整/)
- ;[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑目标与原则').click();root.querySelector('[aria-label="改编目标与原则"]').value='风格：科学冒险；受众：待确认；尺度：适度改编；保留：科学精神；允许调整：重复对话'
- ;[...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').click();await tick();assert.equal(saved.value.plot_text,'保留主线');assert.match(saved.value.goal,/风格：科学冒险/);assert.equal(saved.expected_revision,0);assert.doesNotMatch(root.textContent,/当前内容只有短剧名称/)
+ ;[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑全篇创作约束').click()
+ const text=root.querySelector('dialog textarea'),value=JSON.parse(text.value);value.audience='成年观众';text.value=JSON.stringify(value)
+ ;[...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').click();await tick()
+ assert.equal(saved.value.creative_constraints.audience,'成年观众');assert.deepEqual(saved.value.plot_development,p.adaptation_plan.plot_development);assert.equal(saved.expected_revision,0)
 })

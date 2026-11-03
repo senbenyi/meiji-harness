@@ -58,7 +58,7 @@ export function createPanelTaskDisplay(ctx, projects) {
   }
   const activityContext=async(task,step,context)=>{
     const ref=step?.result?.trace?.file_ref
-    if(task?.metadata?.document_version!==2||!ref||Array.isArray(step.result.trace.activities))return context
+    if(task?.metadata?.document_version!==3||!ref||Array.isArray(step.result.trace.activities))return context
     const key=task.metadata.project_id+':'+ref
     try{
       let activities=activityCache.get(key)

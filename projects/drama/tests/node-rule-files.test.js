@@ -34,14 +34,14 @@ test('当前四个文本节点动作和返回格式同源，短剧字段引用�
   assert.deepEqual(outputContract(stage,{},'revise'),outputContract(stage,{}))
  }
  assert.deepEqual(outputContract('shot_design',{}).properties.assets,projectDocumentSchema.properties.asset_library)
- assert.equal(outputContract('adaptation_plan',{}).properties.goal.description,projectDocumentSchema.properties.adaptation_plan.properties.goal.description)
- assert.equal(outputContract('adaptation_plan',{}).properties.goal.minLength,1)
+ assert.equal(outputContract('adaptation_plan',{}).properties.creative_constraints.description,projectDocumentSchema.properties.adaptation_plan.properties.creative_constraints.description)
+ assert.equal(outputContract('adaptation_plan',{}).properties.plot_development.type,'object')
 })
 
 test('复制src后返回格式文件修改实际影响契约，不依赖docs或旧集中目录',async t=>{
  const dir=await mkdtemp(join(tmpdir(),'drama-flat-rule-'));t.after(()=>rm(dir,{recursive:true,force:true}))
  await cp(new URL('../src/',import.meta.url),join(dir,'src'),{recursive:true});await symlink(resolve(new URL('../../../node_modules',import.meta.url).pathname),join(dir,'node_modules'),'dir')
- const file=join(dir,'src/node_box/adaptation_plan/skills/adaptation_plan-output-format.json'),format=JSON.parse(await readFile(file,'utf8'));format.generate.schema.properties.goal.minLength=7;await writeFile(file,JSON.stringify(format))
- const code="import assert from 'node:assert/strict';import {outputContract} from './src/node_box/shared/agent/contracts.js';assert.equal(outputContract('adaptation_plan',{}).properties.goal.minLength,7);assert.equal(outputContract('adaptation_plan',{},'revise').properties.goal.minLength,1);console.log('ok')"
+ const file=join(dir,'src/node_box/adaptation_plan/skills/adaptation_plan-output-format.json'),format=JSON.parse(await readFile(file,'utf8'));format.generate.schema.properties.character_plans.minItems=2;await writeFile(file,JSON.stringify(format))
+ const code="import assert from 'node:assert/strict';import {outputContract} from './src/node_box/shared/agent/contracts.js';assert.equal(outputContract('adaptation_plan',{}).properties.character_plans.minItems,2);assert.equal(outputContract('adaptation_plan',{},'revise').properties.character_plans.minItems,undefined);console.log('ok')"
  assert.equal(execFileSync(process.execPath,['--input-type=module','-e',code],{cwd:dir,encoding:'utf8'}).trim(),'ok')
 })
