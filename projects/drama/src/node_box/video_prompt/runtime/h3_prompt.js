@@ -3,9 +3,19 @@ export const baseSections=['integrated_multimodal_description','overall_soundsca
 const sections=unit=>unit.mode==='reference'?referenceSections:baseSections
 const fail=message=>{throw new TypeError('H3提示词：'+message)}
 const ids=(text,type)=>[...new Set([...text.matchAll(new RegExp(`<${type} (\\d+)>`,'g'))].map(match=>Number(match[1])))]
+function referenceEntries(text,type){
+ const tags=[...text.matchAll(new RegExp(`<${type} \\d+>`,'g'))]
+ return tags.map((tag,index)=>({label:tag[0],text:text.slice(tag.index,tags[index+1]?.index??text.length)}))
+}
+function orderedCuts(unit,fields){
+ const key=unit.mode==='reference'?'detailed_description':'integrated_multimodal_description'
+ const body=fields[key].split(/(<d>[\s\S]*?<\/d>)/g).map((part,index)=>index%2?part:part.replace(/\bAt (\d{2}:\d{2}\.\d{3}),\s*\[Shot (\d+)\]\s*/g,'[Shot $2] At $1, ')).join('')
+ return {...fields,[key]:body}
+}
 export function validatePrompt(unit,fields){
  const keys=sections(unit),material=unit.material
  if(!fields||typeof fields!=='object'||Array.isArray(fields)||Object.keys(fields).length!==keys.length||keys.some(key=>typeof fields[key]!=='string'||!fields[key].trim()))fail('必须完整返回当前模式的结构字段')
+ fields=orderedCuts(unit,fields)
  const text=keys.map(key=>fields[key]).join('\n'),body=fields[unit.mode==='reference'?'detailed_description':'integrated_multimodal_description']
  if(/\b(?:img|char|character|scene|shot|clip)_[A-Za-z0-9_-]+/.test(text))fail('最终文本不能包含内部资源ID，使用固定参考标签')
  const outsideDialogue=text.replace(/<d>[\s\S]*?<\/d>/g,'').replace(/“[^”]*”|"[^"]*"/g,'')
@@ -13,15 +23,18 @@ export function validatePrompt(unit,fields){
  const pictureCount=unit.mode==='reference'?material.pictures.length:unit.mode==='first_frame'?(material.clip.last_image_id?2:1):0
  if(ids(text,'Picture').some(n=>n<1||n>pictureCount)||ids(text,'Audio').some(n=>n<1||n>material.audio.length)||ids(text,'Subject').some(n=>n<1||n>material.subjects.length)||ids(text,'Video').length)fail('出现未提供的参考编号')
  if(unit.mode==='reference'){
-  if(!fields.summary.startsWith(material.audio.length?'[reference generation + audio reference]':'[reference generation]'))fail('summary应以[reference generation]及实际音频关系开头')
-  for(const picture of material.pictures)if(!fields.subject_definitions.includes(picture.label))fail('主体定义遗漏'+picture.label)
+  const errors=[]
+  if(!fields.summary.startsWith(material.audio.length?'[reference generation + audio reference]':'[reference generation]'))errors.push('summary应以[reference generation]及实际音频关系开头')
+  const definitions=referenceEntries(fields.subject_definitions,'Subject'),retention=referenceEntries(fields.retention_analysis,'Subject')
   for(const subject of material.subjects){
-   const line=fields.subject_definitions.split('\n').find(row=>row.startsWith(subject.label))
-   if(!line||subject.pictures.some(label=>!line.includes(label))||ids(line,'Picture').length!==subject.pictures.length)fail(subject.label+'定义与固定图片映射不符')
-   if(!fields.retention_analysis.split('\n').some(row=>row.includes(subject.label)&&/\b(fully_preserved|partially_preserved|attribute_transfer|weak_reference)\b/.test(row)))fail(subject.label+'缺少参考保留说明')
+   const pictures=[...new Set(definitions.filter(row=>row.label===subject.label).flatMap(row=>row.text.match(/<Picture \d+>/g)||[]))]
+   if(pictures.length!==subject.pictures.length||subject.pictures.some(label=>!pictures.includes(label)))errors.push(subject.label+'定义应引用'+subject.pictures.join('、')+'；当前为'+(pictures.join('、')||'无图片来源'))
+   if(!retention.some(row=>row.label===subject.label&&/\b(fully_preserved|partially_preserved|attribute_transfer|weak_reference)\b/.test(row.text)))errors.push(subject.label+'缺少参考保留说明')
   }
-  for(const audio of material.audio){const line=fields.subject_definitions.split('\n').find(row=>row.startsWith(audio.label));if(!line||!line.includes(audio.speaker)||audio.subject&&!line.includes(audio.subject))fail(audio.label+'声线映射不符');if(!fields.retention_analysis.includes(audio.label))fail('遗漏音频参考关系')}
-  if(/\(S\d+\)/.test(fields.retention_analysis))fail('retention_analysis不写说话人编号')
+  const audioDefinitions=referenceEntries(fields.subject_definitions,'Audio'),audioRetention=referenceEntries(fields.retention_analysis,'Audio')
+  for(const audio of material.audio){const entry=audioDefinitions.find(row=>row.label===audio.label);if(!entry||!entry.text.includes(audio.speaker)||audio.subject&&!entry.text.includes(audio.subject))errors.push(audio.label+'声线映射应为'+(audio.subject||'无参考图主体')+' '+audio.speaker);if(!audioRetention.some(row=>row.label===audio.label&&/\b(fully_copy|partially_copy|reference|weak_reference)\b/.test(row.text)))errors.push(audio.label+'缺少音频参考关系')}
+  if(/\(S\d+\)/.test(fields.retention_analysis))errors.push('retention_analysis不写说话人编号')
+  if(errors.length)fail(errors.join('；'))
  }
  const spoken=[...body.matchAll(/<d>\[([^\]]+)\]\s*([\s\S]*?)<\/d>/g)],dialogues=material.dialogues
  if((text.match(/<d>/g)||[]).length!==spoken.length||(text.match(/<\/d>/g)||[]).length!==spoken.length)fail('每句对白须在镜头正文写为<d>[Chinese] 原文</d>，当前缺少语言标签或标签不完整；参照material.dialogue_bindings逐句填写')
@@ -65,7 +78,7 @@ function keyframeInstruction(unit,fields){
  return `How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot ${n}) aligns with the ${unit.material.clip.duration_seconds.toFixed(2)}-second mark of the target video.`
 }
 export function compilePrompt(unit,fields){
- validatePrompt(unit,fields)
+ fields=validatePrompt(unit,fields)
  const text=[keyframeInstruction(unit,fields),...sections(unit).map(key=>key+':\n'+fields[key].trim())].filter(Boolean).join('\n\n')
  if(text.length>7000)fail('最终文本超过7000字符')
  return text

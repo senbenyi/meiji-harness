@@ -68,3 +68,40 @@ test('同一句对白允许跨切镜分成多个d标签，仍拒绝缺词、重�
  const text=compilePrompt(unit,{...fields,detailed_description:body});assert.ok(text.includes('[Shot 2]'));assert.ok(parsePrompt(unit,text))
  for(const invalid of [body.replace('战！</d>','！</d>'),body.replace('战！</d>','来战！</d>'),body.replace('[Shot 2] At 00:02.000, <Subject 2> (S1)','[Shot 2] At 00:02.000, <Subject 1> (S2)')])assert.throws(()=>compilePrompt(unit,{...fields,detailed_description:invalid}),/H3提示词/)
 })
+
+test('主体与音频定义按标签解析，同行、列表与声线补充不改变图片映射',()=>{
+ const {project,clip}=sample();project.asset_library.characters[0].voice_profile.reference_audio_ref='artifacts/a.wav';project.asset_library.characters[1].voice_profile.reference_audio_ref='artifacts/b.wav'
+ const unit=promptContext(project,clip),fields=mockPrompt(unit)
+ for(const separator of [' ','\n  - ','\n\t']){
+  const definitions=fields.subject_definitions.replaceAll('\n',separator)+' <Subject 2> (S1) has a deep voice.'
+  const candidate={...fields,subject_definitions:definitions,retention_analysis:fields.retention_analysis.replaceAll('\n',separator)}
+  assert.ok(parsePrompt(unit,compilePrompt(unit,candidate)))
+ }
+ const definitions=fields.subject_definitions.replaceAll('\n',' ')
+ assert.throws(()=>compilePrompt(unit,{...fields,subject_definitions:definitions.replace('<Picture 1>','<Picture 4>')}),/Subject 1.*Picture 1/)
+ assert.throws(()=>compilePrompt(unit,{...fields,subject_definitions:definitions.replace('<Audio 1> provides the voice for <Subject 2> (S1)','<Audio 1> provides the voice for <Subject 1> (S2)')}),/Audio 1.*声线映射/)
+})
+
+test('保留标记属于各自主体，同行排列不能借用后一主体的说明',()=>{
+ const {unit}=sample(),fields=mockPrompt(unit)
+ const retention=fields.retention_analysis.replaceAll('\n',' ').replace('<Subject 1> (appears in [Shot 1]): fully_preserved','<Subject 1> (appears in [Shot 1]):')
+ assert.throws(()=>compilePrompt(unit,{...fields,retention_analysis:retention}),/Subject 1.*缺少参考保留/)
+})
+
+test('多个主体来源和保留说明遗漏一次返回，避免逐项修复耗尽轮次',()=>{
+ const {unit}=sample(),fields=mockPrompt(unit)
+ assert.throws(()=>compilePrompt(unit,{...fields,subject_definitions:'<Subject 1> a warrior from <Picture 1>.',retention_analysis:'<Subject 1> fully_preserved.'}),error=>{
+  assert.match(error.message,/Subject 2.*Picture 2.*Picture 3/);assert.match(error.message,/Subject 2.*缺少参考保留/)
+  assert.match(error.message,/Subject 3.*Picture 4/);assert.match(error.message,/Subject 3.*缺少参考保留/);return true
+ })
+})
+
+test('切镜时间在标签前时编译为官方顺序，保留原候选，越界与缺时间仍拒绝',()=>{
+ const {unit}=sample(),fields=mockPrompt(unit)
+ const body=fields.detailed_description+' At 00:03.000, [Shot 2] cut to the opponent.'
+ const candidate={...fields,detailed_description:body},text=compilePrompt(unit,candidate)
+ assert.equal(candidate.detailed_description,body);assert.ok(text.includes('[Shot 2] At 00:03.000, cut to the opponent.'))
+ assert.ok(parsePrompt(unit,text));assert.throws(()=>compilePrompt(unit,{...fields,detailed_description:body.replace('00:03.000','00:10.000')}),/时间/)
+ assert.throws(()=>compilePrompt(unit,{...fields,detailed_description:body.replace('At 00:03.000, ','')}),/切镜时间/)
+ assert.throws(()=>compilePrompt(unit,{...fields,detailed_description:body.replace('[Shot 2]','[Shot 3]')}),/编号/)
+})

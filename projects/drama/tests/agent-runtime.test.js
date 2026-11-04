@@ -121,3 +121,13 @@ test('历史裁剪保留完整assistant/tool配对，已读范围恢复时不逐
   for(let i=0;i<historical.length;i+=2)assert.equal(historical[i].tool_calls[0].id,historical[i+1].tool_call_id)
   assert.equal(r.stored.source_ranges.length,1)
 })
+
+test('没有候选时不暴露候选读取工具；审核与修订仍提供并完整读取',async()=>{
+ const f=runtime({required:false}),generate=await f.turn([call('submit_candidate',{output:candidate})])
+ assert.equal(generate.request.tools.some(t=>t.function.name==='read_candidate'),false)
+ for(const action of ['review','revise']){
+  const r=await f.turn([call('read_candidate')],{action,candidateRef:'artifacts/candidate.json'})
+  assert.equal(r.request.tools.some(t=>t.function.name==='read_candidate'),true)
+  assert.equal(r.stored.candidate_read,true)
+ }
+})

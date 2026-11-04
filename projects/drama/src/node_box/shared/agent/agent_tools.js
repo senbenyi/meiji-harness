@@ -115,13 +115,12 @@ export function createAgentTools({ctx,projects,unit,unitRef,snapshot,snapshotRef
       }
       return {body}
     }),
-    read_candidate:define('分页读取当前候选JSON',{start:integer,end:integer},args=>{
-      if(!candidateRef)throw new TypeError('本阶段没有候选')
+    ...(candidateRef?{read_candidate:define('分页读取当前候选JSON',{start:integer,end:integer},args=>{
       const start=args.start??0,end=args.end??Math.min(candidateText.length,16000)
       if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end<=start||end-start>16000)throw new TypeError('候选分页范围无效')
       recordCandidateRead(start,Math.min(end,candidateText.length))
       return {body:candidateText.slice(start,end),characters:candidateText.length,start,end:Math.min(end,candidateText.length)}
-    },[]),
+    },[])}:{}),
     [submit]:define('单独提交当前动作结果',{output:{type:'object'}},async(args,calls)=>{
       if(calls.length!==1)throw new TypeError('提交必须是当前动作唯一调用')
       if(!state.unitRead||action!=='generate'&&!state.candidateRead)throw new TypeError('提交前须读取完整单元资料以及最新候选')
