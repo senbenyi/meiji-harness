@@ -41,6 +41,8 @@ export function displayContext(detail, task, step) {
     rules: structuredClone(snapshotRules || null),
     final_output: report.saved ? structuredClone(candidate || null) : null,
     step_name: step ? stepExecutionName(step,task) : '',
+    step_kind: step?.kind || '',
+    review_status: step?.kind === 'review' && ['done','rejected'].includes(step.step_status) && ['passed','content_issue','upstream_issue','rule_conflict'].includes(step.result?.review?.status) ? step.result.review.status : null,
     ...(metadata.document_version===4&&['adaptation_plan','story_segments','shot_design','video_prompt'].includes(task.node_type)&&step?.executor==='ai'&&['generate','review','revise'].includes(step.kind)?{model_call:{goal:String(metadata.instruction||task.name||'执行本阶段任务').replace(/\s+/g,' ').slice(0,180),model:step.prompt?.model||'',request_ref:step.prompt?.input?.messages_ref||null,response_ref:step.result?.trace?.file_ref||null}}:{}),
     ...(metadata.document_version===4?{execution_detail_version:1,step_kind:step?.kind||'',activities:step?.result?.trace?.activities||[]}:{}),
   }

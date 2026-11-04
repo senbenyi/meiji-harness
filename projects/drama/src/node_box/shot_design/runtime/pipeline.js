@@ -22,5 +22,16 @@ export async function currentCandidate(projects,projectId,unit,project){
   return {assets:Object.fromEntries(Object.entries(project.asset_library).map(([kind,rows])=>[kind,rows.filter(row=>ids.has(row.id))])),shots,requirements:project.asset_requirements.items.filter(r=>r.shot_ids.some(id=>shots.some(s=>s.id===id)))}
 
 }
+/** 每段开始时冻结完整输入，后段可复用前段刚建立的资产。 */
+export async function prepareUnit(ctx,project,unit){
+ const segment=project.story_segments.segments.find(row=>row.id===unit.segment_id)
+ if(!segment)throw new TypeError('指定故事段不存在')
+ const read=async ref=>(await this.projects.documents.readArtifact(project.basic_info.id,ref)).toString()
+ const [body,continuity]=await Promise.all([read(segment.body_ref),segment.continuity_ref?read(segment.continuity_ref):''])
+ ctx.signal.throwIfAborted()
+ const prepared={...unit,context_mode:'complete',read_refs:[],material:{segment:{...structuredClone(segment),body,continuity},adaptation_plan:structuredClone(project.adaptation_plan),asset_library:structuredClone(project.asset_library),instruction:'本段完整正文、衔接、改编指导和已有资产定义已在本资料中提供，直接使用；已有图片只沿用引用，不读取图片。只提交当前段分镜及确需新增或更新的资产，不重复读取快照或猜字段。'}}
+ const unitRef=await this.projects.documents.writeArtifact(project.basic_info.id,JSON.stringify(prepared),{extension:'json'})
+ return {unit:prepared,unitRef}
+}
 export async function writeCandidateFiles(projects,projectId,output){const files={};;return files}
 export function afterCommit(next){next.node_states.reference_binding.product_revision++}

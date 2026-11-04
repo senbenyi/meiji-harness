@@ -65,6 +65,26 @@ test('混合模型返回明确标注content与tool_calls，纯文本不冒充工
  card.model_exchange.response.messages=[{role:'assistant',content:'仅文本返回'}];ui.update(groupTaskMessages([{...compactDisplay(card),label:'更新'}])[0]);const current=root.querySelector('.step');await current.ontoggle();assert.match(current.querySelector('[data-expand=received-0]>summary').textContent,/ - content$/);assert.doesNotMatch(current.querySelector('[data-expand=received-0]>summary').textContent,/tool_calls/)
 })
 
+for(const [verdict,label,tone]of [['passed','审核通过','passed'],['content_issue','审核未通过','rejected'],['upstream_issue','审核未通过','rejected'],['rule_conflict','审核未通过','rejected'],[null,'待结论','pending'],['unknown','待结论','pending']])test(`审核步骤摘要独立展示真实结论：${verdict}`,async t=>{
+ const f=history();f.step.kind='review';if(verdict)f.step.result.review={status:verdict,issues:[]}
+ const before=structuredClone(f.detail),[card]=await f.display.read('s',{compact:true})
+ assert.equal(card.review_status,verdict==='unknown'?null:verdict);assert.equal(card.result,undefined);assert.deepEqual(f.detail,before)
+ const dom=new JSDOM('<main/>');t.after(()=>dom.window.close());let reads=0
+ const ui=createTaskOperation(dom.window.document,{loadMessage:async()=>{reads++;return {...card,model_exchange:{request:{messages:[]},response:{messages:[]},tools:[],program_messages:[]}}},copy:async()=>{},onNotify:()=>{}});t.after(()=>ui.dispose())
+ ui.update(groupTaskMessages([card])[0]);const item=ui.element.shadowRoot.querySelector('.step'),badge=item.querySelector('summary .review-status')
+ assert.equal(badge.textContent,label);assert.equal(badge.dataset.verdict,tone);assert.equal(item.open,false);assert.equal(reads,0)
+ assert.match(item.querySelector('summary').textContent,/已结束/)
+ badge.click();await new Promise(resolve=>setTimeout(resolve,0));assert.equal(item.open,true);assert.equal(reads,1)
+})
+
+test('非审核步骤与失败审核不冒充已通过，审核摘要更新结论',async t=>{
+ const f=history();f.step.result.review={status:'passed',issues:[]}
+ const dom=new JSDOM('<main/>');t.after(()=>dom.window.close());const ui=createTaskOperation(dom.window.document,{copy:async()=>{},onNotify:()=>{}});t.after(()=>ui.dispose())
+ let [card]=await f.display.read('s',{compact:true});assert.equal(card.review_status,null);ui.update(groupTaskMessages([card])[0]);assert.equal(ui.element.shadowRoot.querySelector('.review-status'),null)
+ f.step.kind='review';f.step.step_status='failed';[card]=await f.display.read('s',{compact:true});assert.equal(card.review_status,null);ui.update(groupTaskMessages([card])[0]);assert.equal(ui.element.shadowRoot.querySelector('.review-status').textContent,'待结论')
+ f.step.step_status='done';[card]=await f.display.read('s',{compact:true});ui.update(groupTaskMessages([card])[0]);assert.equal(ui.element.shadowRoot.querySelector('.review-status').textContent,'审核通过')
+})
+
 test('真实模拟调用保存的请求与当轮trace可按三个部分还原',async t=>{
  const f=await fixture(t);await f.run('source_analysis');const detail=await f.run('adaptation_plan'),task=detail.tasks[0],steps=detail.steps.filter(step=>step.prompt?.input?.messages_ref)
  assert.ok(steps.length>=4)

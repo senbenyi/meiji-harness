@@ -52,7 +52,7 @@ export async function defaultAuthor(body,{projects,calls}){
    const reads=catalog.unit_material_included?[]:[call('read_unit')]
    for(const range of unit.source_spans||[])for(let start=range.start;start<range.end;start+=16000)reads.push(call('read_source',{start,end:Math.min(start+16000,range.end)}))
    for(const ref of unit.read_refs||[])reads.push(call('read_file',{ref,start:0,end:16000}))
-   if(action!=='generate')for(let start=0;start<catalog.candidate_characters;start+=16000)reads.push(call('read_candidate',{start,end:Math.min(start+16000,catalog.candidate_characters)}))
+   if(action!=='generate'&&!catalog.candidate_included)for(let start=0;start<catalog.candidate_characters;start+=16000)reads.push(call('read_candidate',{start,end:Math.min(start+16000,catalog.candidate_characters)}))
    if(reads.length)return reply(reads)
  }
  const missed=body.messages.filter(m=>m.role==='tool'&&JSON.parse(m.content).error?.includes('读取预算')).map(m=>previous.find(c=>c.id===m.tool_call_id)).filter(c=>!body.messages.some(m=>m.role==='tool'&&previous.find(x=>x.id===m.tool_call_id)?.function.arguments===c.function.arguments&&previous.find(x=>x.id===m.tool_call_id)?.function.name===c.function.name&&!JSON.parse(m.content).error));if(missed.length)return reply(missed.map(c=>call(c.function.name,JSON.parse(c.function.arguments))))

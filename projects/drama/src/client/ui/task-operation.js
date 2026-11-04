@@ -27,6 +27,7 @@ export function createTaskOperation(document, { loadMessage, getMessage, copy, l
   const element = document.createElement('drama-task-operation'), root = element.attachShadow({ mode: 'open' })
   const style = document.createElement('style'); style.textContent = css+`.exchange-overview{padding:2px 0 4px 16px;border-left:1px solid var(--dsw-alias-border-l3,#ddd)}.exchange-overview p{margin:3px 0}.exchange-section{margin:10px 0 18px}.exchange-section>h4{font-size:14px}.exchange-section>p{margin:6px 0}`
   const content = document.createElement('div'); content.className = 'operation'
+  style.textContent += `.review-status{flex:none;font-size:12px;line-height:1.5;padding:1px 8px;border-radius:999px}.review-status[data-verdict=passed]{color:var(--dsw-alias-state-success-primary,#258454);border-color:currentColor}.review-status[data-verdict=rejected]{color:var(--dsw-alias-state-error-primary,#dc2626);border-color:currentColor}`
   root.append(style, content)
   let group, signature, generation = 0, processTouched = false
   let renderer = {}
@@ -186,6 +187,14 @@ export function createTaskOperation(document, { loadMessage, getMessage, copy, l
         const item = disclosure(`step:${step.id}`, `${step.seq}. ${step.step_name || step.title}${step.round ? `（修订${step.round}）` : ''}`, opened.get(`step:${step.id}`))
         item.details.className = 'step'
         item.summary.append(node('span', `${step.label}${resolved ? ' · 已解决' : ''}`, `badge ${['rejected', 'failed'].includes(step.status) ? 'error' : ''}`))
+        if (step.step_kind === 'review') {
+          const verdict = step.review_status === 'passed' ? 'passed' : ['content_issue','upstream_issue','rule_conflict'].includes(step.review_status) ? 'rejected' : 'pending'
+          const label = { passed: '审核通过', rejected: '审核未通过', pending: '待结论' }[verdict]
+          const status = node('button', label, 'review-status'); status.type = 'button'; status.dataset.verdict = verdict
+          status.setAttribute('aria-label', `${label}，查看审核详情`)
+          status.onclick = event => { event.preventDefault(); event.stopPropagation(); item.details.open = true; void item.details.ontoggle?.() }
+          item.summary.append(status)
+        }
         if (step.issue_summary || (['failed', 'rejected'].includes(step.status) && step.reason)) item.summary.append(node('span', step.issue_summary || step.reason, 'line muted'))
         lazy(item, step, (body, data) => {
           if (data.reason) body.append(node('p', data.reason))

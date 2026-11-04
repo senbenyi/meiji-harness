@@ -36,6 +36,18 @@ test('首轮提供当前动作规则、短单元与契约，固定资料不再�
   assert.deepEqual(JSON.parse(f.files.get(f.prompts[0].input.messages_ref)),r.request.messages)
 })
 
+for(const [language,label]of [['zh-CN','简体中文（zh-CN）'],['en','英语（en）'],['fr','fr']]){
+  for(const action of ['generate','review','revise'])test(`${action}发送明确的项目输出语言：${language}`,async()=>{
+    const f=runtime({required:false})
+    f.snapshot.basic_info.output_language=language
+    const r=await f.turn([],{action,candidateRef:action==='generate'?undefined:'artifacts/candidate.json'})
+    assert.ok(r.request.messages[0].content.includes(`自然语言使用${label}；`))
+    assert.doesNotMatch(r.request.messages[0].content,/自然语言使用output_language/)
+    assert.match(r.request.messages[0].content,/明确锁定的标题与对白保留原文/)
+    assert.equal(JSON.parse(r.request.messages[1].content).output_language,language)
+  })
+}
+
 for(const [name,read]of [
   ['快照全部分段',call('read_context',{pointer:'/source_analysis/chapters'})],
   ['快照单段正文',call('read_context',{pointer:'/source_analysis/chapters/0/body'})],

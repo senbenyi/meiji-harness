@@ -21,8 +21,8 @@ const covered=(ranges,start,end)=>{let cursor=start;for(const r of [...ranges].s
 /** 每个工具在同一注册项声明模型接口与执行函数；只读取任务冻结资料。 */
 export function createAgentTools({ctx,projects,unit,unitRef,snapshot,snapshotRef,stage,action,candidateRef,requireSourceCoverage,validate,context}){
   const {projectId,traces,candidateText,longMemory,unitMaterialIncluded}=context
-  const state={memory:context.memory,unitRead:unitMaterialIncluded||traces.some(t=>t.unit_read),candidateRead:traces.at(-1)?.candidate_read||false,
-    memoryReadIds:new Set(traces.flatMap(t=>t.memory_read_ids||[])),candidateRanges:traces.at(-1)?.candidate_ranges||[],sourceRanges:traces.at(-1)?.source_ranges||[],fileRanges:traces.at(-1)?.file_ranges||[],unitPaths:traces.at(-1)?.unit_paths||[]}
+  const state={memory:context.memory,unitRead:unitMaterialIncluded||traces.some(t=>t.unit_read),candidateRead:context.candidateIncluded||traces.at(-1)?.candidate_read||false,
+    memoryReadIds:new Set(traces.flatMap(t=>t.memory_read_ids||[])),candidateRanges:context.candidateIncluded?[{start:0,end:candidateText.length}]:traces.at(-1)?.candidate_ranges||[],sourceRanges:traces.at(-1)?.source_ranges||[],fileRanges:traces.at(-1)?.file_ranges||[],unitPaths:traces.at(-1)?.unit_paths||[]}
   const leafPaths=(value,path='')=>value&&typeof value==='object'&&Object.keys(value).length?Object.entries(value).flatMap(([key,item])=>leafPaths(item,`${path}/${key.replaceAll('~','~0').replaceAll('/','~1')}`)):[path]
   const unitLeaves=leafPaths(unit.material||{})
   const recordUnitRead=(path='')=>{
@@ -133,6 +133,9 @@ export function createAgentTools({ctx,projects,unit,unitRef,snapshot,snapshotRef
       }else await validate(value)
       accepted=value;return {accepted:true}
     })
+  }
+  if(unit.context_mode==='complete'&&unitMaterialIncluded&&!unit.read_refs?.length&&!unit.source_spans?.length&&(action==='generate'||context.candidateIncluded)){
+    for(const name of ['read_unit','read_context','search_context','search_source','read_source','read_file_json','read_file','read_candidate'])delete registry[name]
   }
   const tools=Object.entries(registry).map(([name,{description,properties,required}])=>({type:'function',function:{name,description,parameters:{type:'object',properties,required,additionalProperties:false}}}))
   async function execute(assistant){
