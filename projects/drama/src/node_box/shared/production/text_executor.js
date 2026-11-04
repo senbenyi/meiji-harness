@@ -30,8 +30,12 @@ export class TextProductionExecutor extends UnitProductionExecutor {
     if(hooks.prepareCandidate){const prepared=await hooks.prepareCandidate.call(this,ctx,unit,unitRef);({unit,unitRef}=prepared);auditCandidateRef=prepared.candidateRef}
     const previous=ctx.previousResults.findLast(row=>row.result?.unit_id===unit.id&&row.result?.candidate_ref),candidateRef=auditCandidateRef||ctx.step.metadata.candidate_ref||previous?.result.candidate_ref
     const issues=ctx.previousResults.findLast(row=>row.result?.unit_id===unit.id&&row.result?.review)?.result.review.issues||ctx.step.metadata.previous_issues||[]
-    const turn=await modelTurn({ctx,projects:this.projects,models:this.service.models,unit,unitRef,snapshot,snapshotRef,stage,action,candidateRef,issues,requireSourceCoverage:hooks.requireSourceCoverage===true,client:this.service.textClient,validate:async output=>{
-      applyCandidate(await this.projects.documents.read(id),stage,unit,output)
+    const modelCandidateRef=candidateRef&&hooks.candidateView?await this.projects.documents.writeArtifact(id,JSON.stringify(hooks.candidateView(snapshot,await readJSON(this.projects,id,candidateRef))),{extension:'json'}):candidateRef
+    const turn=await modelTurn({ctx,projects:this.projects,models:this.service.models,unit,unitRef,snapshot,snapshotRef,stage,action,candidateRef:modelCandidateRef,issues,requireSourceCoverage:hooks.requireSourceCoverage===true,client:this.service.textClient,validate:async output=>{
+      const project=await this.projects.documents.read(id)
+      const candidate=hooks.compileCandidate?hooks.compileCandidate(unit,project,output,{action,candidate:candidateRef?await readJSON(this.projects,id,candidateRef):null}):action==='revise'&&hooks.mergeRevision?hooks.mergeRevision(unit,await readJSON(this.projects,id,candidateRef),output):output
+      applyCandidate(project,stage,unit,candidate)
+      return candidate
     }})
     const metadata={...ctx.step.metadata,...(candidateRef?{candidate_ref:candidateRef}:{}),...hooks.stepMetadata?.(unit),unit_ref:unitRef,phase:turn.trace.phase,unit_snapshot_ref:snapshotRef}
     if(turn.pending)return {result:{trace:turn.trace,unit_id:unit.id},nextSteps:[stageStep(action,metadata,ctx.step.round)]}

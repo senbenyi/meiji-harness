@@ -36,7 +36,7 @@ const assetBase = {
   image_ids: ids,
   selected_image_id: nullable(id),
 };
-const nodeState = object({
+const nodeState = (stage) => object({
   status: {
     type: "string",
     enum: ["empty", "partial", "draft", "confirmed", "rejected"],
@@ -44,11 +44,8 @@ const nodeState = object({
   product_revision: integer(),
   opinion: string(),
   reason: string(),
-  rules: object({ generate: string(), review: string(), revise: string() }),
-  last_execution: nullable(
-    object({ task_id: id, status: string(1), reason: string() }),
-  ),
-  checkpoint: nullable(
+  ...(stage.kind !== 'program' ? { rules: object({ generate: string(), review: string(), revise: string() }) } : {}),
+  ...(stage.kind === 'ai' ? { checkpoint: nullable(
     object({
       task_id: id,
       unit_id: id,
@@ -57,7 +54,7 @@ const nodeState = object({
       state: { type: "string", enum: ["saved", "reviewed"] },
       product_revision: integer(),
     }),
-  ),
+  ) } : {}),
 });
 
 export { projectStages } from "../shared/production/production_stages.js";
@@ -71,7 +68,6 @@ const productSchemas = {
         file_ref: ref,
         original_name: string(1),
         character_count: integer(),
-        line_index_ref: optionalRef,
       }),
     ),
   }),
@@ -86,7 +82,6 @@ const productSchemas = {
         summary: string(),
       }),
     ),
-    facts_ref: optionalRef,
     coverage_ref: optionalRef,
   }),
   adaptation_plan: object({
@@ -201,7 +196,6 @@ const productSchemas = {
         revision: integer(1),
         story_segment_id: id,
         story_segment_revision: integer(1),
-        previous_shot_id: nullable(id),
         scene_id: nullable(id),
         characters: array(
           object({
@@ -330,7 +324,6 @@ const productSchemas = {
         input_snapshot_ref: ref,
         file_ref: ref,
         subtitles_ref: optionalRef,
-        settings_ref: optionalRef,
         validation_report_ref: optionalRef,
       }),
     ),
@@ -359,7 +352,7 @@ export const projectDocumentSchema = object({
   }),
   ...productSchemas,
   node_states: object(
-    Object.fromEntries(projectStages.map((stage) => [stage.id, nodeState])),
+    Object.fromEntries(projectStages.map((stage) => [stage.id, nodeState(stage)])),
   ),
 });
 
@@ -393,7 +386,6 @@ export function createProjectDocument({
     source_analysis: {
       source_revision_id: null,
       chapters: [],
-      facts_ref: null,
       coverage_ref: null,
     },
     adaptation_plan: {
@@ -445,9 +437,8 @@ export function createProjectDocument({
           product_revision: 0,
           opinion: "",
           reason: "",
-          rules: { generate: "", review: "", revise: "" },
-          last_execution: null,
-          checkpoint: null,
+          ...(stage.kind !== 'program' ? { rules: { generate: "", review: "", revise: "" } } : {}),
+          ...(stage.kind === 'ai' ? { checkpoint: null } : {}),
         },
       ]),
     ),
@@ -576,10 +567,7 @@ export function assertProjectDocument(document) {
     dialogueIds = new Set();
   for (const shot of shots.values()) {
     requireId("segments", shot.story_segment_id, "shots.story_segment_id");
-    requireId("shots", shot.previous_shot_id, "shots.previous_shot_id");
     requireId("scenes", shot.scene_id, "shots.scene_id");
-    if (shot.previous_shot_id === shot.id)
-      failure("shots.previous_shot_id", "镜头不能衔接自己");
     for (const row of shot.characters) {
       requireId("characters", row.character_id, "shots.characters");
       requireId("character_looks", row.look_id, "shots.look_id");

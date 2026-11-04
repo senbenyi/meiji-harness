@@ -23,7 +23,7 @@ test('从创建到所有制作阶段：真实模拟网关、独立审核、共�
  await f.edit({kind:'product',stage:'delivery',expected_revision:0,value:{episodes:[],delivery:{...p.delivery,settings:{width:64,height:64,fps:10,subtitle_mode:'sidecar',normalize_audio:true}}}})
  await f.run('editing');p=await f.project();assert.ok(p.editing.preview_ref);assert.equal(p.editing.timelines[0].clips.length,2)
  await f.run('delivery',{episode_seconds:4});p=await f.project();assert.equal(p.episodes.length,2);assert.equal(p.delivery.exports.length,2)
- for(const item of p.delivery.exports){const bytes=await f.projects.documents.readArtifact(p.basic_info.id,item.file_ref);assert.ok((await probeBytes(bytes,'mp4')).video)}
+ for(const item of p.delivery.exports){const bytes=await f.projects.documents.readArtifact(p.basic_info.id,item.file_ref);assert.ok((await probeBytes(bytes,'mp4')).video);assert.equal(Object.hasOwn(item,'settings_ref'),false);const frozen=JSON.parse((await f.projects.documents.readArtifact(p.basic_info.id,item.input_snapshot_ref)).toString());assert.deepEqual(frozen.settings,p.delivery.settings)}
  assert.equal(p.node_states.delivery.status,'confirmed');assert.ok(f.calls.filter(c=>c.action==='review').every(c=>!c.messages.some(m=>(m.tool_calls||[]).some(call=>call.function.name==='submit_candidate'))))
  const tables=f.production.images.database.prepare('PRAGMA table_info(images)').all();assert.deepEqual(tables.map(c=>c.name),['id','url'])
  const media=await fetch(`${f.api}/production-file?session_id=${f.context.sessionId}&ref=${p.delivery.exports[0].file_ref}`,{headers:{range:'bytes=0-31'}});assert.equal(media.status,206);assert.equal((await media.arrayBuffer()).byteLength,32)
@@ -48,7 +48,7 @@ test('章节与长页覆盖不拆坏原章或UTF16，超长行仍有界',()=>{
 test('原著解析纯程序保存整稿，多章节也不拆分，零模型请求且重复执行ID稳定',async t=>{
  const text='第一章\r\n'+'完整原文😀。'.repeat(4000)+'\n第二章\n结尾',f=await fixture(t,{script:text,author:async()=>{throw Error('must not call model')}})
  f.production.memoryMaintenance.ensure=async()=>{throw Error('must not run memory model')}
- const first=await f.run('source_analysis'),p=await f.project();assert.deepEqual(first.steps.map(s=>s.kind),['prepare','execute','finish']);assert.equal(p.source_analysis.chapters.length,1);assert.equal(p.source_analysis.chapters[0].body,text);assert.equal(p.source_analysis.chapters[0].summary,'');assert.equal(p.source_analysis.facts_ref,null);assert.equal(p.source_analysis.coverage_ref,null);assert.equal(f.requests.length,0)
+ const first=await f.run('source_analysis'),p=await f.project();assert.deepEqual(first.steps.map(s=>s.kind),['prepare','execute','finish']);assert.equal(p.source_analysis.chapters.length,1);assert.equal(p.source_analysis.chapters[0].body,text);assert.equal(p.source_analysis.chapters[0].summary,'');assert.equal(Object.hasOwn(p.source_analysis,'facts_ref'),false);assert.equal(p.source_analysis.coverage_ref,null);assert.equal(f.requests.length,0)
  await f.run('source_analysis');const next=await f.project();assert.equal(next.source_analysis.chapters[0].id,p.source_analysis.chapters[0].id);assert.equal(next.node_states.source_analysis.status,'confirmed');assert.equal(f.requests.length,0)
 })
 
@@ -109,13 +109,13 @@ test('10MiB无章节原文分段保存完整body，保持换行空白和UTF16，
 
 test('无辅助摘要也可人工确认完整分段，联合规划与故事定稿必须实际读取body',async t=>{
  const f=await fixture(t),p=await f.project(),source=p.source.revisions[0],text=(await f.projects.documents.readArtifact(p.basic_info.id,source.file_ref)).toString(),chapters=sourceChapters(text).map(({summary,...chapter})=>chapter)
- await f.edit({kind:'product',stage:'source_analysis',expected_revision:0,value:{source_revision_id:source.id,chapters,facts_ref:null,coverage_ref:null}});let current=await f.project();await f.edit({kind:'confirm_stage',stage:'source_analysis',expected_revision:current.node_states.source_analysis.product_revision});await f.run('adaptation_plan');await f.run('story_segments');current=await f.project();assert.equal(current.source_analysis.chapters.map(c=>c.body).join(''),text);assert.equal(current.node_states.story_segments.status,'confirmed')
+ await f.edit({kind:'product',stage:'source_analysis',expected_revision:0,value:{source_revision_id:source.id,chapters,coverage_ref:null}});let current=await f.project();await f.edit({kind:'confirm_stage',stage:'source_analysis',expected_revision:current.node_states.source_analysis.product_revision});await f.run('adaptation_plan');await f.run('story_segments');current=await f.project();assert.equal(current.source_analysis.chapters.map(c=>c.body).join(''),text);assert.equal(current.node_states.story_segments.status,'confirmed')
  for(const stage of ['adaptation_plan','story_segments']){const calls=f.calls.filter(c=>c.stage===stage);assert.ok(calls.some(c=>c.messages.some(m=>m.role==='tool'&&JSON.parse(m.content).body===chapters[0].body)));assert.ok(calls.every(c=>JSON.parse(c.messages[1].content).unit_material_included))}
 })
 
 test('主会话按body指针分页读取正文，不要求原文文件引用',async t=>{
  const {ProductionContextTool}=await import('../src/main_agent/tools/production_tools.js'),f=await fixture(t),p=await f.project(),source=p.source.revisions[0],text=(await f.projects.documents.readArtifact(p.basic_info.id,source.file_ref)).toString(),chapters=sourceChapters(text)
- await f.edit({kind:'product',stage:'source_analysis',expected_revision:0,value:{source_revision_id:source.id,chapters,facts_ref:null,coverage_ref:null}});const tool=new ProductionContextTool(f.projects),exec={agent:{session:{id:f.context.sessionId}},callId:'read-body'}
+ await f.edit({kind:'product',stage:'source_analysis',expected_revision:0,value:{source_revision_id:source.id,chapters,coverage_ref:null}});const tool=new ProductionContextTool(f.projects),exec={agent:{session:{id:f.context.sessionId}},callId:'read-body'}
  const page=JSON.parse(await tool.execute({pointer:'/source_analysis/chapters/0/body',start:2,end:8},exec));assert.equal(page.body,chapters[0].body.slice(2,8));assert.equal(page.characters,chapters[0].body.length);await assert.rejects(tool.execute({pointer:'/source_analysis/chapters/0/body',start:0,end:16001},exec),/最多16000/)
 })
 

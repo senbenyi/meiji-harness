@@ -31,9 +31,17 @@ test('当前四个文本节点动作和返回格式同源，短剧字段引用�
  for(const stage of textStages){
   assert.match(await actionRules(stage,'generate'),/name: drama-/)
   assert.deepEqual(outputContract(stage,{},'review'),reviewContract)
-  assert.deepEqual(outputContract(stage,{},'revise'),outputContract(stage,{}))
+  if(stage==='shot_design'){
+   const revision=outputContract(stage,{},'revise')
+   assert.equal(revision.additionalProperties,false)
+   assert.equal(revision.properties.shots,undefined)
+   assert.deepEqual(revision.properties.shot_updates.items.properties.shot,outputContract(stage,{}).properties.shots.items)
+   assert.deepEqual(revision.properties.shot_additions.items,outputContract(stage,{}).properties.shots.items)
+   assert.deepEqual(revision.properties.shot_removals.items.required,['shot_number','reason'])
+  }else assert.deepEqual(outputContract(stage,{},'revise'),outputContract(stage,{}))
  }
- assert.deepEqual(outputContract('shot_design',{}).properties.assets,projectDocumentSchema.properties.asset_library)
+ assert.equal(outputContract('shot_design',{}).properties.assets.properties.characters.items.properties.id,undefined)
+ assert.equal(outputContract('shot_design',{}).properties.assets.properties.characters.items.properties.voice_description.type,'string')
  assert.equal(outputContract('adaptation_plan',{}).properties.creative_constraints.description,projectDocumentSchema.properties.adaptation_plan.properties.creative_constraints.description)
  assert.equal(outputContract('adaptation_plan',{}).properties.plot_development.type,'string')
 })

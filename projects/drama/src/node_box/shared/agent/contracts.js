@@ -15,6 +15,7 @@ export function outputContract(stage,unit,action='generate'){
   if(value.$ref){
    const {$ref,...overrides}=value;let base
    if($ref==='shared:review')base=reviewContract
+   else if($ref.startsWith('#/')){base=format;for(const key of $ref.slice(2).split('/')){if(!base||!Object.hasOwn(base,key))throw new TypeError('返回格式本地引用不存在：'+$ref);base=base[key]}}
    else if($ref.startsWith('project:/')){base=projectDocumentSchema;for(const key of $ref.slice(9).split('/')){if(!base||!Object.hasOwn(base,key))throw new TypeError('返回格式引用不存在：'+$ref);base=base[key]}}
    else throw new TypeError('返回格式引用无效：'+$ref)
    return expand({...base,...overrides})
@@ -25,4 +26,4 @@ export function outputContract(stage,unit,action='generate'){
  return expand(format[action].schema)
 }
 export function validateReview(value){validateDocumentSchema(reviewContract,value);if(value.status==='passed'&&value.issues.length||value.status!=='passed'&&!value.issues.length)throw new TypeError('审核结论与问题列表不一致');return value}
-export function parseCandidate(stage,unit,value){validateDocumentSchema(outputContract(stage,unit),value);return value}
+export function parseCandidate(stage,unit,value,action='generate'){validateDocumentSchema(outputContract(stage,unit,action),value);return value}

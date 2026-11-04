@@ -8,7 +8,7 @@ export async function executeUnit(ctx){const id=ctx.task.metadata.project_id;let
       const previous=project.source_analysis.chapters.length===1&&project.source_analysis.chapters[0].body===body?project.source_analysis.chapters[0]:null
       const chapters=source?[{id:previous?.id||uid('chapter'),sequence:1,title:previous?.title||source.original_name||project.basic_info.name,body,summary:''}]:[]
       if(source)assertSourceText(body,chapters)
-      await this.projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();p.source_analysis={source_revision_id:source?.id||null,chapters,facts_ref:null,coverage_ref:null};p.node_states.source_analysis.product_revision++;p.node_states.source_analysis.checkpoint=null;return p})
+      await this.projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();p.source_analysis={source_revision_id:source?.id||null,chapters,coverage_ref:null};p.node_states.source_analysis.product_revision++;return p})
       result={saved:true,chapters:chapters.length,characters:body.length}
 
 return result

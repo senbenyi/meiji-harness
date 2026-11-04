@@ -4,7 +4,7 @@
     "schema_version": {
       "type": "integer",
       "const": 4,
-      "description": "短剧结构版本，固定为2"
+      "description": "短剧结构版本，固定为4"
     },
     "document_revision": {
       "type": "integer",
@@ -26,22 +26,12 @@
         },
         "creation_mode": {
           "type": "string",
-          "enum": [
-            "剧本",
-            "自由创作"
-          ],
+          "enum": ["剧本", "自由创作"],
           "description": "创作方式"
         },
         "aspect_ratio": {
           "type": "string",
-          "enum": [
-            "21:9",
-            "16:9",
-            "4:3",
-            "1:1",
-            "3:4",
-            "9:16"
-          ],
+          "enum": ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
           "description": "画幅比例"
         },
         "output_language": {
@@ -50,13 +40,7 @@
           "description": "输出语言"
         }
       },
-      "required": [
-        "id",
-        "name",
-        "creation_mode",
-        "aspect_ratio",
-        "output_language"
-      ],
+      "required": ["id", "name", "creation_mode", "aspect_ratio", "output_language"],
       "additionalProperties": false,
       "description": "短剧信息"
     },
@@ -99,36 +83,15 @@
                 "type": "integer",
                 "minimum": 0,
                 "description": "原文字符数，按JavaScript UTF-16计数"
-              },
-              "line_index_ref": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "原稿行索引文件引用，可为空"
               }
             },
-            "required": [
-              "id",
-              "file_ref",
-              "original_name",
-              "character_count",
-              "line_index_ref"
-            ],
+            "required": ["id", "file_ref", "original_name", "character_count"],
             "additionalProperties": false
           },
           "description": "原稿版本记录"
         }
       },
-      "required": [
-        "current_revision_id",
-        "revisions"
-      ],
+      "required": ["current_revision_id", "revisions"],
       "additionalProperties": false,
       "description": "不可变原稿版本索引"
     },
@@ -178,27 +141,10 @@
                 "description": "可选辅助摘要，程序原著解析默认空字符串"
               }
             },
-            "required": [
-              "id",
-              "sequence",
-              "title",
-              "body"
-            ],
+            "required": ["id", "sequence", "title", "body"],
             "additionalProperties": false
           },
           "description": "原著正文记录，默认只有整稿一条"
-        },
-        "facts_ref": {
-          "oneOf": [
-            {
-              "type": "string",
-              "minLength": 1
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "内部可选事实资料引用，当前原著解析固定为空，不在面板展示"
         },
         "coverage_ref": {
           "oneOf": [
@@ -213,12 +159,7 @@
           "description": "内部可选覆盖资料引用，当前原著解析固定为空，不在面板展示"
         }
       },
-      "required": [
-        "source_revision_id",
-        "chapters",
-        "facts_ref",
-        "coverage_ref"
-      ],
+      "required": ["source_revision_id", "chapters", "coverage_ref"],
       "additionalProperties": false,
       "description": "原著解析，程序默认整稿复制为一条正文，摘要为空"
     },
@@ -285,14 +226,7 @@
               "description": "用户明确锁定要求"
             }
           },
-          "required": [
-            "style",
-            "audience",
-            "adaptation_scope",
-            "preserve",
-            "allowed_changes",
-            "locked_requirements"
-          ],
+          "required": ["style", "audience", "adaptation_scope", "preserve", "allowed_changes", "locked_requirements"],
           "additionalProperties": false,
           "description": "全篇创作约束：明确风格、受众、改编尺度、保留内容与允许调整内容；locked_requirements记录用户明确锁定要求，其余方案依据原著和视频表达需要作出明确选择。"
         },
@@ -337,14 +271,7 @@
                 "description": "人物变化与成长"
               }
             },
-            "required": [
-              "id",
-              "name",
-              "description",
-              "motivation",
-              "relationships",
-              "arc"
-            ],
+            "required": ["id", "name", "description", "motivation", "relationships", "arc"],
             "additionalProperties": false
           },
           "description": "人物定位、动机、关系与成长方向"
@@ -375,12 +302,7 @@
                 "description": "描述"
               }
             },
-            "required": [
-              "id",
-              "name",
-              "function",
-              "description"
-            ],
+            "required": ["id", "name", "function", "description"],
             "additionalProperties": false
           },
           "description": "关键场景作用及必要的保留、合并或调整"
@@ -411,26 +333,13 @@
                 "description": "描述"
               }
             },
-            "required": [
-              "id",
-              "name",
-              "social_role",
-              "description"
-            ],
+            "required": ["id", "name", "social_role", "description"],
             "additionalProperties": false
           },
           "description": "团队指导；实际出场组织的定位、成员归属和必要共同形象，无则空数组"
         }
       },
-      "required": [
-        "revision",
-        "source_revision_id",
-        "creative_constraints",
-        "plot_development",
-        "character_plans",
-        "scene_plans",
-        "group_plans"
-      ],
+      "required": ["revision", "source_revision_id", "creative_constraints", "plot_development", "character_plans", "scene_plans", "group_plans"],
       "additionalProperties": false,
       "description": "全篇联合改编指导，不包含逐段计划、声线或制服版本"
     },
@@ -485,23 +394,13 @@
                 "description": "衔接记录文件引用"
               }
             },
-            "required": [
-              "id",
-              "sequence",
-              "revision",
-              "adaptation_revision",
-              "title",
-              "body_ref",
-              "continuity_ref"
-            ],
+            "required": ["id", "sequence", "revision", "adaptation_revision", "title", "body_ref", "continuity_ref"],
             "additionalProperties": false
           },
           "description": "故事段索引"
         }
       },
-      "required": [
-        "segments"
-      ],
+      "required": ["segments"],
       "additionalProperties": false,
       "description": "定稿自主分段形成的完整故事段"
     },
@@ -586,24 +485,12 @@
                     "description": "产物版本"
                   }
                 },
-                "required": [
-                  "description",
-                  "reference_audio_ref",
-                  "revision"
-                ],
+                "required": ["description", "reference_audio_ref", "revision"],
                 "additionalProperties": false,
                 "description": "人物稳定声线与可选音色样本"
               }
             },
-            "required": [
-              "id",
-              "name",
-              "description",
-              "image_ids",
-              "selected_image_id",
-              "character_plan_id",
-              "voice_profile"
-            ],
+            "required": ["id", "name", "description", "image_ids", "selected_image_id", "character_plan_id", "voice_profile"],
             "additionalProperties": false
           },
           "description": "人物定义或镜头中的人物引用"
@@ -654,14 +541,7 @@
                 "description": "服装归组标识，可采用团队ID；服装版本在分镜和素材阶段按实际需要确定"
               }
             },
-            "required": [
-              "id",
-              "name",
-              "description",
-              "image_ids",
-              "selected_image_id",
-              "group_key"
-            ],
+            "required": ["id", "name", "description", "image_ids", "selected_image_id", "group_key"],
             "additionalProperties": false
           },
           "description": "服装素材定义"
@@ -707,13 +587,7 @@
                 "description": "从候选图片中选定的图片ID，可为空"
               }
             },
-            "required": [
-              "id",
-              "name",
-              "description",
-              "image_ids",
-              "selected_image_id"
-            ],
+            "required": ["id", "name", "description", "image_ids", "selected_image_id"],
             "additionalProperties": false
           },
           "description": "道具素材定义或镜头引用"
@@ -786,17 +660,7 @@
                 "description": "固定地标"
               }
             },
-            "required": [
-              "id",
-              "name",
-              "description",
-              "image_ids",
-              "selected_image_id",
-              "scene_plan_id",
-              "layout",
-              "entrances",
-              "landmarks"
-            ],
+            "required": ["id", "name", "description", "image_ids", "selected_image_id", "scene_plan_id", "layout", "entrances", "landmarks"],
             "additionalProperties": false
           },
           "description": "场景素材定义"
@@ -868,29 +732,13 @@
                 "description": "发型与妆容"
               }
             },
-            "required": [
-              "id",
-              "name",
-              "description",
-              "image_ids",
-              "selected_image_id",
-              "character_id",
-              "clothing_ids",
-              "prop_ids",
-              "hair_and_makeup"
-            ],
+            "required": ["id", "name", "description", "image_ids", "selected_image_id", "character_id", "clothing_ids", "prop_ids", "hair_and_makeup"],
             "additionalProperties": false
           },
           "description": "人物与服装、道具、发妆组合的定妆形象"
         }
       },
-      "required": [
-        "characters",
-        "clothing",
-        "props",
-        "scenes",
-        "character_looks"
-      ],
+      "required": ["characters", "clothing", "props", "scenes", "character_looks"],
       "additionalProperties": false,
       "description": "短剧素材定义与图片引用"
     },
@@ -909,13 +757,7 @@
               },
               "kind": {
                 "type": "string",
-                "enum": [
-                  "character",
-                  "clothing",
-                  "prop",
-                  "scene",
-                  "character_look"
-                ],
+                "enum": ["character", "clothing", "prop", "scene", "character_look"],
                 "description": "素材类型"
               },
               "target_id": {
@@ -933,21 +775,12 @@
               },
               "strategy": {
                 "type": "string",
-                "enum": [
-                  "reuse",
-                  "import",
-                  "generate"
-                ],
+                "enum": ["reuse", "import", "generate"],
                 "description": "素材复用、导入或生成策略"
               },
               "status": {
                 "type": "string",
-                "enum": [
-                  "pending",
-                  "running",
-                  "ready",
-                  "failed"
-                ],
+                "enum": ["pending", "running", "ready", "failed"],
                 "description": "状态，合法值以当前字段enum为准"
               },
               "image_id": {
@@ -963,23 +796,13 @@
                 "description": "共享图片库中的真实图片ID"
               }
             },
-            "required": [
-              "id",
-              "kind",
-              "target_id",
-              "shot_ids",
-              "strategy",
-              "status",
-              "image_id"
-            ],
+            "required": ["id", "kind", "target_id", "shot_ids", "strategy", "status", "image_id"],
             "additionalProperties": false
           },
           "description": "当前产物条目"
         }
       },
-      "required": [
-        "items"
-      ],
+      "required": ["items"],
       "additionalProperties": false,
       "description": "分镜提出的素材需求"
     },
@@ -1015,18 +838,6 @@
                 "type": "integer",
                 "minimum": 1,
                 "description": "对应故事段定稿版本"
-              },
-              "previous_shot_id": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "前镜头ID，可为空"
               },
               "scene_id": {
                 "oneOf": [
@@ -1068,11 +879,7 @@
                       "description": "镜头开场状态"
                     }
                   },
-                  "required": [
-                    "character_id",
-                    "look_id",
-                    "opening_state"
-                  ],
+                  "required": ["character_id", "look_id", "opening_state"],
                   "additionalProperties": false
                 },
                 "description": "人物定义或镜头中的人物引用"
@@ -1105,11 +912,7 @@
                       "description": "镜头开场状态"
                     }
                   },
-                  "required": [
-                    "prop_id",
-                    "holder_character_id",
-                    "opening_state"
-                  ],
+                  "required": ["prop_id", "holder_character_id", "opening_state"],
                   "additionalProperties": false
                 },
                 "description": "道具素材定义或镜头引用"
@@ -1117,24 +920,7 @@
               "reference_images": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "image_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "共享图片库中的真实图片ID"
-                    },
-                    "role": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "参考素材用途"
-                    }
-                  },
-                  "required": [
-                    "image_id",
-                    "role"
-                  ],
-                  "additionalProperties": false
+                  "$ref": "#/$defs/imageReference"
                 },
                 "description": "参考图片及用途"
               },
@@ -1217,22 +1003,12 @@
                                 "description": "当前对白气息"
                               }
                             },
-                            "required": [
-                              "emotion",
-                              "volume",
-                              "pace",
-                              "breath"
-                            ],
+                            "required": ["emotion", "volume", "pace", "breath"],
                             "additionalProperties": false,
-                            "description": "最终输出规格和导出结果"
+                            "description": "当前对白的情绪、音量、语速与气息"
                           }
                         },
-                        "required": [
-                          "id",
-                          "speaker_id",
-                          "text",
-                          "delivery"
-                        ],
+                        "required": ["id", "speaker_id", "text", "delivery"],
                         "additionalProperties": false
                       },
                       "description": "对白及逐镜表演"
@@ -1248,43 +1024,19 @@
                       "description": "配乐"
                     }
                   },
-                  "required": [
-                    "id",
-                    "duration_seconds",
-                    "action",
-                    "camera",
-                    "scene_changes",
-                    "effects",
-                    "dialogues",
-                    "soundscape",
-                    "music"
-                  ],
+                  "required": ["id", "duration_seconds", "action", "camera", "scene_changes", "effects", "dialogues", "soundscape", "music"],
                   "additionalProperties": false
                 },
                 "description": "镜头内连续节拍"
               }
             },
-            "required": [
-              "id",
-              "sequence",
-              "revision",
-              "story_segment_id",
-              "story_segment_revision",
-              "previous_shot_id",
-              "scene_id",
-              "characters",
-              "props",
-              "reference_images",
-              "beats"
-            ],
+            "required": ["id", "sequence", "revision", "story_segment_id", "story_segment_revision", "scene_id", "characters", "props", "reference_images", "beats"],
             "additionalProperties": false
           },
           "description": "镜头序列"
         }
       },
-      "required": [
-        "shots"
-      ],
+      "required": ["shots"],
       "additionalProperties": false,
       "description": "文字分镜"
     },
@@ -1330,21 +1082,14 @@
                       "description": "对应镜头内的节拍ID"
                     }
                   },
-                  "required": [
-                    "shot_id",
-                    "beat_ids"
-                  ],
+                  "required": ["shot_id", "beat_ids"],
                   "additionalProperties": false
                 },
                 "description": "来源镜头与节拍"
               },
               "mode": {
                 "type": "string",
-                "enum": [
-                  "text",
-                  "reference",
-                  "first_frame"
-                ],
+                "enum": ["text", "reference", "first_frame"],
                 "description": "视频生成模式"
               },
               "first_image_id": {
@@ -1372,23 +1117,13 @@
                 "description": "尾帧图片ID，可为空"
               }
             },
-            "required": [
-              "id",
-              "sequence",
-              "duration_seconds",
-              "sources",
-              "mode",
-              "first_image_id",
-              "last_image_id"
-            ],
+            "required": ["id", "sequence", "duration_seconds", "sources", "mode", "first_image_id", "last_image_id"],
             "additionalProperties": false
           },
           "description": "分片或时间线片段"
         }
       },
-      "required": [
-        "clips"
-      ],
+      "required": ["clips"],
       "additionalProperties": false,
       "description": "视频生成分片编排"
     },
@@ -1412,11 +1147,7 @@
               },
               "mode": {
                 "type": "string",
-                "enum": [
-                  "text",
-                  "reference",
-                  "first_frame"
-                ],
+                "enum": ["text", "reference", "first_frame"],
                 "description": "视频生成模式"
               },
               "revision": {
@@ -1432,75 +1163,25 @@
               "reference_images": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "image_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "共享图片库中的真实图片ID"
-                    },
-                    "role": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "参考素材用途"
-                    }
-                  },
-                  "required": [
-                    "image_id",
-                    "role"
-                  ],
-                  "additionalProperties": false
+                  "$ref": "#/$defs/imageReference"
                 },
                 "description": "参考图片及用途"
               },
               "voice_references": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "character_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "短剧人物素材ID"
-                    },
-                    "voice_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "音色版本"
-                    },
-                    "audio_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "音色文件引用"
-                    }
-                  },
-                  "required": [
-                    "character_id",
-                    "voice_revision",
-                    "audio_ref"
-                  ],
-                  "additionalProperties": false
+                  "$ref": "#/$defs/voiceReference"
                 },
                 "description": "实际音色样本引用"
               }
             },
-            "required": [
-              "id",
-              "clip_id",
-              "mode",
-              "revision",
-              "prompt_ref",
-              "reference_images",
-              "voice_references"
-            ],
+            "required": ["id", "clip_id", "mode", "revision", "prompt_ref", "reference_images", "voice_references"],
             "additionalProperties": false
           },
           "description": "当前产物条目"
         }
       },
-      "required": [
-        "items"
-      ],
+      "required": ["items"],
       "additionalProperties": false,
       "description": "视频提示词"
     },
@@ -1521,11 +1202,7 @@
           },
           "mode": {
             "type": "string",
-            "enum": [
-              "text",
-              "reference",
-              "first_frame"
-            ],
+            "enum": ["text", "reference", "first_frame"],
             "description": "视频生成模式"
           },
           "prompt_id": {
@@ -1546,7 +1223,7 @@
           "duration_seconds": {
             "type": "number",
             "minimum": 0,
-            "description": "时长（秒）；生成分片4至15秒"
+            "description": "实际媒体时长（秒）"
           },
           "input_snapshot_ref": {
             "type": "string",
@@ -1564,40 +1241,13 @@
           "voice_references": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "character_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "description": "短剧人物素材ID"
-                },
-                "voice_revision": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "description": "音色版本"
-                },
-                "audio_ref": {
-                  "type": "string",
-                  "minLength": 1,
-                  "description": "音色文件引用"
-                }
-              },
-              "required": [
-                "character_id",
-                "voice_revision",
-                "audio_ref"
-              ],
-              "additionalProperties": false
+              "$ref": "#/$defs/voiceReference"
             },
             "description": "实际音色样本引用"
           },
           "status": {
             "type": "string",
-            "enum": [
-              "candidate",
-              "approved",
-              "rejected"
-            ],
+            "enum": ["candidate", "approved", "rejected"],
             "description": "状态，合法值以当前字段enum为准"
           }
         },
@@ -1684,13 +1334,7 @@
                       "description": "时间线位置（秒）"
                     }
                   },
-                  "required": [
-                    "id",
-                    "take_id",
-                    "in_seconds",
-                    "out_seconds",
-                    "position_seconds"
-                  ],
+                  "required": ["id", "take_id", "in_seconds", "out_seconds", "position_seconds"],
                   "additionalProperties": false
                 },
                 "description": "分片或时间线片段"
@@ -1708,13 +1352,10 @@
                     "duration_seconds": {
                       "type": "number",
                       "minimum": 0,
-                      "description": "时长（秒）；生成分片4至15秒"
+                      "description": "转场时长（秒）"
                     }
                   },
-                  "required": [
-                    "clip_id",
-                    "duration_seconds"
-                  ],
+                  "required": ["clip_id", "duration_seconds"],
                   "additionalProperties": false
                 },
                 "description": "转场"
@@ -1744,24 +1385,13 @@
                 "description": "音轨文件引用"
               }
             },
-            "required": [
-              "id",
-              "name",
-              "revision",
-              "clips",
-              "transitions",
-              "subtitles_ref",
-              "audio_tracks_ref"
-            ],
+            "required": ["id", "name", "revision", "clips", "transitions", "subtitles_ref", "audio_tracks_ref"],
             "additionalProperties": false
           },
           "description": "连续剪辑时间线"
         }
       },
-      "required": [
-        "preview_ref",
-        "timelines"
-      ],
+      "required": ["preview_ref", "timelines"],
       "additionalProperties": false,
       "description": "连续剪辑与后期"
     },
@@ -1796,13 +1426,7 @@
             "description": "分集结束时间（秒）"
           }
         },
-        "required": [
-          "id",
-          "title",
-          "timeline_id",
-          "start_seconds",
-          "end_seconds"
-        ],
+        "required": ["id", "title", "timeline_id", "start_seconds", "end_seconds"],
         "additionalProperties": false
       },
       "description": "后期确定的集界，前期不分集"
@@ -1830,10 +1454,7 @@
             },
             "subtitle_mode": {
               "type": "string",
-              "enum": [
-                "sidecar",
-                "burn"
-              ],
+              "enum": ["sidecar", "burn"],
               "description": "外挂字幕或烧录字幕"
             },
             "normalize_audio": {
@@ -1841,13 +1462,7 @@
               "description": "是否统一响度"
             }
           },
-          "required": [
-            "width",
-            "height",
-            "fps",
-            "subtitle_mode",
-            "normalize_audio"
-          ],
+          "required": ["width", "height", "fps", "subtitle_mode", "normalize_audio"],
           "additionalProperties": false,
           "description": "导出设置"
         },
@@ -1900,18 +1515,6 @@
                 ],
                 "description": "字幕文件引用"
               },
-              "settings_ref": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "本次导出设置快照引用"
-              },
               "validation_report_ref": {
                 "oneOf": [
                   {
@@ -1925,25 +1528,13 @@
                 "description": "实际媒体校验报告引用"
               }
             },
-            "required": [
-              "id",
-              "timeline_id",
-              "episode_id",
-              "input_snapshot_ref",
-              "file_ref",
-              "subtitles_ref",
-              "settings_ref",
-              "validation_report_ref"
-            ],
+            "required": ["id", "timeline_id", "episode_id", "input_snapshot_ref", "file_ref", "subtitles_ref", "validation_report_ref"],
             "additionalProperties": false
           },
           "description": "已生成的实际导出结果"
         }
       },
-      "required": [
-        "settings",
-        "exports"
-      ],
+      "required": ["settings", "exports"],
       "additionalProperties": false,
       "description": "最终输出规格和导出结果"
     },
@@ -1951,1899 +1542,51 @@
       "type": "object",
       "properties": {
         "project": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/programNodeState",
           "description": "短剧与原稿步骤"
         },
         "source_analysis": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/programNodeState",
           "description": "原著解析，程序默认整稿复制为一条正文，摘要为空"
         },
         "adaptation_plan": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/textNodeState",
           "description": "全篇联合改编指导，不包含逐段计划、声线或制服版本"
         },
         "story_segments": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/textNodeState",
           "description": "定稿自主分段形成的完整故事段"
         },
         "shot_design": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/textNodeState",
           "description": "文字分镜"
         },
         "asset_preparation": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/mediaNodeState",
           "description": "素材与人物定妆步骤"
         },
         "reference_binding": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/programNodeState",
           "description": "分镜参考确认步骤"
         },
         "clip_arrangement": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/programNodeState",
           "description": "视频生成分片编排"
         },
         "video_prompt": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/textNodeState",
           "description": "视频提示词"
         },
         "video_render": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/mediaNodeState",
           "description": "视频与声音步骤"
         },
         "editing": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/programNodeState",
           "description": "连续剪辑与后期"
         },
         "delivery": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "empty",
-                "partial",
-                "draft",
-                "confirmed",
-                "rejected"
-              ],
-              "description": "状态，合法值以当前字段enum为准"
-            },
-            "product_revision": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "当前步骤产物保存版本"
-            },
-            "opinion": {
-              "type": "string",
-              "minLength": 0,
-              "description": "用户本次执行意见"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 0,
-              "description": "当前状态或执行说明"
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "生成动作补充规则"
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "独立审核动作补充规则"
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0,
-                  "description": "修订动作补充规则"
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false,
-              "description": "各动作的短剧补充规则，基础skill由代码加载"
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "状态，合法值以当前字段enum为准"
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0,
-                      "description": "当前状态或执行说明"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "最近执行任务引用及实际状态"
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行任务ID"
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "执行单元ID"
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变执行单元文件引用"
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "不可变候选文件引用"
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ],
-                      "description": "检查点状态"
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "当前步骤产物保存版本"
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "任务候选与审核检查点，可为空"
-            }
-          },
-          "required": [
-            "status",
-            "product_revision",
-            "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
-          ],
-          "additionalProperties": false,
+          "$ref": "#/$defs/programNodeState",
           "description": "最终输出规格和导出结果"
         }
       },
@@ -3884,5 +1627,219 @@
     "delivery",
     "node_states"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$comment": "字段说明文档，与运行Schema保持一致。步骤状态按类型引用：programNodeState用于程序步骤；textNodeState用于文本AI步骤；mediaNodeState用于图片/视频步骤。执行状态从任务记录查询，不存入项目JSON。图片和声音引用另有共用定义。",
+  "$defs": {
+    "programNodeState": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["empty", "partial", "draft", "confirmed", "rejected"],
+          "description": "状态，合法值以当前字段enum为准"
+        },
+        "product_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "当前步骤产物保存版本"
+        },
+        "opinion": {
+          "type": "string",
+          "minLength": 0,
+          "description": "用户本次执行意见"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 0,
+          "description": "当前状态或执行说明"
+        }
+      },
+      "required": ["status", "product_revision", "opinion", "reason"],
+      "additionalProperties": false
+    },
+    "textNodeState": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["empty", "partial", "draft", "confirmed", "rejected"],
+          "description": "状态，合法值以当前字段enum为准"
+        },
+        "product_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "当前步骤产物保存版本"
+        },
+        "opinion": {
+          "type": "string",
+          "minLength": 0,
+          "description": "用户本次执行意见"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 0,
+          "description": "当前状态或执行说明"
+        },
+        "rules": {
+          "type": "object",
+          "properties": {
+            "generate": {
+              "type": "string",
+              "minLength": 0,
+              "description": "生成动作补充规则"
+            },
+            "review": {
+              "type": "string",
+              "minLength": 0,
+              "description": "独立审核动作补充规则"
+            },
+            "revise": {
+              "type": "string",
+              "minLength": 0,
+              "description": "修订动作补充规则"
+            }
+          },
+          "required": ["generate", "review", "revise"],
+          "additionalProperties": false,
+          "description": "各动作的短剧补充规则，基础skill由代码加载"
+        },
+        "checkpoint": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "task_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "执行任务ID"
+                },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "执行单元ID"
+                },
+                "unit_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "不可变执行单元文件引用"
+                },
+                "candidate_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "不可变候选文件引用"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": ["saved", "reviewed"],
+                  "description": "检查点状态"
+                },
+                "product_revision": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "当前步骤产物保存版本"
+                }
+              },
+              "required": ["task_id", "unit_id", "unit_ref", "candidate_ref", "state", "product_revision"],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "任务候选与审核检查点，可为空"
+        }
+      },
+      "required": ["status", "product_revision", "opinion", "reason", "rules", "checkpoint"],
+      "additionalProperties": false
+    },
+    "mediaNodeState": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["empty", "partial", "draft", "confirmed", "rejected"],
+          "description": "状态，合法值以当前字段enum为准"
+        },
+        "product_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "当前步骤产物保存版本"
+        },
+        "opinion": {
+          "type": "string",
+          "minLength": 0,
+          "description": "用户本次执行意见"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 0,
+          "description": "当前状态或执行说明"
+        },
+        "rules": {
+          "type": "object",
+          "properties": {
+            "generate": {
+              "type": "string",
+              "minLength": 0,
+              "description": "生成动作补充规则"
+            },
+            "review": {
+              "type": "string",
+              "minLength": 0,
+              "description": "独立审核动作补充规则"
+            },
+            "revise": {
+              "type": "string",
+              "minLength": 0,
+              "description": "修订动作补充规则"
+            }
+          },
+          "required": ["generate", "review", "revise"],
+          "additionalProperties": false,
+          "description": "各动作的短剧补充规则，基础skill由代码加载"
+        }
+      },
+      "required": ["status", "product_revision", "opinion", "reason", "rules"],
+      "additionalProperties": false
+    },
+    "imageReference": {
+      "type": "object",
+      "properties": {
+        "image_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "共享图片库中的真实图片ID"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "description": "参考素材用途"
+        }
+      },
+      "required": ["image_id", "role"],
+      "additionalProperties": false
+    },
+    "voiceReference": {
+      "type": "object",
+      "properties": {
+        "character_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "短剧人物素材ID"
+        },
+        "voice_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "音色版本"
+        },
+        "audio_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "音色文件引用"
+        }
+      },
+      "required": ["character_id", "voice_revision", "audio_ref"],
+      "additionalProperties": false
+    }
+  }
 }

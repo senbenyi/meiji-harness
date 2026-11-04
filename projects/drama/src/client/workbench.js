@@ -44,6 +44,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
   let shotExecution = null, sceneExecution = null, groupExecution = null, characterExecution = null, imageExecution = null, sceneImageExecution = null
   let storyExecution = null
   const projectStates = new Map()
+  let executionStates = {}
   const clearProject = () => { projectView?.dispose(); projectView = null; projectViewId = null }
   const request = async (path, options, ownerSession = session) => {
     const ownerEpoch = navigationEpoch
@@ -216,11 +217,11 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
       content.append(empty)
       return
     }
-    if (projectView) { projectView.update(project, { scriptExecution, summaryExecution, storyExecution, shotExecution, sceneExecution, groupExecution, characterExecution, imageExecution, sceneImageExecution }); return }
+    if (projectView) { projectView.update(project, { executionStates, scriptExecution, summaryExecution, storyExecution, shotExecution, sceneExecution, groupExecution, characterExecution, imageExecution, sceneImageExecution }); return }
     const ownerSession = session, projectId = project.basic_info.id
     projectViewId = projectId
     if (!projectStates.has(projectId)) projectStates.set(projectId, {})
-    projectView = createProjectView(content, { project, sessionId:ownerSession, scriptExecution, summaryExecution, storyExecution, shotExecution, sceneExecution, groupExecution, characterExecution, imageExecution, sceneImageExecution, request: (path, options) => request(path, options, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
+    projectView = createProjectView(content, { project, executionStates, sessionId:ownerSession, scriptExecution, summaryExecution, storyExecution, shotExecution, sceneExecution, groupExecution, characterExecution, imageExecution, sceneImageExecution, request: (path, options) => request(path, options, ownerSession), dialogRoot: root, state: projectStates.get(projectId),
       refresh: () => { void refresh().catch(report) },
       remove: async () => {
         if (disposed || session !== ownerSession || getSessionId() !== ownerSession || project?.basic_info.id !== projectId) throw new Error('会话已切换，请重新打开短剧')
@@ -260,6 +261,8 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
         if (disposed || session !== ownerSession || project?.basic_info.id !== projectId) return
         version++
         project = result.project
+        executionStates = result.execution_states || {}
+        projectView?.update(project, { executionStates })
         if (result.warning) status.textContent = result.warning
         return project
       },
@@ -280,6 +283,7 @@ export function mount(root, { getSessionId = currentSessionId, fetcher = globalT
     status.textContent = ''
     sessionReady = true
     project = snapshot.project
+    executionStates = snapshot.execution_states || {}
     scriptExecution = snapshot.script_execution || null
     storyExecution = snapshot.story_execution || null
     shotExecution = snapshot.shot_execution || null

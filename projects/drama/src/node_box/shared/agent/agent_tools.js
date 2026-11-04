@@ -121,16 +121,16 @@ export function createAgentTools({ctx,projects,unit,unitRef,snapshot,snapshotRef
       recordCandidateRead(start,Math.min(end,candidateText.length))
       return {body:candidateText.slice(start,end),characters:candidateText.length,start,end:Math.min(end,candidateText.length)}
     },[])}:{}),
-    [submit]:define('单独提交当前动作结果',{output:{type:'object'}},async(args,calls)=>{
+    [submit]:define('单独提交当前动作完整JSON结果，字段类型以参数Schema为准，不提交代码或表达式',{output:context.contract},async(args,calls)=>{
       if(calls.length!==1)throw new TypeError('提交必须是当前动作唯一调用')
       if(!state.unitRead||action!=='generate'&&!state.candidateRead)throw new TypeError('提交前须读取完整单元资料以及最新候选')
       if(requireSourceCoverage&&(unit.source_spans||[]).some(span=>!covered(state.sourceRanges.filter(r=>r.source_revision_id===span.source_revision_id),span.start,span.end)))throw new TypeError('提交前必须读完当前分段正文')
       for(const ref of unit.read_refs||[]){const length=(await projects.documents.readArtifact(projectId,ref)).toString().length;if(!covered(state.fileRanges.filter(r=>r.ref===ref),0,length))throw new TypeError('提交前必须读完本单元正文：'+ref)}
-      const value=action==='review'?validateReview(args.output):parseCandidate(stage,unit,args.output)
+      let value=action==='review'?validateReview(args.output):parseCandidate(stage,unit,args.output,action)
       if(action==='review'){
         const candidate=JSON.parse(candidateText),haystack=JSON.stringify(candidate)
-        for(const issue of value.issues)if(!haystack.includes(JSON.stringify(issue.evidence).slice(1,-1))&&!JSON.stringify(unit.material).includes(JSON.stringify(issue.evidence).slice(1,-1))&&!longMemory.entries.filter(e=>state.memoryReadIds.has(e.id)).some(e=>e.content.includes(issue.evidence)))throw new TypeError('审核证据不是当前候选/单元中的实际原文')
-      }else await validate(value)
+        for(const issue of value.issues)if(!haystack.includes(JSON.stringify(issue.evidence).slice(1,-1))&&!JSON.stringify(unit.material).includes(JSON.stringify(issue.evidence).slice(1,-1))&&!longMemory.entries.filter(e=>state.memoryReadIds.has(e.id)).some(e=>e.content.includes(issue.evidence)))throw new TypeError('审核证据不是当前候选/单元中的实际原文。evidence须复制一处连续原文，不加标签、外围引号、省略号或拼接引文，解释写入reason。此次提交无效，不代表候选通过；重新核对后，问题仍成立则修正证据重提，撤回问题则在suggestions说明位置和依据，不能仅为绕过校验改为passed。')
+      }else value=(await validate(value))??value
       accepted=value;return {accepted:true}
     })
   }

@@ -21,8 +21,12 @@ export async function modelTurn({ctx,projects,models,unit,unitRef,snapshot,snaps
   ctx.signal.throwIfAborted()
   if(JSON.stringify(assistant).length>160000)throw Object.assign(new TypeError('模型单轮输出超过160000字符，请减少单次定稿段数或缩小原著阅读范围后重试'),{code:'MODEL_OUTPUT_LIMIT'})
   const {output,validationError,delta,trace:state}=await tools.execute(assistant)
-  const trace={phase,action,...state,messages:delta,validation_error:validationError}
+  const noToolCalls=!assistant.tool_calls?.length
+  const trace={phase,action,...state,messages:delta,validation_error:validationError,no_tool_calls:noToolCalls}
   const traceRef=await projects.documents.writeArtifact(projectId,JSON.stringify(trace),{extension:'json'})
+  let idleTurns=noToolCalls?1:0
+  if(noToolCalls)for(const previous of [...traces].reverse()){if(!previous.no_tool_calls)break;idleTurns++}
+  if(idleTurns>=3)throw Object.assign(new TypeError('模型连续3轮未调用工具或提交结果，已停止无效重试'),{code:'INVALID_MODEL_OUTPUT'})
   if(validationError&&traces.filter(t=>t.validation_error).length>=2)throw Object.assign(new TypeError(`输出/工具修复次数已用尽：${validationError}`),{code:'INVALID_MODEL_OUTPUT'})
   return {output,trace:{phase,file_ref:traceRef,activities:executionActivities(trace)},pending:!output}
 }

@@ -100,7 +100,7 @@ export class ProjectWorkspaceService extends EventEmitter {
         row = Object.values(bindings.requests).find(
           (row) => row.project_id === project.basic_info.id,
         );
-      return { project, session_id: sessionId, workspace: row?.workspace };
+      return { project, session_id: sessionId, workspace: row?.workspace, execution_states: this.executionStates(project.basic_info.id) };
     } catch (error) {
       if (error.code === "PROJECT_SCOPE") return { project: null };
       throw error;
@@ -119,9 +119,9 @@ export class ProjectWorkspaceService extends EventEmitter {
     );
   }
   async nodeStates(sessionId) {
-    const { project } = await this.snapshot(sessionId);
+    const { project, execution_states } = await this.snapshot(sessionId);
     if (!project) return { project_id: null, nodes: {} };
-    return { project_id: project.basic_info.id, nodes: project.node_states };
+    return { project_id: project.basic_info.id, nodes: project.node_states, execution_states };
   }
   async listProjects() {
     const state = await this.bindings();
@@ -236,7 +236,6 @@ export class ProjectWorkspaceService extends EventEmitter {
     });
     this.records.tasks.start(this.records.scope);
     const detail = await this.wait(groupId);
-    await this.projectTaskResult(detail);
     if (detail.status !== "completed")
       throw new Error(detail.reason || "创建失败");
     return {
@@ -245,37 +244,14 @@ export class ProjectWorkspaceService extends EventEmitter {
       status: detail.status,
     };
   }
-  async projectTaskResult(detail) {
-    for (const task of detail.tasks) {
-      if (
-        !task.metadata?.project_id ||
-        !projectStages.some((row) => row.id === task.node_type)
-      )
-        continue;
-      const latest = this.records.tasks.store
-        .read(this.records.scope)
-        .tasks.filter(
-          (row) =>
-            row.metadata?.project_id === task.metadata.project_id &&
-            row.node_type === task.node_type &&
-            !["queued", "running"].includes(row.task_status),
-        )
-        .sort((a, b) => b.queue_order - a.queue_order)[0];
-      if (latest?.id !== task.id) continue;
-      try {
-        await this.documents.recordExecution(
-          task.metadata.project_id,
-          task.node_type,
-          {
-            task_id: task.id,
-            status: task.task_status,
-            reason: task.end_reason || task.error_reason || "",
-          },
-        );
-      } catch (error) {
-        if (error.code !== "ENOENT") throw error;
-      }
+  executionStates(projectId) {
+    const latest = new Map();
+    for (const task of this.records.tasks.store.read(this.records.scope, { steps: false }).tasks) {
+      if (task.metadata?.project_id !== projectId || !projectStages.some(stage => stage.id === task.node_type) || ['queued','running'].includes(task.task_status)) continue;
+      const previous = latest.get(task.node_type);
+      if (!previous || task.queue_order > previous.queue_order) latest.set(task.node_type, task);
     }
+    return Object.fromEntries([...latest].map(([stage, task]) => [stage, { task_id: task.id, group_id: task.group_id, status: task.task_status, reason: task.end_reason || task.error_reason || '' }]));
   }
   async wait(groupId) {
     const terminal = () => {
@@ -349,7 +325,6 @@ export class ProjectWorkspaceService extends EventEmitter {
       });
     this.records.tasks.start(this.records.scope);
     const result = await this.wait(groupId);
-    await this.projectTaskResult(result);
     if (result.status !== "completed")
       throw Object.assign(new Error(result.reason || "保存失败"), {
         status: 409,

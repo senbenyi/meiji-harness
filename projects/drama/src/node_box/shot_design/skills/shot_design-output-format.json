@@ -1,23 +1,359 @@
 {
+  "$defs": {
+    "assets": {
+      "type": "object",
+      "properties": {
+        "characters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "voice_description": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "voice_description"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "clothing": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "group"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "props": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "description"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "scenes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "layout": {
+                "type": "string"
+              },
+              "entrances": {
+                "type": "string"
+              },
+              "landmarks": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "layout",
+              "entrances",
+              "landmarks"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "character_looks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "character": {
+                "type": "string",
+                "minLength": 1
+              },
+              "clothing": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "props": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "hair_and_makeup": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "character",
+              "clothing",
+              "props",
+              "hair_and_makeup"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "characters",
+        "clothing",
+        "props",
+        "scenes",
+        "character_looks"
+      ],
+      "additionalProperties": false
+    },
+    "shot": {
+      "type": "object",
+      "properties": {
+        "scene": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "characters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "look": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "opening_state": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "look",
+              "opening_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "props": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "holder": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "opening_state": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "holder",
+              "opening_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "beats": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "duration_seconds": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 15
+              },
+              "action": {
+                "type": "string"
+              },
+              "camera": {
+                "type": "string"
+              },
+              "scene_changes": {
+                "type": "string"
+              },
+              "effects": {
+                "type": "string"
+              },
+              "dialogues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "speaker": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "delivery": {
+                      "type": "object",
+                      "properties": {
+                        "emotion": {
+                          "type": "string"
+                        },
+                        "volume": {
+                          "type": "string"
+                        },
+                        "pace": {
+                          "type": "string"
+                        },
+                        "breath": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "emotion",
+                        "volume",
+                        "pace",
+                        "breath"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "speaker",
+                    "text",
+                    "delivery"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "soundscape": {
+                "type": "string"
+              },
+              "music": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "duration_seconds",
+              "action",
+              "camera",
+              "scene_changes",
+              "effects",
+              "dialogues",
+              "soundscape",
+              "music"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "scene",
+        "characters",
+        "props",
+        "beats"
+      ],
+      "additionalProperties": false
+    }
+  },
   "generate": {
     "type": "json",
     "schema": {
       "type": "object",
       "properties": {
         "assets": {
-          "$ref": "project:/properties/asset_library"
+          "$ref": "#/$defs/assets"
         },
         "shots": {
-          "$ref": "project:/properties/shot_design/properties/shots"
-        },
-        "requirements": {
-          "$ref": "project:/properties/asset_requirements/properties/items"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shot"
+          },
+          "minItems": 1
         }
       },
       "required": [
         "assets",
-        "shots",
-        "requirements"
+        "shots"
       ],
       "additionalProperties": false
     }
@@ -34,19 +370,69 @@
       "type": "object",
       "properties": {
         "assets": {
-          "$ref": "project:/properties/asset_library"
+          "$ref": "#/$defs/assets"
         },
-        "shots": {
-          "$ref": "project:/properties/shot_design/properties/shots"
+        "shot_updates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "shot_number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "shot": {
+                "$ref": "#/$defs/shot"
+              }
+            },
+            "required": [
+              "shot_number",
+              "shot"
+            ],
+            "additionalProperties": false
+          }
         },
-        "requirements": {
-          "$ref": "project:/properties/asset_requirements/properties/items"
+        "shot_additions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shot"
+          }
+        },
+        "shot_removals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "shot_number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "shot_number",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "shot_order": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
         }
       },
       "required": [
         "assets",
-        "shots",
-        "requirements"
+        "shot_updates",
+        "shot_additions",
+        "shot_removals",
+        "shot_order"
       ],
       "additionalProperties": false
     }

@@ -23,15 +23,28 @@ test('产物编辑保存携带原版本，失败保留输入且不会修改只�
 })
 
 test('流程状态依据完成、未通过和真实失败，候选/取消不当完成，更新同步导航与标题',t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_flow',name:'流程状态'});p.node_states.project.status='confirmed';p.node_states.source_analysis.status='rejected';p.node_states.adaptation_plan.status='draft';p.node_states.story_segments.status='confirmed';p.node_states.story_segments.last_execution={task_id:'failed',status:'failed',reason:'模型连接失败'};p.node_states.shot_design.last_execution={task_id:'cancelled',status:'cancelled',reason:'用户停止'}
- const state={documentStage:'story_segments'},view=createProjectDocumentView(root,{project:p,state});t.after(()=>view.dispose());const tab=id=>root.querySelector(`[role=tab][data-stage=${id}]`)
+ const {root}=fixture(t),p=createProjectDocument({id:'p_flow',name:'流程状态'});p.node_states.project.status='confirmed';p.node_states.source_analysis.status='rejected';p.node_states.adaptation_plan.status='draft';p.node_states.story_segments.status='confirmed';const executionStates={story_segments:{task_id:'failed',status:'failed',reason:'模型连接失败'},shot_design:{task_id:'cancelled',status:'cancelled',reason:'用户停止'}}
+ const state={documentStage:'story_segments'},view=createProjectDocumentView(root,{project:p,state,executionStates});t.after(()=>view.dispose());const tab=id=>root.querySelector(`[role=tab][data-stage=${id}]`)
  assert.equal(tab('project').dataset.tone,'complete');assert.equal(tab('source_analysis').dataset.tone,'error');assert.equal(tab('adaptation_plan').dataset.tone,'pending');assert.match(tab('adaptation_plan').textContent,/待核对/);assert.equal(tab('story_segments').dataset.tone,'error');assert.match(tab('shot_design').textContent,/已停止/);assert.match(root.querySelector('.production-progress').textContent,/1 \/ 12/);assert.equal(root.querySelector('.production-section').dataset.tone,'error');assert.match(root.querySelector('[role=status]').textContent,/模型连接失败/)
- const next=structuredClone(p);next.node_states.story_segments.status='confirmed';next.node_states.story_segments.last_execution.status='done';view.update(next);assert.equal(tab('story_segments').dataset.tone,'complete');assert.match(root.querySelector('.production-section .node-data-tag').textContent,/已完成/);assert.match(root.querySelector('.production-progress').textContent,/2 \/ 12/)
+ const next=structuredClone(p);next.node_states.story_segments.status='confirmed';executionStates.story_segments.status='completed';view.update(next,{executionStates});assert.equal(tab('story_segments').dataset.tone,'complete');assert.match(root.querySelector('.production-section .node-data-tag').textContent,/已完成/);assert.match(root.querySelector('.production-progress').textContent,/2 \/ 12/)
+})
+
+test('续接按钮直接使用独立任务状态的group，不再查询历史或依赖JSON缓存',async t=>{
+ const {root}=fixture(t),project=createProjectDocument({id:'p_resume',name:'续接'}),requests=[],executionStates={story_segments:{task_id:'failed',group_id:'g_actual',status:'failed',reason:'执行中断'}}
+ const view=createProjectDocumentView(root,{project,executionStates,state:{documentStage:'story_segments'},request:async(path,options)=>{
+  requests.push({path,body:options?.body?JSON.parse(options.body):null})
+  if(path==='project')return {project,execution_states:executionStates}
+  if(path==='production/story_segments')return {group_id:'g_next'}
+  throw Error('不应查询额外历史：'+path)
+ }});t.after(()=>view.dispose())
+ await [...root.querySelectorAll('button')].find(b=>b.textContent==='从检查点继续').onclick();await tick()
+ assert.equal(requests.find(r=>r.path==='production/story_segments').body.resume_of,'g_actual');assert.equal(requests.some(r=>r.path.startsWith('task-history')),false)
+ assert.equal(Object.hasOwn(project.node_states.story_segments,'last_execution'),false)
 })
 
 test('活动执行优先于旧失败，不把执行中染为完成或错误',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_active',name:'运行状态'});p.node_states.source_analysis.status='partial';p.node_states.source_analysis.last_execution={task_id:'old',status:'failed',reason:'上次失败'}
- const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},sessionId:'session',request:async()=>({project:p,active_execution:{group:{id:'active'},task:{node_type:'source_analysis',metadata:{production:true}}}})});t.after(()=>view.dispose());await tick();const tab=root.querySelector('[data-stage=source_analysis]');assert.equal(tab.dataset.running,'true');assert.equal(tab.dataset.tone,'pending');assert.match(tab.textContent,/执行中/);assert.match(root.querySelector('.production-section .node-data-tag').textContent,/执行中/)
+ const {root}=fixture(t),p=createProjectDocument({id:'p_active',name:'运行状态'});p.node_states.source_analysis.status='partial';const execution_states={source_analysis:{task_id:'old',status:'failed',reason:'上次失败'}}
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},sessionId:'session',request:async()=>({project:p,execution_states,active_execution:{group:{id:'active'},task:{node_type:'source_analysis',metadata:{production:true}}}})});t.after(()=>view.dispose());await tick();const tab=root.querySelector('[data-stage=source_analysis]');assert.equal(tab.dataset.running,'true');assert.equal(tab.dataset.tone,'pending');assert.match(tab.textContent,/执行中/);assert.match(root.querySelector('.production-section .node-data-tag').textContent,/执行中/)
 })
 
 test('短剧信息在短剧与原稿编辑，删除在顶部工具末尾，版本和意见保留',async t=>{
@@ -55,7 +68,7 @@ test('添加短剧保持原创建弹框与导入字段，不要求填写JSON',as
 })
 
 test('编辑与添加共用创建表单，回填当前原稿且不读正文，换稿随资料一次提交',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_shared',name:'已有短剧',output_language:'fr'});p.source={current_revision_id:'src_old',revisions:[{id:'src_old',file_ref:'sources/old.txt',original_name:'旧稿.txt',character_count:10000000,line_index_ref:null}]};let command;const requests=[]
+ const {root}=fixture(t),p=createProjectDocument({id:'p_shared',name:'已有短剧',output_language:'fr'});p.source={current_revision_id:'src_old',revisions:[{id:'src_old',file_ref:'sources/old.txt',original_name:'旧稿.txt',character_count:10000000}]};let command;const requests=[]
  const view=createProjectDocumentView(root,{project:p,request:async path=>{requests.push(path);if(path==='library')return {assets:[{id:'script_one',category:'scripts',originalName:'素材新稿.txt'}]};if(path==='library/scripts/script_one')return {body:'新的完整原稿'};throw Error('不应读取旧原稿')},save:async value=>{command=value;return p}});t.after(()=>view.dispose());[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑短剧信息').click();const dialog=root.querySelector('dialog');assert.ok(dialog.querySelector('form.create'));assert.equal(dialog.querySelector('[name=title]').value,'已有短剧');assert.match(dialog.querySelector('.script-selected').textContent,/旧稿.txt/);assert.equal(requests.length,0);assert.equal(dialog.querySelector('textarea'),null)
  await dialog.querySelector('.script-choose').onclick();const picker=dialog.querySelector('.script-picker');picker.value='script_one';await picker.onchange();dialog.querySelector('[name=title]').value='新资料';await dialog.querySelector('form').onsubmit({preventDefault(){}});assert.equal(command.kind,'basic_info');assert.equal(command.value.output_language,'fr');assert.equal(command.value.name,'新资料');assert.deepEqual(command.source,{text:'新的完整原稿',original_name:'素材新稿.txt'});assert.equal(command.expected_revision,0);assert.equal(root.querySelector('dialog'),null)
 })
@@ -88,7 +101,7 @@ test('迟到执行错误归原节点，普通错误刷新不丢，重试成功�
  const generate=()=>[...root.querySelectorAll('button')].find(b=>/^(生成\/重新生成|执行本步骤)$/.test(b.textContent)).onclick(),pending=generate();await tick();root.querySelector('[data-stage=adaptation_plan]').click();reject(new Error('模型连接失败'));await pending;assert.equal(root.querySelector('.node-ui-failure').hidden,true)
  root.querySelector('[data-stage=source_analysis]').click();assert.equal(root.querySelector('.node-ui-failure').textContent,'模型连接失败');view.update(structuredClone(p));assert.equal(root.querySelector('.node-ui-failure').textContent,'模型连接失败')
  fail=false;await generate();assert.equal(root.querySelector('.node-ui-failure').hidden,true)
- const failed=structuredClone(p);failed.node_states.source_analysis.last_execution={task_id:'failed',status:'failed',reason:'供应商返回真实失败'};view.update(failed);assert.equal(root.querySelector('.node-ui-failure').textContent,'供应商返回真实失败')
+ const failed=structuredClone(p);view.update(failed,{executionStates:{source_analysis:{task_id:'failed',status:'failed',reason:'供应商返回真实失败'}}});assert.equal(root.querySelector('.node-ui-failure').textContent,'供应商返回真实失败')
 })
 
 test('仅真实执行中的当前节点显示加载圆环，结束隐藏受理提示并保留失败原因',async t=>{
@@ -98,7 +111,7 @@ test('仅真实执行中的当前节点显示加载圆环，结束隐藏受理�
  const notice=()=>root.querySelector('.node-ui-failure');assert.equal(notice().getAttribute('aria-label'),'执行中');assert.equal(notice().getAttribute('aria-busy'),'true');assert.ok(notice().querySelector('.original-summary-loading'));assert.equal(notice().textContent,'');assert.equal(notice().hidden,false)
  root.querySelector('[data-stage=adaptation_plan]').click();assert.equal(root.querySelector('.original-summary-loading'),null);assert.equal(notice().hidden,true);root.querySelector('[data-stage=source_analysis]').click();assert.ok(notice().querySelector('.original-summary-loading'))
  active=null;p.node_states.source_analysis.status='confirmed';poll();await tick();assert.equal(root.querySelector('.original-summary-loading'),null);assert.equal(notice().hidden,true);assert.equal(notice().hasAttribute('aria-busy'),false)
- p.node_states.source_analysis.last_execution={task_id:'failed',status:'failed',reason:'审核未通过'};view.update(p);assert.equal(notice().textContent,'审核未通过');assert.equal(notice().hidden,false)
+ view.update(p,{executionStates:{source_analysis:{task_id:'failed',status:'failed',reason:'审核未通过'}}});assert.equal(notice().textContent,'审核未通过');assert.equal(notice().hidden,false)
 })
 
 test('联合改编约束按完整文本列表展示，实体编辑保留且空列表不生成卡片',async t=>{
@@ -114,9 +127,9 @@ test('原著分段正文可查看和编辑，页面不再提供来源范围控�
 })
 
 test('原著解析仅展示分段，内部事实/覆盖报告不展示或编辑，保存章节时原样保留',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_internal',name:'内部报告'});p.source_analysis={source_revision_id:'src',chapters:[{id:'c1',sequence:1,title:'原稿分段',body:'完整正文',summary:'摘要'}],facts_ref:'artifacts/facts.json',coverage_ref:'artifacts/coverage.json'};let command
+ const {root}=fixture(t),p=createProjectDocument({id:'p_internal',name:'内部报告'});p.source_analysis={source_revision_id:'src',chapters:[{id:'c1',sequence:1,title:'原稿分段',body:'完整正文',summary:'摘要'}],coverage_ref:'artifacts/coverage.json'};let command
  const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},save:async value=>{command=value;return p}});t.after(()=>view.dispose());assert.equal(root.querySelectorAll('.production-card').length,1);assert.doesNotMatch(root.textContent,/原著事实|覆盖报告|facts_ref|coverage_ref|artifacts\//);assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent.startsWith('查看正文')));assert.equal([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑正文'),false)
- const click=text=>[...root.querySelectorAll('button')].find(b=>b.textContent===text).click();click('人工编辑产物');const textarea=root.querySelector('dialog textarea'),value=JSON.parse(textarea.value);assert.deepEqual(Object.keys(value),['chapters']);assert.doesNotMatch(root.querySelector('dialog').textContent,/\$text/);value.chapters[0].title='新的分段标题';value.facts_ref='artifacts/overwrite.json';textarea.value=JSON.stringify(value);await [...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').onclick();assert.equal(command.value.chapters[0].title,'新的分段标题');assert.equal(command.value.source_revision_id,'src');assert.equal(command.value.facts_ref,'artifacts/facts.json');assert.equal(command.value.coverage_ref,'artifacts/coverage.json')
+ const click=text=>[...root.querySelectorAll('button')].find(b=>b.textContent===text).click();click('人工编辑产物');const textarea=root.querySelector('dialog textarea'),value=JSON.parse(textarea.value);assert.deepEqual(Object.keys(value),['chapters']);assert.doesNotMatch(root.querySelector('dialog').textContent,/\$text/);value.chapters[0].title='新的分段标题';value.facts_ref='artifacts/overwrite.json';textarea.value=JSON.stringify(value);await [...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').onclick();assert.equal(command.value.chapters[0].title,'新的分段标题');assert.equal(command.value.source_revision_id,'src');assert.equal(Object.hasOwn(command.value,'facts_ref'),false);assert.equal(command.value.coverage_ref,'artifacts/coverage.json')
  const empty=structuredClone(p);empty.source_analysis.chapters=[];view.update(empty);assert.equal(root.querySelectorAll('[data-guidance-group=character_plans]').length,0);assert.match(root.querySelector('.production-empty').textContent,/暂无原著解析产物/)
  empty.adaptation_plan.plot_development='保留主线，强化人物动机';view.update(empty);root.querySelector('[data-stage=adaptation_plan]').click();assert.match(root.textContent,/剧情发展/);assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑剧情发展'))
 })
@@ -203,7 +216,7 @@ function shotListProject(){
  const asset=(id,name)=>({id,name,description:'用于故事的稳定定义',image_ids:[],selected_image_id:null})
  p.asset_library.characters=[{...asset('character_private','巴比堪'),character_plan_id:null,voice_profile:{description:'低沉',reference_audio_ref:null,revision:0}}]
  p.asset_library.scenes=[{...asset('scene_private_one','炮旁准备区'),scene_plan_id:null,layout:'开阔',entrances:'栅门',landmarks:'炮口'},{...asset('scene_private_two','发射地平原与临时观礼城'),scene_plan_id:null,layout:'平原',entrances:'道路',landmarks:'观礼台'}]
- const shot=(sequence,segment,scene)=>({id:'shot_private_'+sequence,sequence,revision:1,story_segment_id:segment,story_segment_revision:1,previous_shot_id:sequence===1?null:'shot_private_1',scene_id:scene,characters:[{character_id:'character_private',look_id:null,opening_state:'站在场中'}],props:[],reference_images:[],beats:[{id:'beat_private_'+sequence,duration_seconds:6,action:'巴比堪走向炮口。',camera:'缓慢推进的近景',scene_changes:'人群退开',effects:'扬尘',dialogues:[{id:'line_private_'+sequence,speaker_id:'character_private',text:'准备出发！',delivery:{emotion:'坚定',volume:'低',pace:'平稳',breath:'均匀'}}],soundscape:'风声',music:'低弦乐'}]})
+ const shot=(sequence,segment,scene)=>({id:'shot_private_'+sequence,sequence,revision:1,story_segment_id:segment,story_segment_revision:1,scene_id:scene,characters:[{character_id:'character_private',look_id:null,opening_state:'站在场中'}],props:[],reference_images:[],beats:[{id:'beat_private_'+sequence,duration_seconds:6,action:'巴比堪走向炮口。',camera:'缓慢推进的近景',scene_changes:'人群退开',effects:'扬尘',dialogues:[{id:'line_private_'+sequence,speaker_id:'character_private',text:'准备出发！',delivery:{emotion:'坚定',volume:'低',pace:'平稳',breath:'均匀'}}],soundscape:'风声',music:'低弦乐'}]})
  p.shot_design.shots=[shot(2,'seg_private_two','scene_private_two'),shot(1,'seg_private_one','scene_private_one')]
  p.asset_requirements.items=[{id:'req_private_one',kind:'scene',target_id:'scene_private_one',shot_ids:['shot_private_1'],strategy:'import',status:'pending',image_id:null},{id:'req_private_two',kind:'scene',target_id:'scene_private_two',shot_ids:['shot_private_2'],strategy:'generate',status:'pending',image_id:null}]
  return p

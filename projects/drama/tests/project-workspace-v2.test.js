@@ -57,12 +57,29 @@ test('删除解除新短剧绑定，空会话不关联已删短剧',async t=>{
  assert.equal(result.deleted,true);assert.equal((await f.projects.snapshot(c.session_id)).project,null);assert.equal((await f.projects.snapshot(result.session_id)).project,null);assert.deepEqual(await f.projects.listProjects(),[])
 })
 
+test('执行状态只查询同短剧最新终态，排除活动任务，含续接group且不修改Task',()=>{
+ const task=(id,order,status,project='p',stage='story_segments')=>({id,group_id:'g_'+id,queue_order:order,task_status:status,node_type:stage,metadata:{project_id:project},end_reason:id+'_reason'})
+ const tasks=[task('old',1,'failed'),task('new',3,'cancelled'),task('active',4,'running'),task('foreign',8,'failed','other'),task('unknown',9,'completed','p','unknown'),task('middle',2,'completed')],before=structuredClone(tasks)
+ let reads=0;const service={records:{scope:'drama',tasks:{store:{read:(scope,options)=>{assert.equal(scope,'drama');assert.deepEqual(options,{steps:false});reads++;return {tasks}}}}}}
+ const result=ProjectWorkspaceService.prototype.executionStates.call(service,'p')
+ assert.deepEqual(result,{story_segments:{task_id:'new',group_id:'g_new',status:'cancelled',reason:'new_reason'}});assert.equal(reads,1);assert.deepEqual(tasks,before)
+})
+
+test('查询执行状态不写回项目、不递增文档版本，node-states接口保留独立状态',async t=>{
+ const f=await fixture(t),{c}=await created(f),before=await f.projects.documents.read(c.project_id)
+ const snapshot=await f.projects.snapshot(c.session_id),nodes=await f.projects.nodeStates(c.session_id)
+ assert.equal(snapshot.execution_states.project.status,'completed');assert.ok(snapshot.execution_states.project.group_id)
+ assert.deepEqual(nodes.execution_states,snapshot.execution_states);assert.deepEqual(snapshot.project,before)
+ assert.deepEqual(await f.projects.documents.read(c.project_id),before)
+ assert.equal(Object.hasOwn(snapshot.project.node_states.project,'last_execution'),false)
+})
+
 test('读取旧请求重试结果不会覆盖较新的Task终态投影',async t=>{
  const f=await fixture(t),{c,context}=await created(f),p=(await f.projects.snapshot(c.session_id)).project
  const result=await f.projects.edit({kind:'basic_info',expected_revision:0,value:{name:'新名称',creation_mode:'剧本',aspect_ratio:'9:16',output_language:'zh-CN'}},{...context,requestId:'new-info'})
- const expected=result.project.node_states.project.last_execution.task_id
+ const expected=result.execution_states.project.task_id
  await f.projects.create({name:'新流程',original_script:'原稿'},{sessionId:'source',requestId:'create-1'})
- assert.equal((await f.projects.snapshot(c.session_id)).project.node_states.project.last_execution.task_id,expected)
+ assert.equal((await f.projects.snapshot(c.session_id)).execution_states.project.task_id,expected)
 })
 
 test('创建在工作区命名失败后重试同请求，复用短剧/工作区而保留两次真实Task',async t=>{

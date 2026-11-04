@@ -143,3 +143,33 @@ test('没有候选时不暴露候选读取工具；审核与修订仍提供并�
   assert.equal(r.stored.candidate_read,true)
  }
 })
+
+test('连续三轮纯文本停止空转，正常读取和不同动作独立计数',async()=>{
+ const f=runtime({required:false})
+ for(let i=0;i<2;i++){
+  const r=await f.turn([])
+  assert.equal(r.stored.no_tool_calls,true)
+ }
+ await assert.rejects(f.turn([]),error=>error.code==='INVALID_MODEL_OUTPUT'&&/连续3轮/.test(error.message))
+ const g=runtime({required:false})
+ await g.turn([]);await g.turn([])
+ await g.turn([call('read_context',{pointer:'/source_analysis/chapters/0/body'})])
+ await g.turn([]);await g.turn([])
+ const submitted=await g.turn([call('submit_candidate',{output:candidate})])
+ assert.equal(submitted.pending,false)
+ const review=await g.turn([],{action:'review',candidateRef:'artifacts/candidate.json'})
+ assert.equal(review.pending,true)
+})
+
+test('审核证据格式错误提示修正连续原文，修正后仍可提交未通过结论',async()=>{
+ const f=runtime({required:false}),options={action:'review',candidateRef:'artifacts/candidate.json'}
+ await f.turn([call('read_candidate')],options)
+ const issue={location:'plot_development',evidence:'原文：“保留冲突……强化因果。”',reason:'需要核对表达。',suggestion:'保留关系与因果。'}
+ const rejected=await f.turn([call('submit_review',{output:{status:'content_issue',issues:[issue],suggestions:[]}})],options)
+ assert.equal(rejected.pending,true)
+ const feedback=JSON.parse(rejected.stored.messages.at(-1).content).error
+ assert.match(feedback,/连续原文/);assert.match(feedback,/不代表候选通过/)
+ const accepted=await f.turn([call('submit_review',{output:{status:'content_issue',issues:[{...issue,evidence:'保留冲突与关系，强化因果。'}],suggestions:[]}})],options)
+ assert.equal(accepted.pending,false);assert.equal(accepted.output.status,'content_issue')
+ assert.ok(accepted.request.messages.some(m=>m.role==='tool'&&m.content.includes('不代表候选通过')))
+})

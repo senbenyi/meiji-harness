@@ -86,25 +86,13 @@
               "character_count": {
                 "type": "integer",
                 "minimum": 0
-              },
-              "line_index_ref": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
               }
             },
             "required": [
               "id",
               "file_ref",
               "original_name",
-              "character_count",
-              "line_index_ref"
+              "character_count"
             ],
             "additionalProperties": false
           }
@@ -165,17 +153,6 @@
             "additionalProperties": false
           }
         },
-        "facts_ref": {
-          "oneOf": [
-            {
-              "type": "string",
-              "minLength": 1
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "coverage_ref": {
           "oneOf": [
             {
@@ -191,7 +168,6 @@
       "required": [
         "source_revision_id",
         "chapters",
-        "facts_ref",
         "coverage_ref"
       ],
       "additionalProperties": false
@@ -896,17 +872,6 @@
                 "type": "integer",
                 "minimum": 1
               },
-              "previous_shot_id": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
               "scene_id": {
                 "oneOf": [
                   {
@@ -1119,7 +1084,6 @@
               "revision",
               "story_segment_id",
               "story_segment_revision",
-              "previous_shot_id",
               "scene_id",
               "characters",
               "props",
@@ -1672,17 +1636,6 @@
                   }
                 ]
               },
-              "settings_ref": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
               "validation_report_ref": {
                 "oneOf": [
                   {
@@ -1702,7 +1655,6 @@
               "input_snapshot_ref",
               "file_ref",
               "subtitles_ref",
-              "settings_ref",
               "validation_report_ref"
             ],
             "additionalProperties": false
@@ -1742,117 +1694,13 @@
             "reason": {
               "type": "string",
               "minLength": 0
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ]
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
           "required": [
             "status",
             "product_revision",
             "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
+            "reason"
           ],
           "additionalProperties": false
         },
@@ -1880,117 +1728,13 @@
             "reason": {
               "type": "string",
               "minLength": 0
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ]
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
           "required": [
             "status",
             "product_revision",
             "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
+            "reason"
           ],
           "additionalProperties": false
         },
@@ -2042,36 +1786,6 @@
               ],
               "additionalProperties": false
             },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "checkpoint": {
               "oneOf": [
                 {
@@ -2127,7 +1841,6 @@
             "opinion",
             "reason",
             "rules",
-            "last_execution",
             "checkpoint"
           ],
           "additionalProperties": false
@@ -2180,36 +1893,6 @@
               ],
               "additionalProperties": false
             },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "checkpoint": {
               "oneOf": [
                 {
@@ -2265,7 +1948,6 @@
             "opinion",
             "reason",
             "rules",
-            "last_execution",
             "checkpoint"
           ],
           "additionalProperties": false
@@ -2318,36 +2000,6 @@
               ],
               "additionalProperties": false
             },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "checkpoint": {
               "oneOf": [
                 {
@@ -2403,7 +2055,6 @@
             "opinion",
             "reason",
             "rules",
-            "last_execution",
             "checkpoint"
           ],
           "additionalProperties": false
@@ -2455,84 +2106,6 @@
                 "revise"
               ],
               "additionalProperties": false
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ]
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
           "required": [
@@ -2540,9 +2113,7 @@
             "product_revision",
             "opinion",
             "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
+            "rules"
           ],
           "additionalProperties": false
         },
@@ -2570,117 +2141,13 @@
             "reason": {
               "type": "string",
               "minLength": 0
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ]
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
           "required": [
             "status",
             "product_revision",
             "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
+            "reason"
           ],
           "additionalProperties": false
         },
@@ -2708,117 +2175,13 @@
             "reason": {
               "type": "string",
               "minLength": 0
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ]
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
           "required": [
             "status",
             "product_revision",
             "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
+            "reason"
           ],
           "additionalProperties": false
         },
@@ -2870,36 +2233,6 @@
               ],
               "additionalProperties": false
             },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
             "checkpoint": {
               "oneOf": [
                 {
@@ -2955,7 +2288,6 @@
             "opinion",
             "reason",
             "rules",
-            "last_execution",
             "checkpoint"
           ],
           "additionalProperties": false
@@ -3007,84 +2339,6 @@
                 "revise"
               ],
               "additionalProperties": false
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ]
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
           "required": [
@@ -3092,9 +2346,7 @@
             "product_revision",
             "opinion",
             "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
+            "rules"
           ],
           "additionalProperties": false
         },
@@ -3122,117 +2374,13 @@
             "reason": {
               "type": "string",
               "minLength": 0
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ]
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
           "required": [
             "status",
             "product_revision",
             "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
+            "reason"
           ],
           "additionalProperties": false
         },
@@ -3260,117 +2408,13 @@
             "reason": {
               "type": "string",
               "minLength": 0
-            },
-            "rules": {
-              "type": "object",
-              "properties": {
-                "generate": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "review": {
-                  "type": "string",
-                  "minLength": 0
-                },
-                "revise": {
-                  "type": "string",
-                  "minLength": 0
-                }
-              },
-              "required": [
-                "generate",
-                "review",
-                "revise"
-              ],
-              "additionalProperties": false
-            },
-            "last_execution": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "status": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "reason": {
-                      "type": "string",
-                      "minLength": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "status",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "checkpoint": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "task_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_id": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "unit_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "candidate_ref": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "state": {
-                      "type": "string",
-                      "enum": [
-                        "saved",
-                        "reviewed"
-                      ]
-                    },
-                    "product_revision": {
-                      "type": "integer",
-                      "minimum": 0
-                    }
-                  },
-                  "required": [
-                    "task_id",
-                    "unit_id",
-                    "unit_ref",
-                    "candidate_ref",
-                    "state",
-                    "product_revision"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
           "required": [
             "status",
             "product_revision",
             "opinion",
-            "reason",
-            "rules",
-            "last_execution",
-            "checkpoint"
+            "reason"
           ],
           "additionalProperties": false
         }

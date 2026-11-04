@@ -166,7 +166,6 @@ export class ProjectDocumentStore {
               file_ref,
               original_name,
               character_count: original_script.length,
-              line_index_ref: null,
             },
           ],
         };
@@ -203,7 +202,6 @@ export class ProjectDocumentStore {
               file_ref,
               original_name,
               character_count: text.length,
-              line_index_ref: null,
             },
           ],
         };
@@ -353,7 +351,6 @@ export class ProjectDocumentStore {
               file_ref,
               original_name: source.original_name ?? "剧本.txt",
               character_count: source.text.length,
-              line_index_ref: null,
             },
           ],
         };
@@ -408,24 +405,13 @@ export class ProjectDocumentStore {
     return this.mutate(id, (document) => {
       const node = document.node_states[stage];
       if (!node) throw new TypeError("未知步骤");
+      if (!node.rules) throw new TypeError("此步骤不使用模型补充规则");
       if (JSON.stringify(node.rules) !== JSON.stringify(previous))
         throw Object.assign(new Error("规则已被修改"), {
           code: "EDIT_CONFLICT",
         });
       node.rules = value;
       return document;
-    });
-  }
-  async recordExecution(id, stage, execution) {
-    return this.#serial(id, async () => {
-      const document = await this.read(id),
-        node = document.node_states[stage];
-      if (!node) return document;
-      if (JSON.stringify(node.last_execution) === JSON.stringify(execution))
-        return document;
-      node.last_execution = structuredClone(execution);
-      document.document_revision++;
-      return this.#save(id, document);
     });
   }
   async saveOpinion(id, stage, opinion, { previous } = {}) {

@@ -15,6 +15,14 @@ test('新存储只保存V3文档，10MiB原稿外置且短剧JSON不含正文副
  await assert.rejects(store.readArtifact(p.basic_info.id,p.source.revisions[0].file_ref,{start:0,end:16001}),/最多16000/)
 })
 
+test('程序步骤拒绝保存模型规则，文本补充规则仍可保存且不引入执行状态缓存',async t=>{
+ const {store}=await fixture(t),p=await store.create({name:'按类型保存状态'}),rules={generate:'保留原著',review:'核对正文',revise:'只修有效问题'}
+ await assert.rejects(store.saveRules(p.basic_info.id,'source_analysis',rules,{previous:undefined}),/不使用模型补充规则/)
+ const next=await store.saveRules(p.basic_info.id,'story_segments',rules,{previous:p.node_states.story_segments.rules})
+ assert.deepEqual(next.node_states.story_segments.rules,rules);assert.equal(Object.hasOwn(next.node_states.source_analysis,'rules'),false)
+ assert.equal(Object.hasOwn(next.node_states.story_segments,'last_execution'),false)
+})
+
 test('原稿人工修改创建新版本，旧来源文件及引用保持不变',async t=>{
  const {store}=await fixture(t),p=await store.create({name:'原稿',original_script:'旧正文'})
  const next=await store.replaceSource(p.basic_info.id,'新正文',{expectedRevision:0})
@@ -71,7 +79,7 @@ test('编辑资料与新原稿原子提交，冲突/坏原稿不半写，旧来�
 })
 
 test('原著分段直接保存body，拒绝同长改写、遗漏、重复和乱序且失败不半写',async t=>{
- const {store}=await fixture(t),text='甲乙\r\n丙丁😀',p=await store.create({name:'正文校验',original_script:text}),id=p.basic_info.id,sourceId=p.source.current_revision_id,chapters=[{id:'c1',sequence:1,title:'段一',body:'甲乙\r\n'},{id:'c2',sequence:2,title:'段二',body:'丙丁😀'}],value={source_revision_id:sourceId,chapters,facts_ref:null,coverage_ref:null}
+ const {store}=await fixture(t),text='甲乙\r\n丙丁😀',p=await store.create({name:'正文校验',original_script:text}),id=p.basic_info.id,sourceId=p.source.current_revision_id,chapters=[{id:'c1',sequence:1,title:'段一',body:'甲乙\r\n'},{id:'c2',sequence:2,title:'段二',body:'丙丁😀'}],value={source_revision_id:sourceId,chapters,coverage_ref:null}
  const saved=await store.saveProduct(id,'source_analysis',value,{expectedRevision:0});assert.deepEqual(saved.source_analysis.chapters,chapters)
  for(const broken of [[],chapters.map((c,i)=>({...c,body:i?'丁丙😀':c.body})),chapters.slice(0,1),[...chapters, {...chapters[0],id:'c3',sequence:3}],chapters.map((c,i)=>({...chapters[1-i],sequence:i+1}))])await assert.rejects(store.saveProduct(id,'source_analysis',{...value,chapters:broken},{expectedRevision:1}),/正文|顺序|原稿/)
  assert.deepEqual((await store.read(id)).source_analysis,saved.source_analysis);assert.equal((await store.readArtifact(id,p.source.revisions[0].file_ref)).toString(),text)

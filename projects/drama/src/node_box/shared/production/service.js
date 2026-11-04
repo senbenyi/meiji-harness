@@ -20,13 +20,13 @@ export class ProductionService {
   async recoverProjections(){
     const tasks=this.projects.records.tasks.store.read(this.projects.records.scope).tasks.filter(task=>task.metadata?.production&&terminal(task.task_status)),latest=new Map()
     for(const task of tasks){const key=task.metadata.project_id+':'+task.node_type;if(!latest.has(key)||latest.get(key).queue_order<task.queue_order)latest.set(key,task)}
-    for(const task of latest.values())try{const detail=this.projects.records.tasks.detail(this.projects.records.scope,task.group_id);await this.projects.projectTaskResult(detail);await this.projects.documents.mutate(task.metadata.project_id,p=>{if(p.node_states[task.node_type].status==='partial'){p.node_states[task.node_type].status='draft';p.node_states[task.node_type].reason=detail.reason||'上次执行中断，可从检查点继续'}return p})}catch(error){if(error.code!=='ENOENT')throw error}
+    for(const task of latest.values())try{const detail=this.projects.records.tasks.detail(this.projects.records.scope,task.group_id);await this.projects.documents.mutate(task.metadata.project_id,p=>{if(p.node_states[task.node_type].status==='partial'){p.node_states[task.node_type].status='draft';p.node_states[task.node_type].reason=detail.reason||'上次执行中断，可从检查点继续'}return p})}catch(error){if(error.code!=='ENOENT')throw error}
   }
   executorFor(stage){const executor=this.executors.get(stage);if(!executor)throw new TypeError(`未知制作步骤：${stage}`);return executor}
   plan(task){return task.metadata.production?this.executorFor(task.node_type).plan(task):[{kind:task.action,name:task.name,executor:'program'}]}
   notify(task){this.projects.emit('updated',{project_id:task.metadata.project_id,session_ids:[task.metadata.session_id]})}
   recorder(ctx){return async(transfer,options)=>{try{transfer.id=ctx.recordHttp(transfer,options)||transfer.id}catch(error){if(error.code!=='STEP_CLOSED')throw error}await this.projects.records.http.record(transfer,options)}}
-  async rules(project,stage){if(!projectStages.some(s=>s.id===stage))throw new TypeError('未知步骤');const custom=project.node_states[stage].rules,bases={},hasRules=textStages.includes(stage)||['asset_preparation','video_render'].includes(stage);for(const action of ['generate','review','revise'])bases[action]=hasRules?await actionRules(stage,action,custom[action]):custom[action];if(hasRules)bases.output_format=await readNodeFormat(stage);return {bases,custom}}
+  async rules(project,stage){if(!projectStages.some(s=>s.id===stage))throw new TypeError('未知步骤');const custom=project.node_states[stage].rules||{generate:'',review:'',revise:''},bases={},hasRules=textStages.includes(stage)||['asset_preparation','video_render'].includes(stage);for(const action of ['generate','review','revise'])bases[action]=hasRules?await actionRules(stage,action,custom[action]):custom[action];if(hasRules)bases.output_format=await readNodeFormat(stage);return {bases,custom}}
   async run(stage,input={},context={}){
     await this.ready
     const {projects}=this,{sessionId,projectId,requestId=randomUUID(),source='ui'}=context
@@ -60,7 +60,6 @@ export class ProductionService {
   }
   async complete(groupId){
     const {projects}=this,detail=await projects.wait(groupId),task=detail.tasks[0]
-    await projects.projectTaskResult(detail)
     const newer=projects.records.tasks.store.read(projects.records.scope).tasks.some(t=>t.metadata?.project_id===task.metadata.project_id&&t.node_type===task.node_type&&t.queue_order>task.queue_order)
     if(!newer&&detail.status!=='completed')await projects.documents.mutate(task.metadata.project_id,p=>{p.node_states[task.node_type].status=detail.status==='rejected'?'rejected':'draft';p.node_states[task.node_type].reason=detail.reason||'执行已停止';return p})
     this.notify(task);return detail
