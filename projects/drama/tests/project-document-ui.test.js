@@ -8,17 +8,20 @@ import {createProjectDocumentView} from '../src/client/project-document-view.js'
 import {createProjectDocument,editProjectProduct} from '../src/drama_runtime/drama_document.js'
 const tick=()=>new Promise(r=>setImmediate(r))
 function fixture(t){const dom=new JSDOM('<main/>'),previous=globalThis.document;dom.window.HTMLDialogElement.prototype.show=function(){this.open=true};dom.window.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new dom.window.Event('close'))};globalThis.document=dom.window.document;t.after(()=>{globalThis.document=previous;dom.window.close()});return {dom,root:document.querySelector('main')}}
-test('左侧十个制作tab对齐文档顺序，默认改编规划，键盘切换与内容对应',async t=>{
+test('左侧九个制作tab对齐文档顺序，默认改编规划，键盘切换与内容对应',async t=>{
  const {dom,root}=fixture(t),p=createProjectDocument({id:'p_ui',name:'新流程'}),view=createProjectDocumentView(root,{project:p,save:async()=>p,request:async()=>({body:''})});t.after(()=>view.dispose())
- const design=JSON.parse(await readFile(new URL('../docs/a_drama_detail.json',import.meta.url),'utf8'))
+ const design=JSON.parse(await readFile(new URL('../docs/data/a_drama_detail.json',import.meta.url),'utf8'))
  const tabs=()=>[...root.querySelectorAll('[role=tab]')],selected=()=>root.querySelector('[aria-selected=true]')
  assert.equal(root.querySelector('[role=tablist]').getAttribute('aria-orientation'),'vertical')
  assert.deepEqual(tabs().map(tab=>tab.dataset.node),Object.keys(design.data))
- assert.deepEqual(tabs().map(tab=>tab.dataset.stage),['adaptation_plan','story_segments','asset_preparation','shot_design','clip_arrangement','reference_binding','video_prompt','video_render','editing','delivery'])
+ assert.deepEqual(tabs().map(tab=>tab.dataset.stage),['adaptation_plan','story_segments','asset_preparation','shot_design','clip_arrangement','video_prompt','video_render','editing','delivery'])
  assert.equal(tabs()[0].querySelector('.production-step-title').textContent,'1. 改编规划')
- assert.equal(tabs()[5].querySelector('.production-step-title').textContent,'6. 图片素材引用')
+ assert.equal(tabs()[2].querySelector('.production-step-title').textContent,'3. 核心资产准备')
+ assert.equal(tabs()[3].querySelector('.production-step-title').textContent,'4. 分镜')
+ assert.equal(tabs()[5].querySelector('.production-step-title').textContent,'6. 视频提示词')
+ assert.equal(root.querySelector('[data-stage=reference_binding]'),null)
  assert.equal(selected().dataset.stage,'adaptation_plan')
- assert.equal(root.querySelector('.production-workflow-heading span').textContent,'10 个步骤')
+ assert.equal(root.querySelector('.production-workflow-heading span').textContent,'9 个步骤')
  assert.deepEqual([...root.querySelector('.production-workflow').children].slice(0,3).map(node=>node.className),['production-project-nav-title','production-project-nav','production-workflow-heading'])
  for(const tab of tabs()){
   tab.click()
@@ -41,7 +44,7 @@ test('左侧十个制作tab对齐文档顺序，默认改编规划，键盘切�
 })
 test('文档剪辑导出节点映射原运行功能，未知选择回到首个tab',t=>{
  const {root}=fixture(t),p=createProjectDocument({id:'p_alias',name:'节点映射'})
- for(const [key,id,title]of [['video_editing','editing','视频剪辑'],['video_delivery','delivery','分集导出'],['unknown','adaptation_plan','改编规划']]){
+ for(const [key,id,title]of [['video_editing','editing','视频剪辑'],['video_delivery','delivery','分集导出'],['reference_binding','adaptation_plan','改编规划'],['unknown','adaptation_plan','改编规划']]){
   const state={documentStage:key},view=createProjectDocumentView(root,{project:p,state})
   assert.equal(state.documentStage,id);assert.equal(root.querySelector('[aria-selected=true]').dataset.stage,id)
   assert.equal(root.querySelector('.production-section h3').textContent,title)
@@ -60,8 +63,8 @@ test('产物编辑保存携带原版本，失败保留输入且不会修改只�
 test('流程状态依据完成、未通过和真实失败，候选/取消不当完成，更新同步导航与标题',t=>{
  const {root}=fixture(t),p=createProjectDocument({id:'p_flow',name:'流程状态'});p.node_states.project.status='confirmed';p.node_states.clip_arrangement.status='rejected';p.node_states.adaptation_plan.status='draft';p.node_states.story_segments.status='confirmed';const executionStates={story_segments:{task_id:'failed',status:'failed',reason:'模型连接失败'},shot_design:{task_id:'cancelled',status:'cancelled',reason:'用户停止'}}
  const state={documentStage:'story_segments'},view=createProjectDocumentView(root,{project:p,state,executionStates});t.after(()=>view.dispose());const tab=id=>root.querySelector(`[data-stage=${id}]`)
- assert.equal(tab('project').dataset.tone,'complete');assert.equal(tab('clip_arrangement').dataset.tone,'error');assert.equal(tab('adaptation_plan').dataset.tone,'pending');assert.match(tab('adaptation_plan').textContent,/待核对/);assert.equal(tab('story_segments').dataset.tone,'error');assert.match(tab('shot_design').textContent,/已停止/);assert.match(root.querySelector('.production-progress').textContent,/0 \/ 10/);assert.equal(root.querySelector('.production-section').dataset.tone,'error');assert.match(root.querySelector('[role=status]').textContent,/模型连接失败/)
- const next=structuredClone(p);next.node_states.story_segments.status='confirmed';executionStates.story_segments.status='completed';view.update(next,{executionStates});assert.equal(tab('story_segments').dataset.tone,'complete');assert.match(root.querySelector('.production-section .node-data-tag').textContent,/已完成/);assert.match(root.querySelector('.production-progress').textContent,/1 \/ 10/)
+ assert.equal(tab('project').dataset.tone,'complete');assert.equal(tab('clip_arrangement').dataset.tone,'error');assert.equal(tab('adaptation_plan').dataset.tone,'pending');assert.match(tab('adaptation_plan').textContent,/待核对/);assert.equal(tab('story_segments').dataset.tone,'error');assert.match(tab('shot_design').textContent,/已停止/);assert.match(root.querySelector('.production-progress').textContent,/0 \/ 9/);assert.equal(root.querySelector('.production-section').dataset.tone,'error');assert.match(root.querySelector('[role=status]').textContent,/模型连接失败/)
+ const next=structuredClone(p);next.node_states.story_segments.status='confirmed';executionStates.story_segments.status='completed';view.update(next,{executionStates});assert.equal(tab('story_segments').dataset.tone,'complete');assert.match(root.querySelector('.production-section .node-data-tag').textContent,/已完成/);assert.match(root.querySelector('.production-progress').textContent,/1 \/ 9/)
 })
 
 test('续接按钮直接使用独立任务状态的group，不再查询历史或依赖JSON缓存',async t=>{
@@ -171,7 +174,7 @@ test('隐藏解析的完成和失败不计入制作进度，原稿入口继续�
  const {root}=fixture(t),p=createProjectDocument({id:'p_hidden_stage',name:'隐藏阶段'})
  p.node_states.source_analysis.status='confirmed'
  const view=createProjectDocumentView(root,{project:p,executionStates:{source_analysis:{status:'failed',reason:'后台解析失败'}}});t.after(()=>view.dispose())
- assert.equal(root.querySelector('.production-progress').textContent,'已完成 0 / 10')
+ assert.equal(root.querySelector('.production-progress').textContent,'已完成 0 / 9')
  assert.equal(root.querySelector('[data-stage=source_analysis]'),null)
  root.querySelector('[data-stage=project]').click()
  assert.ok(root.querySelector('.project-script-import'))

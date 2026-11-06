@@ -2,26 +2,22 @@
   "id": "短剧id",
   "title": "短剧标题",
   "aspect_ratio": "画幅比例；可选值：21:9、16:9、4:3、1:1、3:4、9:16",
-  "origin_script" : "原剧本",
+  "origin_script": "原剧本",
   "data": {
     "adaptation_plan": {
-      "$ref": "adaptation_plan.json"
+      "$ref": "adaptation_plan_1.json"
     },
     "story_segments": {
-      "$ref": "story_segments.json"
+      "$ref": "story_segments_2.json"
     },
-
     "asset_preparation": {
-      "$ref": "asset_preparation.json"
+      "$ref": "asset_preparation_3.json"
     },
-   "shot_design": {
-      "$ref": "shot_design_3.json"
+    "shot_design": {
+      "$ref": "shot_design_4.json"
     },
     "clip_arrangement": {
       "$ref": "clip_arrangement.json"
-    },
-    "reference_binding": {
-      "$ref": "reference_binding.json"
     },
     "video_prompt": {
       "$ref": "video_prompt.json"
