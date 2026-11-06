@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../shared/production/production_stages.js'
 import { MemoryService } from "../memory/service.js";
 import { EventEmitter } from "node:events";
 import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
@@ -121,7 +122,7 @@ export class ProjectWorkspaceService extends EventEmitter {
   async nodeStates(sessionId) {
     const { project, execution_states } = await this.snapshot(sessionId);
     if (!project) return { project_id: null, nodes: {} };
-    return { project_id: project.basic_info.id, nodes: project.node_states, execution_states };
+    return { project_id: project.basic_info.id, nodes: projectNodeStates(project), execution_states };
   }
   async listProjects() {
     const state = await this.bindings();

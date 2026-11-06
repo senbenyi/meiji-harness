@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../../../shared/production/production_stages.js'
 import {assertProjectDocument} from '../../../drama_runtime/drama_document.js'
 import {nodeBoxes} from '../../registry.js'
 
@@ -8,7 +9,7 @@ export async function commitTextCandidate(projects,projectId,stage,unit,output,{
   signal?.throwIfAborted()
   const files=await box(stage).writeCandidateFiles(projects,projectId,output,unit)
   return projects.documents.mutate(projectId,p=>{
-    signal?.throwIfAborted();const next=applyCandidate(p,stage,unit,output,files),node=next.node_states[stage];node.product_revision++;node.status='partial';node.reason='候选已保存，待独立审核';if(checkpoint)node.checkpoint={...checkpoint,product_revision:node.product_revision};box(stage).afterCommit?.(next);return next
+    signal?.throwIfAborted();const next=applyCandidate(p,stage,unit,output,files),node=projectNodeStates(next)[stage];if(stage!=='adaptation_plan')node.product_revision++;node.status='partial';node.reason='候选已保存，待独立审核';if(checkpoint)node.checkpoint={...checkpoint,...(stage!=='adaptation_plan'?{product_revision:node.product_revision}:{})};box(stage).afterCommit?.(next);return next
   })
 }
 export async function currentCandidate(projects,projectId,stage,unit){return box(stage).currentCandidate(projects,projectId,unit,await projects.documents.read(projectId))}

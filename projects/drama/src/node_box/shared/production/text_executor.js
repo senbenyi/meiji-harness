@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../../../shared/production/production_stages.js'
 import {UnitProductionExecutor} from './unit_executor.js'
 import {uid,readJSON,stageStep} from './execution_support.js'
 import {prepareText,applyCandidate,commitTextCandidate,currentCandidate} from './text_pipeline.js'
@@ -44,12 +45,12 @@ export class TextProductionExecutor extends UnitProductionExecutor {
       ctx.signal.throwIfAborted()
       const savedProduct=await commitTextCandidate(this.projects,id,stage,unit,turn.output,{signal:ctx.signal,checkpoint:{task_id:ctx.task.id,unit_id:unit.id,unit_ref:unitRef,candidate_ref,state:'saved'}})
       this.service.notify(ctx.task)
-      return {result:{candidate_ref,saved:true,product_revision:savedProduct?.node_states[stage].product_revision??(await this.projects.documents.read(id)).node_states[stage].product_revision,unit_id:unit.id,trace:turn.trace},nextSteps:[stageStep('review',{...metadata,phase:uid('phase'),candidate_ref},ctx.step.round)]}
+      return {result:{candidate_ref,saved:true,...(stage!=='adaptation_plan'?{product_revision:projectNodeStates(savedProduct||await this.projects.documents.read(id))[stage].product_revision}:{}),unit_id:unit.id,trace:turn.trace},nextSteps:[stageStep('review',{...metadata,phase:uid('phase'),candidate_ref},ctx.step.round)]}
     }
     const review=turn.output
     if(review.status==='passed'){
       if(hooks.afterReview)({unit,unitRef}=await hooks.afterReview.call(this,ctx,unit,unitRef))
-      await this.projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();p.node_states[stage].checkpoint={task_id:ctx.task.id,unit_id:unit.id,unit_ref:unitRef,candidate_ref:candidateRef,state:'reviewed',product_revision:p.node_states[stage].product_revision};return p})
+      await this.projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();projectNodeStates(p)[stage].checkpoint={task_id:ctx.task.id,unit_id:unit.id,unit_ref:unitRef,candidate_ref:candidateRef,state:'reviewed',...(stage!=='adaptation_plan'?{product_revision:projectNodeStates(p)[stage].product_revision}:{})};return p})
       const accepted_ref=candidateRef,result={review,accepted_ref,unit_ref:unitRef,unit_id:unit.id,trace:turn.trace,saved:true}
       const advance=await this.advance(ctx,manifest,manifestRef,{unit_id:unit.id,unit_ref:unitRef,accepted_ref})
       return {result,nextSteps:advance}

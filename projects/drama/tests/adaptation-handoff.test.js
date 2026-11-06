@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../src/shared/production/production_stages.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {createProjectDocument,assertProjectDocument} from '../src/drama_runtime/drama_document.js'
@@ -5,21 +6,21 @@ import {applyCandidate,prepareText,currentCandidate} from '../src/node_box/share
 import {parseCandidate} from '../src/node_box/shared/agent/contracts.js'
 import {makePlan} from './helpers/adaptation-plan.js'
 const development='主角提出远行计划，委员会质疑可行性。主角以公开论证争取支持，双方围绕风险与收益交锋。高潮中委员会表决通过附带条件的支持，主角据此启程，条件留下后续风险。'
-function project(){const p=createProjectDocument({id:'p_handoff',name:'全篇衔接',creation_mode:'自由创作'});p.adaptation_plan={...makePlan({development}),revision:1,source_revision_id:null};p.node_states.adaptation_plan.status='confirmed';return assertProjectDocument(p)}
+function project(){const p=createProjectDocument({id:'p_handoff',name:'全篇衔接',creation_mode:'自由创作'});p.adaptation_plan.data={...makePlan({development}),};projectNodeStates(p).adaptation_plan.status='confirmed';return assertProjectDocument(p)}
 const segment=id=>({id,title:id,body:'主角在会议厅论证，委员会提出条件后表决通过。',continuity:'委员会支持主角启程，附带条件留待后续处理。'})
-const unit={kind:'story',adaptation_revision:1}
+const unit={kind:'story',}
 
 test('V4剧情发展为全篇文本，拒绝旧事件对象和段落事件关联',()=>{
- const p=project(),{revision,source_revision_id,...output}=p.adaptation_plan
- assert.equal(p.schema_version,4);assert.equal(parseCandidate('adaptation_plan',{},output).plot_development,development)
- assert.throws(()=>parseCandidate('adaptation_plan',{}, {...output,plot_development:{events:[]}}),/文本为空或类型错误/)
+ const p=project(),output=p.adaptation_plan.data
+ assert.equal(p.schema_version,4);assert.equal(parseCandidate('adaptation_plan',{},output).story_direction.main_plot,development)
+ assert.throws(()=>parseCandidate('adaptation_plan',{}, {...output,story_direction:{...output.story_direction,main_plot:{events:[]}}}),/文本为空或类型错误/)
  assert.throws(()=>parseCandidate('story_segments',unit,{segments:[{...segment('one'),plot_event_ids:['old_event']}]}),/不允许字段/)
  assert.throws(()=>assertProjectDocument({...p,schema_version:3}),/固定值/)
 })
 
 test('全篇剧情空白时拒绝候选，原文档保持不变',()=>{
- const p=project(),before=structuredClone(p),{revision,source_revision_id,...output}=p.adaptation_plan
- assert.throws(()=>applyCandidate(p,'adaptation_plan',{}, {...output,plot_development:'  '}),/全篇剧情发展/)
+ const p=project(),before=structuredClone(p),output=p.adaptation_plan.data
+ assert.throws(()=>applyCandidate(p,'adaptation_plan',{}, {...output,story_direction:{...output.story_direction,main_plot:'  '}}),/故事主线/)
  assert.deepEqual(p,before)
 })
 
@@ -34,7 +35,7 @@ test('定稿读取冻结全篇剧情与实体规划，按全篇自主分段',asy
  const p=project(),files=[];const units=await prepareText({documents:{writeArtifact:async(_id,text)=>{files.push(text);return 'artifacts/frozen.json'}}},'story_segments',p,{})
  assert.equal(Object.hasOwn(units[0],'plot_event_ids'),false);assert.equal(Object.hasOwn(units[0].material,'plot_event_ids'),false)
  assert.match(units[0].material.instruction,/自主确定全篇叙事分段/)
- p.adaptation_plan.plot_development='后改内容';assert.equal(JSON.parse(files[0]).plot_development,development)
+ p.adaptation_plan.data.story_direction.main_plot='后改内容';assert.equal(JSON.parse(files[0]).story_direction.main_plot,development)
 })
 
 test('定稿修订恢复完整段落，不要求事件字段',async()=>{
@@ -50,12 +51,12 @@ test('相邻衔接修订保留指定两段的稳定ID',()=>{
 })
 
 test('人物团队场景规划属于正式JSON并完整冻结交给定稿',async()=>{
- const p=project();p.adaptation_plan.character_plans=[{id:'cp_a',name:'探索者',description:'推动主线',motivation:'争取支持',relationships:'面对委员会',arc:'更加坚定'}];p.adaptation_plan.group_plans=[{id:'gp_a',name:'委员会',social_role:'审议计划',description:'对计划提出条件'}];p.adaptation_plan.scene_plans=[{id:'sp_a',name:'会议厅',function:'公开论证',description:'面对面交锋的空间'}]
+ const p=project();p.adaptation_plan.data.character_plans=[{original_content:'探索者',adaptation_plan:'争取支持'}];p.adaptation_plan.data.group_plans=[{original_content:'委员会',adaptation_plan:'审议计划'}];p.adaptation_plan.data.scene_plans=[{original_content:'会议厅',adaptation_plan:'公开论证'}]
  const persisted=JSON.parse(JSON.stringify(assertProjectDocument(p))),files=[]
  const units=await prepareText({documents:{writeArtifact:async(_id,text)=>{files.push(text);return 'artifacts/full-plan.json'}}},'story_segments',persisted,{})
- const frozen=JSON.parse(files[0]);for(const key of ['character_plans','group_plans','scene_plans'])assert.deepEqual(frozen[key],persisted.adaptation_plan[key])
+ const frozen=JSON.parse(files[0]);for(const key of ['character_plans','group_plans','scene_plans'])assert.deepEqual(frozen[key],persisted.adaptation_plan.data[key])
  assert.ok(units[0].read_refs.includes('artifacts/full-plan.json'))
- p.adaptation_plan.character_plans[0].motivation='后改动机';assert.equal(frozen.character_plans[0].motivation,'争取支持')
+ p.adaptation_plan.data.character_plans[0].adaptation_plan='后改动机';assert.equal(frozen.character_plans[0].adaptation_plan,'争取支持')
  assert.match(units[0].material.instruction,/详细、完整、有观赏性/)
 })
 

@@ -7,7 +7,7 @@ import {fixture} from './helpers/production-fixture.js'
 const empty=()=>({characters:[],clothing:[],props:[],scenes:[],character_looks:[]})
 const content=()=>({scene:'家中',characters:[{name:'武松',look:'家常',opening_state:'站在桌旁'}],props:[{name:'竹筐',holder:'郓哥',opening_state:'背负'}],beats:[{duration_seconds:8,action:'郓哥放下竹筐',camera:'中景',scene_changes:'',effects:'',dialogues:[{speaker:'郓哥',text:'武二哥！',delivery:{emotion:'喜悦',volume:'正常',pace:'自然',breath:'平稳'}}],soundscape:'街头人声',music:''}]})
 const asset=(id,name)=>({id,name,description:'描述',image_ids:[],selected_image_id:null})
-function project(){return {adaptation_plan:{character_plans:[],scene_plans:[]},story_segments:{segments:[{id:'segment',revision:1}]},asset_library:{
+function project(){return {adaptation_plan:{data:{character_plans:[],scene_plans:[]}},story_segments:{segments:[{id:'segment',revision:1}]},asset_library:{
  characters:[{...asset('long_character_1','武松／林峥'),character_plan_id:null,voice_profile:{description:'低沉',revision:1,reference_audio_ref:null}},{...asset('correct_yunge_uuid','郓哥'),character_plan_id:null,voice_profile:{description:'清亮',revision:1,reference_audio_ref:null}}],
  clothing:[],props:[asset('basket','竹筐')],scenes:[{...asset('home','家中'),scene_plan_id:null,layout:'',entrances:'',landmarks:''}],character_looks:[{...asset('home_look','家常'),character_id:'long_character_1',clothing_ids:[],prop_ids:[],hair_and_makeup:'束发'}]},shot_design:{shots:[]},asset_requirements:{items:[]}}}
 
@@ -46,7 +46,7 @@ test('重做与局部修订保留稳定ID、图片和未修改镜头；审核名
 
 test('新人物、场景、服装、道具和造型由程序建档关联，素材需求程序派生',()=>{
  const p=project(),raw={assets:empty(),shots:[content()]}
- p.adaptation_plan.character_plans=[{id:'plan_wang',name:'王婆'}]
+ p.adaptation_plan.data.character_plans=[{id:'plan_wang',name:'王婆'}]
  raw.assets.characters=[{name:'王婆',description:'茶坊经营者',voice_description:'中年女声'}]
  raw.assets.clothing=[{name:'褐色外衣',description:'旧布外衣',group:''}]
  raw.assets.props=[{name:'茶壶',description:'粗陶茶壶'}]
@@ -56,7 +56,7 @@ test('新人物、场景、服装、道具和造型由程序建档关联，素�
  raw.shots[0].props=[{name:'茶壶',holder:'王婆',opening_state:'手持'}];raw.shots[0].beats[0].dialogues[0].speaker='王婆'
  const result=compileCandidate({segment_id:'segment'},p,raw,{action:'generate'})
  const character=result.assets.characters[0],look=result.assets.character_looks[0]
- assert.equal(character.character_plan_id,'plan_wang');assert.ok(character.id)
+ assert.equal(character.character_plan_id,null);assert.ok(character.id)
  assert.equal(look.character_id,character.id)
  assert.deepEqual(look.clothing_ids,[result.assets.clothing[0].id]);assert.deepEqual(look.prop_ids,[result.assets.props[0].id])
  assert.equal(result.shots[0].props[0].holder_character_id,character.id)

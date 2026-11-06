@@ -29,7 +29,7 @@ export function createAgentTools({ctx,projects,unit,unitRef,snapshot,snapshotRef
     state.unitPaths.push(...unitLeaves.filter(leaf=>leaf===path||leaf.startsWith(path+'/')))
     state.unitRead=unitLeaves.every(leaf=>state.unitPaths.includes(leaf))
   }
-  const sourceSpans=chapterRanges(snapshot.source_analysis.chapters,snapshot.source_analysis.source_revision_id)
+  const sourceSpans=stage==='adaptation_plan'?[]:chapterRanges(snapshot.source_analysis.chapters,snapshot.source_analysis.source_revision_id)
   const recordSnapshotRead=(path='')=>{
     for(const [i,span]of sourceSpans.entries()){
       const bodyPath=`/source_analysis/chapters/${i}/body`
@@ -97,7 +97,7 @@ export function createAgentTools({ctx,projects,unit,unitRef,snapshot,snapshotRef
       const span=(unit.source_spans||[]).find(s=>args.start>=s.start&&args.end<=s.end)
       if(!span)throw new TypeError('范围不属于本单元来源')
       const source=snapshot.source.revisions.find(s=>s.id===span.source_revision_id)
-      const chapters=snapshot.source_analysis.source_revision_id===source.id?snapshot.source_analysis.chapters:[]
+      const chapters=stage!=='adaptation_plan'&&snapshot.source_analysis.source_revision_id===source.id?snapshot.source_analysis.chapters:[]
       const body=chapters.length?readChapterText(chapters,args.start,args.end):(await projects.documents.readArtifact(projectId,source.file_ref,{start:args.start,end:args.end})).toString()
       state.sourceRanges.push({source_revision_id:source.id,start:args.start,end:args.start+body.length});return {body}
     }),

@@ -47,10 +47,10 @@ function compileAssets(project,definitions){
    const old=find(scope,row.name,kind,{optional:true})
    const base={id:old?.id||uid('asset'),name:old?.name||row.name,description:row.description,image_ids:old?.image_ids||[],selected_image_id:old?.selected_image_id||null}
    let asset=base
-   if(kind==='characters')asset={...base,character_plan_id:old?.character_plan_id??find(project.adaptation_plan.character_plans,row.name,'characters',{optional:true})?.id??null,
+   if(kind==='characters')asset={...base,character_plan_id:null,
     voice_profile:{description:row.voice_description,reference_audio_ref:old?.voice_profile.reference_audio_ref||null,revision:old?.voice_profile.revision||0}}
    if(kind==='clothing')asset={...base,group_key:row.group}
-   if(kind==='scenes')asset={...base,scene_plan_id:old?.scene_plan_id??find(project.adaptation_plan.scene_plans,row.name,'scenes',{optional:true})?.id??null,layout:row.layout,entrances:row.entrances,landmarks:row.landmarks}
+   if(kind==='scenes')asset={...base,scene_plan_id:null,layout:row.layout,entrances:row.entrances,landmarks:row.landmarks}
    if(kind==='character_looks')asset={...base,character_id:owner.id,clothing_ids:row.clothing.map(name=>find(library.clothing,name,'clothing').id),prop_ids:row.props.map(name=>find(library.props,name,'props').id),hair_and_makeup:row.hair_and_makeup}
    if(changed[kind].some(item=>item.id===asset.id))throw new TypeError(`${labels[kind]}重复定义同一资产：${row.name}`)
    library[kind]=upsert(library[kind],[asset]);changed[kind].push(asset)

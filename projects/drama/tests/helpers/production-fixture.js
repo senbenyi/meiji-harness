@@ -38,6 +38,7 @@ export async function fixture(t,{script='第一章 营帐\n张飞走进营帐。
  const models=createModelSettings(root,{baseUrl:origin+'/v1'})
  projects=new ProjectWorkspaceService({root,records,workspaceController:{create:async()=>({workspace:{workspaceId:randomUUID()}}),rename:async()=>{}},sessionController:{create:async({sessionId})=>({sessionId})}})
  production=new ProductionService({projects,models});const created=await projects.create({name:'全流程测试',original_script:script},{sessionId:'source',requestId:'create'})
+ await projects.documents.mutate(created.project_id,p=>{p.asset_library.characters=[{id:'fixture_zhang',name:'张飞',description:'魁梧勇猛',image_ids:[],selected_image_id:null,character_plan_id:null,voice_profile:{description:'',reference_audio_ref:null,revision:0}}];p.asset_library.scenes=[{id:'fixture_tent',name:'营帐',description:'营帐内部',image_ids:[],selected_image_id:null,scene_plan_id:null,layout:'',entrances:'',landmarks:''}];return p})
  const context={sessionId:created.session_id,projectId:created.project_id},handler=createProjectHttpHandler(projects,{authorize:()=>null,models}),api=createServer((req,res)=>{if(previewHtml&&req.url.startsWith('/preview')){res.writeHead(200,{'content-type':'text/html; charset=utf-8'});return res.end(previewHtml)}return handler(req,res)});await new Promise(r=>api.listen(0,'127.0.0.1',r))
  t.after(async()=>{await projects.dispose();await handler.dispose();await new Promise(r=>api.close(r));await new Promise(r=>server.close(r));await rm(root,{recursive:true,force:true})})
  const project=()=>projects.documents.read(created.project_id)
@@ -67,7 +68,7 @@ export async function defaultAuthor(body,{projects,calls}){
   output={segments:Array.from({length:count},(_,i)=>({id:existing[i]?.id||`seg_story_${i+1}`,title:i?'后续对峙':'营帐对峙',body:'张飞走进营帐，直视对方，说：“来战！”',continuity:'开场走入营帐；结尾站在帐中直视对手。'}))}
  }
  if(stage==='shot_design'){
-  const character=p.asset_library.characters.find(c=>c.character_plan_id==='cp_zhang'),scene=p.asset_library.scenes.find(s=>s.scene_plan_id==='sp_tent'),segment=p.story_segments.segments.find(s=>s.id===unit.segment_id),shotId='shot_'+segment.id
+  const character=p.asset_library.characters.find(c=>c.name==='张飞'),scene=p.asset_library.scenes.find(s=>s.name==='营帐'),segment=p.story_segments.segments.find(s=>s.id===unit.segment_id),shotId='shot_'+segment.id
   output={assets:{characters:[{name:character.name,description:character.description,voice_description:'低沉浑厚的成熟男声'}],clothing:[{name:'战袍',description:'深色战袍',group:''}],props:[],scenes:[],character_looks:[{name:'张飞战袍定妆',description:'张飞穿深色战袍',character:character.name,clothing:['战袍'],props:[],hair_and_makeup:'束发'}]},shots:[{scene:scene.name,characters:[{name:character.name,look:'张飞战袍定妆',opening_state:'帐中站立'}],props:[],beats:[{duration_seconds:4,action:'张飞直视对方',camera:'固定中景',scene_changes:'',effects:'',dialogues:[{speaker:character.name,text:'来战！',delivery:{emotion:'愤怒',volume:'高',pace:'短促',breath:'有力'}}],soundscape:'营帐内轻微风声',music:''}]}]}
  }
  if(stage==='video_prompt')output={prompt:mockPrompt(promptContext(p,p.clip_arrangement.clips.find(c=>c.id===unit.clip_id)))}

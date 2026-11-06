@@ -7,7 +7,7 @@ import {call,reply} from './helpers/production-fixture.js'
 const candidate=makePlan({direction:'保留原著主线，强化人物动机',requirements:[],development:'保留冲突与关系，强化因果。',character_plans:[],scene_plans:[],group_plans:[]})
 function runtime({body='张飞走进营帐，说：“来战！”',material={goal:'保留对白'},required=true}={}){
   const files=new Map(),prompts=[],sourceId='source_current'
-  const snapshot={basic_info:{output_language:'zh'},node_states:{adaptation_plan:{opinion:'',rules:{generate:'本短剧规则：保留营帐。',review:'独立核对当前候选。',revise:'只修有效意见。'}}},source:{revisions:[{id:sourceId,file_ref:'sources/original.txt'}]},source_analysis:{source_revision_id:sourceId,chapters:[{id:'chapter_one',sequence:1,title:'营帐',body,summary:'人物对峙'}]}}
+  const snapshot={basic_info:{output_language:'zh'},adaptation_plan:{state:{opinion:'',rules:{generate:'本短剧规则：保留营帐。',review:'独立核对当前候选。',revise:'只修有效意见。'}}},source:{revisions:[{id:sourceId,file_ref:'sources/original.txt'}]},source_analysis:{source_revision_id:sourceId,chapters:[{id:'chapter_one',sequence:1,title:'营帐',body,summary:'人物对峙'}]}}
   const unit={id:'unit_one',kind:'guidance',source_spans:[{source_revision_id:sourceId,start:0,end:body.length}],material}
   files.set('sources/original.txt',body);files.set('artifacts/snapshot.json',JSON.stringify(snapshot));files.set('artifacts/unit.json',JSON.stringify(unit));files.set('artifacts/candidate.json',JSON.stringify(candidate))
   const projects={documents:{readArtifact:async(_id,ref,range)=>{assert.ok(files.has(ref),ref);return range?files.get(ref).slice(range.start,range.end):files.get(ref)},writeArtifact:async(_id,text)=>{const ref=`artifacts/trace_${files.size}.json`;files.set(ref,text);return ref}},records:{http:{record:async()=>{}}}}
@@ -30,7 +30,7 @@ test('首轮提供当前动作规则、短单元与契约，固定资料不再�
   const [system,user]=r.request.messages,catalog=JSON.parse(user.content)
   assert.equal(r.request.messages.length,2);assert.match(system.content,/本短剧规则：保留营帐/)
   assert.doesNotMatch(system.content,/审核须完整读取当前候选/)
-  assert.deepEqual(catalog.unit.material,{goal:'保留对白'});assert.ok(catalog.output_contract.properties.creative_constraints)
+  assert.deepEqual(catalog.unit.material,{goal:'保留对白'});assert.ok(catalog.output_contract.properties.story_direction)
   assert.equal(catalog.unit_material_included,true);assert.equal('skill_index' in catalog,false)
   assert.ok(r.request.tools.every(t=>!['read_skill','read_contract','read_unit'].includes(t.function.name)))
   assert.deepEqual(JSON.parse(f.files.get(f.prompts[0].input.messages_ref)),r.request.messages)
@@ -54,11 +54,34 @@ for(const [name,read]of [
   ['JSON快照文件',call('read_file_json',{ref:'artifacts/snapshot.json',pointer:'/source_analysis/chapters/0'})],
   ['完整快照文本',call('read_file',{ref:'artifacts/snapshot.json',start:0,end:16000})],
   ['原稿文件',call('read_file',{ref:'sources/original.txt',start:0,end:16000})]
-])test(`${name}已读正文后，下一轮可提交且工具历史完整续接`,async()=>{
+])test(`${name}读取后按原件来源判定覆盖，工具历史完整续接`,async()=>{
   const f=runtime(),readResult=await f.turn([read]),r=await f.turn([call('submit_candidate',{output:candidate})])
-  assert.equal(readResult.pending,true);assert.equal(r.pending,false)
+  assert.equal(readResult.pending,true);assert.equal(r.pending,name!=='原稿文件')
   assert.equal(r.request.messages[2].tool_calls[0].id,read.id);assert.equal(r.request.messages[3].tool_call_id,read.id)
-  assert.equal(r.stored.source_ranges[0].source_revision_id,'source_current')
+  if(name==='原稿文件')assert.equal(r.stored.source_ranges[0].source_revision_id,'source_current');else {assert.equal(r.stored.source_ranges.length,0);assert.match(r.stored.validation_error,/读完当前分段正文/)}
+})
+
+for(const action of ['generate','review','revise'])test(`${action}分页直读原件，派生正文不能替代且未读全不可提交`,async()=>{
+ const body='原件\r\n对白😀'.repeat(1800),f=runtime({body}),options={action,...(action==='generate'?{}:{candidateRef:'artifacts/candidate.json'})}
+ f.snapshot.source_analysis.chapters[0].body='派生内容'.repeat(100)
+ const first=await f.turn([call('read_source',{start:0,end:10000})],options)
+ assert.equal(JSON.parse(first.stored.messages.at(-1).content).body,body.slice(0,10000))
+ if(action!=='generate')await f.turn([call('read_candidate',{start:0,end:JSON.stringify(candidate).length})],options)
+ const output=action==='review'?{status:'passed',issues:[],suggestions:[]}:candidate
+ const incomplete=await f.turn([call(action==='review'?'submit_review':'submit_candidate',{output})],options)
+ assert.equal(incomplete.pending,true);assert.match(incomplete.stored.validation_error,/读完当前分段正文/)
+ const last=await f.turn([call('read_source',{start:10000,end:body.length})],options)
+ assert.equal(JSON.parse(last.stored.messages.at(-1).content).body,body.slice(10000))
+ const result=await f.turn([call(action==='review'?'submit_review':'submit_candidate',{output})],options)
+ assert.equal(result.pending,false)
+})
+
+test('其他阶段仍可按现行策略读取解析正文',async()=>{
+ const f=runtime(),derived='解析中保存的正文';f.snapshot.source_analysis.chapters[0].body=derived
+ f.unit.source_spans[0].end=derived.length
+ f.snapshot.node_states={story_segments:{opinion:'',rules:{generate:'故事规则',review:'审核规则',revise:'修订规则'}}}
+ const r=await f.turn([call('read_source',{start:0,end:derived.length})],{stage:'story_segments'})
+ assert.equal(JSON.parse(r.stored.messages.at(-1).content).body,derived)
 })
 
 test('摘要与搜索片段不计作原著已读，来源版本不同也不能满足覆盖',async()=>{
@@ -71,9 +94,9 @@ test('摘要与搜索片段不计作原著已读，来源版本不同也不能�
 
 test('批量读取可在一轮完成，预算拒绝的正文不登记已读',async()=>{
   const body='原'.repeat(11900),f=runtime({body})
-  const r=await f.turn(Array.from({length:3},()=>call('read_context',{pointer:'/source_analysis/chapters/0/body'})))
+  const r=await f.turn(Array.from({length:3},()=>call('read_source',{start:0,end:body.length})))
   const results=r.stored.messages.filter(m=>m.role==='tool').map(m=>JSON.parse(m.content))
-  assert.equal(typeof results[0],'string');assert.equal(typeof results[1],'string');assert.match(results[2].error,/读取预算/)
+  assert.equal(results[0].body,body);assert.equal(results[1].body,body);assert.match(results[2].error,/读取预算/)
   assert.equal(r.stored.source_ranges.length,2)
   const rejected=runtime({body});rejected.files.set('artifacts/pad.json',JSON.stringify({x:'填'.repeat(15000)}));rejected.unit.read_refs=['artifacts/pad.json']
   const denied=await rejected.turn([call('read_file',{ref:'artifacts/pad.json',start:0,end:15000}),call('read_file',{ref:'artifacts/pad.json',start:0,end:15000}),call('read_source',{start:0,end:body.length})])

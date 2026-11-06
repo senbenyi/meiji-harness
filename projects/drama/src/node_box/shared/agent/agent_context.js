@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../../../shared/production/production_stages.js'
 import {taskMemory,searchMemory} from '../../../memory/service.js'
 import {actionRules} from './rules.js'
 import {outputContract} from './contracts.js'
@@ -9,7 +10,7 @@ export async function buildAgentContext({ctx,projects,unit,unitRef,snapshot,snap
   if(prior.length>=40)throw Object.assign(new Error('本动作读取/提交已达40轮上限，可从检查点继续'),{code:'MODEL_TURN_LIMIT'})
   const traces=[]
   for(const row of prior)traces.push(JSON.parse((await projects.documents.readArtifact(projectId,row.result.trace.file_ref)).toString()))
-  const node=snapshot.node_states[stage],contract=outputContract(stage,unit,action)
+  const node=projectNodeStates(snapshot)[stage],contract=outputContract(stage,unit,action)
   const candidateText=candidateRef?(await projects.documents.readArtifact(projectId,candidateRef)).toString():''
   const longMemory=await taskMemory(projects,ctx.task),memory=traces.findLast(t=>t.memory)?.memory||''
   const materialCharacters=JSON.stringify(unit.material||{}).length

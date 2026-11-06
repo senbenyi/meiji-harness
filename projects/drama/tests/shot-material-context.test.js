@@ -8,13 +8,13 @@ import {outputContract,parseCandidate} from '../src/node_box/shared/agent/contra
 test('分镜单元冻结完整资料和图片引用，下一单元看到新资产，历史输入不变',async()=>{
  const files=new Map([['artifacts/body.txt','本段完整定稿正文。'],['artifacts/continuity.txt','本段结尾持物与人物位置。']]),reads=[]
  const projects={documents:{readArtifact:async(id,ref)=>{reads.push(ref);return Buffer.from(files.get(ref))},writeArtifact:async(id,body)=>{const ref=`artifacts/unit_${files.size}.json`;files.set(ref,body);return ref}}}
- const ctx={signal:new AbortController().signal},project={basic_info:{id:'p_one'},shot_design:{shots:[]},story_segments:{segments:[{id:'seg_1',title:'本段',body_ref:'artifacts/body.txt',continuity_ref:'artifacts/continuity.txt'}]},adaptation_plan:{plot_development:'完整改编指导'},asset_library:{characters:[{id:'char_1',name:'人物',description:'稳定特征',image_ids:['img_existing'],selected_image_id:'img_existing',voice_profile:{description:'低沉'}}],character_looks:[],scenes:[],clothing:[],props:[]}}
+ const ctx={signal:new AbortController().signal},project={basic_info:{id:'p_one'},shot_design:{shots:[]},story_segments:{segments:[{id:'seg_1',title:'本段',body_ref:'artifacts/body.txt',continuity_ref:'artifacts/continuity.txt'}]},adaptation_plan:{data:{story_direction:{main_plot:'完整改编指导'}}},asset_library:{characters:[{id:'char_1',name:'人物',description:'稳定特征',image_ids:['img_existing'],selected_image_id:'img_existing',voice_profile:{description:'低沉'}}],character_looks:[],scenes:[],clothing:[],props:[]}}
  const unit={id:'unit_1',kind:'shots',segment_id:'seg_1',read_refs:['artifacts/body.txt'],material:{asset_index_ref:'snapshot:/asset_library'}}
  const before=structuredClone({project,unit}),first=await prepareUnit.call({projects},ctx,project,unit)
  assert.deepEqual({project,unit},before);assert.deepEqual(reads,['artifacts/body.txt','artifacts/continuity.txt'])
  assert.equal(first.unit.context_mode,'complete');assert.deepEqual(first.unit.read_refs,[])
  assert.equal(first.unit.material.segment.body,'本段完整定稿正文。');assert.equal(first.unit.material.segment.continuity,'本段结尾持物与人物位置。')
- assert.deepEqual(first.unit.material.asset_library.characters,[{name:'人物',description:'稳定特征',voice_description:'低沉'}]);assert.deepEqual(first.unit.material.adaptation_plan,project.adaptation_plan)
+ assert.deepEqual(first.unit.material.asset_library.characters,[{name:'人物',description:'稳定特征',voice_description:'低沉'}]);assert.deepEqual(first.unit.material.adaptation_plan,project.adaptation_plan.data)
  assert.equal(first.unit.material.asset_index_ref,undefined)
  assert.equal(first.unit.material.shot_index,undefined)
  assert.deepEqual(first.unit.material.current_shots,[])
@@ -147,7 +147,7 @@ test('真实分镜执行每段首轮一次提供全部资料，后段复用前�
   const catalog=JSON.parse(c.messages[1].content)
   assert.equal(c.messages.length,2);assert.equal(catalog.unit_material_included,true)
   assert.equal(catalog.unit.material.segment.body,'张飞走进营帐，直视对方，说：“来战！”')
-  assert.ok(catalog.unit.material.segment.continuity);assert.ok(catalog.unit.material.adaptation_plan.creative_constraints)
+  assert.ok(catalog.unit.material.segment.continuity);assert.ok(catalog.unit.material.adaptation_plan.story_direction)
   if(c.action!=='generate'){assert.equal(catalog.candidate_included,true);assert.ok(catalog.candidate.shots.length)}
  }
 })

@@ -13,8 +13,8 @@ return {unit,unitRef}
 export async function afterUnits(ctx,manifest,manifestRef,done){const id=ctx.task.metadata.project_id;
       const project=await this.projects.documents.read(id),segments=[...project.story_segments.segments].sort((a,b)=>a.sequence-b.sequence),audits=[]
       if(!manifest.audit_prepared){
-        const guidance_ref=await this.projects.documents.writeArtifact(id,JSON.stringify(project.adaptation_plan),{extension:'json'})
-        for(let i=1;i<segments.length;i++)audits.push({id:uid('audit'),kind:'story_audit',initial_action:'review',segment_ids:[segments[i-1].id,segments[i].id],read_refs:[guidance_ref],material:{instruction:'独立检查连续故事相邻段之间的因果、人物知情、位置、持物、动机与未决信息；必要修订同时返回这两段全文，其他段不变。',guidance_ref,locked_requirements:project.adaptation_plan.creative_constraints.locked_requirements}})
+        const guidance_ref=await this.projects.documents.writeArtifact(id,JSON.stringify(project.adaptation_plan.data),{extension:'json'})
+        for(let i=1;i<segments.length;i++)audits.push({id:uid('audit'),kind:'story_audit',initial_action:'review',segment_ids:[segments[i-1].id,segments[i].id],read_refs:[guidance_ref],material:{instruction:'独立检查连续故事相邻段之间的因果、人物知情、位置、持物、动机与未决信息；必要修订同时返回这两段全文，其他段不变。',guidance_ref,must_preserve:project.adaptation_plan.data.story_direction.must_preserve,constraints:project.adaptation_plan.data.story_direction.constraints}})
       }else{
         for(const item of manifest.units){const unit=await readJSON(this.projects,id,done[item.id]?.unit_ref||item.ref);if(unit.kind==='story_audit'&&Object.entries(unit.segment_revisions||{}).some(([segment,revision])=>project.story_segments.segments.find(s=>s.id===segment)?.revision!==revision))audits.push({...unit,id:uid('audit'),segment_revisions:{}})}
       }

@@ -19,7 +19,7 @@ export function executionActivities(trace){
   if(['read_source','read_candidate','read_file'].includes(name))detail=range(args)
   if(['read_context','search_context','read_unit','read_file_json'].includes(name))detail=location(args)
   if(['search_source','search_context','search_memory'].includes(name))detail=[detail,args.query?`检索“${trim(args.query,60)}”`:''].filter(Boolean).join(' · ')
-  if(name==='read_file'&&typeof result.body==='string')try{const body=JSON.parse(result.body);if(body?.plot_development&&Array.isArray(body.character_plans))title='读取全篇改编指导'}catch{}
+  if(name==='read_file'&&typeof result.body==='string')try{const body=JSON.parse(result.body);if(body?.story_direction?.main_plot&&Array.isArray(body.character_plans))title='读取全篇改编指导'}catch{}
   const status=!response?'pending':!readable||result.error?'failed':['submit_candidate','submit_review'].includes(name)&&result.accepted!==true?'pending':'done'
   if(status==='pending')detail=response?'提交尚未得到确认':'尚无工具返回记录'
   else if(status==='failed')detail=trim(result.error)||'工具返回无法解析，请查看原始记录'

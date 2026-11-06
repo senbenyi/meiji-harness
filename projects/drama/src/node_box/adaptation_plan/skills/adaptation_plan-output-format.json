@@ -2,32 +2,7 @@
   "generate": {
     "type": "json",
     "schema": {
-      "type": "object",
-      "properties": {
-        "creative_constraints": {
-          "$ref": "project:/properties/adaptation_plan/properties/creative_constraints"
-        },
-        "plot_development": {
-          "$ref": "project:/properties/adaptation_plan/properties/plot_development"
-        },
-        "character_plans": {
-          "$ref": "project:/properties/adaptation_plan/properties/character_plans"
-        },
-        "group_plans": {
-          "$ref": "project:/properties/adaptation_plan/properties/group_plans"
-        },
-        "scene_plans": {
-          "$ref": "project:/properties/adaptation_plan/properties/scene_plans"
-        }
-      },
-      "required": [
-        "creative_constraints",
-        "plot_development",
-        "character_plans",
-        "group_plans",
-        "scene_plans"
-      ],
-      "additionalProperties": false
+      "$ref": "project:/properties/adaptation_plan/properties/data"
     }
   },
   "review": {
@@ -39,32 +14,7 @@
   "revise": {
     "type": "json",
     "schema": {
-      "type": "object",
-      "properties": {
-        "creative_constraints": {
-          "$ref": "project:/properties/adaptation_plan/properties/creative_constraints"
-        },
-        "plot_development": {
-          "$ref": "project:/properties/adaptation_plan/properties/plot_development"
-        },
-        "character_plans": {
-          "$ref": "project:/properties/adaptation_plan/properties/character_plans"
-        },
-        "group_plans": {
-          "$ref": "project:/properties/adaptation_plan/properties/group_plans"
-        },
-        "scene_plans": {
-          "$ref": "project:/properties/adaptation_plan/properties/scene_plans"
-        }
-      },
-      "required": [
-        "creative_constraints",
-        "plot_development",
-        "character_plans",
-        "group_plans",
-        "scene_plans"
-      ],
-      "additionalProperties": false
+      "$ref": "project:/properties/adaptation_plan/properties/data"
     }
   }
 }

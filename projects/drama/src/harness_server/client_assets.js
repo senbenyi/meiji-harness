@@ -1,5 +1,6 @@
 // 显式登记浏览器入口依赖，不开放 Service、Executor 或运行 Schema。
 export const clientAssets=new Map([
+ ['node_box/adaptation_plan/ui/plan-panel.js',new URL('../node_box/adaptation_plan/ui/plan-panel.js',import.meta.url)],
  ['node_box/shot_design/ui/shot-list.js',new URL('../node_box/shot_design/ui/shot-list.js',import.meta.url)],
  ['client/memory-panel.js',new URL('../client/memory-panel.js',import.meta.url)],
  ['client/panel.js',new URL('../client/panel.js',import.meta.url)],
@@ -9,6 +10,7 @@ export const clientAssets=new Map([
  ['client/ui/failure-decision.js',new URL('../client/ui/failure-decision.js',import.meta.url)],
  ['client/ui/library-ui.js',new URL('../client/ui/library-ui.js',import.meta.url)],
  ['client/ui/panel-dom.js',new URL('../client/ui/panel-dom.js',import.meta.url)],
+ ['client/ui/rules-detail.js',new URL('../client/ui/rules-detail.js',import.meta.url)],
  ['client/ui/panel-shell.css',new URL('../client/ui/panel-shell.css',import.meta.url)],
  ['client/ui/panel-shell.js',new URL('../client/ui/panel-shell.js',import.meta.url)],
  ['client/ui/project-ui.css',new URL('../client/ui/project-ui.css',import.meta.url)],

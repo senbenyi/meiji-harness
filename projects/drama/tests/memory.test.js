@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../src/shared/production/production_stages.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {randomUUID} from 'node:crypto'
@@ -62,7 +63,7 @@ test('图片使用适用记忆，视频直接发送已编译提示词并保留�
  const f=await fixture(t,{script:'第一章\n张飞进入营帐。'});await remember(f,'engineering','visual','工程色调TOKEN_ENGINE',{stages:['asset_preparation']});await remember(f,'project','visual','本短剧色调TOKEN_PROJECT',{stages:['asset_preparation']});await remember(f,'project','voice','稳定声线TOKEN_VOICE',{stages:['video_render']});await remember(f,'project','plan','只影响规划TOKEN_PLAN',{stages:['adaptation_plan']})
  for(const stage of ['source_analysis','adaptation_plan','story_segments','shot_design','asset_preparation'])await f.run(stage)
  const images=f.requests.filter(r=>r.path==='/images/generations');assert.ok(images.length);assert.ok(images.every(r=>r.body.prompt.includes('TOKEN_PROJECT')&&!r.body.prompt.includes('TOKEN_ENGINE')&&!r.body.prompt.includes('TOKEN_PLAN')))
- let p=await f.project();for(const key of ['scenes','character_looks'])for(const asset of p.asset_library[key])await f.edit({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:asset.image_ids[0]});p=await f.project();await f.edit({kind:'confirm_stage',stage:'asset_preparation',expected_revision:p.node_states.asset_preparation.product_revision})
+ let p=await f.project();for(const key of ['scenes','character_looks'])for(const asset of p.asset_library[key])await f.edit({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:asset.image_ids[0]});p=await f.project();await f.edit({kind:'confirm_stage',stage:'asset_preparation',expected_revision:projectNodeStates(p).asset_preparation.product_revision})
  for(const stage of ['reference_binding','clip_arrangement','video_prompt','video_render'])await f.run(stage)
  const videos=f.requests.filter(r=>r.path==='/videos/generations');assert.ok(videos.every(r=>!r.body.prompt.includes('TOKEN_VOICE')&&!r.body.prompt.includes('TOKEN_PROJECT')));p=await f.project();const snapshot=JSON.parse((await f.projects.documents.readArtifact(f.context.projectId,p.videos[0].input_snapshot_ref)).toString());assert.ok(snapshot.memory_snapshot_ref)
 })

@@ -19,5 +19,17 @@ export function stageProduct(document,stageId){
  if(!stage)throw new TypeError('未知制作步骤')
  if(stageId==='delivery')return {episodes:document.episodes,delivery:document.delivery}
  if(stageId==='shot_design')return {shot_design:document.shot_design,asset_requirements:document.asset_requirements}
+ if(stageId==='adaptation_plan')return document.adaptation_plan.data
  return document[stage.field]
+}
+
+// 改编规划已切换为节点内state；其他阶段暂按各自现行契约保存。
+export function projectNodeStates(document){
+ if(!document)return undefined
+ const states={}
+ for(const stage of projectStages)Object.defineProperty(states,stage.id,{enumerable:true,
+  get:()=>stage.id==='adaptation_plan'?document.adaptation_plan.state:document.node_states[stage.id],
+  set:value=>{if(stage.id==='adaptation_plan')document.adaptation_plan.state=value;else document.node_states[stage.id]=value},
+ })
+ return states
 }

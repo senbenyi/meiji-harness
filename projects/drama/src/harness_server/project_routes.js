@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../shared/production/production_stages.js'
 import {createProductionRoutes} from './production_routes.js'
 import {projectStages,stageProduct} from '../shared/production/production_stages.js'
 import { clientAssets } from './client_assets.js'
@@ -90,7 +91,7 @@ export function createProjectHttpHandler(tool, { authorize, models = createModel
 
       if (url.pathname === '/api/drama/node-rules' && req.method === 'GET') {
         const type = url.searchParams.get('node_type')
-        const project=await tool.context(sessionId);if(!projectStages.some(row=>row.id===type))return json(res,422,{message:'未知制作步骤'});return json(res,200,tool.production?await tool.production.rules(project,type):{bases:project.node_states[type].rules})
+        const project=await tool.context(sessionId);if(!projectStages.some(row=>row.id===type))return json(res,422,{message:'未知制作步骤'});return json(res,200,tool.production?await tool.production.rules(project,type):{bases:projectNodeStates(project)[type].rules})
       }
       if (url.pathname === '/api/drama/task-messages' && req.method === 'GET') {
         const rawAfter = url.searchParams.get('after') || '-1'

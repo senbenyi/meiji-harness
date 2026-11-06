@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../src/shared/production/production_stages.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile,writeFile} from 'node:fs/promises'
@@ -11,31 +12,31 @@ import {fixture,defaultAuthor,call,reply} from './helpers/production-fixture.js'
 
 test('从创建到所有制作阶段：真实模拟网关、独立审核、共享图片、声音、ffmpeg剪辑与最终导出',async t=>{
  const f=await fixture(t);await f.run('source_analysis');let p=await f.project();assert.equal(p.source_analysis.chapters.length,1);assert.equal(p.source_analysis.coverage_ref,null);assert.equal(f.requests.length,0)
- await f.run('adaptation_plan');p=await f.project();assert.ok(p.adaptation_plan.plot_development);assert.equal(Object.hasOwn(p.adaptation_plan,'segment_plans'),false);assert.equal(p.episodes.length,0);assert.equal(p.asset_library.characters.length,1)
+ await f.run('adaptation_plan');p=await f.project();assert.ok(p.adaptation_plan.data.story_direction.main_plot);assert.equal(Object.hasOwn(p.adaptation_plan,'segment_plans'),false);assert.equal(p.episodes.length,0);assert.equal(p.asset_library.characters.length,1)
  await f.run('story_segments');assert.ok(f.calls.filter(c=>c.stage==='story_segments'&&c.action==='generate').some(c=>c.messages.some(m=>m.tool_calls?.some(call=>call.function.name==='read_source'))),'定稿必须实际读取原剧本');await f.run('shot_design');p=await f.project();assert.equal(p.shot_design.shots.length,2)
- await f.run('asset_preparation');p=await f.project();assert.equal(p.node_states.asset_preparation.status,'confirmed');assert.equal(p.asset_library.scenes[0].selected_image_id,null);assert.equal(f.production.images.list().total,2)
+ await f.run('asset_preparation');p=await f.project();assert.equal(projectNodeStates(p).asset_preparation.status,'confirmed');assert.equal(p.asset_library.scenes[0].selected_image_id,null);assert.equal(f.production.images.list().total,2)
  for(const key of ['scenes','character_looks'])for(const asset of p.asset_library[key])await f.edit({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:asset.image_ids[0]})
  p=await f.project();await f.run('asset_preparation',{target_id:p.asset_library.clothing[0].id});p=await f.project();await f.edit({kind:'image_select',stage:'asset_preparation',target_id:p.asset_library.clothing[0].id,image_id:p.asset_library.clothing[0].image_ids[0]});await f.run('asset_preparation',{target_id:p.asset_library.character_looks[0].id,regenerate:true});p=await f.project();await f.edit({kind:'image_select',stage:'asset_preparation',target_id:p.asset_library.character_looks[0].id,image_id:p.asset_library.character_looks[0].image_ids.at(-1)});assert.ok(f.requests.some(r=>r.path==='/images/generations'&&r.body.images?.length===1),'独立服装图应进入组合定妆的真实模型输入')
  const voice=join(f.root,'voice.wav');await command('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=240:sample_rate=48000','-t','2','-y',voice]);p=await f.project();await f.edit({kind:'audio_import',stage:'asset_preparation',character_id:p.asset_library.characters[0].id,base64:(await readFile(voice)).toString('base64'),confirmed_clean:true})
- p=await f.project();await f.edit({kind:'confirm_stage',stage:'asset_preparation',expected_revision:p.node_states.asset_preparation.product_revision})
- await f.run('reference_binding');await f.run('clip_arrangement');await f.run('video_prompt');await f.run('video_render');p=await f.project();assert.equal(p.videos.length,2);assert.equal(p.node_states.video_render.status,'draft');assert.ok(f.requests.filter(r=>r.path==='/videos/generations').every(r=>r.body.audios.length===1))
- for(const take of p.videos)await f.edit({kind:'video_select',stage:'video_render',take_id:take.id});p=await f.project();await f.edit({kind:'confirm_stage',stage:'video_render',expected_revision:p.node_states.video_render.product_revision})
+ p=await f.project();await f.edit({kind:'confirm_stage',stage:'asset_preparation',expected_revision:projectNodeStates(p).asset_preparation.product_revision})
+ await f.run('reference_binding');await f.run('clip_arrangement');await f.run('video_prompt');await f.run('video_render');p=await f.project();assert.equal(p.videos.length,2);assert.equal(projectNodeStates(p).video_render.status,'draft');assert.ok(f.requests.filter(r=>r.path==='/videos/generations').every(r=>r.body.audios.length===1))
+ for(const take of p.videos)await f.edit({kind:'video_select',stage:'video_render',take_id:take.id});p=await f.project();await f.edit({kind:'confirm_stage',stage:'video_render',expected_revision:projectNodeStates(p).video_render.product_revision})
  await f.edit({kind:'product',stage:'delivery',expected_revision:0,value:{episodes:[],delivery:{...p.delivery,settings:{width:64,height:64,fps:10,subtitle_mode:'sidecar',normalize_audio:true}}}})
  await f.run('editing');p=await f.project();assert.ok(p.editing.preview_ref);assert.equal(p.editing.timelines[0].clips.length,2)
  await f.run('delivery',{episode_seconds:4});p=await f.project();assert.equal(p.episodes.length,2);assert.equal(p.delivery.exports.length,2)
  for(const item of p.delivery.exports){const bytes=await f.projects.documents.readArtifact(p.basic_info.id,item.file_ref);assert.ok((await probeBytes(bytes,'mp4')).video);assert.equal(Object.hasOwn(item,'settings_ref'),false);const frozen=JSON.parse((await f.projects.documents.readArtifact(p.basic_info.id,item.input_snapshot_ref)).toString());assert.deepEqual(frozen.settings,p.delivery.settings)}
- assert.equal(p.node_states.delivery.status,'confirmed');assert.ok(f.calls.filter(c=>c.action==='review').every(c=>!c.messages.some(m=>(m.tool_calls||[]).some(call=>call.function.name==='submit_candidate'))))
+ assert.equal(projectNodeStates(p).delivery.status,'confirmed');assert.ok(f.calls.filter(c=>c.action==='review').every(c=>!c.messages.some(m=>(m.tool_calls||[]).some(call=>call.function.name==='submit_candidate'))))
  const tables=f.production.images.database.prepare('PRAGMA table_info(images)').all();assert.deepEqual(tables.map(c=>c.name),['id','url'])
  const media=await fetch(`${f.api}/production-file?session_id=${f.context.sessionId}&ref=${p.delivery.exports[0].file_ref}`,{headers:{range:'bytes=0-31'}});assert.equal(media.status,206);assert.equal((await media.arrayBuffer()).byteLength,32)
  assert.ok(f.requests.some(r=>r.path==='/chat/completions'));assert.ok(f.projects.records.http.list().length>0)
  // Old video subtitles retain the exact dialogue that was generated, even after current shots change.
  const changed=structuredClone(p);changed.shot_design.shots[0].beats[0].dialogues[0].text='后改对白';assert.ok(!(await subtitleText(f.production,changed,p.editing.timelines[0])).includes('后改对白'))
  for(const item of p.delivery.exports){const text=(await f.projects.documents.readArtifact(p.basic_info.id,item.subtitles_ref)).toString();assert.equal(parseSubtitles(text)[0].start,0)}
- await f.edit({kind:'product',stage:'delivery',expected_revision:p.node_states.delivery.product_revision,value:{episodes:[],delivery:p.delivery}});p=await f.project()
+ await f.edit({kind:'product',stage:'delivery',expected_revision:projectNodeStates(p).delivery.product_revision,value:{episodes:[],delivery:p.delivery}});p=await f.project()
  const editing=structuredClone(p.editing),timeline=editing.timelines[0];timeline.clips[0].in_seconds=.5;timeline.clips[0].out_seconds=3.5;timeline.clips[1].position_seconds=3;timeline.transitions=[{clip_id:timeline.clips[0].id,duration_seconds:.3}];timeline.revision++
- await f.edit({kind:'product',stage:'editing',expected_revision:p.node_states.editing.product_revision,value:editing})
+ await f.edit({kind:'product',stage:'editing',expected_revision:projectNodeStates(p).editing.product_revision,value:editing})
  await f.edit({kind:'regenerate_subtitles',stage:'editing',timeline_id:timeline.id});await f.edit({kind:'audio_import',stage:'editing',role:'track',timeline_id:timeline.id,base64:(await readFile(voice)).toString('base64')})
- p=await f.project();await f.edit({kind:'product',stage:'delivery',expected_revision:p.node_states.delivery.product_revision,value:{episodes:[],delivery:{...p.delivery,settings:{...p.delivery.settings,width:128,height:128,subtitle_mode:'burn'}}}})
+ p=await f.project();await f.edit({kind:'product',stage:'delivery',expected_revision:projectNodeStates(p).delivery.product_revision,value:{episodes:[],delivery:{...p.delivery,settings:{...p.delivery.settings,width:128,height:128,subtitle_mode:'burn'}}}})
  await f.run('editing',{use_existing:true});await f.run('delivery',{episode_seconds:4});p=await f.project();const burned=p.delivery.exports.at(-1),report=JSON.parse((await f.projects.documents.readArtifact(p.basic_info.id,burned.validation_report_ref)).toString());assert.equal(report.subtitle_renderer,'canvas-png-overlay');assert.ok(report.subtitle_count>0);assert.equal(report.width,128)
  const burnedFile=join(f.root,'burned.mp4'),frame=join(f.root,'frame.rgb');await writeFile(burnedFile,await f.projects.documents.readArtifact(p.basic_info.id,burned.file_ref));await command('ffmpeg',['-v','error','-ss','1','-i',burnedFile,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-y',frame]);const pixels=await readFile(frame);let whites=0;for(let i=0;i<pixels.length;i+=3)if(pixels[i]>180&&pixels[i+1]>180&&pixels[i+2]>180)whites++;assert.ok(whites>5,'真实导出帧应含白色文字，不只是生成字幕元数据')
 
@@ -49,7 +50,7 @@ test('原著解析纯程序保存整稿，多章节也不拆分，零模型请�
  const text='第一章\r\n'+'完整原文😀。'.repeat(4000)+'\n第二章\n结尾',f=await fixture(t,{script:text,author:async()=>{throw Error('must not call model')}})
  f.production.memoryMaintenance.ensure=async()=>{throw Error('must not run memory model')}
  const first=await f.run('source_analysis'),p=await f.project();assert.deepEqual(first.steps.map(s=>s.kind),['prepare','execute','finish']);assert.equal(p.source_analysis.chapters.length,1);assert.equal(p.source_analysis.chapters[0].body,text);assert.equal(p.source_analysis.chapters[0].summary,'');assert.equal(Object.hasOwn(p.source_analysis,'facts_ref'),false);assert.equal(p.source_analysis.coverage_ref,null);assert.equal(f.requests.length,0)
- await f.run('source_analysis');const next=await f.project();assert.equal(next.source_analysis.chapters[0].id,p.source_analysis.chapters[0].id);assert.equal(next.node_states.source_analysis.status,'confirmed');assert.equal(f.requests.length,0)
+ await f.run('source_analysis');const next=await f.project();assert.equal(next.source_analysis.chapters[0].id,p.source_analysis.chapters[0].id);assert.equal(projectNodeStates(next).source_analysis.status,'confirmed');assert.equal(f.requests.length,0)
 })
 
 test('缺原稿的剧本模式如实失败，自由创作可保持空原著产物',async t=>{
@@ -59,7 +60,7 @@ test('缺原稿的剧本模式如实失败，自由创作可保持空原著产�
 
 test('无效审核证据不能驱动修订，联合规划仍保留最新候选和失败记录',async t=>{
  const f=await fixture(t,{author:async(body,ctx)=>{const c=JSON.parse(body.messages[1].content);if(c.action==='review'&&body.messages.some(m=>(m.tool_calls||[]).some(c=>c.function.name==='read_candidate')))return reply([call('submit_review',{output:{status:'content_issue',issues:[{location:'/goal',evidence:'not present XYZ',reason:'invalid',suggestion:'invalid'}],suggestions:[]}})]);return defaultAuthor(body,ctx)}})
- await f.run('source_analysis');const run=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'invalid-review'}),detail=await f.production.wait(run.group_id);assert.equal(detail.status,'failed');assert.match(detail.reason,/审核证据/);assert.ok(detail.steps.some(s=>s.result?.candidate_ref));assert.ok(!detail.steps.some(s=>s.kind==='revise'));assert.ok((await f.project()).adaptation_plan.plot_development)
+ await f.run('source_analysis');const run=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'invalid-review'}),detail=await f.production.wait(run.group_id);assert.equal(detail.status,'failed');assert.match(detail.reason,/审核证据/);assert.ok(detail.steps.some(s=>s.result?.candidate_ref));assert.ok(!detail.steps.some(s=>s.kind==='revise'));assert.ok((await f.project()).adaptation_plan.data.story_direction.main_plot)
 })
 
 test('共享图片立即落库、跨短剧绑定、非法图片/悬空ID和活动任务保护',async t=>{
@@ -86,18 +87,32 @@ test('五个文本阶段均可按现有产物修订，独立审核的问题触�
   return defaultAuthor(body,ctx)
  }})
  await f.run('source_analysis');for(const stage of ['adaptation_plan','story_segments','shot_design']){await f.run(stage);await f.run(stage,{revise:true});assert.ok(f.calls.some(c=>c.stage===stage&&c.action==='revise'))}
- await f.run('asset_preparation');let p=await f.project();for(const key of ['scenes','character_looks'])for(const asset of p.asset_library[key])await f.edit({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:asset.image_ids[0]});p=await f.project();await f.edit({kind:'confirm_stage',stage:'asset_preparation',expected_revision:p.node_states.asset_preparation.product_revision});await f.run('reference_binding');await f.run('clip_arrangement');await f.run('video_prompt');await f.run('video_prompt',{revise:true});assert.ok(f.calls.some(c=>c.stage==='video_prompt'&&c.action==='revise'))
+ await f.run('asset_preparation');let p=await f.project();for(const key of ['scenes','character_looks'])for(const asset of p.asset_library[key])await f.edit({kind:'image_select',stage:'asset_preparation',target_id:asset.id,image_id:asset.image_ids[0]});p=await f.project();await f.edit({kind:'confirm_stage',stage:'asset_preparation',expected_revision:projectNodeStates(p).asset_preparation.product_revision});await f.run('reference_binding');await f.run('clip_arrangement');await f.run('video_prompt');await f.run('video_prompt',{revise:true});assert.ok(f.calls.some(c=>c.stage==='video_prompt'&&c.action==='revise'))
 })
 
-test('取消中的模型请求不提交晚到候选，人工改动后不能沿旧检查点续接',async t=>{
+test('未做原著解析也可直接以原件生成审核和修订改编规划',async t=>{
+ const script='第一幕\r\n张飞说：“来战！”\n原件正文😀',f=await fixture(t,{script})
+ const before=await f.project();assert.equal(before.source_analysis.chapters.length,0)
+ const generated=await f.run('adaptation_plan');assert.equal(generated.status,'completed')
+ await f.run('adaptation_plan',{revise:true})
+ const after=await f.project();assert.equal(after.source_analysis.chapters.length,0);assert.equal(after.node_states.source_analysis.status,'empty')
+ assert.ok(after.adaptation_plan.data.story_direction.main_plot)
+ for(const action of ['generate','review','revise']){
+  const calls=f.calls.filter(call=>call.stage==='adaptation_plan'&&call.action===action)
+  assert.ok(calls.length)
+  assert.ok(calls.some(call=>call.messages.some(message=>message.role==='tool'&&message.content.includes(JSON.stringify(script).slice(1,-1)))))
+ }
+})
+
+test('取消中的请求不提交晚到候选，人工编辑清理节点检查点且不使用版本锁',async t=>{
  let release,entered;const gate=new Promise(r=>release=r),started=new Promise(r=>entered=r);let block=true
  const f=await fixture(t,{script:'第一章\n张飞走进营帐。',author:async(body,ctx)=>{const catalog=JSON.parse(body.messages[1].content);if(block&&catalog.action==='generate'){entered();await gate}return defaultAuthor(body,ctx)}})
- await f.run('source_analysis');const run=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'cancel-request'});await started;await f.production.cancel(run.group_id,f.context);release();const stopped=await f.production.wait(run.group_id);assert.equal(stopped.status,'cancelled');let p=await f.project();assert.equal(p.adaptation_plan.plot_development,'');block=false
+ await f.run('source_analysis');const run=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'cancel-request'});await started;await f.production.cancel(run.group_id,f.context);release();const stopped=await f.production.wait(run.group_id);assert.equal(stopped.status,'cancelled');let p=await f.project();assert.equal(p.adaptation_plan.data.story_direction.main_plot,'');block=false
  // A normal candidate followed by review failure leaves an auditable checkpoint.
  const original=f.production.textClient;f.production.textClient={...original,turn:async args=>{if(JSON.parse(args.messages[1].content).action==='review')throw new Error('审核暂不可用');return original.turn(args)}}
- const broken=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'checkpoint-request'});assert.equal((await f.production.wait(broken.group_id)).status,'failed');p=await f.project();assert.equal(p.node_states.adaptation_plan.checkpoint.state,'saved')
- await f.edit({kind:'product',stage:'adaptation_plan',expected_revision:p.node_states.adaptation_plan.product_revision,value:{...p.adaptation_plan,creative_constraints:{...p.adaptation_plan.creative_constraints,style:'人工修订规划'}}})
- await assert.rejects(f.production.run('adaptation_plan',{resume_of:broken.group_id},{...f.context,requestId:'stale-checkpoint'}),/人工|检查点|变化/)
+ const broken=await f.production.run('adaptation_plan',{}, {...f.context,requestId:'checkpoint-request'});assert.equal((await f.production.wait(broken.group_id)).status,'failed');p=await f.project();assert.equal(projectNodeStates(p).adaptation_plan.checkpoint.state,'saved')
+ await f.edit({kind:'product',stage:'adaptation_plan',expected_revision:projectNodeStates(p).adaptation_plan.product_revision,value:{...p.adaptation_plan.data,style:'人工修订规划'}})
+ p=await f.project();assert.equal(p.adaptation_plan.state.checkpoint,null);assert.equal(Object.hasOwn(p.adaptation_plan.state,'product_revision'),false);f.production.textClient=original;const resumed=await f.production.run('adaptation_plan',{resume_of:broken.group_id},{...f.context,requestId:'resume-without-version'});assert.equal((await f.production.wait(resumed.group_id)).status,'completed')
 })
 
 test('10MiB无章节原文分段保存完整body，保持换行空白和UTF16，范围仅由程序派生',()=>{
@@ -107,10 +122,10 @@ test('10MiB无章节原文分段保存完整body，保持换行空白和UTF16，
  const stable=sourceChapters(text,chapters);assert.deepEqual(stable.map(c=>c.id),chapters.map(c=>c.id));const renamed=chapters.map((c,i)=>i?c:{...c,title:'custom'});assert.equal(sourceChapters(text,renamed)[0].id,chapters[0].id);assert.equal(sourceChapters(text,renamed)[0].title,'custom');const reordered=[...chapters].reverse();assert.throws(()=>assertSourceText(text,reordered),/完整保留原稿/)
 })
 
-test('无辅助摘要也可人工确认完整分段，联合规划与故事定稿必须实际读取body',async t=>{
+test('无辅助摘要可确认分段，改编规划读取原件而故事定稿按现行策略读取正文',async t=>{
  const f=await fixture(t),p=await f.project(),source=p.source.revisions[0],text=(await f.projects.documents.readArtifact(p.basic_info.id,source.file_ref)).toString(),chapters=sourceChapters(text).map(({summary,...chapter})=>chapter)
- await f.edit({kind:'product',stage:'source_analysis',expected_revision:0,value:{source_revision_id:source.id,chapters,coverage_ref:null}});let current=await f.project();await f.edit({kind:'confirm_stage',stage:'source_analysis',expected_revision:current.node_states.source_analysis.product_revision});await f.run('adaptation_plan');await f.run('story_segments');current=await f.project();assert.equal(current.source_analysis.chapters.map(c=>c.body).join(''),text);assert.equal(current.node_states.story_segments.status,'confirmed')
- for(const stage of ['adaptation_plan','story_segments']){const calls=f.calls.filter(c=>c.stage===stage);assert.ok(calls.some(c=>c.messages.some(m=>m.role==='tool'&&JSON.parse(m.content).body===chapters[0].body)));assert.ok(calls.every(c=>JSON.parse(c.messages[1].content).unit_material_included))}
+ await f.edit({kind:'product',stage:'source_analysis',expected_revision:0,value:{source_revision_id:source.id,chapters,coverage_ref:null}});let current=await f.project();await f.edit({kind:'confirm_stage',stage:'source_analysis',expected_revision:projectNodeStates(current).source_analysis.product_revision});await f.run('adaptation_plan');await f.run('story_segments');current=await f.project();assert.equal(current.source_analysis.chapters.map(c=>c.body).join(''),text);assert.equal(projectNodeStates(current).story_segments.status,'confirmed')
+ for(const stage of ['adaptation_plan','story_segments']){const calls=f.calls.filter(c=>c.stage===stage),expected=stage==='adaptation_plan'?text:chapters[0].body;assert.ok(calls.some(c=>c.messages.some(m=>m.role==='tool'&&JSON.parse(m.content).body===expected)));assert.ok(calls.every(c=>JSON.parse(c.messages[1].content).unit_material_included))}
 })
 
 test('主会话按body指针分页读取正文，不要求原文文件引用',async t=>{
@@ -161,8 +176,8 @@ test('定稿审核通过可携带润色建议，完整及相邻复核均不因�
 test('素材只生成一部分保持未完成，所需图片齐全后无需选图或审核直接通过',async t=>{
  const f=await fixture(t);await f.run('source_analysis');await f.run('adaptation_plan');await f.run('story_segments');await f.run('shot_design')
  let p=await f.project();const scene=p.asset_library.scenes[0],look=p.asset_library.character_looks[0]
- const first=await f.run('asset_preparation',{target_id:scene.id});p=await f.project();assert.equal(p.node_states.asset_preparation.status,'partial');assert.match(p.node_states.asset_preparation.reason,/未准备/);assert.equal(first.steps.at(-1).result.requires_confirmation,false)
- const second=await f.run('asset_preparation',{target_id:look.id});p=await f.project();assert.equal(p.node_states.asset_preparation.status,'confirmed');assert.equal(p.asset_library.scenes[0].selected_image_id,null);assert.equal(p.asset_library.character_looks[0].selected_image_id,null)
+ const first=await f.run('asset_preparation',{target_id:scene.id});p=await f.project();assert.equal(projectNodeStates(p).asset_preparation.status,'partial');assert.match(projectNodeStates(p).asset_preparation.reason,/未准备/);assert.equal(first.steps.at(-1).result.requires_confirmation,false)
+ const second=await f.run('asset_preparation',{target_id:look.id});p=await f.project();assert.equal(projectNodeStates(p).asset_preparation.status,'confirmed');assert.equal(p.asset_library.scenes[0].selected_image_id,null);assert.equal(p.asset_library.character_looks[0].selected_image_id,null)
  assert.ok(second.steps.every(step=>step.kind!=='review'));assert.equal(second.steps.at(-1).result.requires_confirmation,false)
  const count=f.requests.filter(row=>row.path==='/images/generations').length;await f.run('asset_preparation');assert.equal(f.requests.filter(row=>row.path==='/images/generations').length,count,'已有图片只更新完成状态，不重复生成')
  await f.edit({kind:'image_select',stage:'asset_preparation',target_id:scene.id,image_id:p.asset_library.scenes[0].image_ids[0]});assert.equal((await f.project()).node_states.asset_preparation.status,'confirmed')
@@ -172,14 +187,14 @@ test('素材图片请求失败保留失败状态，不显示生成通过',async 
  const f=await fixture(t);await f.run('source_analysis');await f.run('adaptation_plan');await f.run('story_segments');await f.run('shot_design')
  f.models.generateImage=async()=>{throw new Error('测试图片服务失败')}
  const started=await f.production.run('asset_preparation',{}, {...f.context,requestId:'image-failed'}),detail=await f.production.wait(started.group_id),p=await f.project()
- assert.equal(detail.status,'failed');assert.match(detail.reason,/图片服务失败/);assert.notEqual(p.node_states.asset_preparation.status,'confirmed');assert.equal(f.production.images.list().total,0)
+ assert.equal(detail.status,'failed');assert.match(detail.reason,/图片服务失败/);assert.notEqual(projectNodeStates(p).asset_preparation.status,'confirmed');assert.equal(f.production.images.list().total,0)
 })
 
 test('素材生成通过后无需手动逐图选用即可执行参考确认，绑定与默认选图正式保存',async t=>{
  const f=await fixture(t);await f.run('source_analysis');await f.run('adaptation_plan');await f.run('story_segments');await f.run('shot_design');await f.run('asset_preparation')
  const before=await f.project(),imageRequests=f.requests.filter(r=>r.path==='/images/generations').length
  assert.equal(before.asset_library.scenes[0].selected_image_id,null);assert.equal(before.asset_library.character_looks[0].selected_image_id,null)
- await f.run('reference_binding');const after=await f.project();assert.equal(after.node_states.reference_binding.status,'confirmed');assert.ok(after.shot_design.shots.every(s=>s.reference_images.length===2));assert.equal(after.asset_library.scenes[0].selected_image_id,after.asset_library.scenes[0].image_ids[0]);assert.equal(after.asset_library.character_looks[0].selected_image_id,after.asset_library.character_looks[0].image_ids[0])
- assert.ok(after.node_states.asset_preparation.product_revision>before.node_states.asset_preparation.product_revision);assert.equal(f.requests.filter(r=>r.path==='/images/generations').length,imageRequests)
+ await f.run('reference_binding');const after=await f.project();assert.equal(projectNodeStates(after).reference_binding.status,'confirmed');assert.ok(after.shot_design.shots.every(s=>s.reference_images.length===2));assert.equal(after.asset_library.scenes[0].selected_image_id,after.asset_library.scenes[0].image_ids[0]);assert.equal(after.asset_library.character_looks[0].selected_image_id,after.asset_library.character_looks[0].image_ids[0])
+ assert.ok(projectNodeStates(after).asset_preparation.product_revision>projectNodeStates(before).asset_preparation.product_revision);assert.equal(f.requests.filter(r=>r.path==='/images/generations').length,imageRequests)
  await f.run('clip_arrangement');assert.ok((await f.project()).clip_arrangement.clips.length)
 })

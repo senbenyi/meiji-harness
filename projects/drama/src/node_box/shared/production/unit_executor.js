@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../../../shared/production/production_stages.js'
 import {uid,readJSON,stageStep} from './execution_support.js'
 
 /** 共用Task/单元文件生命周期；各类型执行器负责自己的步骤、业务和模型调用。 */
@@ -48,7 +49,7 @@ export class UnitProductionExecutor {
   async finish(ctx){
     const id=ctx.task.metadata.project_id,stage=ctx.task.node_type
     const project=await this.projects.documents.mutate(id,p=>{ctx.signal.throwIfAborted();const human=this.requiresConfirmation(ctx,p)
-      p.node_states[stage].status=human?'draft':'confirmed';p.node_states[stage].reason=human?'已生成候选，请人工检查并选用':'本阶段已完成';if(!human)p.node_states[stage].opinion='';return p})
-    this.service.notify(ctx.task);return {result:{saved:true,stage,status:project.node_states[stage].status,requires_confirmation:project.node_states[stage].status==='draft'}}
+      projectNodeStates(p)[stage].status=human?'draft':'confirmed';projectNodeStates(p)[stage].reason=human?'已生成候选，请人工检查并选用':'本阶段已完成';if(!human)projectNodeStates(p)[stage].opinion='';return p})
+    this.service.notify(ctx.task);return {result:{saved:true,stage,status:projectNodeStates(project)[stage].status,requires_confirmation:projectNodeStates(project)[stage].status==='draft'}}
   }
 }

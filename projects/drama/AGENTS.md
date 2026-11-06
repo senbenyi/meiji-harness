@@ -6,13 +6,16 @@
 
 - 用户已确认清空全部旧Drama业务数据，不考虑迁移。新入口仅使用V4，不增加旧数据兼容、双写或迁移层。模型配置、宿主凭据和其他业务项目不在清理范围。
 - 当前已接通V4全部制作阶段、共享图片库、原生工具循环与真实媒体剪辑/导出。阶段计划见根 `docs/plans/1028-计划-完整制作流程与左侧步骤面板.md`；最终业务方案见 `1028-计划-剧本到视频与共享图片库.md`。
-- 新结构设计边界与面板流程见 `docs/development/开发规范.md`。`docs/data/a_drama_detail.json` 与同目录节点文件是新结构设计草案，当前顶层为 id/title/aspect_ratio/origin_script/data；data 为以节点功能名为 key 的结构对象。尚未接入当前V4运行契约，运行时不能读取文档作为模板。
+- 新结构设计边界与面板流程见 `docs/development/开发规范.md`。`docs/data/a_drama_detail.json` 与同目录节点文件是新结构设计草案，当前顶层为 id/title/aspect_ratio/origin_script/data；data 为以节点功能名为 key 的结构对象。新模型定义在 `src/drama_runtime/drama_model.js`。改编规划已接通新节点结构、面板、保存及生成；其他节点的完整新结构接入另行处理。运行时不能读取文档作为模板。
 - `docs/development/开发规范.md` 维护当前结构设计与导航约定。V1入口、旧盒子和专属测试已清理，不重新注册。
 
 ## 新入口与分层
 
 - 插件 `index.js` 组装 `ProjectWorkspaceService`、公共记录、设置和路由；`src/main_agent/session/index.js` 注册当前可执行工具，不向主Agent注入已退役节点指导。
 - `src/drama_runtime/drama_document.js` 维护运行Schema和结构/引用校验；`drama_document_store.js` 保存V4与不可变文件；`drama_workspace_service.js` 提交Task、维护工作区/会话和请求幂等。
+- 当前运行文档的adaptation_plan字段完整保存新节点id/type/data/state，业务字段来自新模型的data Schema；状态只保存于节点内，不再复制到node_states。projectNodeStates统一供共享任务、主Agent和面板读取各节点状态。此节点不保存revision、source_revision_id、product_revision，也不做版本冲突检查；人工编辑清理旧检查点，活动任务、项目归属、请求幂等和真实执行记录继续校验。故事定稿不再保存adaptation_revision；历史输入依实际不可变快照保留。
+- 改编规划只确定受众、风格、故事方向和人物/团队/场景的original_content与adaptation_plan，不输出规划ID或自动创建资产。后续资产使用自己的稳定ID，当前资产结构的character_plan_id/scene_plan_id只能为null。
+- 改编规划直接分页读取当前导入的剧本原件file_ref，不依赖原著解析是否完成。生成、审核、修订均须完整读取原件；解析正文、摘要、搜索片段不计原件已读。其他阶段按各自输入契约处理。
 - `src/node_box/project/runtime/executor.js` 执行创建/导入/人工编辑等程序步骤，`src/main_agent/tools/project/fields.js`声明创建工具入参，创建工具与参数同属main_agent/tools/project，实际执行器仍归盒子，`ui/panel`保留共用项目弹框及原稿导入。Service创建/提交Task；Executor执行步骤；公共TaskManager负责状态、时间和任务数据库，不直接写Task表。一次业务操作一个Task，内部重试追加Step。
 - `src/shared/production/production_stages.js` 是浏览器/服务端共用的阶段目录与产物投影。各步骤由ProductionService按executor_registry选择文本、图片、视频或程序执行器；不得将展示数据冒充实际生成结果。
 - `src/node_box/`包含与十二阶段同名的十二个盒子及盒子专用共用目录`shared/`，`registry.js`装配节点接口。文本节点的`runtime/pipeline.js`维护单元、产物校验/保存/回读；故事节点`runtime/execution.js`维护前段衔接和相邻段复核。程序节点`runtime/execute.js`维护实际业务；图片/视频节点各自的`runtime/executor.js`维护对应生成步骤；`runtime/confirm.js`、`runtime/manual.js`维护节点确认和专属人工操作。

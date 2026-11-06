@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../shared/production/production_stages.js'
 import { assertSourceText } from "../shared/text/source.js";
 import {
   mkdir,
@@ -269,7 +270,7 @@ export class ProjectDocumentStore {
       const document = await this.read(id),
         definition = projectStages.find((row) => row.id === stage);
       if (!definition) throw new TypeError("未知制作步骤");
-      if (expectedRevision !== document.node_states[stage].product_revision)
+      if (expectedRevision !== projectNodeStates(document)[stage].product_revision)
         throw Object.assign(new Error("产物已被修改，请刷新"), {
           code: "EDIT_CONFLICT",
         });
@@ -403,10 +404,10 @@ export class ProjectDocumentStore {
     )
       throw new TypeError("每个动作补充规则最多10000字符");
     return this.mutate(id, (document) => {
-      const node = document.node_states[stage];
+      const node = projectNodeStates(document)[stage];
       if (!node) throw new TypeError("未知步骤");
       if (!node.rules) throw new TypeError("此步骤不使用模型补充规则");
-      if (JSON.stringify(node.rules) !== JSON.stringify(previous))
+      if (stage !== 'adaptation_plan' && JSON.stringify(node.rules) !== JSON.stringify(previous))
         throw Object.assign(new Error("规则已被修改"), {
           code: "EDIT_CONFLICT",
         });
@@ -423,11 +424,11 @@ export class ProjectDocumentStore {
       throw new TypeError("阶段或意见内容无效");
     return this.#serial(id, async () => {
       const document = await this.read(id);
-      if (document.node_states[stage].opinion !== previous)
+      if (stage !== 'adaptation_plan' && projectNodeStates(document)[stage].opinion !== previous)
         throw Object.assign(new Error("意见已被修改，请刷新"), {
           code: "EDIT_CONFLICT",
         });
-      document.node_states[stage].opinion = opinion;
+      projectNodeStates(document)[stage].opinion = opinion;
       document.document_revision++;
       return this.#save(id, document);
     });

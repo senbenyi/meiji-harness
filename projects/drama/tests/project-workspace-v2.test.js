@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../src/shared/production/production_stages.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {mkdtemp,rm,readFile} from 'node:fs/promises'
@@ -25,12 +26,12 @@ test('新入口纯程序创建V3并保持幂等、短剧归属与外置原稿',a
  const task=f.records.tasks.detail(f.records.scope,c.group_id);assert.deepEqual(task.steps.map(s=>s.executor),['program']);assert.equal(task.tasks[0].metadata.document_version,4);assert.equal(boxReport(task).session_id,c.session_id)
 })
 test('人工编辑走Task，冲突保留旧产物，重试不重复写入',async t=>{
- const f=await fixture(t),{c,context}=await created(f),p=(await f.projects.snapshot(c.session_id)).project,command={kind:'product',stage:'adaptation_plan',expected_revision:0,value:{...p.adaptation_plan,creative_constraints:{...p.adaptation_plan.creative_constraints,style:'尊重原著'}}}
- const result=await f.projects.edit(command,{...context,requestId:'manual-1'});assert.equal(result.project.adaptation_plan.creative_constraints.style,'尊重原著');assert.equal(result.project.node_states.adaptation_plan.status,'draft')
+ const f=await fixture(t),{c,context}=await created(f),p=(await f.projects.snapshot(c.session_id)).project,command={kind:'product',stage:'adaptation_plan',expected_revision:0,value:{...p.adaptation_plan.data,style:'尊重原著'}}
+ const result=await f.projects.edit(command,{...context,requestId:'manual-1'});assert.equal(result.project.adaptation_plan.data.style,'尊重原著');assert.equal(result.project.adaptation_plan.state.status,'draft')
  const repeated=await f.projects.edit(command,{...context,requestId:'manual-1'});assert.equal(repeated.project.document_revision,result.project.document_revision)
- await assert.rejects(f.projects.edit({...command,value:{...command.value,creative_constraints:{...command.value.creative_constraints,style:'覆盖'}}},{...context,requestId:'manual-1'}),/不同编辑内容/)
- await assert.rejects(f.projects.edit(command,{...context,requestId:'manual-2'}),/已被修改/)
- assert.equal((await f.projects.snapshot(c.session_id)).project.adaptation_plan.creative_constraints.style,'尊重原著')
+ await assert.rejects(f.projects.edit({...command,value:{...command.value,style:'覆盖'}},{...context,requestId:'manual-1'}),/不同编辑内容/)
+ await f.projects.edit(command,{...context,requestId:'manual-2'})
+ assert.equal((await f.projects.snapshot(c.session_id)).project.adaptation_plan.data.style,'尊重原著')
  const task=f.records.tasks.detail(f.records.scope,result.group_id);assert.equal(task.steps[0].result.saved,true);assert.equal(task.steps[0].result.payload_ref,task.tasks[0].metadata.payload_ref)
 })
 test('正文编辑创建不可变文件版本，不改其他阶段或原始文件',async t=>{
@@ -91,7 +92,7 @@ test('创建在工作区命名失败后重试同请求，复用短剧/工作区�
 })
 
 test('短剧共用弹框的资料和原稿通过一个Task联合保存，重复请求不追加版本',async t=>{
- const f=await fixture(t),{c,context}=await created(f),before=await f.projects.context(context.sessionId),{id,...value}=before.basic_info,command={kind:'basic_info',value:{...value,name:'联合新名'},source:{text:'联合新稿',original_name:'联合.txt'},expected_revision:before.node_states.project.product_revision}
+ const f=await fixture(t),{c,context}=await created(f),before=await f.projects.context(context.sessionId),{id,...value}=before.basic_info,command={kind:'basic_info',value:{...value,name:'联合新名'},source:{text:'联合新稿',original_name:'联合.txt'},expected_revision:projectNodeStates(before).project.product_revision}
  const saved=await f.projects.edit(command,{...context,requestId:'combined'});assert.equal(saved.project.basic_info.name,'联合新名');assert.equal(saved.project.source.revisions.length,2);const detail=f.records.tasks.detail(f.records.scope,saved.group_id);assert.equal(detail.tasks.length,1);assert.equal(detail.steps.length,1);assert.equal(detail.steps[0].result.saved,true);assert.equal((await f.projects.readOriginalScript(context.sessionId)).body,'联合新稿')
  await f.projects.edit(command,{...context,requestId:'combined'});assert.equal((await f.projects.context(context.sessionId)).source.revisions.length,2);await assert.rejects(f.projects.edit({...command,value:{...value,name:'被拒绝'}},{...context,requestId:'stale'}),/已被修改/);assert.equal((await f.projects.context(context.sessionId)).basic_info.name,'联合新名')
 })

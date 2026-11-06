@@ -1,1 +1,1 @@
-export async function confirm(p){if(!p.adaptation_plan.plot_development.trim())throw new TypeError('此步骤尚无可确认产物')}
+export async function confirm(p){if(!p.adaptation_plan.data.story_direction.main_plot.trim()||!p.adaptation_plan.data.audience.trim()||!p.adaptation_plan.data.style.trim())throw new TypeError('请先填写受众、风格和故事主线方向')}

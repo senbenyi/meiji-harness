@@ -1,5 +1,7 @@
+import {projectNodeStates} from '../shared/production/production_stages.js'
 import { validateDocumentSchema } from "./document_validation.js";
 import { projectStages } from "../shared/production/production_stages.js";
+import { dramaModelSchema, createDramaModel } from './drama_model.js';
 
 // V4短剧数据契约。此模块不创建节点、不调用模型、不迁移磁盘文件。
 const string = (minLength = 0) => ({ type: "string", minLength });
@@ -84,52 +86,13 @@ const productSchemas = {
     ),
     coverage_ref: optionalRef,
   }),
-  adaptation_plan: object({
-    revision: integer(),
-    source_revision_id: nullable(id),
-    creative_constraints: object({
-      style: string(),
-      audience: string(),
-      adaptation_scope: string(),
-      preserve: array(string(1)),
-      allowed_changes: array(string(1)),
-      locked_requirements: array(string(1)),
-    }),
-    plot_development: string(),
-    character_plans: array(
-      object({
-        id,
-        name: string(1),
-        description: string(),
-        motivation: string(),
-        relationships: string(),
-        arc: string(),
-      }),
-    ),
-    scene_plans: array(
-      object({
-        id,
-        name: string(1),
-        function: string(),
-        description: string(),
-      }),
-    ),
-    group_plans: array(
-      object({
-        id,
-        name: string(1),
-        social_role: string(),
-        description: string(),
-      }),
-    ),
-  }),
+  adaptation_plan: dramaModelSchema.properties.data.properties.adaptation_plan,
   story_segments: object({
     segments: array(
       object({
         id,
         sequence: integer(1),
         revision: integer(1),
-        adaptation_revision: integer(),
         title: string(1),
         body_ref: ref,
         continuity_ref: optionalRef,
@@ -329,10 +292,6 @@ const productSchemas = {
     ),
   }),
 };
-productSchemas.adaptation_plan.properties.creative_constraints.description =
-  "全篇创作约束：明确风格、受众、改编尺度、保留内容与允许调整内容；locked_requirements记录用户明确锁定要求，其余方案依据原著和视频表达需要作出明确选择。";
-productSchemas.adaptation_plan.properties.plot_development.description =
-  "全篇剧情发展：用连贯文本写清主线目标、核心冲突、因果推进、关键转折、高潮和结局方向，以及人物、团队、场景在剧情中的作用；故事定稿据此自主分段并展开正文。";
 productSchemas.source_analysis.properties.chapters.items.required =
   productSchemas.source_analysis.properties.chapters.items.required.filter(
     (key) => key !== "summary",
@@ -352,7 +311,7 @@ export const projectDocumentSchema = object({
   }),
   ...productSchemas,
   node_states: object(
-    Object.fromEntries(projectStages.map((stage) => [stage.id, nodeState(stage)])),
+    Object.fromEntries(projectStages.filter(stage=>stage.id!=='adaptation_plan').map((stage) => [stage.id, nodeState(stage)])),
   ),
 });
 
@@ -388,22 +347,7 @@ export function createProjectDocument({
       chapters: [],
       coverage_ref: null,
     },
-    adaptation_plan: {
-      revision: 0,
-      source_revision_id: null,
-      creative_constraints: {
-        style: "",
-        audience: "",
-        adaptation_scope: "",
-        preserve: [],
-        allowed_changes: [],
-        locked_requirements: [],
-      },
-      plot_development: "",
-      character_plans: [],
-      scene_plans: [],
-      group_plans: [],
-    },
+    adaptation_plan: createDramaModel({id:projectId,title:name,aspect_ratio}).data.adaptation_plan,
     story_segments: { segments: [] },
     asset_library: {
       characters: [],
@@ -430,7 +374,7 @@ export function createProjectDocument({
       exports: [],
     },
     node_states: Object.fromEntries(
-      projectStages.map((stage) => [
+      projectStages.filter(stage=>stage.id!=='adaptation_plan').map((stage) => [
         stage.id,
         {
           status: "empty",
@@ -469,9 +413,6 @@ export function assertProjectDocument(document) {
   };
   const sources = index("sources", document.source.revisions),
     chapters = index("chapters", document.source_analysis.chapters);
-  index("character_plans", document.adaptation_plan.character_plans);
-  index("scene_plans", document.adaptation_plan.scene_plans);
-  index("group_plans", document.adaptation_plan.group_plans);
   const segments = index("segments", document.story_segments.segments);
   for (const [key, rows] of Object.entries(document.asset_library))
     index(key, rows);
@@ -493,11 +434,6 @@ export function assertProjectDocument(document) {
     document.source_analysis.source_revision_id,
     "source_analysis.source_revision_id",
   );
-  requireId(
-    "sources",
-    document.adaptation_plan.source_revision_id,
-    "adaptation_plan.source_revision_id",
-  );
   if (chapters.size || document.source_analysis.source_revision_id) {
     if (!document.source_analysis.source_revision_id)
       failure("source_analysis", "分段缺少原稿版本");
@@ -512,10 +448,6 @@ export function assertProjectDocument(document) {
       sources.get(document.source_analysis.source_revision_id).character_count
     )
       failure("source_analysis.chapters.body", "分段正文长度与原稿不一致");
-  }
-  for (const segment of segments.values()) {
-    if (segment.adaptation_revision > document.adaptation_plan.revision)
-      failure("segments.adaptation_revision", "不能引用未来改编版本");
   }
   const assetIds = new Set();
   for (const rows of Object.values(document.asset_library))
@@ -537,13 +469,9 @@ export function assertProjectDocument(document) {
         failure("image_ids", "图片ID重复");
     }
   for (const character of document.asset_library.characters)
-    requireId(
-      "character_plans",
-      character.character_plan_id,
-      "characters.character_plan_id",
-    );
+    if (character.character_plan_id !== null) failure('characters.character_plan_id', '新人物规划无ID，资产不再引用规划ID');
   for (const scene of document.asset_library.scenes)
-    requireId("scene_plans", scene.scene_plan_id, "scenes.scene_plan_id");
+    if (scene.scene_plan_id !== null) failure('scenes.scene_plan_id', '新场景规划无ID，资产不再引用规划ID');
   for (const look of document.asset_library.character_looks) {
     requireId("characters", look.character_id, "looks.character_id");
     for (const value of look.clothing_ids)
@@ -727,8 +655,8 @@ export function editProjectProduct(
   assertProjectDocument(document);
   const stage = projectStages.find((row) => row.id === stageId);
   if (!stage) failure("stage", "未知制作步骤");
-  const current = document.node_states[stageId];
-  if (expectedRevision !== current.product_revision)
+  const current = projectNodeStates(document)[stageId];
+  if (stageId !== 'adaptation_plan' && expectedRevision !== current.product_revision)
     throw Object.assign(new Error("产物已被修改，请刷新后重新编辑"), {
       code: "EDIT_CONFLICT",
     });
@@ -746,20 +674,24 @@ export function editProjectProduct(
       failure("shot_design", "分镜编辑须包含shot_design与asset_requirements");
     next.shot_design = structuredClone(value.shot_design);
     next.asset_requirements = structuredClone(value.asset_requirements);
+  } else if (stageId === 'adaptation_plan') {
+    next.adaptation_plan.data = structuredClone(value);
+    next.adaptation_plan.state.checkpoint = null;
   } else next[stage.field] = structuredClone(value);
   next.document_revision++;
-  next.node_states[stageId] = {
+  projectNodeStates(next)[stageId] = {
     ...current,
-    product_revision: current.product_revision + 1,
+    ...(stageId!=='adaptation_plan'?{product_revision: current.product_revision + 1}:{}),
     status: "draft",
     reason: "人工修改，待重新核对",
+    ...(stageId==='adaptation_plan'?{checkpoint:null}:{}),
   };
   if (stageId === "shot_design" || stageId === "reference_binding") {
     const other =
       stageId === "shot_design" ? "reference_binding" : "shot_design";
-    next.node_states[other] = {
+    projectNodeStates(next)[other] = {
       ...next.node_states[other],
-      product_revision: next.node_states[other].product_revision + 1,
+      product_revision: projectNodeStates(next)[other].product_revision + 1,
       status: "draft",
       reason: "镜头或参考绑定已修改，待重新核对",
     };

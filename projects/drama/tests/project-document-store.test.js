@@ -1,3 +1,4 @@
+import {projectNodeStates} from '../src/shared/production/production_stages.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {mkdtemp,rm,readFile,writeFile,mkdir,symlink} from 'node:fs/promises'
@@ -18,9 +19,9 @@ test('新存储只保存V3文档，10MiB原稿外置且短剧JSON不含正文副
 test('程序步骤拒绝保存模型规则，文本补充规则仍可保存且不引入执行状态缓存',async t=>{
  const {store}=await fixture(t),p=await store.create({name:'按类型保存状态'}),rules={generate:'保留原著',review:'核对正文',revise:'只修有效问题'}
  await assert.rejects(store.saveRules(p.basic_info.id,'source_analysis',rules,{previous:undefined}),/不使用模型补充规则/)
- const next=await store.saveRules(p.basic_info.id,'story_segments',rules,{previous:p.node_states.story_segments.rules})
- assert.deepEqual(next.node_states.story_segments.rules,rules);assert.equal(Object.hasOwn(next.node_states.source_analysis,'rules'),false)
- assert.equal(Object.hasOwn(next.node_states.story_segments,'last_execution'),false)
+ const next=await store.saveRules(p.basic_info.id,'story_segments',rules,{previous:projectNodeStates(p).story_segments.rules})
+ assert.deepEqual(projectNodeStates(next).story_segments.rules,rules);assert.equal(Object.hasOwn(projectNodeStates(next).source_analysis,'rules'),false)
+ assert.equal(Object.hasOwn(projectNodeStates(next).story_segments,'last_execution'),false)
 })
 
 test('原稿人工修改创建新版本，旧来源文件及引用保持不变',async t=>{
@@ -31,19 +32,21 @@ test('原稿人工修改创建新版本，旧来源文件及引用保持不变',
  await assert.rejects(store.replaceSource(p.basic_info.id,'迟到覆盖',{expectedRevision:0}),{code:'EDIT_CONFLICT'})
 })
 
-test('各阶段人工产物可持久保存且旧版本写入会被拒绝',async t=>{
- const {store}=await fixture(t),p=await store.create({name:'编辑'})
- const plan={...p.adaptation_plan,creative_constraints:{...p.adaptation_plan.creative_constraints,style:'人工调整改编目标'}}
- const next=await store.saveProduct(p.basic_info.id,'adaptation_plan',plan,{expectedRevision:0})
- assert.equal((await store.read(p.basic_info.id)).adaptation_plan.creative_constraints.style,plan.creative_constraints.style)
- assert.equal(next.node_states.adaptation_plan.status,'draft')
- await assert.rejects(store.saveProduct(p.basic_info.id,'adaptation_plan',plan,{expectedRevision:0}),{code:'EDIT_CONFLICT'})
+test('新改编节点持久保存与重读，不要求或保存版本字段',async t=>{
+ const {store}=await fixture(t),p=await store.create({name:'编辑'}),plan={...p.adaptation_plan.data,style:'人工调整改编目标'}
+ const next=await store.saveProduct(p.basic_info.id,'adaptation_plan',plan)
+ assert.deepEqual((await store.read(p.basic_info.id)).adaptation_plan.data,plan)
+ assert.equal(next.adaptation_plan.state.status,'draft')
+ await store.saveProduct(p.basic_info.id,'adaptation_plan',{...plan,style:'再次调整'},{expectedRevision:999})
+ assert.equal((await store.read(p.basic_info.id)).adaptation_plan.data.style,'再次调整')
+ assert.equal(Object.hasOwn(next.adaptation_plan.state,'product_revision'),false)
 })
 
-test('同版本并发编辑只接受一个，不丢失已提交内容',async t=>{
+test('改编规划按写入队列顺序保存，后一次内容生效',async t=>{
  const {store}=await fixture(t),p=await store.create({name:'并发'})
- const results=await Promise.allSettled(['甲','乙'].map(goal=>store.saveProduct(p.basic_info.id,'adaptation_plan',{...p.adaptation_plan,creative_constraints:{...p.adaptation_plan.creative_constraints,style:goal}},{expectedRevision:0})))
- assert.equal(results.filter(row=>row.status==='fulfilled').length,1);assert.equal(results.filter(row=>row.status==='rejected')[0].reason.code,'EDIT_CONFLICT')
+ const results=await Promise.allSettled(['甲','乙'].map(style=>store.saveProduct(p.basic_info.id,'adaptation_plan',{...p.adaptation_plan.data,style})))
+ assert.equal(results.filter(row=>row.status==='fulfilled').length,2)
+ assert.equal((await store.read(p.basic_info.id)).adaptation_plan.data.style,'乙')
 })
 
 test('意见编辑也有旧值保护，产物保存不会清除意见',async t=>{
@@ -73,7 +76,7 @@ test('不迁移或静默接受旧JSON，禁止覆盖已存在短剧',async t=>{
 test('编辑资料与新原稿原子提交，冲突/坏原稿不半写，旧来源完整保留',async t=>{
  const {store}=await fixture(t),p=await store.create({name:'联合编辑',original_script:'旧原稿'}),id=p.basic_info.id,{id:unused,...value}=p.basic_info;value.name='新名称'
  await assert.rejects(store.saveBasicInfo(id,value,{expectedRevision:0,source:{text:'   ',original_name:'空稿.txt'}}),/原稿/);assert.deepEqual(await store.read(id),p)
- const next=await store.saveBasicInfo(id,value,{expectedRevision:0,source:{text:'新原稿',original_name:'新稿.txt'}});assert.equal(next.basic_info.name,'新名称');assert.equal(next.node_states.project.product_revision,1);assert.equal(next.source.revisions.length,2);assert.equal((await store.readArtifact(id,p.source.revisions[0].file_ref)).toString(),'旧原稿');assert.equal((await store.readArtifact(id,next.source.revisions[1].file_ref)).toString(),'新原稿')
+ const next=await store.saveBasicInfo(id,value,{expectedRevision:0,source:{text:'新原稿',original_name:'新稿.txt'}});assert.equal(next.basic_info.name,'新名称');assert.equal(projectNodeStates(next).project.product_revision,1);assert.equal(next.source.revisions.length,2);assert.equal((await store.readArtifact(id,p.source.revisions[0].file_ref)).toString(),'旧原稿');assert.equal((await store.readArtifact(id,next.source.revisions[1].file_ref)).toString(),'新原稿')
  await assert.rejects(store.saveBasicInfo(id,{...value,name:'迟到覆盖'},{expectedRevision:0,source:{text:'迟到原稿',original_name:'迟到.txt'}}),{code:'EDIT_CONFLICT'});assert.deepEqual(await store.read(id),next)
  const updated=await store.saveBasicInfo(id,{...value,name:'只改名称'},{expectedRevision:1});assert.deepEqual(updated.source,next.source)
 })

@@ -53,7 +53,7 @@ export function applyCandidate(next,unit,output,files={}){
 export async function prepareText(projects,project,input,{signal}={}){
  const id=project.basic_info.id,units=[];
     if(project.node_states.story_segments.status!=='confirmed'||!project.story_segments.segments.length)throw new TypeError('请先确认连续故事定稿')
-    for(const segment of project.story_segments.segments.filter(p=>!input.unit_id||p.id===input.unit_id))units.push({id:uid('unit'),kind:'shots',segment_id:segment.id,read_refs:[segment.body_ref],material:{segment,group_plans:project.adaptation_plan.group_plans,asset_index_ref:'snapshot:/asset_library',instruction:'先读本段正文与已有资产索引，复用稳定ID，输出当前段镜头及确需新增/更新的资产定义和素材需求。'}})
+    for(const segment of project.story_segments.segments.filter(p=>!input.unit_id||p.id===input.unit_id))units.push({id:uid('unit'),kind:'shots',segment_id:segment.id,read_refs:[segment.body_ref],material:{segment,group_plans:project.adaptation_plan.data.group_plans,asset_index_ref:'snapshot:/asset_library',instruction:'先读本段正文与已有资产索引，复用稳定ID，输出当前段镜头及确需新增/更新的资产定义和素材需求。'}})
 
  if(input.unit_id&&units.length===0)throw new TypeError('指定单元不存在');return units
 }
@@ -72,7 +72,7 @@ export async function prepareUnit(ctx,project,unit){
  const [body,continuity]=await Promise.all([read(segment.body_ref),segment.continuity_ref?read(segment.continuity_ref):''])
  ctx.signal.throwIfAborted()
  const current={assets:Object.fromEntries(Object.keys(project.asset_library).map(kind=>[kind,[]])),shots:project.shot_design.shots.filter(s=>s.story_segment_id===unit.segment_id),requirements:[]}
- const prepared={...unit,context_mode:'complete',read_refs:[],material:{segment:{title:segment.title,body,continuity},adaptation_plan:stripIdentifiers(project.adaptation_plan),asset_library:assetView(project.asset_library),current_shots:candidateView(project,current).shots,instruction:'本段完整正文、衔接、改编指导及已有资产内容已提供。只写分镜内容和人物、造型、场景、道具名称，不生成或复制任何ID、版本号、图片引用或素材需求记录。镜头、节拍、对白和资产标识由程序维护。名称按资料准确填写，同名须用明确完整名称区分；新增资产先在assets给出名称及定义。生成提交本段完整镜头数组，修订按当前候选shot_number提交局部修改。'}}
+ const prepared={...unit,context_mode:'complete',read_refs:[],material:{segment:{title:segment.title,body,continuity},adaptation_plan:stripIdentifiers(project.adaptation_plan.data),asset_library:assetView(project.asset_library),current_shots:candidateView(project,current).shots,instruction:'本段完整正文、衔接、改编指导及已有资产内容已提供。只写分镜内容和人物、造型、场景、道具名称，不生成或复制任何ID、版本号、图片引用或素材需求记录。镜头、节拍、对白和资产标识由程序维护。名称按资料准确填写，同名须用明确完整名称区分；新增资产先在assets给出名称及定义。生成提交本段完整镜头数组，修订按当前候选shot_number提交局部修改。'}}
  const unitRef=await this.projects.documents.writeArtifact(project.basic_info.id,JSON.stringify(prepared),{extension:'json'})
  return {unit:prepared,unitRef}
 }
