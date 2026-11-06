@@ -14,7 +14,7 @@ const panelStages=Object.freeze([
  ['adaptation_plan','adaptation_plan','改编规划'],
  ['story_segments','story_segments','故事分段'],
  ['asset_preparation','asset_preparation','核心资产准备'],
- ['shot_design','shot_design','文字分镜'],
+ ['shot_design','shot_design','分镜'],
  ['clip_arrangement','clip_arrangement','分片编排'],
  ['reference_binding','reference_binding','图片素材引用'],
  ['video_prompt','video_prompt','视频提示词'],
