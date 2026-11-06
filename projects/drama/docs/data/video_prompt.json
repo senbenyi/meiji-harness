@@ -1,0 +1,30 @@
+{
+  "id": "节点标识：video_prompt",
+  "type": "执行类型：ai（AI参与，包括文本、图片或视频生成）",
+  "data": {
+    "video_prompt": {
+      "items": [
+        {
+          "id": "稳定唯一标识",
+          "clip_id": "生成分片ID",
+          "mode": "视频生成模式；可选值：text、reference、first_frame",
+          "revision": "产物版本",
+          "prompt_ref": "视频提示词正文文件引用",
+          "reference_images": [
+            {
+              "$ref": "drama_detail_shared.json#/imageReference"
+            }
+          ],
+          "voice_references": [
+            {
+              "$ref": "drama_detail_shared.json#/voiceReference"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "state": {
+    "$ref": "drama_detail_shared.json#/textNodeState"
+  }
+}

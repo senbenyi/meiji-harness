@@ -9,6 +9,20 @@ import {projectStages,stageProduct} from '../shared/production/production_stages
 import {createTaskHistory} from '@agent-modules/task/ui'
 import {taskHistoryPresentation} from './ui/task-presentation.js'
 
+// 对齐a_drama_detail.json的data顺序；文档草案不作为运行时配置读取。
+const panelStages=Object.freeze([
+ ['adaptation_plan','adaptation_plan','改编规划'],
+ ['story_segments','story_segments','故事分段'],
+ ['asset_preparation','asset_preparation','核心资产准备'],
+ ['shot_design','shot_design','文字分镜'],
+ ['clip_arrangement','clip_arrangement','分片编排'],
+ ['reference_binding','reference_binding','图片素材引用'],
+ ['video_prompt','video_prompt','视频提示词'],
+ ['video_render','video_render','视频生成'],
+ ['video_editing','editing','视频剪辑'],
+ ['video_delivery','delivery','分集导出'],
+].map(([key,id,title])=>({...projectStages.find(stage=>stage.id===id),key,title})))
+
 const labels={empty:'未开始',partial:'未完成',draft:'待核对',confirmed:'已完成',rejected:'未通过'}
 // 状态仅用于展示：有候选不等于完成，真实活动任务优先于历史终态。
 function workflowStatus(node,stage,active,execution){
@@ -27,7 +41,7 @@ export function createProjectDocumentView(root,{project:initial,executionStates:
  const isActiveConflict=cause=>cause.code==='PROJECT_ACTIVE'||['短剧已有执行任务','短剧任务正在执行'].includes(cause.message)
  const setError=(cause,stage=state.documentStage)=>errors.set(stage,{message:cause.message,activeConflict:isActiveConflict(cause)})
  const memoryPanel=createMemoryPanel(root,{request})
- state.documentStage||='project'
+ state.documentStage=panelStages.find(stage=>stage.key===state.documentStage||stage.id===state.documentStage)?.id||(state.documentStage==='project'?'project':panelStages[0].id)
  const acceptProject=next=>{for(const key of Object.keys(next.node_states)){if(state.documentOpinions?.[key]===project.node_states[key]?.opinion)state.documentOpinions[key]=next.node_states[key].opinion}project=next}
  const button=(text,action,className='')=>{const b=element('button',text,className);b.type='button';b.onclick=action;b.disabled=!action;return b}
  const commit=async command=>{if(!save)throw new Error('保存接口不可用');const stage=command.stage||command.node_type||state.documentStage;busy=true;try{const result=await save(command);if(alive&&result?.basic_info)acceptProject(result);errors.delete(stage);return result}finally{busy=false}}
@@ -91,20 +105,27 @@ export function createProjectDocumentView(root,{project:initial,executionStates:
   void load()
  }
  function paint(){if(!alive||recordView)return;const error=errors.get(state.documentStage)?.message||'';mediaControls?.dispose();sourceControlsDispose?.();sourceControlsDispose=null;root.replaceChildren();root.classList.add('project-production','production-workspace')
-  const statuses=new Map(projectStages.map(stage=>[stage.id,workflowStatus(project.node_states[stage.id],stage.id,active,executionStates[stage.id])])),completed=[...statuses.values()].filter(s=>s.tone==='complete').length
+  const statuses=new Map(projectStages.map(stage=>[stage.id,workflowStatus(project.node_states[stage.id],stage.id,active,executionStates[stage.id])])),completed=panelStages.filter(stage=>statuses.get(stage.id).tone==='complete').length
   const head=element('header','','production-project-header'),identity=element('div','','production-project-identity'),tools=element('nav','','production-project-tools')
-  identity.append(element('h2',project.basic_info.name),element('span',`已完成 ${completed} / ${projectStages.length}`,'production-progress'));tools.setAttribute('aria-label','短剧记忆工具');if(request)tools.append(button('短剧记忆',()=>memoryPanel.open('project')),button('Drama通用偏好',()=>memoryPanel.open('engineering')));if(remove)tools.append(button('删除短剧',remove,'production-danger'));head.append(identity,tools);root.append(head)
+  identity.append(element('h2',project.basic_info.name),element('span',`已完成 ${completed} / ${panelStages.length}`,'production-progress'));tools.setAttribute('aria-label','短剧记忆工具');if(request)tools.append(button('短剧记忆',()=>memoryPanel.open('project')),button('Drama通用偏好',()=>memoryPanel.open('engineering')));if(remove)tools.append(button('删除短剧',remove,'production-danger'));head.append(identity,tools);root.append(head)
   const layout=element('div','','production-layout'),workflow=element('aside','','production-workflow'),nav=element('nav','','production-step-nav stage-overview'),body=element('section','','production-step-content session-body'),workflowHead=element('div','','production-workflow-heading'),legend=element('div','','production-workflow-legend')
-  workflowHead.append(element('h3','制作流程'),element('span',`${projectStages.length} 个步骤`));for(const [tone,text]of [['complete','完成'],['error','未通过 / 失败'],['pending','未完成']]){const item=element('span',text);item.dataset.tone=tone;legend.append(item)}workflow.append(workflowHead,legend,nav)
+  workflowHead.append(element('h3','制作流程'),element('span',`${panelStages.length} 个步骤`));for(const [tone,text]of [['complete','完成'],['error','未通过 / 失败'],['pending','未完成']]){const item=element('span',text);item.dataset.tone=tone;legend.append(item)}workflow.append(workflowHead,legend,nav)
   nav.setAttribute('role','tablist');nav.setAttribute('aria-label','短剧制作步骤');nav.setAttribute('aria-orientation','vertical');body.setAttribute('role','tabpanel');body.id=`product-${project.basic_info.id}`
-  for(const [index,stage]of projectStages.entries()){
+  for(const [index,stage]of panelStages.entries()){
    const status=statuses.get(stage.id),selected=stage.id===state.documentStage,b=button('',()=>{state.documentStage=stage.id;paint();root.querySelector('[aria-selected=true]')?.focus()},'stage')
    const marker=element('span','','production-step-marker'),copy=element('span','','production-step-copy');marker.setAttribute('aria-hidden','true');copy.append(element('span',`${index+1}. ${stage.title}`,'production-step-title'));if(status.tone==='error'||status.running||['待核对','已停止'].includes(status.label))copy.append(element('small',status.label,'production-step-status'));b.append(marker,copy);b.dataset.tone=status.tone;b.dataset.running=String(!!status.running);b.setAttribute('aria-label',`${index+1}. ${stage.title}，${status.label}`)
-   b.id=`step-${stage.id}`;b.dataset.stage=stage.id;b.setAttribute('role','tab');b.setAttribute('aria-selected',String(selected));b.setAttribute('aria-controls',body.id);b.tabIndex=selected?0:-1
-   b.onkeydown=event=>{const move={ArrowDown:1,ArrowUp:-1,ArrowRight:1,ArrowLeft:-1}[event.key];let target;if(move)target=(index+move+projectStages.length)%projectStages.length;else if(event.key==='Home')target=0;else if(event.key==='End')target=projectStages.length-1;if(target===undefined)return;event.preventDefault();state.documentStage=projectStages[target].id;paint();root.querySelector('[aria-selected=true]')?.focus()}
+   b.id=`step-${stage.id}`;b.dataset.stage=stage.id;b.dataset.node=stage.key;b.setAttribute('role','tab');b.setAttribute('aria-selected',String(selected));b.setAttribute('aria-controls',body.id);b.tabIndex=selected||!panelStages.some(row=>row.id===state.documentStage)&&index===0?0:-1
+   b.onkeydown=event=>{const move={ArrowDown:1,ArrowUp:-1,ArrowRight:1,ArrowLeft:-1}[event.key];let target;if(move)target=(index+move+panelStages.length)%panelStages.length;else if(event.key==='Home')target=0;else if(event.key==='End')target=panelStages.length-1;if(target===undefined)return;event.preventDefault();state.documentStage=panelStages[target].id;paint();root.querySelector('[aria-selected=true]')?.focus()}
    nav.append(b)
   }
-  const stage=projectStages.find(row=>row.id===state.documentStage)||projectStages[0],node=project.node_states[stage.id],section=element('section','','production-section script-node'),title=element('div','','section-head')
+  const resources=element('nav','','production-project-nav');resources.setAttribute('aria-label','剧本资料')
+  for(const id of ['project']){
+   const stage=projectStages.find(row=>row.id===id),status=statuses.get(id),selected=id===state.documentStage,b=button(stage.title,()=>{state.documentStage=id;paint();root.querySelector(`[data-stage=${id}]`)?.focus()},'production-project-link')
+   b.id=`step-${id}`;b.dataset.stage=id;b.dataset.tone=status.tone;b.dataset.running=String(!!status.running);b.setAttribute('aria-label',`${stage.title}，${status.label}`);b.setAttribute('aria-pressed',String(selected));b.setAttribute('aria-controls',body.id);resources.append(b)
+   if(status.tone==='error'||status.running||['待核对','已停止'].includes(status.label))b.append(element('small',status.label,'production-step-status'))
+  }
+  workflow.prepend(element('h4','剧本资料','production-project-nav-title'),resources)
+  const stage=panelStages.find(row=>row.id===state.documentStage)||projectStages.find(row=>row.id===state.documentStage)||panelStages[0],node=project.node_states[stage.id],section=element('section','','production-section script-node'),title=element('div','','section-head')
   section.dataset.nodeType=stage.id;section.dataset.status=node.status;section.dataset.tone=statuses.get(stage.id).tone;title.append(element('h3',stage.title),element('span',statuses.get(stage.id).label,'node-data-tag'));section.append(title)
   const ui=element('div','','node-ui'),toolbar=element('div','','node-ui-buttons'),records=element('nav','','node-ui-records'),actions=element('div','','node-ui-execution')
   records.append(button('任务历史',request?()=>showHistory(stage):undefined))

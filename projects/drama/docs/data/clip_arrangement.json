@@ -1,0 +1,29 @@
+{
+  "id": "节点标识：clip_arrangement",
+  "type": "执行类型：program（程序运行）",
+  "data": {
+    "clip_arrangement": {
+      "clips": [
+        {
+          "id": "稳定唯一标识",
+          "sequence": "全局顺序序号，从1开始",
+          "duration_seconds": "时长（秒）；生成分片4至15秒",
+          "sources": [
+            {
+              "shot_id": "镜头ID",
+              "beat_ids": [
+                "分片包含的镜头节拍id"
+              ]
+            }
+          ],
+          "mode": "视频生成模式；可选值：text、reference、first_frame",
+          "first_image_id": "首帧图片ID，可为空",
+          "last_image_id": "尾帧图片ID，可为空"
+        }
+      ]
+    }
+  },
+  "state": {
+    "$ref": "drama_detail_shared.json#/programNodeState"
+  }
+}

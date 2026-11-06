@@ -33,8 +33,7 @@ test('V3空短剧不包含旧优化/重复资产/output包装，状态与业务�
  for(const stage of projectStages)assert.equal(Object.hasOwn(p[stage.field],'node_state'),false)
 })
 
-test('文档参考Schema和示例与真实契约一致，不能运行时读取文档作为模板',async()=>{
- assert.deepEqual(JSON.parse(await readFile(new URL('../docs/drama_v4.schema.json',import.meta.url),'utf8')),projectDocumentSchema)
+test('文档示例符合真实契约，不能运行时读取文档作为模板',async()=>{
  assertProjectDocument(JSON.parse(await readFile(new URL('../docs/drama_v4.example.json',import.meta.url),'utf8')))
 })
 
@@ -101,24 +100,43 @@ test('步骤按类型只保存实际需要的规则与检查点，退役字段�
 })
 
 test('字段详解覆盖当前全部运行字段，注释不改变真实Schema',async()=>{
- const detail=JSON.parse(await readFile(new URL('../docs/drama_detail.json',import.meta.url),'utf8'))
- function expand(value,seen=new Set()){
-  if(Array.isArray(value))return value.map(item=>expand(item,seen))
+ const detailUrl=new URL('../docs/drama_detail.json',import.meta.url)
+ const documents=new Map()
+ async function load(url){
+  const key=url.href
+  if(!documents.has(key))documents.set(key,JSON.parse(await readFile(url,'utf8')))
+  return documents.get(key)
+ }
+ const detail=await load(detailUrl)
+ async function expand(value,base=detailUrl,seen=new Set()){
+  if(Array.isArray(value))return Promise.all(value.map(item=>expand(item,base,seen)))
   if(!value||typeof value!=='object')return value
   if(value.$ref){
-   const ref=value.$ref;assert.match(ref,/^#\/\$defs\/[A-Za-z][A-Za-z0-9]*$/);assert.ok(!seen.has(ref),'文档引用不能循环：'+ref)
-   const target=detail.$defs?.[ref.slice('#/$defs/'.length)];assert.ok(target,'文档引用不存在：'+ref)
-   const {$ref,...annotations}=value;return expand({...target,...annotations},new Set([...seen,ref]))
+   const url=new URL(value.$ref,base),key=url.href
+   assert.equal(new URL('.',url).href,new URL('.',detailUrl).href,'节点文档必须在同一目录')
+   assert.ok(['drama_detail.json','drama_detail_shared.json',...projectStages.map(stage=>stage.id+'.json')].includes(url.pathname.split('/').at(-1)),'未知节点文档：'+key)
+   assert.ok(!seen.has(key),'文档引用不能循环：'+key)
+   const fragment=decodeURIComponent(url.hash.slice(1));url.hash=''
+   assert.match(fragment,/^\/\$defs\/[A-Za-z][A-Za-z0-9_]*$/)
+   const document=await load(url),target=document.$defs?.[fragment.slice('/$defs/'.length)]
+   assert.ok(target,'文档引用不存在：'+key)
+   const {$ref,...annotations}=value
+   return {...await expand(target,url,new Set([...seen,key])),...await expand(annotations,base,seen)}
   }
-  return Object.fromEntries(Object.entries(value).filter(([key])=>key!=='$defs').map(([key,item])=>[key,expand(item,seen)]))
+  return Object.fromEntries(await Promise.all(Object.entries(value).filter(([key])=>key!=='$defs').map(async([key,item])=>[key,await expand(item,base,seen)])))
+ }
+ for(const stage of projectStages){
+  assert.deepEqual(detail.properties.node_states.properties[stage.id],{$ref:`${stage.id}.json#/$defs/nodeState`})
+  const node=await load(new URL(`${stage.id}.json`,detailUrl))
+  assert.ok(node.$defs[stage.field],'节点文件缺少对应产物：'+stage.id)
  }
  function strip(value){if(Array.isArray(value))return value.map(strip);if(!value||typeof value!=='object')return value;return Object.fromEntries(Object.entries(value).filter(([key,value])=>!(typeof value==='string'&&['description','$comment'].includes(key))).map(([key,value])=>[key,strip(value)]))}
  function check(value){for(const schema of Object.values(value.properties||{}))assert.ok(schema.description);for(const item of Object.values(value))if(Array.isArray(item))item.filter(v=>v&&typeof v==='object').forEach(check);else if(item&&typeof item==='object')check(item)}
- const expanded=expand(detail)
- check(expanded);assert.deepEqual(strip(expanded),strip(projectDocumentSchema));assert.equal(detail.properties.adaptation_plan.properties.creative_constraints.description,projectDocumentSchema.properties.adaptation_plan.properties.creative_constraints.description)
- assert.equal(Object.hasOwn(detail.properties.source_analysis.properties,'facts_ref'),false)
- assert.match(detail.properties.adaptation_plan.properties.group_plans.items.properties.social_role.description,/团队身份/)
- assert.equal(detail.properties.basic_info.properties.id.description,'稳定唯一标识')
+ const expanded=await expand(detail)
+ check(expanded);assert.deepEqual(strip(expanded),strip(projectDocumentSchema));assert.equal(expanded.properties.adaptation_plan.properties.creative_constraints.description,projectDocumentSchema.properties.adaptation_plan.properties.creative_constraints.description)
+ assert.equal(Object.hasOwn(expanded.properties.source_analysis.properties,'facts_ref'),false)
+ assert.match(expanded.properties.adaptation_plan.properties.group_plans.items.properties.social_role.description,/团队身份/)
+ assert.equal(expanded.properties.basic_info.properties.id.description,'稳定唯一标识')
  for(const key of ['group_setting','character_extraction','scene_extraction','change_plans'])assert.equal(Object.hasOwn(detail.properties,key),false)
 })
 

@@ -1,0 +1,33 @@
+{
+  "id": "节点标识：asset_preparation",
+  "type": "执行类型：ai（AI参与，包括文本、图片或视频生成）",
+  "data": {
+    "characters": [
+        {
+          "id": "稳定唯一标识",
+          "name": "名称",
+          "description": "描述",
+          "image_id":""
+        }
+      ],
+      "props": [
+        {
+          "id": "稳定唯一标识",
+          "name": "名称",
+          "description": "描述",
+          "image_id": "素材对应的共享图片库图片id"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "稳定唯一标识",
+          "name": "名称",
+          "description": "描述:固定空间布局,出入口,固定地标",
+          "image_id":"素材对应的共享图片库图片id"
+        }
+      ]
+  },
+  "state": {
+    "$ref": "drama_detail_shared.json#/mediaNodeState"
+  }
+}

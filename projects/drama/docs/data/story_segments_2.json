@@ -1,0 +1,14 @@
+{
+  "id": "节点标识：story_segments",
+  "type": "执行类型：ai（AI参与，包括文本、图片或视频生成）",
+  "data": [
+    {
+      "id": "稳定唯一标识",
+      "title": "标题",
+      "body": "改编后完整剧本的本段正文文件引用；各段按sequence组成可独立阅读的完整故事。"
+    }
+  ],
+  "state": {
+    "$ref": "drama_detail_shared.json#/textNodeState"
+  }
+}

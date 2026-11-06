@@ -1,0 +1,30 @@
+{
+  "id": "节点标识：video_render",
+  "type": "执行类型：ai（AI参与，包括文本、图片或视频生成）",
+  "data": {
+    "videos": [
+      {
+        "id": "稳定唯一标识",
+        "clip_id": "生成分片ID",
+        "mode": "视频生成模式；可选值：text、reference、first_frame",
+        "prompt_id": "实际使用的提示词ID",
+        "prompt_revision": "实际使用的提示词版本",
+        "file_ref": "短剧内不可变文件相对路径",
+        "duration_seconds": "实际媒体时长（秒）",
+        "input_snapshot_ref": "不可变执行输入快照引用",
+        "reference_image_ids": [
+          "本次视频生成实际使用的参考图片id"
+        ],
+        "voice_references": [
+          {
+            "$ref": "drama_detail_shared.json#/voiceReference"
+          }
+        ],
+        "status": "状态；可选值：candidate、approved、rejected"
+      }
+    ]
+  },
+  "state": {
+    "$ref": "drama_detail_shared.json#/mediaNodeState"
+  }
+}

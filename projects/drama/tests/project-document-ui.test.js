@@ -2,16 +2,51 @@ import {makePlan} from './helpers/adaptation-plan.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {JSDOM} from 'jsdom'
+import {readFile} from 'node:fs/promises'
 import {projectDialog} from '../src/node_box/project/ui/panel/project-forms.js'
 import {createProjectDocumentView} from '../src/client/project-document-view.js'
 import {createProjectDocument,editProjectProduct} from '../src/drama_runtime/drama_document.js'
 const tick=()=>new Promise(r=>setImmediate(r))
 function fixture(t){const dom=new JSDOM('<main/>'),previous=globalThis.document;dom.window.HTMLDialogElement.prototype.show=function(){this.open=true};dom.window.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new dom.window.Event('close'))};globalThis.document=dom.window.document;t.after(()=>{globalThis.document=previous;dom.window.close()});return {dom,root:document.querySelector('main')}}
-test('新文档左侧12步骤，键盘切换且每一步提供编辑或原稿导入',t=>{
+test('左侧十个制作tab对齐文档顺序，默认改编规划，键盘切换与内容对应',async t=>{
  const {dom,root}=fixture(t),p=createProjectDocument({id:'p_ui',name:'新流程'}),view=createProjectDocumentView(root,{project:p,save:async()=>p,request:async()=>({body:''})});t.after(()=>view.dispose())
- assert.equal(root.querySelector('[role=tablist]').getAttribute('aria-orientation'),'vertical');assert.equal(root.querySelectorAll('[role=tab]').length,12)
- for(const tab of root.querySelectorAll('[role=tab]')){tab.click();assert.ok([...root.querySelectorAll('button')].some(b=>/人工编辑产物|本地导入/.test(b.textContent)))}
- root.querySelector('[data-stage=project]').click();root.querySelector('[aria-selected=true]').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));assert.equal(root.querySelector('[aria-selected=true]').dataset.stage,'source_analysis')
+ const design=JSON.parse(await readFile(new URL('../docs/a_drama_detail.json',import.meta.url),'utf8'))
+ const tabs=()=>[...root.querySelectorAll('[role=tab]')],selected=()=>root.querySelector('[aria-selected=true]')
+ assert.equal(root.querySelector('[role=tablist]').getAttribute('aria-orientation'),'vertical')
+ assert.deepEqual(tabs().map(tab=>tab.dataset.node),Object.keys(design.data))
+ assert.deepEqual(tabs().map(tab=>tab.dataset.stage),['adaptation_plan','story_segments','asset_preparation','shot_design','clip_arrangement','reference_binding','video_prompt','video_render','editing','delivery'])
+ assert.equal(tabs()[0].querySelector('.production-step-title').textContent,'1. 改编规划')
+ assert.equal(tabs()[5].querySelector('.production-step-title').textContent,'6. 图片素材引用')
+ assert.equal(selected().dataset.stage,'adaptation_plan')
+ assert.equal(root.querySelector('.production-workflow-heading span').textContent,'10 个步骤')
+ assert.deepEqual([...root.querySelector('.production-workflow').children].slice(0,3).map(node=>node.className),['production-project-nav-title','production-project-nav','production-workflow-heading'])
+ for(const tab of tabs()){
+  tab.click()
+  assert.equal(root.querySelector('.production-section').dataset.nodeType,tab.dataset.stage)
+  assert.equal(root.querySelector('[role=tabpanel]').getAttribute('aria-labelledby'),'step-'+tab.dataset.stage)
+  assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent==='人工编辑产物'))
+ }
+ const key=value=>selected().dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:value,bubbles:true}))
+ key('Home');assert.equal(selected().dataset.stage,'adaptation_plan')
+ key('ArrowDown');assert.equal(selected().dataset.stage,'story_segments')
+ key('ArrowDown');assert.equal(selected().dataset.stage,'asset_preparation')
+ key('End');assert.equal(selected().dataset.stage,'delivery')
+ key('ArrowDown');assert.equal(selected().dataset.stage,'adaptation_plan')
+ key('ArrowUp');assert.equal(selected().dataset.stage,'delivery')
+ assert.equal(document.activeElement,selected())
+ root.querySelector('[data-stage=project]').click()
+ assert.equal(selected(),null);assert.equal(root.querySelectorAll('[role=tab][tabindex="0"]').length,1)
+ assert.equal(root.querySelector('[data-stage=project]').getAttribute('aria-pressed'),'true')
+ assert.ok(root.querySelector('.project-script-import'))
+})
+test('文档剪辑导出节点映射原运行功能，未知选择回到首个tab',t=>{
+ const {root}=fixture(t),p=createProjectDocument({id:'p_alias',name:'节点映射'})
+ for(const [key,id,title]of [['video_editing','editing','视频剪辑'],['video_delivery','delivery','分集导出'],['unknown','adaptation_plan','改编规划']]){
+  const state={documentStage:key},view=createProjectDocumentView(root,{project:p,state})
+  assert.equal(state.documentStage,id);assert.equal(root.querySelector('[aria-selected=true]').dataset.stage,id)
+  assert.equal(root.querySelector('.production-section h3').textContent,title)
+  view.dispose()
+ }
 })
 test('产物编辑保存携带原版本，失败保留输入且不会修改只读规则',async t=>{
  const {root}=fixture(t);let p=createProjectDocument({id:'p_ui',name:'编辑'}),command,fail=true
@@ -23,10 +58,10 @@ test('产物编辑保存携带原版本，失败保留输入且不会修改只�
 })
 
 test('流程状态依据完成、未通过和真实失败，候选/取消不当完成，更新同步导航与标题',t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_flow',name:'流程状态'});p.node_states.project.status='confirmed';p.node_states.source_analysis.status='rejected';p.node_states.adaptation_plan.status='draft';p.node_states.story_segments.status='confirmed';const executionStates={story_segments:{task_id:'failed',status:'failed',reason:'模型连接失败'},shot_design:{task_id:'cancelled',status:'cancelled',reason:'用户停止'}}
- const state={documentStage:'story_segments'},view=createProjectDocumentView(root,{project:p,state,executionStates});t.after(()=>view.dispose());const tab=id=>root.querySelector(`[role=tab][data-stage=${id}]`)
- assert.equal(tab('project').dataset.tone,'complete');assert.equal(tab('source_analysis').dataset.tone,'error');assert.equal(tab('adaptation_plan').dataset.tone,'pending');assert.match(tab('adaptation_plan').textContent,/待核对/);assert.equal(tab('story_segments').dataset.tone,'error');assert.match(tab('shot_design').textContent,/已停止/);assert.match(root.querySelector('.production-progress').textContent,/1 \/ 12/);assert.equal(root.querySelector('.production-section').dataset.tone,'error');assert.match(root.querySelector('[role=status]').textContent,/模型连接失败/)
- const next=structuredClone(p);next.node_states.story_segments.status='confirmed';executionStates.story_segments.status='completed';view.update(next,{executionStates});assert.equal(tab('story_segments').dataset.tone,'complete');assert.match(root.querySelector('.production-section .node-data-tag').textContent,/已完成/);assert.match(root.querySelector('.production-progress').textContent,/2 \/ 12/)
+ const {root}=fixture(t),p=createProjectDocument({id:'p_flow',name:'流程状态'});p.node_states.project.status='confirmed';p.node_states.clip_arrangement.status='rejected';p.node_states.adaptation_plan.status='draft';p.node_states.story_segments.status='confirmed';const executionStates={story_segments:{task_id:'failed',status:'failed',reason:'模型连接失败'},shot_design:{task_id:'cancelled',status:'cancelled',reason:'用户停止'}}
+ const state={documentStage:'story_segments'},view=createProjectDocumentView(root,{project:p,state,executionStates});t.after(()=>view.dispose());const tab=id=>root.querySelector(`[data-stage=${id}]`)
+ assert.equal(tab('project').dataset.tone,'complete');assert.equal(tab('clip_arrangement').dataset.tone,'error');assert.equal(tab('adaptation_plan').dataset.tone,'pending');assert.match(tab('adaptation_plan').textContent,/待核对/);assert.equal(tab('story_segments').dataset.tone,'error');assert.match(tab('shot_design').textContent,/已停止/);assert.match(root.querySelector('.production-progress').textContent,/0 \/ 10/);assert.equal(root.querySelector('.production-section').dataset.tone,'error');assert.match(root.querySelector('[role=status]').textContent,/模型连接失败/)
+ const next=structuredClone(p);next.node_states.story_segments.status='confirmed';executionStates.story_segments.status='completed';view.update(next,{executionStates});assert.equal(tab('story_segments').dataset.tone,'complete');assert.match(root.querySelector('.production-section .node-data-tag').textContent,/已完成/);assert.match(root.querySelector('.production-progress').textContent,/1 \/ 10/)
 })
 
 test('续接按钮直接使用独立任务状态的group，不再查询历史或依赖JSON缓存',async t=>{
@@ -43,20 +78,20 @@ test('续接按钮直接使用独立任务状态的group，不再查询历史或
 })
 
 test('活动执行优先于旧失败，不把执行中染为完成或错误',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_active',name:'运行状态'});p.node_states.source_analysis.status='partial';const execution_states={source_analysis:{task_id:'old',status:'failed',reason:'上次失败'}}
- const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},sessionId:'session',request:async()=>({project:p,execution_states,active_execution:{group:{id:'active'},task:{node_type:'source_analysis',metadata:{production:true}}}})});t.after(()=>view.dispose());await tick();const tab=root.querySelector('[data-stage=source_analysis]');assert.equal(tab.dataset.running,'true');assert.equal(tab.dataset.tone,'pending');assert.match(tab.textContent,/执行中/);assert.match(root.querySelector('.production-section .node-data-tag').textContent,/执行中/)
+ const {root}=fixture(t),p=createProjectDocument({id:'p_active',name:'运行状态'});p.node_states.clip_arrangement.status='partial';const execution_states={clip_arrangement:{task_id:'old',status:'failed',reason:'上次失败'}}
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'clip_arrangement'},sessionId:'session',request:async()=>({project:p,execution_states,active_execution:{group:{id:'active'},task:{node_type:'clip_arrangement',metadata:{production:true}}}})});t.after(()=>view.dispose());await tick();const tab=root.querySelector('[data-stage=clip_arrangement]');assert.equal(tab.dataset.running,'true');assert.equal(tab.dataset.tone,'pending');assert.match(tab.textContent,/执行中/);assert.match(root.querySelector('.production-section .node-data-tag').textContent,/执行中/)
 })
 
 test('短剧信息在短剧与原稿编辑，删除在顶部工具末尾，版本和意见保留',async t=>{
  const {dom,root}=fixture(t);let p=createProjectDocument({id:'p_layout',name:'入口调整'}),saved,removed=0;const state={documentStage:'delivery'},view=createProjectDocumentView(root,{project:p,state,remove:()=>removed++,request:async()=>({}),save:async c=>{saved=c;p={...p,basic_info:{...p.basic_info,...c.value}};return p}});t.after(()=>view.dispose());const buttons=label=>[...root.querySelectorAll('button')].filter(b=>b.textContent===label),click=label=>buttons(label)[0].click()
  assert.equal(buttons('编辑短剧信息').length,0);assert.equal(buttons('删除短剧').length,1);assert.equal(root.querySelectorAll('.production-project-tools button').length,3);assert.equal(root.querySelector('.production-project-tools').lastElementChild.textContent,'删除短剧');assert.equal(buttons('执行本步骤').length,0);assert.equal(buttons('按设置分集并导出').length,1)
- root.querySelector('[data-stage=source_analysis]').click();assert.equal(root.querySelector('.node-ui-execution button').textContent,'执行本步骤');const opinion=root.querySelector('.node-ui-opinion');opinion.value='尊重原著，保留对白';opinion.dispatchEvent(new dom.window.Event('input'));root.querySelector('[data-stage=project]').click();assert.equal(buttons('编辑短剧信息').length,1);assert.equal(root.querySelector('.production-project-header').textContent.includes('编辑短剧信息'),false);click('编辑短剧信息');assert.equal(root.querySelector('dialog textarea'),null);const input=root.querySelector('dialog [name=title]');input.value='新标题';await root.querySelector('dialog form').onsubmit({preventDefault(){}});await tick();assert.equal(saved.kind,'basic_info');assert.equal(saved.expected_revision,0);assert.match(root.querySelector('.production-project-header h2').textContent,/新标题/);assert.equal(removed,0);click('删除短剧');assert.equal(removed,1);root.querySelector('[data-stage=source_analysis]').click();assert.equal(root.querySelector('.node-ui-opinion').value,'尊重原著，保留对白')
+ root.querySelector('[data-stage=clip_arrangement]').click();assert.equal(root.querySelector('.node-ui-execution button').textContent,'执行本步骤');const opinion=root.querySelector('.node-ui-opinion');opinion.value='尊重原著，保留对白';opinion.dispatchEvent(new dom.window.Event('input'));root.querySelector('[data-stage=project]').click();assert.equal(buttons('编辑短剧信息').length,1);assert.equal(root.querySelector('.production-project-header').textContent.includes('编辑短剧信息'),false);click('编辑短剧信息');assert.equal(root.querySelector('dialog textarea'),null);const input=root.querySelector('dialog [name=title]');input.value='新标题';await root.querySelector('dialog form').onsubmit({preventDefault(){}});await tick();assert.equal(saved.kind,'basic_info');assert.equal(saved.expected_revision,0);assert.match(root.querySelector('.production-project-header h2').textContent,/新标题/);assert.equal(removed,0);click('删除短剧');assert.equal(removed,1);root.querySelector('[data-stage=clip_arrangement]').click();assert.equal(root.querySelector('.node-ui-opinion').value,'尊重原著，保留对白')
 })
 
 
 test('短剧编辑复用旧字段弹框，失败保留输入/自定义语言，取消和销毁清理遮罩',async t=>{
  const {root}=fixture(t);let p=createProjectDocument({id:'p_form',name:'旧标题',output_language:'fr'}),command,fail=true;p.node_states.project.product_revision=4
- const view=createProjectDocumentView(root,{project:p,save:async value=>{command=value;if(fail)throw new Error('版本冲突，请刷新');p={...p,basic_info:{...p.basic_info,...value.value}};return p}});t.after(()=>view.dispose());const edit=()=>[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑短剧信息').click()
+ const view=createProjectDocumentView(root,{project:p,save:async value=>{command=value;if(fail)throw new Error('版本冲突，请刷新');p={...p,basic_info:{...p.basic_info,...value.value}};return p}});t.after(()=>view.dispose());root.querySelector('[data-stage=project]').click();const edit=()=>[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑短剧信息').click()
  edit();let dialog=root.querySelector('dialog');assert.ok(dialog.querySelector('form.create'));assert.equal(dialog.querySelector('textarea'),null);assert.equal(dialog.querySelector('[name=id]'),null);assert.equal(dialog.querySelector('[name=reference_episode_duration_seconds]'),null);assert.equal(dialog.querySelector('[name=output_language]'),null);dialog.querySelector('[name=title]').value='保留输入';dialog.querySelector('[name=aspect]').value='16:9';dialog.querySelector('[name=mode]').value='free';await dialog.querySelector('form').onsubmit({preventDefault(){}});assert.equal(dialog.open,true);assert.match(dialog.querySelector('[role=alert]').textContent,/版本冲突/);assert.equal(dialog.querySelector('[name=title]').value,'保留输入');assert.equal(command.expected_revision,4)
  fail=false;await dialog.querySelector('form').onsubmit({preventDefault(){}});assert.equal(root.querySelector('dialog'),null);assert.equal(p.basic_info.output_language,'fr');assert.equal(p.basic_info.id,'p_form');assert.equal(p.basic_info.creation_mode,'自由创作');assert.equal(p.basic_info.aspect_ratio,'16:9');assert.equal(root.querySelector('.panel-dialog-overlay'),null)
  edit();[...root.querySelectorAll('dialog button')].find(b=>b.textContent==='取消').click();assert.equal(root.querySelector('.panel-dialog-overlay'),null);edit();view.dispose();assert.equal(root.querySelectorAll('dialog,.panel-dialog-overlay').length,0)
@@ -69,74 +104,82 @@ test('添加短剧保持原创建弹框与导入字段，不要求填写JSON',as
 
 test('编辑与添加共用创建表单，回填当前原稿且不读正文，换稿随资料一次提交',async t=>{
  const {root}=fixture(t),p=createProjectDocument({id:'p_shared',name:'已有短剧',output_language:'fr'});p.source={current_revision_id:'src_old',revisions:[{id:'src_old',file_ref:'sources/old.txt',original_name:'旧稿.txt',character_count:10000000}]};let command;const requests=[]
- const view=createProjectDocumentView(root,{project:p,request:async path=>{requests.push(path);if(path==='library')return {assets:[{id:'script_one',category:'scripts',originalName:'素材新稿.txt'}]};if(path==='library/scripts/script_one')return {body:'新的完整原稿'};throw Error('不应读取旧原稿')},save:async value=>{command=value;return p}});t.after(()=>view.dispose());[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑短剧信息').click();const dialog=root.querySelector('dialog');assert.ok(dialog.querySelector('form.create'));assert.equal(dialog.querySelector('[name=title]').value,'已有短剧');assert.match(dialog.querySelector('.script-selected').textContent,/旧稿.txt/);assert.equal(requests.length,0);assert.equal(dialog.querySelector('textarea'),null)
+ const view=createProjectDocumentView(root,{project:p,request:async path=>{requests.push(path);if(path==='library')return {assets:[{id:'script_one',category:'scripts',originalName:'素材新稿.txt'}]};if(path==='library/scripts/script_one')return {body:'新的完整原稿'};throw Error('不应读取旧原稿')},save:async value=>{command=value;return p}});t.after(()=>view.dispose());root.querySelector('[data-stage=project]').click();[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑短剧信息').click();const dialog=root.querySelector('dialog');assert.ok(dialog.querySelector('form.create'));assert.equal(dialog.querySelector('[name=title]').value,'已有短剧');assert.match(dialog.querySelector('.script-selected').textContent,/旧稿.txt/);assert.equal(requests.length,0);assert.equal(dialog.querySelector('textarea'),null)
  await dialog.querySelector('.script-choose').onclick();const picker=dialog.querySelector('.script-picker');picker.value='script_one';await picker.onchange();dialog.querySelector('[name=title]').value='新资料';await dialog.querySelector('form').onsubmit({preventDefault(){}});assert.equal(command.kind,'basic_info');assert.equal(command.value.output_language,'fr');assert.equal(command.value.name,'新资料');assert.deepEqual(command.source,{text:'新的完整原稿',original_name:'素材新稿.txt'});assert.equal(command.expected_revision,0);assert.equal(root.querySelector('dialog'),null)
 })
 
 test('原稿页仅本地与素材库导入，库导入带版本；切换后迟到读取不提交',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_imports',name:'双入口'});let command,release,held=false;const state={};const view=createProjectDocumentView(root,{project:p,state,request:async path=>path==='library'?{assets:[{id:'script',category:'scripts',originalName:'素材.txt'}]}:held?new Promise(resolve=>{release=()=>resolve({body:'迟到原稿'})}):{body:'库原稿'},save:async value=>{command=value;return p}});t.after(()=>view.dispose());assert.equal([...root.querySelectorAll('button')].some(b=>b.textContent==='导入/修改原稿'),false);assert.equal(root.querySelector('textarea'),null)
+ const {root}=fixture(t),p=createProjectDocument({id:'p_imports',name:'双入口'});let command,release,held=false;const state={documentStage:'project'};const view=createProjectDocumentView(root,{project:p,state,request:async path=>path==='library'?{assets:[{id:'script',category:'scripts',originalName:'素材.txt'}]}:held?new Promise(resolve=>{release=()=>resolve({body:'迟到原稿'})}):{body:'库原稿'},save:async value=>{command=value;return p}});t.after(()=>view.dispose());assert.equal([...root.querySelectorAll('button')].some(b=>b.textContent==='导入/修改原稿'),false);assert.equal(root.querySelector('textarea'),null)
  let choose=root.querySelector('.project-script-import .script-choose');assert.equal(choose.textContent,'素材库导入');assert.equal(root.querySelector('.project-script-import .script-import').textContent,'本地导入');await choose.onclick();let picker=root.querySelector('.script-picker');picker.value='script';await picker.onchange();assert.equal(command.kind,'import_script');assert.equal(command.originalName,'素材.txt');assert.equal(command.value,'库原稿');assert.equal(command.expected_revision,0)
- command=null;held=true;await root.querySelector('.script-choose').onclick();picker=root.querySelector('.script-picker');picker.value='script';const reading=picker.onchange();root.querySelector('[data-stage=source_analysis]').click();release();await reading;assert.equal(command,null)
+ command=null;held=true;await root.querySelector('.script-choose').onclick();picker=root.querySelector('.script-picker');picker.value='script';const reading=picker.onchange();root.querySelector('[data-stage=clip_arrangement]').click();release();await reading;assert.equal(command,null)
 })
 
 test('活动任务冲突只属于触发节点，任务结束后轮询清理且未开始节点不受影响',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_conflict',name:'冲突清理'});p.node_states.source_analysis.status='confirmed';let poll,active={group:{id:'busy'},task:{node_type:'story_segments',metadata:{production:true}}}
+ const {root}=fixture(t),p=createProjectDocument({id:'p_conflict',name:'冲突清理'});p.node_states.clip_arrangement.status='confirmed';let poll,active={group:{id:'busy'},task:{node_type:'story_segments',metadata:{production:true}}}
  t.mock.method(globalThis,'setInterval',callback=>{poll=callback;return {}});t.mock.method(globalThis,'clearInterval',()=>{})
- const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},request:async path=>{if(path==='project')return {project:p,active_execution:active};throw new Error('短剧已有执行任务')}});t.after(()=>view.dispose())
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'clip_arrangement'},request:async path=>{if(path==='project')return {project:p,active_execution:active};throw new Error('短剧已有执行任务')}});t.after(()=>view.dispose())
  const notice=()=>root.querySelector('.node-ui-failure'),generate=()=>[...root.querySelectorAll('button')].find(b=>/^(生成\/重新生成|执行本步骤)$/.test(b.textContent)).onclick()
  await generate();assert.equal(notice().textContent,'短剧已有执行任务');assert.match(root.querySelector('.node-data-tag').textContent,/已完成/)
- root.querySelector('[data-stage=adaptation_plan]').click();assert.equal(notice().hidden,true);root.querySelector('[data-stage=source_analysis]').click();assert.equal(notice().textContent,'短剧已有执行任务')
+ root.querySelector('[data-stage=adaptation_plan]').click();assert.equal(notice().hidden,true);root.querySelector('[data-stage=clip_arrangement]').click();assert.equal(notice().textContent,'短剧已有执行任务')
  active=null;poll();await tick();assert.equal(notice().hidden,true);assert.match(root.querySelector('.node-data-tag').textContent,/已完成/);root.querySelector('[data-stage=adaptation_plan]').click();assert.equal(notice().hidden,true)
 })
 
 test('冲突响应迟到但刷新已无活动任务时立即清理，不依赖partial状态',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_done',name:'已结束'});p.node_states.source_analysis.status='confirmed';let reads=0
- const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},request:async path=>{if(path==='project'){reads++;return {project:p,active_execution:null}}throw new Error('短剧已有执行任务')}});t.after(()=>view.dispose())
+ const {root}=fixture(t),p=createProjectDocument({id:'p_done',name:'已结束'});p.node_states.clip_arrangement.status='confirmed';let reads=0
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'clip_arrangement'},request:async path=>{if(path==='project'){reads++;return {project:p,active_execution:null}}throw new Error('短剧已有执行任务')}});t.after(()=>view.dispose())
  await [...root.querySelectorAll('button')].find(b=>/^(生成\/重新生成|执行本步骤)$/.test(b.textContent)).onclick();assert.equal(reads,1);assert.equal(root.querySelector('.node-ui-failure').hidden,true)
 })
 
 test('迟到执行错误归原节点，普通错误刷新不丢，重试成功后清理并保留真实历史失败',async t=>{
  const {root}=fixture(t),p=createProjectDocument({id:'p_late',name:'迟到错误'});let reject,fail=true
- const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},request:async path=>path==='project'?{project:p,active_execution:null}:fail?new Promise((_,no)=>{reject=no}):{group_id:'success'}});t.after(()=>view.dispose())
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'clip_arrangement'},request:async path=>path==='project'?{project:p,active_execution:null}:fail?new Promise((_,no)=>{reject=no}):{group_id:'success'}});t.after(()=>view.dispose())
  const generate=()=>[...root.querySelectorAll('button')].find(b=>/^(生成\/重新生成|执行本步骤)$/.test(b.textContent)).onclick(),pending=generate();await tick();root.querySelector('[data-stage=adaptation_plan]').click();reject(new Error('模型连接失败'));await pending;assert.equal(root.querySelector('.node-ui-failure').hidden,true)
- root.querySelector('[data-stage=source_analysis]').click();assert.equal(root.querySelector('.node-ui-failure').textContent,'模型连接失败');view.update(structuredClone(p));assert.equal(root.querySelector('.node-ui-failure').textContent,'模型连接失败')
+ root.querySelector('[data-stage=clip_arrangement]').click();assert.equal(root.querySelector('.node-ui-failure').textContent,'模型连接失败');view.update(structuredClone(p));assert.equal(root.querySelector('.node-ui-failure').textContent,'模型连接失败')
  fail=false;await generate();assert.equal(root.querySelector('.node-ui-failure').hidden,true)
- const failed=structuredClone(p);view.update(failed,{executionStates:{source_analysis:{task_id:'failed',status:'failed',reason:'供应商返回真实失败'}}});assert.equal(root.querySelector('.node-ui-failure').textContent,'供应商返回真实失败')
+ const failed=structuredClone(p);view.update(failed,{executionStates:{clip_arrangement:{task_id:'failed',status:'failed',reason:'供应商返回真实失败'}}});assert.equal(root.querySelector('.node-ui-failure').textContent,'供应商返回真实失败')
 })
 
 test('仅真实执行中的当前节点显示加载圆环，结束隐藏受理提示并保留失败原因',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_spinner',name:'加载状态'});p.node_states.source_analysis.status='partial';p.node_states.source_analysis.reason='任务已受理';let poll,active={group:{id:'working'},task:{node_type:'source_analysis',metadata:{production:true}}}
+ const {root}=fixture(t),p=createProjectDocument({id:'p_spinner',name:'加载状态'});p.node_states.clip_arrangement.status='partial';p.node_states.clip_arrangement.reason='任务已受理';let poll,active={group:{id:'working'},task:{node_type:'clip_arrangement',metadata:{production:true}}}
  t.mock.method(globalThis,'setInterval',callback=>{poll=callback;return {}});t.mock.method(globalThis,'clearInterval',()=>{})
- const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},sessionId:'session',request:async()=>({project:p,active_execution:active})});t.after(()=>view.dispose());await tick()
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'clip_arrangement'},sessionId:'session',request:async()=>({project:p,active_execution:active})});t.after(()=>view.dispose());await tick()
  const notice=()=>root.querySelector('.node-ui-failure');assert.equal(notice().getAttribute('aria-label'),'执行中');assert.equal(notice().getAttribute('aria-busy'),'true');assert.ok(notice().querySelector('.original-summary-loading'));assert.equal(notice().textContent,'');assert.equal(notice().hidden,false)
- root.querySelector('[data-stage=adaptation_plan]').click();assert.equal(root.querySelector('.original-summary-loading'),null);assert.equal(notice().hidden,true);root.querySelector('[data-stage=source_analysis]').click();assert.ok(notice().querySelector('.original-summary-loading'))
- active=null;p.node_states.source_analysis.status='confirmed';poll();await tick();assert.equal(root.querySelector('.original-summary-loading'),null);assert.equal(notice().hidden,true);assert.equal(notice().hasAttribute('aria-busy'),false)
- view.update(p,{executionStates:{source_analysis:{task_id:'failed',status:'failed',reason:'审核未通过'}}});assert.equal(notice().textContent,'审核未通过');assert.equal(notice().hidden,false)
+ root.querySelector('[data-stage=adaptation_plan]').click();assert.equal(root.querySelector('.original-summary-loading'),null);assert.equal(notice().hidden,true);root.querySelector('[data-stage=clip_arrangement]').click();assert.ok(notice().querySelector('.original-summary-loading'))
+ active=null;p.node_states.clip_arrangement.status='confirmed';poll();await tick();assert.equal(root.querySelector('.original-summary-loading'),null);assert.equal(notice().hidden,true);assert.equal(notice().hasAttribute('aria-busy'),false)
+ view.update(p,{executionStates:{clip_arrangement:{task_id:'failed',status:'failed',reason:'审核未通过'}}});assert.equal(notice().textContent,'审核未通过');assert.equal(notice().hidden,false)
 })
 
 test('联合改编约束按完整文本列表展示，实体编辑保留且空列表不生成卡片',async t=>{
  const {root}=fixture(t),p=createProjectDocument({id:'p_requirements',name:'完整约束'});p.adaptation_plan.creative_constraints.locked_requirements=['本单元覆盖原稿0—1200字符。','保留原著人物关系与关键对白。'];p.adaptation_plan.character_plans=[{id:'cp_one',name:'张飞',description:'勇猛',motivation:'迎战',relationships:'对峙',arc:'坚守'}];p.node_states.adaptation_plan.product_revision=3;let saved
  const view=createProjectDocumentView(root,{project:p,state:{documentStage:'adaptation_plan'},save:async command=>{saved=command;return p}});t.after(()=>view.dispose());let cards=[...root.querySelectorAll('.production-card')],requirements=root.querySelector('[data-guidance-group=creative_constraints] .production-card');assert.ok(requirements);assert.match(requirements.textContent,/1\. 本单元覆盖原稿0—1200字符。/);assert.match(requirements.textContent,/2\. 保留原著人物关系与关键对白。/);assert.doesNotMatch(requirements.textContent,/locked_requirements|0：本|1：单/)
  const character=cards.find(card=>card.querySelector('h4')?.textContent==='张飞');assert.ok(character);[...character.querySelectorAll('button')].find(button=>button.textContent==='编辑此项').click();root.querySelector('dialog [aria-label=描述]').value='勇猛忠诚';await [...root.querySelectorAll('dialog button')].find(button=>button.textContent==='保存').onclick();assert.equal(saved.kind,'product');assert.equal(saved.stage,'adaptation_plan');assert.equal(saved.expected_revision,3);assert.equal(saved.value.character_plans[0].description,'勇猛忠诚');assert.deepEqual(saved.value.creative_constraints.locked_requirements,p.adaptation_plan.creative_constraints.locked_requirements)
- const empty=createProjectDocument({id:'p_empty',name:'无产物'});view.update(empty);assert.equal(root.querySelectorAll('[data-guidance-group=character_plans]').length,0);assert.match(root.querySelector('.production-empty').textContent,/暂无联合改编规划产物/)
+ const empty=createProjectDocument({id:'p_empty',name:'无产物'});view.update(empty);assert.equal(root.querySelectorAll('[data-guidance-group=character_plans]').length,0);assert.match(root.querySelector('.production-empty').textContent,/暂无改编规划产物/)
 })
 
-test('原著分段正文可查看和编辑，页面不再提供来源范围控件',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_body',name:'正文分段'});p.source_analysis.chapters=[{id:'chapter',sequence:1,title:'第一段',body:'完整原文😀。',summary:'辅助摘要'}];let command
- const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},save:async value=>{command=value;return p}});t.after(()=>view.dispose());let buttons=[...root.querySelectorAll('button')];assert.equal(buttons.some(b=>b.textContent==='编辑章节边界'),false);buttons.find(b=>b.textContent.startsWith('查看正文')).click();assert.equal(root.querySelector('dialog textarea').value,'完整原文😀。');assert.equal(root.querySelector('dialog textarea').readOnly,true);[...root.querySelectorAll('dialog button')].find(b=>b.textContent==='关闭').click();[...root.querySelectorAll('button')].find(b=>b.textContent==='编辑此项').click();assert.equal(root.querySelector('dialog [aria-label=正文]').value,'完整原文😀。');root.querySelector('dialog [aria-label=标题]').value='新标题';await [...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').onclick();assert.equal(command.value.chapters[0].body,'完整原文😀。');assert.equal(command.value.chapters[0].title,'新标题');assert.equal(Object.hasOwn(command.value.chapters[0],'source_spans'),false)
+test('旧原著解析选择回到改编规划，移除入口且保留后台解析产物',t=>{
+ const {root}=fixture(t),p=createProjectDocument({id:'p_legacy_stage',name:'旧选择'}),state={documentStage:'source_analysis'}
+ p.source_analysis.chapters=[{id:'chapter',sequence:1,title:'原稿',body:'完整正文',summary:''}]
+ const before=JSON.stringify(p),view=createProjectDocumentView(root,{project:p,state});t.after(()=>view.dispose())
+ assert.equal(state.documentStage,'adaptation_plan')
+ assert.equal(root.querySelector('[aria-selected=true]').dataset.stage,'adaptation_plan')
+ assert.equal(root.querySelector('[data-stage=source_analysis]'),null)
+ assert.equal(root.querySelector('.production-project-nav').children.length,1)
+ assert.equal(root.querySelector('.production-project-nav').firstElementChild.dataset.stage,'project')
+ assert.equal(JSON.stringify(p),before)
 })
-
-test('原著解析仅展示分段，内部事实/覆盖报告不展示或编辑，保存章节时原样保留',async t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_internal',name:'内部报告'});p.source_analysis={source_revision_id:'src',chapters:[{id:'c1',sequence:1,title:'原稿分段',body:'完整正文',summary:'摘要'}],coverage_ref:'artifacts/coverage.json'};let command
- const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},save:async value=>{command=value;return p}});t.after(()=>view.dispose());assert.equal(root.querySelectorAll('.production-card').length,1);assert.doesNotMatch(root.textContent,/原著事实|覆盖报告|facts_ref|coverage_ref|artifacts\//);assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent.startsWith('查看正文')));assert.equal([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑正文'),false)
- const click=text=>[...root.querySelectorAll('button')].find(b=>b.textContent===text).click();click('人工编辑产物');const textarea=root.querySelector('dialog textarea'),value=JSON.parse(textarea.value);assert.deepEqual(Object.keys(value),['chapters']);assert.doesNotMatch(root.querySelector('dialog').textContent,/\$text/);value.chapters[0].title='新的分段标题';value.facts_ref='artifacts/overwrite.json';textarea.value=JSON.stringify(value);await [...root.querySelectorAll('dialog button')].find(b=>b.textContent==='保存').onclick();assert.equal(command.value.chapters[0].title,'新的分段标题');assert.equal(command.value.source_revision_id,'src');assert.equal(Object.hasOwn(command.value,'facts_ref'),false);assert.equal(command.value.coverage_ref,'artifacts/coverage.json')
- const empty=structuredClone(p);empty.source_analysis.chapters=[];view.update(empty);assert.equal(root.querySelectorAll('[data-guidance-group=character_plans]').length,0);assert.match(root.querySelector('.production-empty').textContent,/暂无原著解析产物/)
- empty.adaptation_plan.plot_development='保留主线，强化人物动机';view.update(empty);root.querySelector('[data-stage=adaptation_plan]').click();assert.match(root.textContent,/剧情发展/);assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑剧情发展'))
+test('隐藏解析的完成和失败不计入制作进度，原稿入口继续可用',t=>{
+ const {root}=fixture(t),p=createProjectDocument({id:'p_hidden_stage',name:'隐藏阶段'})
+ p.node_states.source_analysis.status='confirmed'
+ const view=createProjectDocumentView(root,{project:p,executionStates:{source_analysis:{status:'failed',reason:'后台解析失败'}}});t.after(()=>view.dispose())
+ assert.equal(root.querySelector('.production-progress').textContent,'已完成 0 / 10')
+ assert.equal(root.querySelector('[data-stage=source_analysis]'),null)
+ root.querySelector('[data-stage=project]').click()
+ assert.ok(root.querySelector('.project-script-import'))
+ assert.ok([...root.querySelectorAll('button')].some(b=>b.textContent==='编辑短剧信息'))
 })
-
-test('原著解析展示程序执行按钮，隐藏AI规则和修订，保留人工编辑及历史',t=>{
- const {root}=fixture(t),p=createProjectDocument({id:'p_program_ui',name:'程序原文'});p.source_analysis.chapters=[{id:'c',sequence:1,title:'原稿',body:'正文',summary:''}];p.node_states.source_analysis.product_revision=1
- const view=createProjectDocumentView(root,{project:p,state:{documentStage:'source_analysis'},request:async()=>({})});t.after(()=>view.dispose());const labels=[...root.querySelectorAll('button')].map(b=>b.textContent);assert.ok(labels.includes('执行本步骤'));assert.ok(labels.includes('人工编辑产物'));assert.ok(labels.includes('任务历史'));for(const text of ['查看规则','编辑补充规则','生成/重新生成','按意见修改现有产物'])assert.equal(labels.includes(text),false)
+test('分片编排展示程序执行按钮，隐藏AI规则和修订，保留人工编辑及历史',t=>{
+ const {root}=fixture(t),p=createProjectDocument({id:'p_program_ui',name:'程序原文'});p.node_states.clip_arrangement.product_revision=1
+ const view=createProjectDocumentView(root,{project:p,state:{documentStage:'clip_arrangement'},request:async()=>({})});t.after(()=>view.dispose());const labels=[...root.querySelectorAll('button')].map(b=>b.textContent);assert.ok(labels.includes('执行本步骤'));assert.ok(labels.includes('人工编辑产物'));assert.ok(labels.includes('任务历史'));for(const text of ['查看规则','编辑补充规则','生成/重新生成','按意见修改现有产物'])assert.equal(labels.includes(text),false)
 })
 
 test('联合改编中文展示精简团队指导，人工编辑保留ID与版本',async t=>{

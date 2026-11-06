@@ -1,0 +1,12 @@
+{
+  "id": "节点标识：reference_binding",
+  "type": "执行类型：program（程序运行）",
+  "data": {
+    "shot_design": {
+      "$ref": "shot_design_3.json#/data"
+    }
+  },
+  "state": {
+    "$ref": "drama_detail_shared.json#/programNodeState"
+  }
+}

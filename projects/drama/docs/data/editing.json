@@ -1,0 +1,36 @@
+{
+  "id": "节点标识：editing",
+  "type": "执行类型：program（程序运行）",
+  "data": {
+    "editing": {
+      "preview_ref": "连续预览文件引用",
+      "timelines": [
+        {
+          "id": "稳定唯一标识",
+          "name": "名称",
+          "revision": "产物版本",
+          "clips": [
+            {
+              "id": "稳定唯一标识",
+              "take_id": "实际视频候选ID",
+              "in_seconds": "素材裁切入点（秒）",
+              "out_seconds": "素材裁切出点（秒）",
+              "position_seconds": "时间线位置（秒）"
+            }
+          ],
+          "transitions": [
+            {
+              "clip_id": "生成分片ID",
+              "duration_seconds": "转场时长（秒）"
+            }
+          ],
+          "subtitles_ref": "字幕文件引用",
+          "audio_tracks_ref": "音轨文件引用"
+        }
+      ]
+    }
+  },
+  "state": {
+    "$ref": "drama_detail_shared.json#/programNodeState"
+  }
+}
